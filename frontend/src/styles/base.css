@@ -1,0 +1,220 @@
+/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
+
+/* §5 — Variabili CSS tema. ThemeService imposta solo --colorTema;
+   il browser calcola tutto il resto via color-mix(). */
+:root {
+    --colorTema: #212529;
+    --colorBase: color-mix(in srgb, var(--colorTema), white 20%);
+    --colorPrimary: color-mix(in srgb, var(--colorTema), black 40%);
+    --colorPrimaryScuro: color-mix(in srgb, var(--colorPrimary), black 20%);
+    --colorLink: currentColor;
+    --colorSurface: color-mix(in srgb, var(--colorTema), white 24%);
+    --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
+    --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
+    --colorSurfaceText: color-mix(in srgb, white 94%, var(--colorTema) 6%);
+}
+
+:root[data-theme-tone='light'] {
+    color-scheme: light;
+    --colorSurface: color-mix(in srgb, var(--colorTema), white 92%);
+    --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 84%);
+    --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), black 14%);
+    --colorSurfaceText: color-mix(in srgb, var(--colorTema), black 82%);
+}
+
+:root[data-theme-tone='dark'] {
+    color-scheme: dark;
+}
+
+html {
+    position: relative;
+    min-height: 100vh;
+}
+
+body {
+    background-color: var(--colorBase);
+}
+
+/* Link - esclude .btn per non sovrascrivere i colori del testo dei bottoni Bootstrap */
+:where(a:not(.btn)),
+:where(a:not(.btn):visited),
+:where(a:not(.btn):active),
+:where(a:not(.btn):focus),
+:where(a:not(.btn):focus-visible),
+:where(a:not(.btn):hover) {
+    color: var(--colorLink, currentColor);
+    text-decoration-color: currentColor;
+}
+
+/* Bottone primario - usa i colori del tema */
+.btn-primary {
+    background-color: var(--colorPrimary);
+    border-color: var(--colorPrimary);
+}
+
+.btn-primary:active,
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--colorPrimaryScuro);
+    border-color: var(--colorPrimaryScuro);
+}
+
+.btn-primary:checked,
+.btn-primary:focus-visible,
+.btn-primary:disabled {
+    background-color: var(--colorBase);
+    border-color: var(--colorPrimary);
+    color: var(--colorPrimary);
+}
+
+/* Riempimento dello sfondo tema */
+.theme-bg {
+    background-color: var(--colorTema);
+    color: var(--bs-body-color);
+}
+
+.dropdown-menu .dropdown-item.theme-bg:hover {
+    background-color: var(--colorBase);
+}
+
+/* Contenitore con scorrimento orizzontale */
+.horizontal-scroll {
+    overflow-x: auto;
+    white-space: nowrap;
+    display: flex;
+    scrollbar-width: none;
+}
+
+/* Pannello contenuti - si adatta automaticamente al contrasto con lo sfondo tema.
+   Su temi scuri: pannello chiaro con testo scuro.
+   Su temi chiari: pannello scuro con testo chiaro.
+   Usa .panel-light / .panel-dark se serve forzare una variante. */
+.content-panel {
+    --colorLink: currentColor;
+    background-color: var(--colorSurface);
+    border: 1px solid var(--colorSurfaceBorder);
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: var(--colorSurfaceText);
+}
+
+.content-panel.panel-light {
+    --colorSurface: color-mix(in srgb, white 96%, var(--colorTema) 4%);
+    --colorSurfaceHover: color-mix(in srgb, white 90%, var(--colorTema) 10%);
+    --colorSurfaceBorder: rgba(0, 0, 0, 0.12);
+    --colorSurfaceText: #212529;
+    background-color: rgba(255, 255, 255, 0.82);
+    border-color: rgba(255, 255, 255, 0.38);
+    color: #212529;
+}
+
+/* Variante scura per temi chiari, quando il pannello predefinito ha poco contrasto */
+.content-panel.panel-dark {
+    --colorSurface: rgba(15, 23, 42, 0.92);
+    --colorSurfaceHover: rgba(30, 41, 59, 0.96);
+    --colorSurfaceBorder: rgba(255, 255, 255, 0.16);
+    --colorSurfaceText: #f8f9fa;
+    background-color: rgba(15, 23, 42, 0.78);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: #f8f9fa;
+}
+
+/* Contenitore di sfondo (immagini di copertina) */
+.background-wrapper {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    height: 200px;
+}
+
+.background-wrapper-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.row {
+    padding: 0;
+    padding-top: 10px;
+}
+
+code {
+    font-weight: bold;
+    color: inherit;
+    background-color: transparent;
+}
+
+/* Schermi piccoli */
+@media only screen and (max-width: 768px) {
+    .container-fluid {
+        overflow-x: hidden;
+    }
+}
+
+/* Effetto shake al passaggio */
+.shake-on-hover:hover {
+    animation: shake 0.5s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes shake {
+    0%, 30%, 50%, 70%, 100% { transform: translate(1px, 1px) rotate(0deg); }
+    10%, 40%, 60%, 90% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
+}
+
+/* Carosello */
+.carousel-item { height: 80vh; }
+.carousel-item img { height: 100%; object-fit: cover; width: 100%; }
+
+/* Zoom su schermi ampi */
+@media only screen and (min-width: 768px) {
+    .zoom-on-hover { transition: transform .2s; }
+    .zoom-on-hover:hover { transform: scale(1.5); }
+}
+
+/* WCAG 2.1 AA - contrasto migliorato per text-body-secondary */
+.text-body-secondary {
+    color: #595f66 !important;
+}
+
+/* WCAG 2.2 - rispetta la preferenza di movimento ridotto */
+@media (prefers-reduced-motion: reduce) {
+    .shake-on-hover:hover { animation: none; }
+    .zoom-on-hover { transition: none; }
+    .zoom-on-hover:hover { transform: none; }
+}
+
+/* Link "salta al contenuto" (WCAG 2.4.1) */
+.skip-link:focus {
+    position: fixed;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 0.5rem 1.5rem;
+    background: var(--colorPrimary, #212529);
+    color: #fff;
+    border-radius: 0.375rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+/* Area sicura per dispositivi con notch */
+@supports (padding: env(safe-area-inset-top)) {
+    .navbar {
+        padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+    footer {
+        padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    }
+}

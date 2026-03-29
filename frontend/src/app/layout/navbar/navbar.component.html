@@ -1,0 +1,109 @@
+<nav class="navbar navbar-expand-md theme-bg"
+     [attr.data-bs-theme]="theme.themeTone()"
+     role="navigation" aria-label="Main navigation">
+    <div class="container-fluid">
+        @if (isRouteActive(homePath)) {
+        <span class="navbar-brand nav-current-link"
+              aria-current="page">{{ appName }}</span>
+        } @else {
+        <a class="navbar-brand" [routerLink]="homePath">{{ appName }}</a>
+        }
+
+        <button class="navbar-toggler" type="button"
+                (click)="toggleMenu()"
+                aria-controls="navbar-menu"
+                [attr.aria-expanded]="menuOpen()"
+                aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
+                @if (menuItems.length > 0) {
+            <ul class="navbar-nav">
+                @for (item of menuItems; track item.path) {
+                @if (item.children?.length) {
+                <li class="nav-item nav-dropdown-item">
+                    <details class="nav-disclosure"
+                             [class.active]="isDropdownActive(item)"
+                             (toggle)="onDisclosureToggle($event)">
+                        <summary class="nav-link nav-disclosure-summary"
+                                 [attr.aria-current]="isDropdownActive(item) ? 'location' : null">
+                            <span class="nav-disclosure-label">{{ item.label | translate }}</span>
+                            <span class="nav-disclosure-caret" aria-hidden="true"></span>
+                        </summary>
+                        <ul class="nav-disclosure-menu theme-bg">
+                            @for (child of item.children; track child.path) {
+                            <li>
+                                <ng-container *ngTemplateOutlet="linkItem; context: { item: child, class: 'nav-disclosure-link' }"></ng-container>
+                            </li>
+                            }
+                        </ul>
+                    </details>
+                </li>
+                } @else {
+                <li class="nav-item">
+                    <ng-container *ngTemplateOutlet="linkItem; context: { item: item, class: 'nav-link' }"></ng-container>
+                </li>
+                }
+                }
+            </ul>
+            }
+
+            @if (languages().length > 1) {
+            <div class="language-picker ms-md-auto mt-3 mt-md-0">
+                <span class="language-picker-label">{{ 'selezionaLingua' | translate }}</span>
+                <details class="nav-disclosure language-disclosure"
+                         (toggle)="onDisclosureToggle($event)">
+                    <summary class="nav-link nav-disclosure-summary language-disclosure-summary"
+                             [attr.aria-label]="translate.t('selezionaLingua')">
+                        <span class="nav-disclosure-label">{{ translate.currentLang() | uppercase }}</span>
+                        <span class="nav-disclosure-caret" aria-hidden="true"></span>
+                    </summary>
+                    <ul class="nav-disclosure-menu language-disclosure-menu theme-bg"
+                        [attr.aria-label]="translate.t('selezionaLingua')">
+                    @for (lingua of languages(); track lingua) {
+                    <li>
+                        @if (lingua === translate.currentLang()) {
+                        <span class="nav-disclosure-link nav-current-link active language-disclosure-link"
+                              aria-current="true">
+                            {{ lingua | uppercase }}
+                        </span>
+                        } @else {
+                        <button type="button"
+                                class="nav-disclosure-link nav-disclosure-button language-disclosure-link"
+                                (click)="setLanguage(lingua)">
+                            {{ lingua | uppercase }}
+                        </button>
+                        }
+                    </li>
+                    }
+                    </ul>
+                </details>
+            </div>
+            }
+        </div>
+    </div>
+</nav>
+
+<ng-template #linkItem let-item="item" let-class="class">
+    @if (isExternalPath(item.path)) {
+    <a [class]="class"
+       [href]="item.path"
+       target="_blank"
+       rel="noreferrer"
+       (click)="onNavigationLinkClick()">
+        {{ item.label | translate }}
+    </a>
+    } @else if (isRouteActive(item.path)) {
+    <span [class]="class + ' nav-current-link active'"
+          aria-current="page">
+        {{ item.label | translate }}
+    </span>
+    } @else {
+    <a [class]="class"
+       [routerLink]="item.path"
+       (click)="onNavigationLinkClick()">
+        {{ item.label | translate }}
+    </a>
+    }
+</ng-template>

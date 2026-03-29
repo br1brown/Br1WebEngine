@@ -1,0 +1,69 @@
+/* Stili specifici della pagina iniziale. */
+
+.demo-context-area {
+  cursor: context-menu;
+  min-height: 100px;
+  background-color: var(--colorSurface, #f8f9fa);
+  color: var(--colorSurfaceText, #212529);
+  border-color: var(--colorSurfaceBorder, rgba(0, 0, 0, 0.12)) !important;
+  transition: background-color 0.2s ease;
+}
+
+.demo-context-area:hover {
+  background-color: var(--colorSurfaceHover, #eef1f4);
+}
+
+.context-textarea {
+  background: transparent;
+  color: inherit;
+  border: 1px dashed color-mix(in srgb, currentColor 24%, transparent);
+  resize: vertical;
+}
+
+.context-textarea:focus {
+  background: color-mix(in srgb, var(--colorSurface, #f8f9fa) 92%, white);
+  border-style: solid;
+  border-color: color-mix(in srgb, currentColor 32%, transparent);
+  box-shadow: none;
+}
+
+.theme-demo-surface {
+  background-color: var(--colorSurface, #f8f9fa);
+  color: var(--colorSurfaceText, #212529);
+  border-color: var(--colorSurfaceBorder, rgba(0, 0, 0, 0.12)) !important;
+}
+
+.markdown-preview {
+  min-height: 180px;
+}
+
+.image-preview-shell {
+  min-height: 260px;
+}
+
+.image-preview-canvas {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.theme-token-badge {
+  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  font-family: var(--bs-font-monospace);
+  white-space: nowrap;
+}
+
+.api-result-output {
+  max-height: 140px;
+  overflow: auto;
+}
+
+.asset-preview-image {
+  max-height: 90px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .demo-context-area {
+    cursor: default;
+  }
+}

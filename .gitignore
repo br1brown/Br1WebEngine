@@ -1,0 +1,36 @@
+# Visual Studio / .NET
+.vs/
+[Bb]in/
+[Oo]bj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.slnLaunch
+
+# Rider
+.idea/
+*.sln.iml
+
+# Local launch/debug config
+.vscode/
+frontend/.vscode/
+
+# Node.js / Angular
+node_modules/
+dist/
+**/.angular/cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

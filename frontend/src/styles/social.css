@@ -1,0 +1,128 @@
+/* social.css — Icone social con colori brand. */
+
+:root {
+    --color-clone: black;
+    --color-cut: black;
+    --color-link: black;
+    --color-paste: black;
+    --color-download: black;
+    --color-mail: black;
+    --color-bell: black;
+
+    --color-youtube: #bb0000;
+    --color-facebook: #3B5998;
+    --color-instagram: #8a3ab9;
+    --color-twitch: #6441a5;
+    --color-tiktok: black;
+    --color-snapchat: #fffc00;
+    --color-twitter: #55ACEE;
+    --color-vimeo: #45bbff;
+    --color-linkedin: #007bb5;
+    --color-skype: #00aff0;
+    --color-tumblr: #2c4762;
+    --color-pinterest: #cb2027;
+    --color-flickr: #f40083;
+    --color-dribbble: #ea4c89;
+    --color-stumbleupon: #eb4924;
+    --color-spotify: #1DB954;
+    --color-deezer: #191919;
+    --color-itunes: #EA4CC0;
+    --color-soundcloud: #ff5500;
+    --color-amazon: #FF9900;
+    --color-audible: #232F3E;
+    --color-pdf: red;
+    --color-telegram: #2ca5e0;
+    --color-whatsapp: #25d366;
+
+    --color-google: #4285F4;
+    --color-chromecast: black;
+    --color-chrome: black;
+    --color-android: #a4c639;
+    --color-apple: #A2AAAD;
+
+    --color-playstation: #003791;
+
+    --color-quora: #b92b27;
+    --color-yahoo: #430297;
+    --color-foursquare: #45bbff;
+    --color-airbnb: #FF5A5F;
+
+    --color-bitcoin: #f2a900;
+}
+
+.social-icon {
+    color: #fff;
+    width: 54px;
+    height: 54px;
+    text-align: center;
+    margin: 6px;
+    border-radius: 50%;
+    font-size: 1.375rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-shadow: -1px 0 #000, 0 1px #000, 1px 0 #000, 0 -1px #000;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s, border-radius 0.2s;
+}
+
+.social-icon:hover {
+    opacity: 0.9;
+    transform: translateY(-3px);
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Sfondi con i colori brand - limitati a .social-icon per non alterare altre icone FA */
+.social-icon.fa-clone { background: var(--color-clone); }
+.social-icon.fa-scissors { background: var(--color-cut); }
+.social-icon.fa-paste { background: var(--color-paste); }
+.social-icon.fa-download { background: var(--color-download); }
+.social-icon.fa-envelope { background: var(--color-mail); }
+.social-icon.fa-youtube { background: var(--color-youtube); }
+.social-icon.fa-facebook { background: var(--color-facebook); }
+.social-icon.fa-instagram { background: var(--color-instagram); }
+.social-icon.fa-twitch { background: var(--color-twitch); }
+.social-icon.fa-tiktok { background: var(--color-tiktok); }
+.social-icon.fa-snapchat { background: var(--color-snapchat); }
+.social-icon.fa-x-twitter { background: var(--color-twitter); }
+.social-icon.fa-vimeo { background: var(--color-vimeo); }
+.social-icon.fa-linkedin { background: var(--color-linkedin); }
+.social-icon.fa-skype { background: var(--color-skype); }
+.social-icon.fa-tumblr { background: var(--color-tumblr); }
+.social-icon.fa-pinterest { background: var(--color-pinterest); }
+.social-icon.fa-flickr { background: var(--color-flickr); }
+.social-icon.fa-dribbble { background: var(--color-dribbble); }
+.social-icon.fa-spotify { background: var(--color-spotify); }
+.social-icon.fa-deezer { background: var(--color-deezer); }
+.social-icon.fa-itunes { background: var(--color-itunes); }
+.social-icon.fa-soundcloud { background: var(--color-soundcloud); }
+.social-icon.fa-amazon { background: var(--color-amazon); }
+.social-icon.fa-audible { background: var(--color-audible); }
+.social-icon.fa-file-pdf { background: var(--color-pdf); }
+.social-icon.fa-bell { background: var(--color-bell); }
+.social-icon.fa-link { background: var(--color-link); }
+.social-icon.fa-telegram { background: var(--color-telegram); }
+.social-icon.fa-whatsapp { background: var(--color-whatsapp); }
+.social-icon.fa-google { background: var(--color-google); }
+.social-icon.fa-chromecast { background: var(--color-chromecast); }
+.social-icon.fa-chrome { background: var(--color-chrome); }
+.social-icon.fa-android { background: var(--color-android); }
+.social-icon.fa-apple { background: var(--color-apple); }
+.social-icon.fa-playstation { background: var(--color-playstation); }
+.social-icon.fa-quora { background: var(--color-quora); }
+.social-icon.fa-yahoo { background: var(--color-yahoo); }
+.social-icon.fa-foursquare { background: var(--color-foursquare); }
+.social-icon.fa-airbnb { background: var(--color-airbnb); }
+.social-icon.fa-bitcoin { background: var(--color-bitcoin); }
+.social-icon.fa-stumbleupon { background: var(--color-stumbleupon); }
+
+/* Movimento ridotto */
+@media (prefers-reduced-motion: reduce) {
+    .social-icon {
+        transition: none;
+    }
+    .social-icon:hover {
+        transform: none;
+    }
+}

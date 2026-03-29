@@ -1,0 +1,17 @@
+# Configurazione di produzione — docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+services:
+  frontend:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

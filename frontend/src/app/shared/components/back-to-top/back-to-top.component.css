@@ -1,0 +1,47 @@
+.back-to-top {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1000;
+  opacity: 0.96;
+  transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 50%;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+.back-to-top:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.48);
+}
+
+.back-to-top:focus-visible {
+  opacity: 1;
+  transform: translateY(-2px);
+  outline: none;
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 22%, transparent), 0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+/* Area sicura per dispositivi con notch o barra gesture */
+@supports (bottom: env(safe-area-inset-bottom)) {
+  .back-to-top {
+    bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-to-top {
+    transition: none;
+  }
+
+  .back-to-top:hover,
+  .back-to-top:focus-visible {
+    transform: none;
+  }
+}

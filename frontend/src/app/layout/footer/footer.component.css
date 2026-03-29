@@ -1,0 +1,12 @@
+:host {
+    display: block;
+    margin-top: auto;
+}
+
+.site-footer {
+    font-size: 0.8rem;
+}
+
+footer a {
+    color: inherit;
+}

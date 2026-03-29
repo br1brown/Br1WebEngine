@@ -1,0 +1,101 @@
+app-cookie-banner .cookie-banner {
+    --colorLink: currentColor;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background-color: var(--colorTema, #212529);
+    border-top: 3px solid color-mix(in srgb, var(--colorTema) 72%, currentColor);
+    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.18);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+app-cookie-banner .cookie-banner a {
+    color: inherit !important;
+    text-decoration: underline;
+}
+
+app-cookie-banner .cookie-banner a:hover {
+    opacity: 0.85;
+}
+
+app-cookie-banner .cookie-banner .btn {
+    border-width: 1px;
+}
+
+app-cookie-banner .cookie-banner-modern {
+    background: transparent;
+    border-top: 0;
+    box-shadow: none;
+    padding: 0 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    pointer-events: none;
+}
+
+app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
+    pointer-events: auto;
+    width: min(100%, 1080px);
+    margin: 0 auto;
+    padding: 1.25rem 1.4rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 1.25rem;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border-radius: 1.5rem;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--colorTema) 88%, white 12%),
+        color-mix(in srgb, var(--colorTema) 82%, black 18%)
+    );
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(18px) saturate(1.08);
+}
+
+app-cookie-banner .cookie-banner-modern .cookie-banner__content {
+    font-size: clamp(1rem, 0.2vw + 0.96rem, 1.08rem);
+    line-height: 1.65;
+    max-width: 70ch;
+}
+
+app-cookie-banner .cookie-banner-modern .cookie-banner__content > *:last-child {
+    margin-bottom: 0;
+}
+
+app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border-width: 1px;
+    border-radius: 999px;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 767.98px) {
+    app-cookie-banner .cookie-banner-modern {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    }
+
+    app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+        gap: 1rem;
+        border-radius: 1.25rem;
+    }
+
+    app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
+        flex-direction: column-reverse;
+    }
+
+    app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
+        width: 100%;
+    }
+}

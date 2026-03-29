@@ -1,0 +1,12 @@
+@if (isVisible()) {
+  <button type="button"
+          class="btn btn-lg back-to-top"
+          [class]="btnClass"
+          [style.background-color]="btnClass ? null : backgroundColor"
+          [style.border-color]="btnClass ? null : borderColor"
+          [style.color]="btnClass ? null : textColor"
+          (click)="scrollToTop()"
+          aria-label="Back to top">
+    <i class="fas fa-chevron-up" aria-hidden="true"></i>
+  </button>
+}

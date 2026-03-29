@@ -1,0 +1,28 @@
+<div #menuEl
+     class="context-menu"
+     [class.context-menu-sheet]="presentation === 'sheet'"
+     role="menu"
+     aria-label="Menu contestuale"
+     [style.left.px]="presentation === 'popover' ? menuX : null"
+     [style.top.px]="presentation === 'popover' ? menuY : null">
+    <ul class="list-unstyled m-0" role="presentation">
+        @for (option of options; track option.label) {
+            @if (option.separator) {
+                <li role="separator"><hr class="dropdown-divider my-1"></li>
+            } @else {
+                <li role="presentation">
+                    <button class="context-menu-item"
+                            role="menuitem"
+                            [disabled]="option.disabled ?? false"
+                            [class.disabled]="option.disabled"
+                            (click)="onSelect(option)">
+                        @if (option.icon) {
+                            <i [class]="option.icon" aria-hidden="true"></i>
+                        }
+                        {{ option.label }}
+                    </button>
+                </li>
+            }
+        }
+    </ul>
+</div>

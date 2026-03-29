@@ -1,0 +1,336 @@
+<!-- INTRO -->
+            <section class="mb-4">
+                <h1 class="mb-2">{{ 'dashboardHome' | translate }}</h1>
+                <p class="lead mb-1" [innerHTML]="translate.translate('createdBy', appName)"></p>
+                <p class="text-muted mb-0">{{ 'welcomeConsole' | translate }}</p>
+            </section>
+
+            <!-- FUNZIONALITA' PRINCIPALI -->
+            <section class="mb-4">
+                <div class="row g-3">
+
+                    <!-- Markdown -->
+                    <div class="col-12 col-xl-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">{{ 'markdownLabTitle' | translate }}</h2>
+                                <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
+
+                                <label class="form-label">{{ 'markdownInputLabel' | translate }}</label>
+                                <textarea class="form-control"
+                                          rows="7"
+                                          [(ngModel)]="markdownInput"
+                                          (ngModelChange)="onMarkdownChange()"
+                                          (keydown.control.enter)="renderMarkdown()"
+                                          [placeholder]="translate.translate('markdownPlaceholder')">
+                </textarea>
+
+                                <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            (click)="setPreset('base')">
+                                        {{ 'presetBase' | translate }}
+                                    </button>
+
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            (click)="setPreset('table')">
+                                        {{ 'presetTable' | translate }}
+                                    </button>
+
+                                    <div class="form-check form-check-inline ms-1">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               id="autoPreview"
+                                               [(ngModel)]="autoPreview">
+                                        <label class="form-check-label" for="autoPreview">
+                                            {{ 'markdownAutoPreview' | translate }}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <small class="text-muted d-block mt-2">
+                                    {{ 'markdownShortcutHint' | translate }}
+                                </small>
+
+                                <label class="form-label mt-3">{{ 'markdownPreviewTitle' | translate }}</label>
+                                <div class="border rounded p-3 markdown-preview theme-demo-surface"
+                                     [innerHTML]="markdownPreview">
+                                </div>
+
+                                @if (markdownHtml) {
+                                <label class="form-label mt-3">{{ 'markdownHtmlOutputTitle' | translate }}</label>
+                                <pre class="border rounded p-2 mb-2 theme-demo-surface"><code>{{ markdownHtml }}</code></pre>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        (click)="copyToClipboard(markdownHtml)">
+                                    <i class="fa-solid fa-copy me-1"></i>{{ 'copyHtml' | translate }}
+                                </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Demo immagini -->
+                    <div class="col-12 col-xl-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">{{ 'imgBuilderTitle' | translate }}</h2>
+                                <p class="text-muted small mb-3">
+                                    Demo minimale di generazione immagine lato client
+                                </p>
+
+                                <div class="row g-3 align-items-start">
+                                    <div class="col-md-5">
+                                        <label class="form-label">{{ 'imageTextPlaceholder' | translate }}</label>
+                                        <textarea class="form-control mb-3"
+                                                  rows="3"
+                                                  [(ngModel)]="imgText"
+                                                  (ngModelChange)="renderHomeImage()"></textarea>
+
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6">
+                                                <label class="form-label">{{ 'imageBg' | translate }}</label>
+                                                <input type="color"
+                                                       class="form-control form-control-color w-100"
+                                                       [(ngModel)]="imgBgColor"
+                                                       (change)="renderHomeImage()">
+                                            </div>
+
+                                            <div class="col-6">
+                                                <label class="form-label">{{ 'imageColorText' | translate }}</label>
+                                                <input type="color"
+                                                       class="form-control form-control-color w-100"
+                                                       [(ngModel)]="imgTextColor"
+                                                       (change)="renderHomeImage()">
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                {{ 'imageSize' | translate }}: {{ imgFontSize }}px
+                                            </label>
+                                            <input type="range"
+                                                   class="form-range"
+                                                   min="16"
+                                                   max="96"
+                                                   step="1"
+                                                   [(ngModel)]="imgFontSize"
+                                                   (input)="renderHomeImage()">
+                                        </div>
+
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button class="btn btn-primary btn-sm"
+                                                    (click)="downloadHomeImage()">
+                                                <i class="fas fa-download me-1" aria-hidden="true"></i>
+                                                {{ 'scarica' | translate }}
+                                            </button>
+
+                                            <button class="btn btn-outline-primary btn-sm"
+                                                    (click)="shareHomeImage()">
+                                                <i class="fas fa-share-nodes me-1" aria-hidden="true"></i>
+                                                {{ 'condividi' | translate }}
+                                            </button>
+
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    (click)="resetHomeImage()">
+                                                Reset
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-7">
+                                        <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface">
+                                            <canvas #homeImageCanvas
+                                                    class="img-fluid rounded border image-preview-canvas"
+                                                    role="img"
+                                                    [attr.aria-label]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
+                                            </canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- COMPONENTI UX -->
+            <section class="mb-4">
+                <div class="row g-3">
+
+                    <!-- Menu contestuale -->
+                    <div class="col-12 col-xl-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">{{ 'contextMenuTitle' | translate }}</h2>
+                                <p class="text-muted small mb-3">{{ 'contextMenuDesc' | translate }}</p>
+
+                                <p class="text-muted mb-3">{{ 'contextMenuHint' | translate }}</p>
+
+                                <div [appContextMenu]="contextMenuOptions"
+                                     class="demo-context-area border rounded p-3">
+                                    <textarea class="form-control context-textarea"
+                                              rows="4"
+                                              [(ngModel)]="contextDemoText"
+                                              [placeholder]="translate.translate('contextMenuSampleText')">
+                  </textarea>
+                                </div>
+
+                                <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                    @if (contextMenuLastAction()) {
+                                    <span class="badge text-bg-secondary">
+                                        {{ 'contextMenuLastAction' | translate }}:
+                                        <code>{{ contextMenuLastAction() }}</code>
+                                    </span>
+                                    }
+
+                                    @if (clipboardContent()) {
+                                    <span class="badge text-bg-info">
+                                        <i class="fa-solid fa-clipboard me-1"></i>
+                                        "{{ clipboardContent().length > 40 ? clipboardContent().substring(0, 40) + '...' : clipboardContent() }}"
+                                    </span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Demo modali -->
+                    <div class="col-12 col-xl-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
+                                <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
+
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <button class="btn btn-outline-info" (click)="showAlert()">
+                                        <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
+                                    </button>
+
+                                    <button class="btn btn-outline-warning" (click)="showConfirm()">
+                                        <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
+                                    </button>
+
+                                    <button class="btn btn-outline-primary" (click)="showFormModal()">
+                                        <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
+                                    </button>
+                                </div>
+
+                                @if (modalResult()) {
+                                <div class="alert border mb-0 theme-demo-surface">
+                                    <i class="fa-solid fa-circle-check text-success me-1"></i>
+                                    {{ modalResult() }}
+                                </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- SISTEMA -->
+            <section>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h2 class="mb-0 h4">System</h2>
+                    <span class="text-muted small">Configurazione e integrazioni del template</span>
+                </div>
+
+                <div class="row g-3">
+
+                    <!-- Tema -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="mb-2 h6">{{ 'themeAccessibilityTitle' | translate }}</h3>
+                                <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <span class="badge theme-token-badge"
+                                          [style.backgroundColor]="theme.colorTema()"
+                                          [style.color]="theme.colorTemaText()">
+                                        colorTema: {{ theme.colorTema() }}
+                                    </span>
+
+                                    <span class="badge theme-token-badge"
+                                          [style.backgroundColor]="theme.colorPrimary()"
+                                          [style.color]="theme.colorPrimaryText()">
+                                        colorPrimary: {{ theme.colorPrimary() }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- i18n -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="mb-2 h6">{{ 'i18nTitle' | translate }}</h3>
+                                <p class="small text-muted mb-2">{{ 'i18nDesc' | translate }}</p>
+                                <p class="mb-2 small">
+                                    {{ 'labelLang' | translate }}:
+                                    <strong>{{ translate.currentLang() }}</strong>
+                                </p>
+
+                                <div class="d-flex flex-wrap gap-1">
+                                    @for (lang of translate.getAvailableLanguages(); track lang) {
+                                    <span class="badge bg-secondary">{{ lang }}</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="mb-2 h6">{{ 'apiStatusTitle' | translate }}</h3>
+                                <p class="small text-muted mb-2">{{ 'internalsApiDesc' | translate }}</p>
+                                <p class="small mb-2">{{ apiStatus }}</p>
+
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="text"
+                                           class="form-control"
+                                           [(ngModel)]="socialFilter"
+                                           [placeholder]="translate.translate('socialFilterLabel')">
+                                    <button class="btn btn-outline-primary" (click)="callSocialApi()">
+                                        {{ 'cerca' | translate }}
+                                    </button>
+                                </div>
+
+                                @if (socialResult()) {
+                                <pre class="border rounded p-2 mb-0 api-result-output theme-demo-surface"><code>{{ socialResult() }}</code></pre>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Asset -->
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
+                                <p class="small text-muted mb-2">{{ 'assetResolverDesc' | translate }}</p>
+
+                                <div class="input-group input-group-sm mb-2">
+                                    <input type="text"
+                                           class="form-control"
+                                           [(ngModel)]="assetId"
+                                           [placeholder]="translate.translate('assetResolverInputLabel')">
+                                    <button class="btn btn-outline-primary" (click)="resolveAsset()">
+                                        {{ 'cerca' | translate }}
+                                    </button>
+                                </div>
+
+                                @if (assetUrl()) {
+                                <p class="mb-2 small"><code>{{ assetUrl() }}</code></p>
+                                <img [src]="assetUrl()"
+                                     [alt]="translate.translate('assetPreviewAlt')"
+                                     class="img-fluid rounded border asset-preview-image">
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>

@@ -1,0 +1,38 @@
+# Override di sviluppo — applicato automaticamente da Docker Compose.
+# Backend con dotnet watch, frontend con ng serve.
+# Uso: docker-compose up (senza -f, applica override automaticamente)
+services:
+  frontend:
+    image: node:22-alpine
+    container_name: br1-frontend-dev
+    working_dir: /app
+    command: sh -c "npm ci && npm start -- --host 0.0.0.0 --port 4200 --disable-host-check"
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: br1-backend-dev
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    volumes:
+      - ./backend:/app/backend
+      - app-data:/app/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  frontend-node-modules:
+    driver: local

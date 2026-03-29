@@ -1,0 +1,18 @@
+<!-- Vetrina icone di utilita' -->
+<div class="text-center">
+    <i class="social-icon shake-on-hover fa-solid fa-clone"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-scissors"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-paste"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-download"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-envelope"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-file-pdf"></i>
+    <i class="social-icon shake-on-hover fa-solid fa-bell"></i>
+</div>
+<hr>
+<div class="text-center">
+    @if (socialLinks().length > 0) {
+    @for (link of socialLinks(); track link.type) {
+    <app-social-link [type]="link.type" [value]="link.url" />
+    }
+    }
+</div>

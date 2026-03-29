@@ -1,0 +1,8 @@
+@import './styles/base.css';
+@import './styles/social.css';
+
+body {
+    font-family: sans-serif;
+}
+
+/* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */

@@ -1,0 +1,43 @@
+{
+  "ragioneSociale": "Truffa SRL - Non Solo Una Truffa S.r.l.",
+  "partitaIva": "IT12345678901",
+  "codiceFiscale": "12345678901",
+  "sedeLegale": {
+    "via": {
+      "it": "Via Le Mani Dal Culo 69",
+      "en": "Get Your Hands Off My Ass Street"
+    },
+    "civico": "420",
+    "cap": "97010",
+    "citta": "Vergate sul Membro",
+    "provincia": "RG (Ragusa)",
+    "nazione": {
+      "it": "Dubai",
+      "en": "Dubai"
+    }
+  },
+  "contatti": {
+    "telefono": "+39 000 000 0000",
+    "email": "info@nonrispondiamo.mai",
+    "pec": "vaffanculo@pec.truffa"
+  },
+  "datiSocietari": {
+    "registroImprese": "Camera di Commercio di 'Fatti i Cazzi Tuoi' - Ragusa",
+    "numeroRea": "RG-694201337",
+    "capitaleSociale": 4.20,
+    "capitaleInteramenteVersato": false,
+    "isSocioUnico": true,
+    "inLiquidazione": true,
+    "codiceSdi": "FREGATENE69"
+  },
+  "metadatiAggiuntivi": {
+    "rappresentanteLegale": {
+      "it": "Amministratore unico e solo coglione: Mario 'il Furbetto' Rossi",
+      "en": "Sole director and only idiot: Mario 'The Dodgy One' Rossi"
+    },
+    "orariContatto": {
+      "it": "Assistenza clienti: mai. Se proprio devi, manda un piccione viaggiatore tra le 3:14 e le 3:16 di notte. Oppure vai a fanculo.",
+      "en": "Customer support: never. If you really must, send a carrier pigeon between 3:14 and 3:16 AM. Or just go fuck yourself."
+    }
+  }
+}

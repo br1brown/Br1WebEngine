@@ -1,0 +1,48 @@
+@if (cookieConsent.isNeeded && !cookieConsent.responded()) {
+    <div class="cookie-banner theme-bg"
+         [class.cookie-banner-modern]="!tiny()"
+         role="alert"
+         aria-live="polite">
+        @if (!tiny()) {
+            <div class="cookie-banner__shell">
+                <div class="cookie-banner__content" [innerHTML]="bannerText() | markdown"></div>
+                <div class="cookie-banner__actions">
+                    <button class="btn fw-semibold text-nowrap"
+                            [class.btn-outline-dark]="theme.isDarkTextPreferred()"
+                            [class.btn-outline-light]="!theme.isDarkTextPreferred()"
+                            type="button"
+                            (click)="reject()">
+                        {{ 'cookieBannerReject' | translate }}
+                    </button>
+                    <button class="btn fw-semibold text-nowrap"
+                            [class.btn-dark]="theme.isDarkTextPreferred()"
+                            [class.btn-light]="!theme.isDarkTextPreferred()"
+                            type="button"
+                            (click)="accept()">
+                        {{ 'cookieBannerAccept' | translate }}
+                    </button>
+                </div>
+            </div>
+        } @else {
+            <div class="container d-flex flex-column flex-sm-row align-items-center gap-2 py-2">
+                <div class="mb-0 flex-grow-1 small" [innerHTML]="bannerText() | markdown"></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm fw-semibold text-nowrap"
+                            [class.btn-outline-dark]="theme.isDarkTextPreferred()"
+                            [class.btn-outline-light]="!theme.isDarkTextPreferred()"
+                            type="button"
+                            (click)="reject()">
+                        {{ 'cookieBannerReject' | translate }}
+                    </button>
+                    <button class="btn btn-sm fw-semibold text-nowrap"
+                            [class.btn-dark]="theme.isDarkTextPreferred()"
+                            [class.btn-light]="!theme.isDarkTextPreferred()"
+                            type="button"
+                            (click)="accept()">
+                        {{ 'cookieBannerAccept' | translate }}
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}

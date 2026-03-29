@@ -1,0 +1,9 @@
+/* components.css - Stili globali residui per componenti senza CSS locale dedicato. */
+
+article {
+    padding: 1rem 0;
+}
+
+    article h2 {
+        margin-top: 1.5rem;
+    }

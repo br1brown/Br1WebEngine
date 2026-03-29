@@ -1,0 +1,64 @@
+# =============================================================================
+# Docker Compose — Frontend (Nginx) + Backend (.NET) come servizi separati.
+#
+# STESSO HOST (predefinito):
+#   docker-compose up
+#   → Frontend su porta 80, Nginx proxya /api/* al backend internamente.
+#
+# HOST SEPARATI:
+#   Sul server del backend (cliente):
+#     docker-compose up backend
+#   Sul server del frontend (tuo):
+#     API_URL=https://api.cliente.it docker-compose up frontend
+#   → Il frontend chiama il backend remoto direttamente (configurare CORS).
+# =============================================================================
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: br1-frontend
+    ports:
+      - "80:80"
+    environment:
+      # Vuoto = Nginx proxya /api/* al backend (stesso host).
+      # Valorizzato = il browser chiama direttamente il backend remoto.
+      - API_URL=${API_URL:-}
+      - API_KEY=${API_KEY:-frontend}
+    depends_on:
+      backend:
+        condition: service_started
+        required: false
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: br1-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Segreti — sovrascrivono appsettings.json via configuration binding .NET
+      # Decommentare e valorizzare in produzione:
+      # - Security__ApiKeys__0=frontend
+      # - Security__Token__Password=CAMBIAMI
+      # - Security__Token__SecretKey=CAMBIAMI_MIN_32_CHARS
+      # - Security__CorsOrigins__0=https://miosito.it
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  app-data:
+    driver: local
