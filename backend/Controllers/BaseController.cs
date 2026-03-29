@@ -10,7 +10,7 @@ namespace Backend.Controllers;
 /// <remarks>
 /// <para>
 /// Eredita <see cref="EngineBaseController.GetProfile"/> e lo espone come endpoint.
-/// Puo' sovrascriverlo per personalizzare la logica del profilo.
+/// Deve essere sovrascritto per personalizzare la logica del profilo.
 /// </para>
 /// <para>
 /// Gli endpoint aggiuntivi di questo controller sono specifici del progetto.

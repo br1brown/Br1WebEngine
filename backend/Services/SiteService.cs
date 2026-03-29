@@ -69,12 +69,6 @@ public class SiteService
         var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
         var profile = await _store.GetProfileAsync(language);
 
-        var socialPrincipali = new HashSet<string> { "linkedin", "whatsapp", "facebook" };
-        var tuttiSocial = await _store.GetSocialAsync();
-        profile.Social = tuttiSocial
-            .Where(r => socialPrincipali.Contains(r.Key))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
-
         return profile;
     }
 }
