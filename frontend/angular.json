@@ -16,7 +16,6 @@
             "outputPath": "dist/br1-web-engine",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "server": "src/main.server.ts",
             "tsConfig": "tsconfig.json",
             "assets": [
               {
@@ -55,25 +54,6 @@
               ],
               "outputHashing": "all",
               "serviceWorker": "ngsw-config.json"
-            },
-            "prerender": {
-              "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
-                }
-              ],
-              "outputHashing": "all",
-              "serviceWorker": "ngsw-config.json",
-              "prerender": {
-                "discoverRoutes": true
-              }
             },
             "development": {
               "optimization": false,

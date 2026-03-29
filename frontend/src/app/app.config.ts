@@ -18,6 +18,10 @@ import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
 
+const apiPrefix = environment.apiUrl
+    ? `${environment.apiUrl.replace(/\/$/, '')}/api`
+    : '/api';
+
 /**
  * Aggiunge automaticamente headers a ogni richiesta HTTP verso il backend.
  *
@@ -27,7 +31,8 @@ import { TranslateService } from './core/services/translate.service';
  *
  * SE L'UTENTE E' AUTENTICATO:
  *   - Aggiunge l'header standard "Authorization: Bearer <token>" (RFC 6750)
- *  Il token JWT viene recuperato da AuthService.token(), che lo decodifica e ne verifica la validita'.
+ *  Il token JWT viene recuperato da AuthService.token(), che conserva solo token
+ *  ben formati e non scaduti lato client. La firma resta validata dal backend.
  *  Se il token e' scaduto o mancante, la richiesta viene inviata senza header di autenticazione.
  **/
 const authInterceptor: HttpInterceptorFn = (req, next) => {
@@ -35,9 +40,7 @@ const authInterceptor: HttpInterceptorFn = (req, next) => {
     const translate = inject(TranslateService);
 
     // Determina se la richiesta e' diretta al nostro backend
-    const isBackendRequest = environment.apiUrl
-        ? req.url.startsWith(environment.apiUrl)
-        : req.url.startsWith('/');
+    const isBackendRequest = req.url === apiPrefix || req.url.startsWith(`${apiPrefix}/`);
 
     if (!isBackendRequest) {
         return next(req);

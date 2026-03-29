@@ -166,7 +166,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                 title: 'projectSources',
                 enabled: true,
                 pageType: PageType.GitHub,
-                externalUrl: 'https://github.com/tuo-profilo/progetto'
+                externalUrl: 'https://github.com/br1brown/Br1WebEngine'
             },
             {
                 path: 'impostazioni',

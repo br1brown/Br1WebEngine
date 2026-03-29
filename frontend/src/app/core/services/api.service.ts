@@ -8,10 +8,11 @@ import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
+const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    social:  `${environment.apiUrl}/api/social`,
-    profile: `${environment.apiUrl}/api/profile`,
-    login:   `${environment.apiUrl}/api/auth/login`,
+    social:  `${apiBase}/api/social`,
+    profile: `${apiBase}/api/profile`,
+    login:   `${apiBase}/api/auth/login`,
 } as const;
 
 /**

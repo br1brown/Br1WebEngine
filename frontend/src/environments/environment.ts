@@ -1,8 +1,9 @@
 export const environment = {
   production: false,
-  // URL base del backend.
-  // In sviluppo: URL diretto al server .NET (diversa porta)
-  // In produzione: stringa vuota (stesso dominio, reverse proxy)
-  apiUrl: 'https://localhost:62714',
+  // In sviluppo usa sempre path relativi /api.
+  // Il target reale viene deciso dal proxy Angular:
+  // - npm start        -> proxy locale verso il backend lanciato da Visual Studio
+  // - npm run start:docker -> proxy interno verso il container backend
+  apiUrl: '',
   apiKey: 'frontend'
 };

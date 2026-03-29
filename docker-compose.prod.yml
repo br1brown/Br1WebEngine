@@ -1,6 +1,8 @@
 # Configurazione di produzione — docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
 services:
   frontend:
+    ports:
+      - "80:80"
     restart: always
     logging:
       driver: json-file
@@ -9,6 +11,8 @@ services:
         max-file: "3"
 
   backend:
+    ports:
+      - "8080:8080"
     restart: always
     logging:
       driver: json-file

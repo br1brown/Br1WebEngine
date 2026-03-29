@@ -1,8 +1,8 @@
 # =============================================================================
 # Docker Compose — Frontend (Nginx) + Backend (.NET) come servizi separati.
 #
-# STESSO HOST (predefinito):
-#   docker-compose up
+# STESSO HOST:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 #   → Frontend su porta 80, Nginx proxya /api/* al backend internamente.
 #
 # HOST SEPARATI:
@@ -19,8 +19,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: br1-frontend
-    ports:
-      - "80:80"
     environment:
       # Vuoto = Nginx proxya /api/* al backend (stesso host).
       # Valorizzato = il browser chiama direttamente il backend remoto.
@@ -39,8 +37,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: br1-backend
-    ports:
-      - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       # Segreti — sovrascrivono appsettings.json via configuration binding .NET

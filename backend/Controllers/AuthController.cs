@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Br1WebEngine.Security;
 using Br1WebEngine.Services;
-
 namespace Br1WebEngine.Controllers;
 
 /// <summary>
@@ -17,8 +16,8 @@ namespace Br1WebEngine.Controllers;
 /// </para>
 /// <para>
 /// Il controller mostra il punto di integrazione per il login applicativo.
-/// Nella forma attuale e' un endpoint dimostrativo: la verifica credenziali reale deve essere implementata
-/// prima di usare questo codice in produzione.
+/// Nel template base l'endpoint e' solo un placeholder: non autentica nessun utente
+/// e non emette token finche' non viene implementata una verifica credenziali reale.
 /// </para>
 /// </remarks>
 [ApiController]
@@ -36,32 +35,34 @@ public class AuthController : ControllerBase
     {
         _auth = auth;
     }
-
     /// <summary>
-    /// Endpoint dimostrativo per il login che restituisce un token JWT.
+    /// Endpoint placeholder per il login applicativo.
     /// </summary>
     /// <param name="pwd">
     /// Password ricevuta dal form.
-    /// Il parametro e' presente per mostrare il punto in cui inserire la validazione reale delle credenziali.
+    /// Il parametro resta per mostrare il punto in cui inserire la validazione reale delle credenziali.
     /// </param>
     /// <returns>
-    /// Una risposta HTTP 200 con l'esito della generazione del token.
+    /// Una risposta HTTP 200 con <c>valid = false</c> finche' il progetto non implementa
+    /// la verifica reale delle credenziali e la successiva emissione del token.
     /// </returns>
     /// <remarks>
-    /// Il metodo non esegue ancora una verifica effettiva delle credenziali.
-    /// Prima dell'uso reale va sostituito con la logica di autenticazione corretta
-    /// e la chiamata a <see cref="AuthService.GenerateToken"/>
-    /// deve avvenire solo dopo un controllo positivo.
+    /// Il template base non accetta alcuna password e non genera alcun JWT.
+    /// Quando si implementa il login reale, qui va inserita la validazione delle credenziali
+    /// e solo dopo un controllo positivo va chiamato <c>AuthService.GenerateToken()</c>.
     /// </remarks>
-    /// <response code="200">Token generato.</response>
+    /// <response code="200">Login non implementato nel template base.</response>
     /// <response code="401">API key assente o non valida.</response>
     /// <response code="429">Rate limit superato per i tentativi di login.</response>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
-    public IActionResult Login([FromForm] string pwd)
+    public IActionResult Login([FromForm] string? pwd = null)
     {
         var _ = pwd;
-        var result = _auth.GenerateToken();
-        return Ok(new { valid = result.Valid, token = result.Token, error = result.Error });
+        return Ok(new
+        {
+            valid = false,
+            error = "Login applicativo non implementato nel template base."
+        });
     }
 }

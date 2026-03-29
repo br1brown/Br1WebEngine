@@ -7,8 +7,8 @@ Template full-stack riutilizzabile per la realizzazione di siti web di varia nat
 | Componente | Tecnologia | Ruolo |
 |---|---|---|
 | **Backend** | ASP.NET Core 9 | REST API con autenticazione, sicurezza multi-livello, contenuti localizzati |
-| **Frontend** | Angular 19 | SPA con SSR, PWA, i18n, tema dinamico, DSL dichiarativo per la struttura |
-| **Infrastruttura** | Docker + Nginx | 2 container in dev (hot reload), container unico in prod (Nginx + reverse proxy API) |
+| **Frontend** | Angular 19 | SPA/PWA, i18n, tema dinamico, DSL dichiarativo per la struttura |
+| **Infrastruttura** | Docker + Nginx | 2 container in dev (hot reload), 2 container in prod (frontend Nginx + backend separato) |
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -43,7 +43,7 @@ Template full-stack riutilizzabile per la realizzazione di siti web di varia nat
 Il backend non e' pensato per avere decine di controller. Ne bastano tre, uno per ogni stato in cui si puo' trovare l'utente:
 
 - **BaseController** (`api/`) — sei **fuori**. Endpoint pubblici che richiedono solo l'API key. Ad oggi mostra il profilo aziendale localizzato e i link social.
-- **AuthController** (`api/auth`) — sei **in mezzo**. Gestisce il passaggio dentro/fuori: login con generazione JWT, rate limiting dedicato (5 tentativi/min per IP).
+- **AuthController** (`api/auth`) — sei **in mezzo**. Punto di integrazione del login: endpoint placeholder che oggi restituisce `valid = false` finche' non viene implementata la verifica credenziali reale, con rate limiting dedicato (5 tentativi/min per IP).
 - **ProtectedController** (`api/`) — sei **dentro**. Controller unico ad oggi vuoto e viene riempito con gli endpoint riservati agli utenti autenticati per tutto cio' che richiede JWT.
 
 Nuovi endpoint si aggiungono nel controller giusto in base al livello di accesso richiesto.
@@ -54,7 +54,7 @@ La sicurezza e' organizzata come una pipeline di strati concentrici. Ogni richie
 
 1. **Forwarded headers** (condizionale) — attivo solo se `Security.BehindProxy` e' `true` in `appsettings.json`. Ricostruisce l'IP reale del client dall'header `X-Forwarded-For` iniettato dal reverse proxy, sovrascrivendo `RemoteIpAddress`. Senza proxy il middleware non viene registrato, cosi' nessuno puo' spoofare l'IP mandando un header finto.
 2. **CORS** — `CorsOrigins` vuoto = accetta qualsiasi origine (utile in sviluppo), altrimenti whitelist stretta. In produzione va sempre configurato. Sta prima del rate limiter cosi' i preflight OPTIONS del browser non consumano il budget del rate limit.
-3. **Rate limiting** — due policy: `fixed` (100 req/min per IP, globale) e `login` (5 req/min per IP, solo su `api/auth/login`). Ogni policy partiziona automaticamente per `RemoteIpAddress`, cosi' un client che abusa non penalizza gli altri. Sta in alto nella pipeline (fail fast): se un client sta abusando, viene bloccato subito senza sprecare risorse sui middleware successivi.
+3. **Rate limiting** — un limite globale (100 req/min per IP) e una policy `login` (5 req/min per IP, solo su `api/auth/login`). Ogni limite partiziona automaticamente per `RemoteIpAddress`, cosi' un client che abusa non penalizza gli altri. Sta in alto nella pipeline (fail fast): se un client sta abusando, viene bloccato subito senza sprecare risorse sui middleware successivi.
 4. **Security headers** — middleware che aggiunge a ogni risposta (anche 429 e 4xx/5xx) gli header di sicurezza configurati in `appsettings.json` (CSP, X-Frame-Options, etc.).
 5. **API Key** — ogni richiesta deve avere l'header `X-Api-Key` con un valore presente nell'array `Security.ApiKeys`. Le richieste OPTIONS passano senza controllo (servono al preflight CORS del browser). Se la chiave manca o e' sbagliata, la richiesta si ferma qui con un 401.
 6. **JWT Bearer** — attivato condizionalmente: se `Security.Token.SecretKey` e' vuoto in `appsettings.json`, questo strato non viene nemmeno registrato. Quando e' attivo, valida il token nell'header `Authorization: Bearer` e popola l'identita' dell'utente nel contesto della richiesta.
@@ -86,7 +86,7 @@ Richiesta HTTP
 
 ### Eccezioni API strutturate
 
-I controller non gestiscono gli errori: li lanciano. Esiste una gerarchia di eccezioni custom (`NotFoundException`, `DecodingException`, `DataNotFoundException`, `InvalidParametersException`), ognuna con il proprio status code HTTP (404, 422, 404, 400). Un middleware globale `ApiExceptionHandler` intercetta qualsiasi `ApiException` e la converte in una risposta JSON nel formato ProblemDetails (RFC 9457):
+I controller non gestiscono gli errori: li lanciano. Esiste una gerarchia di eccezioni custom (`NotFoundException`, `DecodingException`, `DataNotFoundException`, `InvalidParametersException`), ognuna con il proprio status code HTTP (404, 400, 404, 400). Un middleware globale `ApiExceptionHandler` intercetta qualsiasi `ApiException` e la converte in una risposta JSON nel formato ProblemDetails (RFC 9457):
 
 ```json
 {
@@ -126,11 +126,11 @@ Il backend legge l'header `Accept-Language` di ogni richiesta e imposta la cultu
 
 ### Registrazione condizionale dei servizi
 
-`Program.cs` registra `AuthService` nel container DI **solo se** `Security.Token.SecretKey` e' valorizzata (cioe' `security.LoginEnabled == true`). Se il login non serve, il servizio non esiste a runtime: nessuna allocazione, nessun singleton in memoria. Lo stesso principio vale per il JWT bearer handler e la policy `RequireLogin`, che vengono configurati solo quando l'autenticazione e' attiva.
+`Program.cs` attiva l'infrastruttura JWT solo se `Security.Token.SecretKey` e' valorizzata (cioe' `security.LoginEnabled == true`). In quel caso vengono configurati il bearer handler, la policy `RequireLogin` e il supporto a `AuthService` per il progetto finale. Se il secret e' vuoto, le API pubbliche restano operative ma il login applicativo non e' disponibile.
 
 ### Health check integrato
 
-Il Dockerfile del backend include una direttiva `HEALTHCHECK` che ogni 30 secondi chiama `GET /api/social`. Se il backend non risponde, Docker lo segnala come unhealthy e puo' riavviarlo automaticamente (con `restart: always` in produzione). L'endpoint `/health` di ASP.NET e' mappato separatamente con `AllowAnonymous`, quindi non richiede API key.
+Il backend espone `GET /health` tramite ASP.NET e lo mappa con `AllowAnonymous`, quindi non richiede API key. Il `Dockerfile` include una direttiva `HEALTHCHECK` che ogni 30 secondi chiama questo endpoint: se il backend non risponde, Docker lo segnala come unhealthy.
 
 ---
 
@@ -167,7 +167,7 @@ Ogni componente pagina estende `PageBaseComponent`, una classe base (decorata co
 | `TranslateService` | i18n a due livelli (basic + addon), placeholder, cambio lingua reattivo |
 | `ThemeService` | Tema con calcoli WCAG 2.1 di contrasto, CSS variable, integrazione Bootstrap |
 | `NotificationService` | Wrapper SweetAlert2: toast, alert, conferme, parsing ProblemDetails |
-| `AuthService` | Ciclo JWT completo: login, logout, ripristino sessione, stato reattivo |
+| `AuthService` | Ciclo JWT lato client: login, logout, ripristino sessione, scadenza locale, stato reattivo |
 | `CookieConsentService` | GDPR: blocca cookie fino al consenso, persiste su localStorage |
 | `AssetService` | Registry ID→file tramite `mapping.json` |
 | `ShareService` | Web Share API con fallback a clipboard e download |
@@ -206,13 +206,13 @@ Lo stato del consenso e' salvato in localStorage (non in un cookie — sarebbe c
 
 `AuthService` gestisce il ciclo JWT con un approccio basato su signal Angular:
 
-1. **Login:** invia le credenziali a `POST /api/auth/login`, riceve un token JWT
+1. **Login:** invia le credenziali a `POST /api/auth/login`; nel template base il backend risponde `valid = false` finche' non implementi la verifica reale e l'emissione del JWT
 2. **Persistenza:** il token viene salvato in un signal (`_token`) e in `sessionStorage` (non `localStorage`: il token sparisce quando si chiude il tab, per sicurezza)
 3. **Stato reattivo:** `isLoggedIn` e' un signal computed — i template e i guard si aggiornano automaticamente
-4. **Ripristino:** all'avvio dell'app, `restoreSession()` recupera il token da `sessionStorage` (cosi' un refresh non disconnette)
+4. **Ripristino:** all'avvio dell'app, `restoreSession()` recupera il token da `sessionStorage` solo se e' ancora ben formato e non scaduto
 5. **Logout:** pulisce sia il signal che il `sessionStorage`
 
-L'interceptor HTTP aggiunge automaticamente `Authorization: Bearer {token}` a ogni richiesta verso il backend quando il token e' presente.
+L'interceptor HTTP aggiunge automaticamente `Authorization: Bearer {token}` a ogni richiesta verso il backend quando il token e' presente e non risulta gia' scaduto lato client.
 
 #### Come funziona la gestione errori
 
@@ -258,11 +258,11 @@ L'interceptor HTTP e' unico e funzionale (stile Angular 17+): aggiunge a ogni ri
 
 L'infrastruttura Docker e' composta usando tre file che si sovrappongono:
 
-- **`docker-compose.yml`** — definisce la struttura: due servizi (frontend e backend), la rete condivisa, il volume per i dati. Non specifica come buildarli o eseguirli.
-- **`docker-compose.override.yml`** — sovrascrittura per lo sviluppo (applicata automaticamente da Docker Compose). Usa Node 22 Alpine per il frontend con `ng serve`, espone frontend e backend su porte dedicate per il lavoro locale, e monta i sorgenti nei container.
+- **`docker-compose.yml`** — definisce la base comune: due servizi (frontend e backend), i contesti di build, la rete condivisa e il volume per i dati.
+- **`docker-compose.override.yml`** — sovrascrittura per lo sviluppo (applicata automaticamente da Docker Compose). Usa Node 22 Alpine per il frontend con `npm run start:docker`, espone frontend e backend su porte dedicate per il lavoro locale, e monta i sorgenti nei container.
 - **`docker-compose.prod.yml`** — sovrascrittura per la produzione (va specificata esplicitamente con `-f`). Aggiunge `restart: always` e configura il logging JSON con rotazione (max 10MB, 3 file).
 
-In sviluppo si lavora con due container separati (frontend su 4200, backend su 5000). In produzione il frontend viene buildato in un'immagine Nginx che serve i file statici e proxya le API.
+In sviluppo si lavora con due container separati (frontend su 4200, backend su 5000). Il frontend Docker usa un proxy Angular dedicato verso `http://backend:5000`, mentre l'avvio locale con `npm start` usa un proxy separato verso il backend di Visual Studio (`http://localhost:62715`). In produzione restano due container: il frontend viene buildato in un'immagine Nginx che serve la SPA statica e proxya le API, mentre il backend gira separatamente su ASP.NET Core.
 
 ### Cosa fa Nginx
 
@@ -310,7 +310,7 @@ docker compose up --build
 
 - Docker Compose applica automaticamente `docker-compose.override.yml`
 - Backend: `http://localhost:5000`
-- Frontend con `ng serve`: `http://localhost:4200`
+- Frontend con `ng serve` + proxy Docker: `http://localhost:4200`
 
 ### Produzione
 
@@ -335,7 +335,7 @@ Flusso tipico:
 2. Apri la PowerShell integrata di Visual Studio, oppure un terminale qualsiasi
 3. Avvia il frontend con `.\start-frontend.bat` oppure con `cd frontend && npm start`
 4. Premi `F5` in Visual Studio per avviare e debuggare solo il backend
-5. Il frontend chiama il backend all'URL definito in `src/environments/environment.ts`
+5. Il frontend chiama `/api/*` in modo relativo; `npm start` inoltra tutto al backend locale di Visual Studio tramite `proxy.local.conf.json`
 
 ---
 
@@ -523,9 +523,9 @@ In `backend/appsettings.json`, sezione `Security`:
 
 Se `Token.SecretKey` e' vuota, l'infrastruttura JWT non viene attivata e il flusso di login non e' utilizzabile. Le API pubbliche restano operative.
 
-Per **abilitare il login**: valorizza `Token.SecretKey` con almeno 32 caratteri. Quando e' presente, il template attiva automaticamente a runtime il bearer handler, la policy `RequireLogin`, la validazione token e `AuthService`.
+Per **abilitare le API protette**: valorizza `Token.SecretKey` con almeno 32 caratteri. Quando e' presente, il template attiva automaticamente a runtime il bearer handler, la policy `RequireLogin`, la validazione token e `AuthService`.
 
-`AuthController`, invece, resta volutamente un punto di integrazione applicativo: nel template base l'endpoint di login e' dimostrativo e la verifica reale delle credenziali va implementata nel progetto finale.
+`AuthController`, invece, resta volutamente un punto di integrazione applicativo: nel template base l'endpoint di login non autentica nessuno e restituisce `valid = false`. La verifica reale delle credenziali e la chiamata a `AuthService.GenerateToken()` vanno implementate nel progetto finale.
 
 Per la **produzione**, sovrascrivi i segreti tramite variabili d'ambiente Docker:
 
@@ -557,11 +557,12 @@ Per nuove sorgenti dati, implementa `IContentStore` o crea un nuovo servizio reg
 **Lato frontend**, `ApiService` centralizza tutte le chiamate HTTP. Gli endpoint sono dichiarati come costanti in cima al file (`frontend/src/app/core/services/api.service.ts`) per evitare stringhe duplicate:
 
 ```typescript
+const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    social:  `${environment.apiUrl}/api/social`,
-    profile: `${environment.apiUrl}/api/profile`,
-    login:   `${environment.apiUrl}/api/auth/login`,
-    catalogo: `${environment.apiUrl}/api/catalogo`,  // ← nuovo
+    social:  `${apiBase}/api/social`,
+    profile: `${apiBase}/api/profile`,
+    login:   `${apiBase}/api/auth/login`,
+    catalogo: `${apiBase}/api/catalogo`,  // ← nuovo
 } as const;
 ```
 
@@ -607,8 +608,8 @@ Il frontend usa gli hook `pre` di npm per eseguire automaticamente la generazion
 | Hook | Scatenato da | Cosa esegue |
 |---|---|---|
 | `prestart` | `npm start` | `generate:site-meta` |
+| `prestart:docker` | `npm run start:docker` | `generate:site-meta` |
 | `prebuild` | `npm run build` | `generate:site-meta` + `generate:sitemap` |
-| `prebuild:prerender` | `npm run build:prerender` | `generate:site-meta` + `generate:sitemap` |
 
 - **`generate:site-meta`** — legge la configurazione da `site.ts` e sincronizza `src/index.html` (title, meta description, OG tags, Twitter cards, theme-color) e `public/manifest.webmanifest` (nome PWA, descrizione, colore tema, lingua). Modificare `site.ts` basta: i file statici si aggiornano da soli.
 - **`generate:sitemap`** — genera `public/sitemap.xml` dalle pagine del DSL. Solo le pagine con `enabled: true` vengono incluse. Usa la variabile d'ambiente `SITEMAP_BASE_URL` come dominio base (default: `https://example.com` con warning).

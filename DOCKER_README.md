@@ -4,8 +4,8 @@ Guida operativa per eseguire Br1WebEngine con Docker. Per architettura completa,
 
 ## File Compose
 
-- **`docker-compose.yml`** - base comune: frontend Nginx su porta `80`, backend ASP.NET Core su porta `8080`, rete condivisa e volume `app-data`
-- **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente da Docker Compose, frontend con `ng serve` su `4200`, backend esposto su `5000`
+- **`docker-compose.yml`** - base comune: definizione dei servizi, build, rete condivisa e volume `app-data`
+- **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente da Docker Compose, frontend con `npm run start:docker` su `4200`, backend esposto su `5000`
 - **`docker-compose.prod.yml`** - produzione: aggiunge `restart: always` e log rotation JSON per entrambi i servizi
 
 ## Sviluppo
@@ -22,6 +22,7 @@ Questo comando usa automaticamente `docker-compose.override.yml` e avvia:
 Note pratiche:
 
 - Al primo avvio il frontend esegue `npm ci` nel container, quindi puo' metterci un po'
+- Nel container frontend le richieste `/api/*` vengono proxate internamente a `http://backend:5000`
 - In sviluppo restano due container separati: uno per il frontend e uno per il backend
 
 ## Produzione
@@ -101,7 +102,7 @@ docker compose exec backend sh
 | | Dev (default) | Prod |
 |---|---|---|
 | Compose usata | `docker-compose.yml` + `docker-compose.override.yml` | `docker-compose.yml` + `docker-compose.prod.yml` |
-| Frontend | `ng serve` su `4200` | Nginx su `80` |
+| Frontend | `npm run start:docker` su `4200` | Nginx su `80` |
 | Backend | ASP.NET Core su `5000` | ASP.NET Core su `8080` |
 | Container | 2 | 2 |
 

@@ -36,7 +36,7 @@ public class ApiException : Exception
     /// Inizializza l'eccezione con messaggio e codice HTTP associato.
     /// </summary>
     /// <param name="message">Messaggio da esporre nel campo "detail" del Problem Details restituito al client.</param>
-    /// <param name="statusCode">Codice HTTP da usare nella risposta (es. 400, 404, 422).</param>
+    /// <param name="statusCode">Codice HTTP da usare nella risposta (es. 400, 404, 501).</param>
     public ApiException(string message, int statusCode)
         : base(message)
     {
