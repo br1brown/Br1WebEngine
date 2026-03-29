@@ -63,6 +63,78 @@ Il target e' partire da una base gia' pronta e sostituire contenuti, pagine ed e
 
 Le API protette stanno in [`backend/Controllers/ProtectedController.cs`](backend/Controllers/ProtectedController.cs) e diventano realmente utilizzabili solo quando configuri il JWT.
 
+### Tre controller, tre contesti di accesso
+
+- **BaseController** (`api/`) — sei **fuori**. Endpoint pubblici, richiedono solo API key.
+- **AuthController** (`api/auth`) — sei **in mezzo**. Punto di integrazione login: oggi risponde `valid = false`, con rate limiting dedicato (5 req/min per IP).
+- **ProtectedController** (`api/`) — sei **dentro**. Endpoint riservati agli utenti autenticati (API key + JWT).
+
+### Pipeline di sicurezza
+
+Ogni richiesta HTTP attraversa 6 strati in ordine. Tutto si registra con una sola chiamata (`AddTemplateSecurity`) in `Program.cs`:
+
+1. **Forwarded headers** — ricostruisce IP reale da `X-Forwarded-For` (solo se `BehindProxy = true`)
+2. **CORS** — whitelist origini; vuoto = accetta tutto. Sta prima del rate limiter per non consumare budget sui preflight
+3. **Rate limiting** — 100 req/min globale per IP + policy `login` a 5 req/min (fail fast)
+4. **Security headers** — CSP, X-Frame-Options, etc. aggiunti a ogni risposta
+5. **API Key** — header `X-Api-Key` obbligatorio; OPTIONS escluse per preflight CORS
+6. **JWT Bearer** — attivato solo se `Security.Token.SecretKey` e' valorizzata; valida il token e popola l'identita'
+
+```
+Richiesta HTTP
+  │
+  ▼
+[Forwarded Headers] → ricostruisce IP reale (solo se BehindProxy = true)
+  │
+  ▼
+[CORS] → gestisce preflight OPTIONS, filtra origini
+  │
+  ▼
+[Rate Limiting] → 429 se troppe richieste (fail fast)
+  │
+  ▼
+[Security Headers] → aggiunge CSP, X-Frame-Options, etc.
+  │
+  ▼
+[API Key Check] → 401 se manca o sbagliata
+  │
+  ▼
+[JWT Validation] → (solo se SecretKey configurata) popola identita'
+  │
+  ▼
+[Controller] → BaseController / AuthController / ProtectedController
+```
+
+### Eccezioni API strutturate
+
+I controller lanciano eccezioni custom (`NotFoundException`, `DecodingException`, `InvalidParametersException`), ognuna con il proprio status code. `ApiExceptionHandler` le intercetta e le converte in ProblemDetails (RFC 9457):
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Il profilo richiesto non esiste"
+}
+```
+
+### Persistenza e localizzazione ricorsiva
+
+`IContentStore` astrae l'accesso ai dati; l'implementazione attuale (`FileContentStore`) legge JSON da `backend/data/`. Il deserializzatore attraversa l'albero JSON e, per ogni oggetto le cui chiavi sono tutte codici lingua, risolve al valore della lingua richiesta (fallback: italiano). La localizzazione puo' stare a qualsiasi livello di profondita', mescolata con campi normali:
+
+```json
+{
+  "ragioneSociale": "Acme S.r.l.",
+  "descrizione": { "it": "Azienda italiana", "en": "Italian company" },
+  "sede": {
+    "via": { "it": "Via Roma 1", "en": "1 Rome Street" },
+    "cap": "20100"
+  }
+}
+```
+
+Con `lang=en`: `ragioneSociale = "Acme S.r.l."`, `descrizione = "Italian company"`, `sede.via = "1 Rome Street"`, `sede.cap = "20100"`.
+
 ## Quick start
 
 ### Docker dev
