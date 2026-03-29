@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-md theme-bg"
+<nav class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
      [attr.data-bs-theme]="theme.themeTone()"
      role="navigation" aria-label="Main navigation">
     <div class="container-fluid">
@@ -18,7 +18,7 @@
         </button>
 
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
-                @if (menuItems.length > 0) {
+            @if (menuItems.length > 0) {
             <ul class="navbar-nav">
                 @for (item of menuItems; track item.path) {
                 @if (item.children?.length) {
@@ -61,22 +61,22 @@
                     </summary>
                     <ul class="nav-disclosure-menu language-disclosure-menu theme-bg"
                         [attr.aria-label]="translate.t('selezionaLingua')">
-                    @for (lingua of languages(); track lingua) {
-                    <li>
-                        @if (lingua === translate.currentLang()) {
-                        <span class="nav-disclosure-link nav-current-link active language-disclosure-link"
-                              aria-current="true">
-                            {{ lingua | uppercase }}
-                        </span>
-                        } @else {
-                        <button type="button"
-                                class="nav-disclosure-link nav-disclosure-button language-disclosure-link"
-                                (click)="setLanguage(lingua)">
-                            {{ lingua | uppercase }}
-                        </button>
+                        @for (lingua of languages(); track lingua) {
+                        <li>
+                            @if (lingua === translate.currentLang()) {
+                            <span class="nav-disclosure-link nav-current-link active language-disclosure-link"
+                                  aria-current="true">
+                                {{ lingua | uppercase }}
+                            </span>
+                            } @else {
+                            <button type="button"
+                                    class="nav-disclosure-link nav-disclosure-button language-disclosure-link"
+                                    (click)="setLanguage(lingua)">
+                                {{ lingua | uppercase }}
+                            </button>
+                            }
+                        </li>
                         }
-                    </li>
-                    }
                     </ul>
                 </details>
             </div>
@@ -84,7 +84,9 @@
         </div>
     </div>
 </nav>
-
+@if (fixTop) {
+<div class="mt-5"></div>
+}
 <ng-template #linkItem let-item="item" let-class="class">
     @if (isExternalPath(item.path)) {
     <a [class]="class"

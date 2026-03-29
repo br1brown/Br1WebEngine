@@ -78,6 +78,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             description: 'Template di base che serve per fare vedere le funzionalità base',
             colorTema: '#131e24',
             showFooter: true,
+            fixedTopHeader: true,
             smoke: {
                 enable: true,
                 color: '#b5d9ff',

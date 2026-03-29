@@ -97,6 +97,8 @@ export interface SiteConfig {
     colorTema: string;
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
+    /** FIssare la navBar in alto */
+    fixedTopHeader?: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
     smoke: SmokeSettings;
 }
@@ -118,8 +120,10 @@ export interface SiteConfigInput {
     description: string;
     /** Colore tema principale usato dalla UI. */
     colorTema: string;
-    /** Consente di forzare la visibilita del footer. */
+    /** Visibilita del footer. */
     showFooter?: boolean;
+    /** FIssare la navBar in alto */
+    fixedTopHeader?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
     smoke?: SmokeSettingsInput;
 }
@@ -724,6 +728,7 @@ export function buildSite(
                         description: siteConfigurationInput.description,
                         colorTema: siteConfigurationInput.colorTema,
                         showFooter: siteConfigurationInput.showFooter ?? true,
+                        fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
                         smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) }
                     };
                 }

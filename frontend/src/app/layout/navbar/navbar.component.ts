@@ -30,6 +30,7 @@ export class NavbarComponent {
     readonly appName = ContestoSito.config.appName;
     readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
     readonly menuItems = ContestoSito.menuNav;
+    readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly languages = computed(() => this.translate.getAvailableLanguages());
     readonly menuOpen = signal(false);
     private readonly activeRouteOptions = {
