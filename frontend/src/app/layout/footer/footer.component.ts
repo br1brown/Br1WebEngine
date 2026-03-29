@@ -39,6 +39,7 @@ export class FooterComponent {
     private readonly translate = inject(TranslateService);
 
     private readonly profileState = resource({
+        request: () => this.translate.currentLang(),
         loader: () => this.api.getProfile()
     });
     readonly profile = computed<Profile | null>(() => this.profileState.value() ?? null);
