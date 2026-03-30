@@ -33,8 +33,13 @@ export class ErrorComponent {
     /** Path della home, letto dalle route tramite NavigationService. */
     readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
 
-    /** Codice errore HTTP, letto dalla route data tramite input binding. Predefinito: 404 */
-    readonly errorCode = input(404);
+    /** Codice errore HTTP, letto dalla route (param o data) tramite input binding. Predefinito: 404 */
+    readonly errorCode = input(404, {
+        transform: (v: string | number) => {
+            const n = Number(v);
+            return isNaN(n) ? 404 : n;
+        }
+    });
 
     /**
      * Titolo dell'errore: cerca la traduzione "errore{codice}Info".

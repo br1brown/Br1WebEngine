@@ -82,26 +82,25 @@ function toAngularRoute(page: InternalSitePage): Route {
  * Rotte di gestione errori (404, ecc.).
  */
 function buildErrorRoutes(): Routes {
-    const ERROR_CODES = [400, 401, 403, 404, 500, 503];
 
     return [
-        ...ERROR_CODES.map((code): Route => ({
-            path: `error/${code}`,
-            title: 'errore',
-            loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
-            data: { errorCode: code, showPanel: false }
-        })),
         {
-            path: 'error',
+            path: 'error/:errorCode',
             title: 'errore',
             loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
+            // 'showPanel' rimane statico nel data, 'errorCode' arriverà dal path
             data: { showPanel: false }
         },
         {
+            // Fallback se si naviga su /error senza codice
+            path: 'error',
+            redirectTo: 'error/500',
+            pathMatch: 'full'
+        },
+        {
+            // Qualsiasi rotta non trovata (404)
             path: '**',
-            title: 'errore',
-            loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
-            data: { errorCode: 404, showPanel: false }
+            redirectTo: 'error/404'
         }
     ];
 }
