@@ -29,7 +29,7 @@ Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dal
 - Un [colore hex](#gestione-del-tema) in configurazione genera contrasto testo WCAG 2.1, tono light/dark, variabili CSS e meta tag mobile
 - Due file di [traduzione per lingua](#sistema-di-traduzione-addon) (`basic` + `addon`): l'addon sovrascrive il template con un `Object.assign`, senza plugin
 - [`Security.Token.SecretKey`](#login-condizionale) valorizzata accende JWT, middleware, guard e interceptor; vuota, il sistema funziona senza, senza overhead
-- [`AddTemplateSecurity()`](#pipeline-di-sicurezza) registra in una riga API key, JWT condizionale, CORS, rate limiting, security headers e ProblemDetails
+- [`AddTemplateSecurity()`](#pipeline-di-sicurezza) registra in una riga schemi di autenticazione (API key + JWT condizionale), policy di autorizzazione, CORS, rate limiting, security headers e gestione errori ProblemDetails
 - Tre [controller astratti](#controller-e-ereditarieta) applicano `[Authorize]`, policy e dipendenze: il concreto aggiunge solo routing e logica
 - [`IContentStore`](#content-store) definisce il contratto di accesso ai dati; [sostituire l'implementazione](#sostituire-il-content-store) richiede una riga
 - [`PageBaseComponent`](#pagebasecomponent) inietta `translate`, `api`, `asset`, `notify` una volta; ogni pagina [estende e basta](#pagebasecomponent)
@@ -124,21 +124,30 @@ Tre controller astratti dell'engine abilitano automaticamente attributi di sicur
 |---|---|---|
 | `EngineBaseController` | `[ApiController]`, `[Authorize]` | `IContentStore` e `ILogger` pronti all'uso |
 | `EngineAuthController` | `[ApiController]`, `[Authorize]` | `AuthService` per generazione e validazione JWT |
-| `EngineProtectedController` | `[ApiController]`, `[Authorize(Policy = RequireLoginPolicy)]` | `ILogger` condiviso, accesso solo con JWT valido |
+| `EngineProtectedController` | `[ApiController]`, `[Authorize(Policy = RequireLoginPolicy)]` | `ILogger` condiviso, richiede API key + JWT con ruolo `Authenticated` |
 
 Il controller concreto (es. `BaseController`) estende la base e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze.
 
 #### Pipeline di sicurezza
-Registrata in `Program.cs` con `AddTemplateSecurity(...)`, attivata con `UseTemplateSecurity()`:
+La sicurezza si divide in due parti: **registrazione** (`AddTemplateSecurity`) e **pipeline HTTP** (`UseTemplateSecurity`).
 
-1. **Forwarded headers**: ricostruisce l'IP reale da `X-Forwarded-For` se `BehindProxy = true`
-2. **CORS**: gestisce origini consentite e preflight `OPTIONS`
-3. **Rate limiting**: `100 req/min` globali per IP, `5 req/min` su login
-4. **Security headers**: aggiunge gli header configurati a ogni risposta
-5. **API key**: richiede `X-Api-Key` dove previsto
-6. **JWT Bearer**: si attiva solo se `Security.Token.SecretKey` e' valorizzata
+**`AddTemplateSecurity()`** registra:
+- **Schema API key**: handler custom che valida `X-Api-Key` su ogni richiesta (tranne preflight OPTIONS). Le richieste OPTIONS vengono lasciate passare per non bloccare i preflight CORS del browser
+- **Schema JWT Bearer** (condizionale): registrato solo se `LoginEnabled = true`. Firma HMAC-SHA256, `ClockSkew = Zero`, issuer/audience non vincolati
+- **Policy `RequireLogin`**: richiede API key valida + JWT con ruolo `Authenticated`. Se `LoginEnabled = false`, il ruolo non puo' mai essere soddisfatto e `ProtectedController` resta inaccessibile
+- **CORS**: origini configurabili; header consentiti limitati a `Content-Type`, `Authorization`, `X-Api-Key`, `Accept-Language`
+- **Rate limiting**: `100 req/min` globali per IP, `5 req/min` su login (policy `login` applicata via `[EnableRateLimiting]`)
+- **Gestione errori**: `ApiExceptionHandler` normalizza le eccezioni in `ProblemDetails` RFC 9457
 
-Gli errori applicativi vengono normalizzati in `ProblemDetails` (RFC 9457) tramite `ApiExceptionHandler`.
+**`UseTemplateSecurity()`** applica i middleware in ordine:
+1. **Forwarded headers** (solo se `BehindProxy = true`): sovrascrive `RemoteIpAddress` con `X-Forwarded-For`, necessario perche' il rate limiter partiziona per IP
+2. **CORS**: prima del rate limiter, cosi' i preflight OPTIONS non consumano il budget
+3. **Rate limiter**: fail fast — se il client sta abusando, viene bloccato prima di arrivare ai controller
+4. **Security headers**: iniettati PRIMA di `_next()`, quindi presenti anche su risposte di errore (401, 500, ecc.). Include X-Frame-Options, CSP, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+5. **HSTS**: forza HTTPS
+6. **Exception handler + status code pages**: errori → ProblemDetails JSON
+
+Dopo `UseTemplateSecurity()`, `Program.cs` chiama `UseAuthentication()` e `UseAuthorization()` separatamente.
 
 #### Content store
 `IContentStore` definisce il contratto (`GetProfileAsync`, `GetSocialAsync`) senza sapere dove risiedano i dati. `SiteService` dipende solo dall'interfaccia e orchestra filtri social e localizzazione profilo senza conoscere il formato di persistenza.
