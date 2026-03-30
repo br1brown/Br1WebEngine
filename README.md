@@ -6,7 +6,7 @@ Br1WebEngine e' un template full-stack per siti content-driven e piccoli portali
 
 ---
 
-### Indice
+## Indice
 - [Cosa fa da solo](#cosa-fa-da-solo)
 - [Tech Stack](#tech-stack)
 - [Architettura del Progetto](#architettura-del-progetto)
@@ -18,7 +18,7 @@ Br1WebEngine e' un template full-stack per siti content-driven e piccoli portali
 
 ---
 
-### Cosa fa da solo
+## Cosa fa da solo
 
 Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dalla configurazione, non va scritta a mano.
 
@@ -50,7 +50,7 @@ Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dal
 - L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`, pronte per social sharing
 - [Accessibilita'](#accessibilita) integrata: skip-link WCAG 2.4.1, `prefers-reduced-motion`, `safe-area-inset` per notch, contrasto AA su testi secondari
 
-### Tech Stack
+## Tech Stack
 | Categoria | Tecnologia | Note |
 |---|---|---|
 | Backend | ASP.NET Core 9, C# | REST API, API key, JWT opzionale, ProblemDetails |
@@ -58,7 +58,7 @@ Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dal
 | Container | Docker, Docker Compose, Nginx | dev con hot reload, prod con frontend statico |
 | Tooling | Node 22+, npm 10+ | script meta, sitemap e icone |
 
-### Architettura del Progetto
+## Architettura del Progetto
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -84,7 +84,7 @@ Br1WebEngine e' costruito intorno a un principio: se una cosa puo' derivarsi dal
 └──────────────────────────────────────────────┘
 ```
 
-#### Struttura rapida
+### Struttura rapida
 ```text
 Br1WebEngine/
 |-- backend/
@@ -102,7 +102,9 @@ Br1WebEngine/
 
 ---
 
-### Dettagli Tecnici
+## Dettagli Tecnici
+
+### Backend
 
 #### API attuale
 | Metodo | Path | Auth | Note |
@@ -151,6 +153,8 @@ Il sistema JWT si accende in base a una sola condizione: `Security.Token.SecretK
 
 Se la chiave e' troppo corta per HMAC-SHA256, viene espansa tramite SHA-256. Il token frontend vive in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab).
 
+### Frontend
+
 #### DSL dichiarativa e builder
 Il sito si configura in `frontend/src/app/site.ts` attraverso una DSL a builder in tre fasi:
 
@@ -165,8 +169,13 @@ Ogni pagina ha un valore nell'enum `PageType`. L'enum e' l'identita' stabile: pa
 
 ```typescript
 export enum PageType {
-    Home, Social, PrivacyPolicy, CookiePolicy,
-    TermsOfService, LegalNotice, Impostazioni, GitHub
+    Home, 
+    PrivacyPolicy,
+    CookiePolicy,
+    TermsOfService,
+    LegalNotice,
+     ...
+    Impostazioni
 }
 ```
 
@@ -316,7 +325,7 @@ L'engine include supporto WCAG integrato nel CSS base:
 - **`safe-area-inset`**: navbar e footer si adattano ai dispositivi con notch (iPhone X+)
 - **Contrasto AA**: `text-body-secondary` forzato a `#595f66` per garantire rapporto di contrasto sufficiente
 
-#### Servizi e componenti inclusi
+### Servizi e componenti inclusi
 
 **Backend** (`Program.cs`):
 | Servizio | Lifetime | Ruolo |
@@ -354,9 +363,9 @@ L'engine include supporto WCAG integrato nel CSS base:
 
 ---
 
-### Configurazione
+## Configurazione
 
-#### Contenuti gestiti da file
+### Contenuti gestiti da file
 La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili senza ricompilare:
 
 - `backend/data/irl.json`: dati legali del sito
@@ -364,7 +373,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 - `frontend/src/assets/legal/`: privacy, cookie policy, termini di servizio e note legali
 - `frontend/src/assets/file/` e `frontend/src/assets/mapping.json`: file statici e mapping asset
 
-#### Backend (`appsettings.json`)
+### Backend (`appsettings.json`)
 | Chiave | Effetto |
 |---|---|
 | `Security.ApiKeys` | chiavi API accettate |
@@ -374,7 +383,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `Security.Token.ExpirationSeconds` | durata del token |
 | `Security.Headers` | header di sicurezza aggiunti alle risposte |
 
-#### Variabili runtime del container frontend
+### Variabili runtime del container frontend
 | Variabile | Effetto |
 |---|---|
 | `API_URL` | vuota = stesso host con proxy Nginx; valorizzata = backend remoto |
@@ -382,7 +391,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 
 Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
-#### Script di utilita'
+### Script di utilita'
 - `npm run generate:site-meta`: genera i meta tag del sito
 - `npm run generate:sitemap`: genera la sitemap a partire dalle rotte
 - `npm run generate:icons`: rigenera le icone PWA da `favicon.png`
@@ -390,38 +399,38 @@ Se frontend e backend girano su host separati, allineare anche `Security__CorsOr
 
 ---
 
-### Operazioni Comuni
+## Operazioni Comuni
 
-#### Aggiungere una pagina
+### Aggiungere una pagina
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
 2. Crea il componente sotto `frontend/src/app/pages/` estendendo `PageBaseComponent`.
 3. Registra la pagina in `setSitePages(...)` con path, titolo e componente.
 4. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
 5. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
 
-#### Aggiungere un endpoint API
+### Aggiungere un endpoint API
 1. Scegli il controller giusto: `BaseController`, `AuthController` o `ProtectedController`.
 2. Crea la logica in `backend/Services/` o in un servizio dedicato.
 3. Se serve, estendi `FileContentStore` tramite `backend/Store/IContentStore.cs`.
 4. Esponi la chiamata lato frontend in `frontend/src/app/core/services/api.service.ts`.
 
-#### Abilitare il login
+### Abilitare il login
 1. Imposta `Security.Token.SecretKey` in `appsettings.json` o via env var.
 2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`.
 3. Emetti il token tramite `Auth.GenerateToken()`.
 
 ---
 
-### Estendere l'Engine
+## Estendere l'Engine
 
-#### Sostituire il content store
+### Sostituire il content store
 Crea una classe che implementa `IContentStore` e registrala in `Program.cs`:
 ```csharp
 builder.Services.AddSingleton<IContentStore, MyDatabaseStore>();
 ```
 Controller e servizi continuano a funzionare senza modifiche.
 
-#### Aggiungere un controller protetto
+### Aggiungere un controller protetto
 Estendi `EngineProtectedController`: erediti `[Authorize(Policy = RequireLoginPolicy)]` e `ILogger` senza configurare nulla.
 ```csharp
 [Route("api/admin")]
@@ -434,14 +443,14 @@ public class AdminController : EngineProtectedController
 }
 ```
 
-#### Aggiungere una lingua
+### Aggiungere una lingua
 1. Aggiungi il codice in `availableLanguages` dentro `site.ts`.
 2. Crea `basic.{lang}.json` e `addon.{lang}.json` in `frontend/src/assets/i18n/`.
 3. Aggiungi la `CultureInfo` corrispondente in `Program.cs` nell'array `supported`.
 4. Se i contenuti JSON in `backend/data/` hanno campi localizzati, aggiungi il ramo della nuova lingua.
 
-#### Cambiare il tema
+### Cambiare il tema
 Modifica `colorTema` in `site.ts`. Il `ThemeService` ricalcola automaticamente contrasto, tono, colore primario e variabili CSS.
 
-### Licenza
+## Licenza
 Questo progetto e' rilasciato sotto licenza MIT. Vedi [`LICENSE`](LICENSE).
