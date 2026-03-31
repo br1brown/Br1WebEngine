@@ -1,5 +1,7 @@
 # Br1WebEngine
 
+[![CI](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml)
+
 **Un'engine personale e moderna per costruire siti web, basata su ASP.NET Core 9 e Angular 19.**
 
 Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: si usa direttamente cosi' com'e', oppure come base da cui derivare progetti con nome e identita' propri. L'idea e' avere una struttura gia' pronta in cui il frontend centralizza rotte, menu, sitemap e meta tag, mentre il backend espone API, contenuti localizzati e una pipeline di sicurezza gia' cablata.
