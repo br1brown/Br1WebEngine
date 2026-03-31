@@ -26,6 +26,9 @@ yarn-error.log*
 *.log
 *.tmp
 
+# Docker environment (contiene segreti — .env.example è nel repo)
+.env
+
 # OS generated files
 .DS_Store
 .DS_Store?

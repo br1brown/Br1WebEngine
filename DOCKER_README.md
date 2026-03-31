@@ -2,11 +2,70 @@
 
 Guida operativa per eseguire Br1WebEngine con Docker. Per architettura completa, DSL frontend e personalizzazione del progetto, vedi anche [README.md](README.md).
 
+## Modello di utilizzo
+
+Il template Docker e' progettato per essere **riusabile su piu' progetti sulla stessa VPS**. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio file `.env` e una propria porta.
+
+### Inizializzazione (una sola volta dopo la clonazione)
+
+```bash
+./init-project.sh mio-progetto
+```
+
+Rinomina tutti i riferimenti interni al template (`package.json`, `angular.json`, `.csproj`, Dockerfile, README) e crea il file `.env` con `PROJECT_NAME` gia' impostato.
+
+### Avvio di un progetto derivato
+
+```bash
+# Se non hai gia' eseguito init-project.sh:
+cp .env.example .env
+# Modificare .env: impostare almeno PROJECT_NAME e FRONTEND_PORT
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+### Esposizione dei servizi
+
+- Ogni progetto espone il frontend su una porta host dedicata (es. `http://IP:3000`, `http://IP:3001`)
+- Il backend puo' essere esposto aggiungendo `docker-compose.backend-exposed.yml`
+- Frontend e backend comunicano sempre tramite rete Docker interna
+
+### Scelta architetturale: niente sottopath
+
+> Il template espone ogni progetto su una porta dedicata e non usa sottopath del tipo `/nome-progetto`.
+> Questa scelta evita di dover adattare il frontend per supportare base path custom (routing Angular, asset statici, base href).
+> In futuro, se necessario, i servizi potranno essere pubblicati tramite subdomain o tunnel, mantenendo invariata la struttura dell'applicazione.
+
+### Esempio: due progetti sulla stessa VPS
+
+```text
+/home/deploy/progetto-a/.env   →  PROJECT_NAME=progetto-a  FRONTEND_PORT=3000
+/home/deploy/progetto-b/.env   →  PROJECT_NAME=progetto-b  FRONTEND_PORT=3001
+```
+
+Risultato:
+- `http://IP:3000` → progetto-a
+- `http://IP:3001` → progetto-b
+- Volumi separati: `progetto-a-app-data`, `progetto-b-app-data`
+- Nessun conflitto di container (nomi gestiti automaticamente da Docker Compose)
+
 ## File Compose
 
-- **`docker-compose.yml`** - base comune: definizione dei servizi, build, rete condivisa e volume `app-data`
-- **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente da Docker Compose, frontend con `npm run start:docker` su `4200`, backend esposto su `5000`
-- **`docker-compose.prod.yml`** - produzione: aggiunge `restart: always` e log rotation JSON per entrambi i servizi
+- **`docker-compose.yml`** - base riusabile: servizi, build, rete, volumi con nome derivato da `PROJECT_NAME`
+- **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente, frontend con `npm run start:docker`, backend su porta dev
+- **`docker-compose.prod.yml`** - produzione: `restart: always` e log rotation JSON
+- **`docker-compose.backend-exposed.yml`** - opzionale: espone il backend verso l'host su `BACKEND_PORT`
+
+## Variabili `.env`
+
+| Variabile | Obbligatoria | Default | Descrizione |
+|---|---|---|---|
+| `PROJECT_NAME` | si | — | Identifica il progetto, usato per i volumi |
+| `FRONTEND_PORT` | si | — | Porta host del frontend in produzione |
+| `BACKEND_PORT` | no | vuoto | Porta host del backend (vuoto = solo rete interna) |
+| `API_KEY` | no | `frontend` | API key iniettata nel frontend a runtime |
+| `API_URL` | no | vuoto | Vuoto = proxy Nginx; valorizzato = backend remoto |
+| `DEV_FRONTEND_PORT` | no | `4200` | Porta frontend in sviluppo |
+| `DEV_BACKEND_PORT` | no | `5000` | Porta backend in sviluppo |
 
 ## Sviluppo
 
@@ -16,27 +75,42 @@ docker compose up --build
 
 Questo comando usa automaticamente `docker-compose.override.yml` e avvia:
 
-- **Frontend** su `http://localhost:4200`
-- **Backend** su `http://localhost:5000`
+- **Frontend** su `http://localhost:4200` (o `DEV_FRONTEND_PORT`)
+- **Backend** su `http://localhost:5000` (o `DEV_BACKEND_PORT`)
 
 Note pratiche:
 
 - Al primo avvio il frontend esegue `npm ci` nel container, quindi puo' metterci un po'
-- Nel container frontend le richieste `/api/*` vengono proxate internamente a `http://backend:5000`
+- Nel container frontend le richieste `/api/*` vengono proxate internamente al backend
 - In sviluppo restano due container separati: uno per il frontend e uno per il backend
 
 ## Produzione
 
 ```bash
+cp .env.example .env
+# Modificare .env
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-In produzione restano comunque due container:
+In produzione:
 
-- **Frontend** su `http://localhost:80`
-- **Backend** su `http://localhost:8080`
+- **Frontend** su `http://localhost:FRONTEND_PORT`
+- **Backend** solo interno (per esporlo, aggiungere `docker-compose.backend-exposed.yml`)
 
 Il frontend serve i file statici con Nginx e proxya `/api/*` al backend sulla rete Docker interna.
+
+### Esporre il backend
+
+Per rendere il backend raggiungibile dall'esterno, impostare `BACKEND_PORT` in `.env` e aggiungere il file dedicato:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.backend-exposed.yml up -d --build
+```
+
+### Controlli all'avvio
+
+- Se `PROJECT_NAME` o `FRONTEND_PORT` mancano nel `.env`, Docker Compose fallisce con errore esplicito
+- Se `PROJECT_NAME` contiene ancora il placeholder `CHANGE_ME`, il frontend si ferma con errore
 
 ## Host separati
 
@@ -56,22 +130,6 @@ In questo scenario:
 - `API_KEY` puo' essere sovrascritta via variabile d'ambiente
 - il backend deve avere `Security__CorsOrigins` configurato per il dominio del frontend
 
-## Variabili utili
-
-- **`API_URL`** - vuota = Nginx proxya verso il backend locale; valorizzata = il frontend chiama un backend remoto
-- **`API_KEY`** - chiave API che il frontend inietta nei file buildati a runtime; default `frontend`
-- **`Security__...`** - le impostazioni backend in `appsettings.json` possono essere sovrascritte via environment variables Docker
-
-Esempio:
-
-```yaml
-environment:
-  - API_KEY=una-chiave-robusta
-  - Security__ApiKeys__0=una-chiave-robusta
-  - Security__Token__SecretKey=min-32-caratteri-segreto
-  - Security__CorsOrigins__0=https://tuodominio.it
-```
-
 ## Comandi utili
 
 ```bash
@@ -81,7 +139,7 @@ docker compose up --build -d
 # Ferma i servizi
 docker compose down
 
-# Ferma e rimuove anche i volumi
+# Ferma e rimuovi anche i volumi
 docker compose down -v
 
 # Logs frontend
@@ -101,10 +159,12 @@ docker compose exec backend sh
 
 | | Dev (default) | Prod |
 |---|---|---|
-| Compose usata | `docker-compose.yml` + `docker-compose.override.yml` | `docker-compose.yml` + `docker-compose.prod.yml` |
-| Frontend | `npm run start:docker` su `4200` | Nginx su `80` |
-| Backend | ASP.NET Core su `5000` | ASP.NET Core su `8080` |
+| Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` + `prod` |
+| Frontend | `npm run start:docker` su `DEV_FRONTEND_PORT` | Nginx su `FRONTEND_PORT` |
+| Backend | ASP.NET Core su `DEV_BACKEND_PORT` | ASP.NET Core su `8080` (interno) |
 | Container | 2 | 2 |
+| Nomi container | generati da Compose | generati da Compose |
+| Volumi | `PROJECT_NAME-app-data` | `PROJECT_NAME-app-data` |
 
 ## Nota pratica
 

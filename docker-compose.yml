@@ -3,7 +3,7 @@
 #
 # STESSO HOST:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
-#   → Frontend su porta 80, Nginx proxya /api/* al backend internamente.
+#   → Frontend su porta FRONTEND_PORT, Nginx proxya /api/* al backend internamente.
 #
 # HOST SEPARATI:
 #   Sul server del backend (cliente):
@@ -11,6 +11,10 @@
 #   Sul server del frontend (tuo):
 #     API_URL=https://api.cliente.it docker-compose up frontend
 #   → Il frontend chiama il backend remoto direttamente (configurare CORS).
+#
+# VARIABILI OBBLIGATORIE (da .env):
+#   PROJECT_NAME    — identifica il progetto (usato per volumi e namespace)
+#   FRONTEND_PORT   — porta host del frontend
 # =============================================================================
 
 services:
@@ -18,15 +22,17 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: br1-frontend
     environment:
+      PROJECT_NAME: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}
       # Vuoto = Nginx proxya /api/* al backend (stesso host).
       # Valorizzato = il browser chiama direttamente il backend remoto.
-      - API_URL=${API_URL:-}
-      - API_KEY=${API_KEY:-frontend}
+      API_URL: ${API_URL:-}
+      API_KEY: ${API_KEY:-frontend}
+    ports:
+      - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:80"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
         required: false
     restart: unless-stopped
     networks:
@@ -36,15 +42,23 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: br1-backend
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      PROJECT_NAME: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}
+      ASPNETCORE_ENVIRONMENT: Production
       # Segreti — sovrascrivono appsettings.json via configuration binding .NET
       # Decommentare e valorizzare in produzione:
-      # - Security__ApiKeys__0=frontend
-      # - Security__Token__Password=CAMBIAMI
-      # - Security__Token__SecretKey=CAMBIAMI_MIN_32_CHARS
-      # - Security__CorsOrigins__0=https://miosito.it
+      # Security__ApiKeys__0: frontend
+      # Security__Token__Password: CAMBIAMI
+      # Security__Token__SecretKey: CAMBIAMI_MIN_32_CHARS
+      # Security__CorsOrigins__0: https://miosito.it
+    # Backend non esposto di default (raggiungibile solo via rete Docker).
+    # Per esporlo: usare docker-compose.backend-exposed.yml
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     volumes:
       - app-data:/app/data
     restart: unless-stopped
@@ -57,4 +71,5 @@ networks:
 
 volumes:
   app-data:
+    name: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}-app-data
     driver: local
