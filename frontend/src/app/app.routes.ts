@@ -71,7 +71,8 @@ function toAngularRoute(page: InternalSitePage): Route {
         route.data = {
             ...route.data,
             pageType: page.pageType,
-            showPanel: page.showPanel !== undefined ? page.showPanel : true
+            showPanel: page.showPanel !== undefined ? page.showPanel : true,
+            renderMode: 'client' // futuro: page.renderMode
         };
     }
 

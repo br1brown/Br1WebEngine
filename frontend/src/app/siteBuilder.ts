@@ -157,6 +157,14 @@ type BasePageInput = {
 export type SitePageKind = 'parent' | 'leaf' | 'external';
 
 /**
+ * Strategia di rendering dichiarativa associabile a una pagina interna.
+ *
+ * È solo metadato di configurazione: il builder lo conserva e lo espone,
+ * mentre l'eventuale integrazione Angular SSR/prerender potrà usarlo in futuro.
+ */
+export type SiteRenderMode = 'client' | 'prerender' | 'server';
+
+/**
  * Pagina contenitore dichiarabile in `site.ts`.
  *
  * Non rappresenta una route finale renderizzabile, ma un nodo
@@ -186,6 +194,8 @@ export type ParentPageInput = BasePageInput & {
     externalUrl?: never;
     /** Non consentito per una pagina contenitore. */
     showPanel?: never;
+    /** Non consentito per una pagina contenitore. */
+    renderMode?: never;
 };
 
 /**
@@ -214,6 +224,8 @@ export type LeafPageInput = BasePageInput & {
     children?: never;
     /** Consente di mostrare o nascondere il pannello associato. */
     showPanel?: boolean;
+    /** Metadato dichiarativo per la futura strategia di rendering della pagina. */
+    //renderMode?: SiteRenderMode;
     /** Non consentito per una pagina interna. */
     externalUrl?: never;
 };
@@ -253,6 +265,8 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     children?: never;
     /** Non consentito per una pagina esterna. */
     showPanel?: never;
+    /** Non consentito per una pagina esterna. */
+    renderMode?: never;
 };
 
 /**
