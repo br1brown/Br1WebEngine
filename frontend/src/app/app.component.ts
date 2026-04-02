@@ -1,6 +1,7 @@
-import { Component, computed, inject } from '@angular/core';
-import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet, RouterStateSnapshot } from '@angular/router';
+import { Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { Meta, Title } from '@angular/platform-browser';
+import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet, RouterStateSnapshot } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
@@ -9,8 +10,8 @@ import { TranslateService } from './core/services/translate.service';
 import { FooterComponent } from './layout/footer/footer.component';
 import { NavbarComponent } from './layout/navbar/navbar.component';
 import { SmokeEffectComponent } from './layout/smoke-effect/smoke-effect.component';
-import { CookieBannerComponent } from './shared/components/cookie-banner/cookie-banner.component';
 import { BackToTopComponent } from './shared/components/back-to-top/back-to-top.component';
+import { CookieBannerComponent } from './shared/components/cookie-banner/cookie-banner.component';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 
 /**
@@ -27,6 +28,8 @@ import { TranslatePipe } from './shared/pipes/translate.pipe';
     styleUrl: './app.component.css'
 })
 export class AppComponent {
+    private readonly meta = inject(Meta);
+    private readonly title = inject(Title);
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
     readonly theme = inject(ThemeService);
@@ -39,24 +42,71 @@ export class AppComponent {
     readonly showNavbar = computed(() =>
         this.menuItems.length > 0 || this.translate.getAvailableLanguages().length > 1
     );
-    // Ogni pagina puo' decidere se mostrare il pannello globale passando `showPanel`
-    // dentro `route.data` quando la route viene costruita.
-    readonly showPanel = computed(() => {
-        const value: boolean = this.routeData()['showPanel'] ?? true;
-        return value;
-    });
 
-    // Espone i `data` della route corrente come signal, cosi' il layout globale
-    // puo' reagire ai flag custom definiti per ogni pagina.
-    private readonly routeData = toSignal(
+    // Espone la route foglia corrente come signal, cosi' il layout globale
+    // puo' reagire ai flag custom e ai meta della pagina attiva.
+    private readonly currentRoute = toSignal(
         this.router.events.pipe(
             filter(e => e instanceof NavigationEnd),
             // Si scende sempre fino alla foglia: i parent annidati servono a organizzare
             // l'URL, ma la pagina "vera" e' l'ultimo nodo.
-            map(() => getLeaf(this.router.routerState.snapshot).data)
+            map(() => getLeaf(this.router.routerState.snapshot))
         ),
-        { initialValue: getLeaf(this.router.routerState.snapshot).data }
+        { initialValue: getLeaf(this.router.routerState.snapshot) }
     );
+
+    // Ogni pagina puo' decidere se mostrare il pannello globale passando `showPanel`
+    // dentro `route.data` quando la route viene costruita.
+    readonly showPanel = computed(() => {
+        const value: boolean = this.currentRoute().data['showPanel'] ?? true;
+        return value;
+    });
+
+    constructor() {
+        effect(() => {
+            const route = this.currentRoute();
+
+            // Le descrizioni di pagina possono dipendere dalla lingua corrente
+            // senza che ci sia una nuova navigazione.
+            this.translate.currentLang();
+
+            const titleKey = route.routeConfig?.title;
+            const descriptionKey = route.data['pageDescription'];
+            this.updateDocumentTitle(typeof titleKey === 'string' ? titleKey : null);
+            const description = this.resolvePageDescription(descriptionKey);
+            this.updateSocialMeta(description);
+        });
+    }
+
+    private updateDocumentTitle(titleKey: string | null): void {
+        if (!titleKey) {
+            this.title.setTitle(ContestoSito.config.appName);
+            return;
+        }
+
+        const pageTitle = this.translate.t(titleKey).trim();
+        if (!pageTitle || pageTitle === ContestoSito.config.appName) {
+            this.title.setTitle(ContestoSito.config.appName);
+            return;
+        }
+
+        this.title.setTitle(`${pageTitle} | ${ContestoSito.config.appName}`);
+    }
+
+    private resolvePageDescription(descriptionKey: unknown): string {
+        if (typeof descriptionKey !== 'string' || descriptionKey.trim().length === 0) {
+            return ContestoSito.config.description;
+        }
+
+        const description = this.translate.t(descriptionKey).trim();
+        return description || ContestoSito.config.description;
+    }
+
+    private updateSocialMeta(description: string): void {
+        this.meta.updateTag({ name: 'description', content: description });
+        this.meta.updateTag({ property: 'og:description', content: description });
+        this.meta.updateTag({ name: 'twitter:description', content: description });
+    }
 }
 
 // Helper condiviso per trovare sempre la route finale, sia partendo dallo snapshot

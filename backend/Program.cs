@@ -41,6 +41,11 @@ if (security.LoginEnabled)
 
 builder.Services
     .AddControllers()
+    .ConfigureApplicationPartManager(manager =>
+    {
+        manager.FeatureProviders.Add(
+            new TemplateControllerFeatureProvider(security.LoginEnabled));
+    })
     .AddJsonOptions(options =>
     {
         // Campi null vengono omessi dal JSON (risposte piu' leggere).

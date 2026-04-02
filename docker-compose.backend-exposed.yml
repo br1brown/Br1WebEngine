@@ -1,6 +1,6 @@
-# Espone il backend verso l'host — da usare solo se necessario.
+# Espone il backend verso l'host - da usare solo se necessario.
 # Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.backend-exposed.yml up -d --build
 services:
   backend:
     ports:
-      - "${BACKEND_PORT:?ERRORE: impostare BACKEND_PORT nel file .env}:8080"
+      - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"

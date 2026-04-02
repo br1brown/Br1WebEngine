@@ -62,9 +62,11 @@ export class ThemeService {
             const color = this.colorTema();
             const themeTone = this.themeTone();
             const root = this.doc.documentElement;
-            root.style.setProperty('--colorTema', color);
-            root.dataset['themeTone'] = themeTone;
-            root.setAttribute('data-bs-theme', themeTone);
+            if (root) {
+                root.style?.setProperty('--colorTema', color);
+                root.setAttribute('data-theme-tone', themeTone);
+                root.setAttribute('data-bs-theme', themeTone);
+            }
 
             const body = this.doc.body;
             if (body) {

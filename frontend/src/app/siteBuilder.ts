@@ -224,8 +224,14 @@ export type LeafPageInput = BasePageInput & {
     children?: never;
     /** Consente di mostrare o nascondere il pannello associato. */
     showPanel?: boolean;
-    /** Metadato dichiarativo per la futura strategia di rendering della pagina. */
-    //renderMode?: SiteRenderMode;
+    /** Strategia di rendering dichiarativa della pagina. Default: `client`. */
+    renderMode?: SiteRenderMode;
+    /**
+     * Descrizione della pagina per social sharing (og:description, twitter:description).
+     * Può essere una chiave i18n o una stringa letterale.
+     * Se omessa, viene usata la descrizione globale del sito come fallback.
+     */
+    description?: string;
     /** Non consentito per una pagina interna. */
     externalUrl?: never;
 };
@@ -566,6 +572,13 @@ export interface SiteBuilder {
     ) => void;
 }
 
+export type ServerRenderEntry = {
+    /** Path completo normalizzato della pagina interna foglia. */
+    path: string;
+    /** Strategia di rendering finale da esporre al layer server. */
+    renderMode: SiteRenderMode;
+};
+
 export interface BuiltSite {
     /** Configurazione finale del sito, gia normalizzata. */
     config: SiteConfig;
@@ -575,6 +588,8 @@ export interface BuiltSite {
     menuNav: NavLink[];
     /** Navigazione finale del footer. */
     linkFooter: NavLink[];
+    /** Piano di rendering server-only derivato dalle pagine foglia interne valide. */
+    serverRenderEntries: ServerRenderEntry[];
     /**
      * Restituisce il path associato a un `PageType`.
      * @param type Tipo pagina da risolvere.
@@ -799,6 +814,8 @@ export function buildSite(
      * Questa mappa viene popolata durante l'elaborazione dell'albero pagine.
      */
     const pageMap = new Map<PageType, { label: string; path: string }>();
+    const seenInternalPaths = new Set<string>();
+    const serverRenderEntries: ServerRenderEntry[] = [];
 
     /**
      * Percorre ricorsivamente l'albero delle pagine e costruisce:
@@ -860,9 +877,20 @@ export function buildSite(
              * Se arriviamo qui, siamo su una pagina foglia interna.
              * La registriamo nella mappa e la aggiungiamo alla sitemap.
              */
+            if (seenInternalPaths.has(fullPath)) {
+                throw new Error(
+                    `[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".`
+                );
+            }
+
+            seenInternalPaths.add(fullPath);
             pageMap.set(page.pageType, {
                 label: page.title,
                 path: fullPath
+            });
+            serverRenderEntries.push({
+                path: fullPath,
+                renderMode: page.renderMode ?? 'client'
             });
 
             return [fullPath];
@@ -948,6 +976,11 @@ export function buildSite(
          * Navigazione footer risolta.
          */
         linkFooter: resolveNavigation(rawFooter),
+
+        /**
+         * Collezione server-only dei path foglia validi con il rispettivo render mode.
+         */
+        serverRenderEntries,
 
         /**
          * Restituisce il path associato a un PageType,

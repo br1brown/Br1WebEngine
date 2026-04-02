@@ -20,12 +20,11 @@ const authGuard: CanActivateFn = () => {
     if (authService.isLoggedIn()) {
         return true;
     }
-    var cod = 401 // o 403
+    const codErrGuard: number = 401 // o 403
 
-    notifaction.error(t.t("errore" + cod + "Info"),t.t("errore" + cod + "Desc"))
-    // Se l'utente non è loggato, reindirizza alla 401 (un domani alla pagina di login)
-    return router.createUrlTree(['/error/' + 401]);
-    //return router.navigateByUrl(Contesto.getPath(PageType.Login)?? '/');
+    notifaction.error(t.t("errore" + codErrGuard + "Info"), t.t("errore" + codErrGuard + "Desc"))
+    return router.createUrlTree(['/error/' + codErrGuard]);
+    //return router.navigateByUrl(Contesto.getPath(PageType.Login)?? Contesto.getPath(PageType.HOme));
 };
 
 /**
@@ -72,7 +71,7 @@ function toAngularRoute(page: InternalSitePage): Route {
             ...route.data,
             pageType: page.pageType,
             showPanel: page.showPanel !== undefined ? page.showPanel : true,
-            renderMode: 'client' // futuro: page.renderMode
+            pageDescription: page.description ?? null,
         };
     }
 

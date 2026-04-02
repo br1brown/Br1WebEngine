@@ -1,10 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-
 import { PageType } from '../../app.routes';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
+import { ContestoSito } from '../../site';
 
 /**
  * Componente riusabile per tutte le pagine legali.
@@ -12,9 +12,8 @@ import { PageBaseComponent } from '../page-base.component';
  * Il tipo di pagina viene determinato dai dati della route.
  * Con withComponentInputBinding() il valore arriva direttamente come input del componente.
  *
- * Il contenuto legale e' in file Markdown dedicati in assets/legal/,
- * separati dal codice e dal sistema i18n. Questo permette di versionarli
- * e farli revisionare a un legale senza toccare il codice sorgente.
+ * Il contenuto legale e' in file Markdown dedicati in assets/legal/.
+ * Il componente sceglie il file corretto a runtime in base a PageType e lingua.
  */
 @Component({
     selector: 'app-policy',
@@ -35,30 +34,25 @@ export class PolicyComponent extends PageBaseComponent implements OnInit {
 
     private async loadContent(lang: string, pageType: PageType): Promise<void> {
         const fileName = this.getFileName(pageType);
-        if (!fileName) return;
-
-        const path = `/assets/legal/${fileName}.${lang}.md`;
-
-        try {
-            const text = await firstValueFrom(this.http.get(path, { responseType: 'text' }));
-            this.content.set(text);
-        } catch {
-            if (lang !== 'it') {
-                const fallback = `/assets/legal/${fileName}.it.md`;
-                try {
-                    const text = await firstValueFrom(this.http.get(fallback, { responseType: 'text' }));
-                    this.content.set(text);
-                } catch {
-                    this.content.set('');
-                }
-            } else {
-                this.content.set('');
-            }
+        if (!fileName) {
+            this.content.set('');
+            return;
         }
+
+        const defaultLang = ContestoSito.config.defaultLang;
+
+        const text =
+            await this.tryLoadFile(`/assets/legal/${fileName}.${lang}.md`) ??
+            (lang !== defaultLang
+                ? await this.tryLoadFile(`/assets/legal/${fileName}.${defaultLang}.md`)
+                : null) ??
+            '';
+
+        this.content.set(text);
     }
 
     /**
-     * Mappa l'enum PageType alle vecchie stringhe usate per i file assets.
+     * Mappa l'enum PageType ai nomi base dei file Markdown in assets/legal.
      */
     private getFileName(pageType: PageType): string {
         switch (pageType) {
@@ -67,6 +61,14 @@ export class PolicyComponent extends PageBaseComponent implements OnInit {
             case PageType.TermsOfService: return 'TOS';
             case PageType.LegalNotice: return 'legal';
             default: return '';
+        }
+    }
+
+    private async tryLoadFile(path: string): Promise<string | null> {
+        try {
+            return await firstValueFrom(this.http.get(path, { responseType: 'text' }));
+        } catch {
+            return null;
         }
     }
 }

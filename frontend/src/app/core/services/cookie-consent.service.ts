@@ -21,6 +21,8 @@ export class CookieConsentService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private readonly consentKey = 'cookie-consent-accepted';
     private readonly consentLogKey = 'cookie-consent-log';
+    private readonly languagePreferenceKey = 'lang';
+    private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365;
 
     /** true se il banner è necessario — logica centralizzata in app.config.ts */
     readonly isNeeded = CookieConsentService.requiresCookieConsent();
@@ -95,6 +97,21 @@ export class CookieConsentService {
     removeCookie(key: string): void {
         if (!this.isBrowser) return;
         this.document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax`;
+    }
+
+    /** Restituisce la lingua salvata nel cookie di preferenza, se presente. */
+    getSavedLanguage(): string | null {
+        return this.getCookie(this.languagePreferenceKey);
+    }
+
+    /** Salva la lingua preferita nel cookie dedicato. */
+    setSavedLanguage(language: string): void {
+        this.setCookie(this.languagePreferenceKey, language, this.languagePreferenceMaxAgeSeconds);
+    }
+
+    /** Rimuove il cookie della lingua preferita. */
+    clearSavedLanguage(): void {
+        this.removeCookie(this.languagePreferenceKey);
     }
 
     /**

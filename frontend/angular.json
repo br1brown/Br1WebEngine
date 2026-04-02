@@ -16,7 +16,12 @@
             "outputPath": "dist/br1-web-engine",
             "index": "src/index.html",
             "browser": "src/main.ts",
+            "server": "src/main.server.ts",
             "tsConfig": "tsconfig.json",
+            "ssr": {
+              "entry": "server.ts"
+            },
+            "outputMode": "server",
             "assets": [
               {
                 "glob": "**/*",

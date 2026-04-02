@@ -1,20 +1,21 @@
 # =============================================================================
-# Docker Compose — Frontend (Nginx) + Backend (.NET) come servizi separati.
+# Docker Compose - Frontend SSR Node + Backend (.NET) come servizi separati.
 #
 # STESSO HOST:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
-#   → Frontend su porta FRONTEND_PORT, Nginx proxya /api/* al backend internamente.
+#   -> Frontend Node SSR su FRONTEND_PORT, proxy /api interno verso il backend.
 #
 # HOST SEPARATI:
 #   Sul server del backend (cliente):
-#     docker-compose up backend
+#     docker compose up backend
 #   Sul server del frontend (tuo):
-#     API_URL=https://api.cliente.it docker-compose up frontend
-#   → Il frontend chiama il backend remoto direttamente (configurare CORS).
+#     API_URL=https://api.cliente.it docker compose up frontend
+#   -> Il frontend SSR chiama il backend remoto direttamente (configurare CORS).
 #
 # VARIABILI OBBLIGATORIE (da .env):
-#   PROJECT_NAME    — identifica il progetto (usato per volumi e namespace)
-#   FRONTEND_PORT   — porta host del frontend
+#   PROJECT_NAME  - identifica il progetto (usato per volumi e namespace)
+#   FRONTEND_PORT - porta del frontend, uguale lato host e container
+#   BACKEND_PORT  - porta del backend, uguale lato host e container se esposto
 # =============================================================================
 
 services:
@@ -22,14 +23,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        SITEMAP_BASE_URL: "${SITEMAP_BASE_URL:-}"
     environment:
-      PROJECT_NAME: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}
-      # Vuoto = Nginx proxya /api/* al backend (stesso host).
+      PROJECT_NAME: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}"
+      PORT: "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
+      BACKEND_PORT: "${BACKEND_PORT:-8080}"
+      # Vuoto = Node SSR proxya /api/* al backend (stesso host).
       # Valorizzato = il browser chiama direttamente il backend remoto.
-      API_URL: ${API_URL:-}
-      API_KEY: ${API_KEY:-frontend}
+      API_URL: "${API_URL:-}"
+      API_KEY: "${API_KEY:-frontend}"
     ports:
-      - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:80"
+      - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
     depends_on:
       backend:
         condition: service_healthy
@@ -43,9 +48,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      PROJECT_NAME: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}
+      PROJECT_NAME: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}"
       ASPNETCORE_ENVIRONMENT: Production
-      # Segreti — sovrascrivono appsettings.json via configuration binding .NET
+      BACKEND_PORT: "${BACKEND_PORT:-8080}"
+      ASPNETCORE_URLS: "http://+:${BACKEND_PORT:-8080}"
+      # Segreti - sovrascrivono appsettings.json via configuration binding .NET
       # Decommentare e valorizzare in produzione:
       # Security__ApiKeys__0: frontend
       # Security__Token__Password: CAMBIAMI
@@ -54,7 +61,7 @@ services:
     # Backend non esposto di default (raggiungibile solo via rete Docker).
     # Per esporlo: usare docker-compose.backend-exposed.yml
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${BACKEND_PORT:-8080}/health"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -71,5 +78,5 @@ networks:
 
 volumes:
   app-data:
-    name: ${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}-app-data
+    name: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}-app-data"
     driver: local

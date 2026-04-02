@@ -136,6 +136,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     {
                         path: 'privacy',
                         title: 'privacypolicy',
+                        description: 'privacyPolicyDesc',
                         enabled: true,
                         pageType: PageType.PrivacyPolicy,
                         component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
@@ -143,6 +144,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     {
                         path: 'termini',
                         title: 'termsofservice',
+                        description: 'termsOfServiceDesc',
                         enabled: true,
                         pageType: PageType.TermsOfService,
                         component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
@@ -150,6 +152,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     {
                         path: 'cookie',
                         title: 'cookiepolicy',
+                        description: 'cookiePolicyDesc',
                         enabled: true,
                         pageType: PageType.CookiePolicy,
                         component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
@@ -157,6 +160,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     {
                         path: 'legal',
                         title: 'legalnotice',
+                        description: 'legalNoticeDesc',
                         enabled: false,
                         pageType: PageType.LegalNotice,
                         component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),

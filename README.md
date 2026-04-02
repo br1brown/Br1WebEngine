@@ -59,6 +59,8 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - Ogni pagina sceglie il [proprio layout](#pannello-e-layout) con `showPanel: false` per andare a schermo intero
 - Le [pagine di errore](#pagine-di-errore) per `400`, `401`, `403`, `404`, `500`, `503` si generano da un array con `.map()`, messaggi inclusi via i18n
 - I [titoli pagina](#titoli-pagina) si compongono da soli: `AppTitleStrategy` traduce la chiave della route e formatta `"Pagina | NomeApp"`
+- Ogni pagina dichiara il proprio [`renderMode`](#ssr-e-prerender) (`client`, `prerender`, `server`) direttamente in `site.ts`: il piano di rendering SSR viene derivato automaticamente senza toccare la configurazione Angular
+- Ogni pagina puo' dichiarare una `description` in `site.ts` (chiave i18n o stringa letterale): il layout la legge da `route.data` e aggiorna automaticamente title e meta tag social a navigazione o cambio lingua, con fallback sulla descrizione globale del sito
 
 ### Tema, Stile e Accessibilita'
 
@@ -98,15 +100,15 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 | Categoria | Tecnologia | Note |
 |---|---|---|
 | Backend | ASP.NET Core 9, C# | REST API, API key, JWT opzionale, ProblemDetails |
-| Frontend | Angular 19, TypeScript, Bootstrap 5 | SPA/PWA, i18n, tema dinamico |
-| Container | Docker, Docker Compose, Nginx | template riusabile per multi-progetto, `.env`-driven |
+| Frontend | Angular 19, TypeScript, Bootstrap 5 | SPA/PWA, SSR, prerender, i18n, tema dinamico |
+| Container | Docker, Docker Compose, Node SSR | template riusabile per multi-progetto, `.env`-driven |
 | Tooling | Node 22+, npm 10+ | script meta, sitemap e icone |
 
 ## Architettura del Progetto
 
 ```
 ┌──────────────────────────────────────────────┐
-│  Frontend (Angular 19 + Nginx)               │
+│  Frontend (Angular 19)                       │
 │  porta 80                                    │
 │  ┌─────────────┐  ┌───────────────────────┐  │
 │  │ Static SPA  │  │ /api/* → proxy backend│  │
@@ -159,7 +161,7 @@ Il backend e' un'API ASP.NET Core 9 con sicurezza a piu' livelli (API key obblig
 |---|---|---|---|
 | `GET` | `/api/profile` | API key | profilo aziendale localizzato |
 | `GET` | `/api/social` | API key | filtro opzionale con `nomi` |
-| `POST` | `/api/auth/login` | API key | placeholder, nel template risponde `valid = false` |
+| `POST` | `/api/auth/login` | API key | placeholder, esposto solo quando il login JWT e' abilitato |
 | `GET` | `/health` | nessuna | health check |
 
 Le API protette stanno in `backend/Controllers/ProtectedController.cs` e diventano realmente utilizzabili solo quando configuri il JWT.
@@ -174,7 +176,7 @@ Tre controller astratti dell'engine abilitano automaticamente attributi di sicur
 | `EngineAuthController` | `[ApiController]`, `[Authorize]` | `AuthService` per generazione e validazione JWT |
 | `EngineProtectedController` | `[ApiController]`, `[Authorize(Policy = RequireLoginPolicy)]` | `ILogger` condiviso, richiede API key + JWT con ruolo `Authenticated` |
 
-Il controller concreto (es. `BaseController`) estende la base e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze.
+Il controller concreto estende la base giusta e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze. I controller che ereditano da `EngineAuthController` o `EngineProtectedController` vengono esposti solo quando il login JWT e' attivo.
 
 #### Pipeline di sicurezza
 La sicurezza si divide in due parti: **registrazione** (`AddTemplateSecurity`) e **pipeline HTTP** (`UseTemplateSecurity`).
@@ -205,8 +207,8 @@ L'implementazione attiva (`FileContentStore`) legge da `backend/data/` e include
 #### Login condizionale
 Il sistema JWT si accende in base a una sola condizione: `Security.Token.SecretKey` in `appsettings.json`.
 
-- **Chiave vuota** → `LoginEnabled = false`: nessun `AuthService` registrato, nessun middleware JWT, nessun overhead
-- **Chiave valorizzata** → `LoginEnabled = true`: `AuthService` singleton, middleware JWT attivo, rotte con `requiresAuth: true` protette da guard Angular
+- **Chiave vuota** -> `LoginEnabled = false`: nessun `AuthService` registrato, nessun middleware JWT, nessun overhead e nessun controller auth/protected esposto
+- **Chiave valorizzata** -> `LoginEnabled = true`: `AuthService` singleton, middleware JWT attivo, rotte con `requiresAuth: true` protette da guard Angular
 
 Se la chiave e' troppo corta per HMAC-SHA256, viene espansa tramite SHA-256. Il token frontend vive in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab).
 
@@ -276,6 +278,8 @@ Tutto reattivo via Angular signals.
 #### Sistema di traduzione addon
 Due file per lingua: `basic.{lang}.json` (template) e `addon.{lang}.json` (progetto). Caricati in parallelo, fusi con `Object.assign` — l'addon vince. Supporta placeholder posizionali: `t('saluto', 'Mario')` → `"Ciao Mario"`.
 
+I loader per ciascuna lingua sono registrati in `frontend/src/app/core/i18n/translation-catalogs.ts` come import statici. Questo garantisce che i file JSON vengano inclusi nel bundle a compile time, rendendo le traduzioni disponibili anche durante il prerender SSR senza richieste HTTP aggiuntive.
+
 La lingua si persiste in cookie (solo con consenso GDPR), si ripristina al reload e si propaga al backend tramite `Accept-Language`.
 
 #### PageBaseComponent
@@ -289,6 +293,8 @@ Ogni componente-pagina estende `PageBaseComponent`, che inietta una sola volta:
 | `NotificationService` | `this.notify.error(...)` |
 
 Il componente estende la base e implementa il template, senza ripetere `inject()`.
+
+I meta tag route-based non vivono nei componenti pagina: vengono sincronizzati centralmente dal layout leggendo `title` e `pageDescription` dalla route attiva. Questo evita boilerplate nei componenti e non richiede chiamate a `super.ngOnInit()`.
 
 #### Pannello e layout
 Il pannello centrale si mostra di default (`showPanel: true`). Per lo schermo intero basta `showPanel: false` nella definizione della pagina:
@@ -309,10 +315,10 @@ Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Lang
 `CookieConsentService` rileva se il consenso e' necessario (es. piu' lingue → preferenza da persistere). Se l'utente non ha accettato, le scritture su cookie vengono bloccate in silenzio. Lettura e cancellazione restano sempre consentite.
 
 #### Build e script
-`npm run build` lancia in automatico generazione di meta tag e sitemap. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie.
+`npm run build` lancia in automatico generazione di meta tag e sitemap. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
 
 #### Docker
-Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Per derivare un nuovo progetto dal template si usa `./init-project.sh nome-progetto`, che rinomina i riferimenti interni principali e prepara la configurazione iniziale. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript e verifica che i placeholder siano stati sostituiti. Asset hashati cachati un anno con `immutable`; service worker e manifest mai cachati.
+Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Per derivare un nuovo progetto dal template si usa `./init-project.sh nome-progetto`, che rinomina i riferimenti interni principali e prepara la configurazione iniziale. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. Il frontend gira su Node SSR: `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript, poi avvia `dist/.../server/server.mjs`. Quando `API_URL` e' vuoto, lo stesso server Node proxya `/api/*` verso il backend interno. Asset hashati cachati un anno con `immutable`; service worker e manifest non vengono cachati.
 
 #### Asset mapping
 `AssetService` carica `mapping.json` una volta, lo mette in cache con `shareReplay`, e risolve ID in path reali o URL esterni.
@@ -338,10 +344,21 @@ Piattaforme incluse: Facebook, Instagram, Twitter/X, LinkedIn, TikTok, YouTube, 
 #### Pagine legali
 Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: privacy, cookie policy, termini di servizio e note legali. Il contenuto viene caricato da file Markdown in `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Il `PageType` della route determina quale file caricare.
 
-Questo separa i contenuti legali dal codice: un legale puo' revisionare e aggiornare i testi senza aprire l'IDE ne' fare deploy.
+Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown.
 
 #### Titoli pagina
-`AppTitleStrategy` traduce automaticamente la chiave `title` della route nella lingua corrente e compone il titolo del browser nel formato `"Pagina | NomeApp"`. Se la chiave non esiste o coincide con il nome dell'app, mostra solo il nome dell'app.
+`AppTitleStrategy` traduce automaticamente la chiave `title` della route e compone il titolo del browser nel formato `"Pagina | NomeApp"`. Quando cambia lingua senza una nuova navigazione, il layout riallinea titolo e descrizione della pagina corrente mantenendo coerenti browser e meta tag social.
+
+#### SSR e Prerender
+Il motore include anche il wiring base per Angular SSR. Se non ti serve, puoi ignorarlo: il default pratico resta `client`. Ogni `LeafPage` in `site.ts` puo' opzionalmente specificare un campo `renderMode`:
+
+```typescript
+{ path: 'home', component: ..., renderMode: 'prerender' }  // HTML statico a build time
+{ path: 'profilo', component: ..., renderMode: 'server' }  // renderizzato a runtime lato server
+{ path: 'dashboard', component: ..., renderMode: 'client' } // default, solo browser
+```
+
+Le rotte non dichiarate esplicitamente restano `client`. In un progetto derivato, `server` o `prerender` vanno usati solo per pagine compatibili con quel modello di esecuzione.
 
 #### Sistema CSS con color-mix()
 Il `ThemeService` imposta una sola variabile CSS (`--colorTema`). Tutto il resto viene derivato dal browser via `color-mix()`:
@@ -426,10 +443,10 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 
 ## Configurazione
 
-L'engine si configura in tre posti: file di contenuto (testi, traduzioni, pagine legali), `appsettings.json` (backend) e `.env` (Docker). Nessuno dei tre richiede di ricompilare.
+L'engine si configura in tre posti: file di contenuto (testi, traduzioni, pagine legali), `appsettings.json` (backend) e `.env` (Docker). Nessuno dei tre richiede di modificare il codice applicativo.
 
 ### Contenuti gestiti da file
-La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili senza ricompilare:
+La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili senza toccare i componenti:
 
 - `backend/data/irl.json`: dati legali del sito
 - `frontend/src/assets/i18n/`: traduzioni del progetto (`addon.*.json`)
@@ -450,9 +467,10 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | Variabile | Obbligatoria | Effetto |
 |---|---|---|
 | `PROJECT_NAME` | si | Identifica il progetto, usato per i nomi dei volumi |
-| `FRONTEND_PORT` | si | Porta host del frontend in produzione |
-| `BACKEND_PORT` | no | Porta host del backend (richiede `docker-compose.backend-exposed.yml`) |
-| `API_URL` | no | Vuota = proxy Nginx; valorizzata = backend remoto |
+| `FRONTEND_PORT` | si | Porta del frontend in produzione, uguale lato host e container |
+| `BACKEND_PORT` | si | Porta del backend nella rete Docker; se esposto resta uguale anche lato host |
+| `API_URL` | no | Vuota = proxy Node SSR su `/api`; valorizzata = backend remoto |
+| `SITEMAP_BASE_URL` | no | URL pubblico canonico del sito, usato in build per generare `sitemap.xml` |
 | `API_KEY` | no | API key iniettata a runtime nel frontend (default: `frontend`) |
 
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
@@ -482,11 +500,12 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
 2. Crea il componente sotto `frontend/src/app/pages/` estendendo `PageBaseComponent`.
 3. Registra la pagina in `setSitePages(...)` con path, titolo e componente.
-4. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
-5. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
+4. (Opzionale) Aggiungi `description: 'chiaveI18n'` per personalizzare i meta tag social della pagina.
+5. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
+6. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
 
 ### Aggiungere un endpoint API
-1. Scegli il controller giusto: `BaseController`, `AuthController` o `ProtectedController`.
+1. Scegli il controller giusto: `BaseController`, `AuthController` o `ProtectedController`. Quelli auth/protected vengono esposti solo quando il login JWT e' abilitato.
 2. Crea la logica in `backend/Services/` o in un servizio dedicato.
 3. Se serve, estendi `FileContentStore` tramite `backend/Store/IContentStore.cs`.
 4. Esponi la chiamata lato frontend in `frontend/src/app/core/services/api.service.ts`.
@@ -516,8 +535,10 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 
 3. **Configura `.env` per l'ambiente remoto**
    - `PROJECT_NAME`: nome stack/volumi (es. `miosito`).
-   - `FRONTEND_PORT`: porta pubblica del frontend (tipicamente `80` o una porta dietro reverse proxy).
-   - `API_URL`: lascia vuota se frontend e backend stanno nello stesso compose (Nginx usa il proxy interno `/api`); valorizzala solo se punti a backend esterno.
+   - `FRONTEND_PORT`: porta del frontend. Il template usa lo stesso valore sia dentro al container sia sull'host.
+   - `BACKEND_PORT`: porta del backend nella rete Docker. Se vuoi esporlo anche fuori, verra' pubblicata la stessa porta.
+   - `API_URL`: lascia vuota se frontend e backend stanno nello stesso compose (Node SSR usa il proxy interno `/api`); valorizzala solo se punti a backend esterno.
+   - `SITEMAP_BASE_URL`: URL pubblico canonico del sito; viene letto in fase di build per generare `sitemap.xml`.
    - `API_KEY`: chiave usata dal frontend per chiamare le API.
    - Se usi backend separato o domini diversi, ricorda di allineare anche le CORS nel backend (`Security__CorsOrigins__*`).
 
@@ -576,8 +597,9 @@ public class AdminController : EngineProtectedController
 ### Aggiungere una lingua
 1. Aggiungi il codice in `availableLanguages` dentro `site.ts`.
 2. Crea `basic.{lang}.json` e `addon.{lang}.json` in `frontend/src/assets/i18n/`.
-3. Aggiungi la `CultureInfo` corrispondente in `Program.cs` nell'array `supported`.
-4. Se i contenuti JSON in `backend/data/` hanno campi localizzati, aggiungi il ramo della nuova lingua.
+3. Registra il loader della nuova lingua in `frontend/src/app/core/i18n/translation-catalogs.ts`, seguendo il pattern delle lingue esistenti.
+4. Aggiungi la `CultureInfo` corrispondente in `Program.cs` nell'array `supported`.
+5. Se i contenuti JSON in `backend/data/` hanno campi localizzati, aggiungi il ramo della nuova lingua.
 
 ### Cambiare il tema
 Modifica `colorTema` in `site.ts`. Il `ThemeService` ricalcola automaticamente contrasto, tono, colore primario e variabili CSS.

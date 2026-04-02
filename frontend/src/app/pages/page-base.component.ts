@@ -1,4 +1,4 @@
-﻿import { Directive, inject, input } from '@angular/core';
+import { Directive, inject, input } from '@angular/core';
 import { PageType } from '../app.routes';
 import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
@@ -8,6 +8,8 @@ import { TranslateService } from '../core/services/translate.service';
 /**
  * Base comune per le pagine instradate tramite il modello centrale app.routes.
  * Espone il contesto di pagina e i servizi piu' usati dai page component.
+ * I meta route-based vengono sincronizzati centralmente da AppComponent,
+ * quindi i componenti pagina non dipendono da lifecycle hook condivisi.
  */
 @Directive()
 export abstract class PageBaseComponent {
@@ -27,4 +29,3 @@ export abstract class PageBaseComponent {
         return value;
     }
 }
-

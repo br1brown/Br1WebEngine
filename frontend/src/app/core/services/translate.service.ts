@@ -1,27 +1,20 @@
+import { DOCUMENT } from '@angular/common';
 import { inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 import { CookieConsentService } from './cookie-consent.service';
+import { hasTranslationCatalogs, loadTranslationCatalogs } from '../i18n/translation-catalogs';
 import { ContestoSito } from '../../site';
 
 /**
  * Traduzione i18n e gestione lingua corrente.
- * Carica basic.{lang}.json (template) e addon.{lang}.json (progetto).
- * Addon sovrascrive basic. Supporta placeholder: t('saluto', 'Mario') → "Ciao Mario".
- * Nei template: {{ 'chiave' | translate }}. Nel codice: this.translate.t('chiave').
  *
  * Unico punto di gestione della lingua: currentLang signal + setLanguage() che
  * aggiorna il signal e ricarica le traduzioni in un'unica operazione.
  *
- * Tutta la persistenza (cookie + localStorage) è delegata a CookieConsentService.
- * Questo servizio non accede MAI direttamente a document.cookie o localStorage.
  */
 @Injectable({ providedIn: 'root' })
 export class TranslateService {
-    private readonly http = inject(HttpClient);
+    private readonly document = inject(DOCUMENT);
     private readonly consent = inject(CookieConsentService);
-    private readonly cookieKey = 'lang';
-    private readonly cookieMaxAgeSeconds = 60 * 60 * 24 * 365;
     private hasInitializedLanguage = false;
 
     /** Lingua corrente dell'app (signal reattivo) */
@@ -37,8 +30,8 @@ export class TranslateService {
             return ContestoSito.config.defaultLang;
         }
 
-        const saved = this.consent.getCookie(this.cookieKey);
-        return this.isSupportedLanguage(saved) ? saved : ContestoSito.config.defaultLang;
+        const saved = this.consent.getSavedLanguage();
+        return this.resolveLanguage(saved);
     }
 
     /**
@@ -47,15 +40,14 @@ export class TranslateService {
      * poi li fonde in un unico dizionario (addon ha priorità su basic).
      */
     async loadTranslations(lang: string): Promise<void> {
-        const files = ['basic', 'addon'];
-        const results = await Promise.all(
-            files.map(f =>
-                firstValueFrom(
-                    this.http.get<Record<string, string>>(`/assets/i18n/${f}.${lang}.json`)
-                )
-            )
-        );
-        this.translations.set(Object.assign({}, ...results));
+        const resolved = this.resolveLanguage(lang);
+
+        const catalogs =
+            await loadTranslationCatalogs(resolved)
+            ?? await loadTranslationCatalogs(ContestoSito.config.defaultLang)
+            ?? [];
+
+        this.translations.set(Object.assign({}, ...catalogs));
     }
 
     /**
@@ -63,7 +55,7 @@ export class TranslateService {
      * Unica operazione necessaria per il cambio lingua.
      */
     async setLanguage(lang: string): Promise<void> {
-        const resolved = this.isSupportedLanguage(lang) ? lang : ContestoSito.config.defaultLang;
+        const resolved = this.resolveLanguage(lang);
         await this.loadTranslations(resolved);
         this.currentLang.set(resolved);
         this.updateDocumentLanguage(resolved);
@@ -118,31 +110,34 @@ export class TranslateService {
         return typeof lang === 'string' && TranslateService.availableLanguages().includes(lang);
     }
 
+    private resolveLanguage(lang: string | null | undefined): string {
+        if (this.isSupportedLanguage(lang) && hasTranslationCatalogs(lang)) {
+            return lang;
+        }
+
+        return ContestoSito.config.defaultLang;
+    }
+
     private hasMultipleLanguages(): boolean {
         return TranslateService.availableLanguages().length > 1;
     }
 
     /** Scrive la preferenza lingua — il CookieConsentService blocca se non c'è consenso. */
     private persistLanguage(lang: string): void {
-        this.consent.setCookie(this.cookieKey, lang, this.cookieMaxAgeSeconds);
+        this.consent.setSavedLanguage(lang);
     }
 
     /** Rimuove la preferenza salvata — la pulizia è sempre consentita. */
     private clearSavedLanguage(): void {
-        this.consent.removeCookie(this.cookieKey);
+        this.consent.clearSavedLanguage();
     }
 
     private updateDocumentLanguage(lang: string): void {
-        document.documentElement.lang = lang;
+        this.document.documentElement?.setAttribute('lang', lang);
     }
 
     public static availableLanguages(): string[] {
-        const configured = (ContestoSito.config.availableLanguages ?? [])
-            .filter((lang): lang is string => typeof lang === 'string' && lang.trim().length > 0)
-            .map(lang => lang.trim());
-
-        const combined = [ContestoSito.config.defaultLang, ...configured];
-
-        return [...new Set(combined)];
+        // buildSite() normalizza già la lista: deduplicata, lowercased, defaultLang inclusa.
+        return ContestoSito.config.availableLanguages;
     }
 }

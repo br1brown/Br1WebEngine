@@ -6,7 +6,8 @@
  */
 
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
-import { HttpInterceptorFn, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpInterceptorFn, provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideRouter, TitleStrategy, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
@@ -61,6 +62,7 @@ const authInterceptor: HttpInterceptorFn = (req, next) => {
 export const appConfig: ApplicationConfig = {
     providers: [
         provideZoneChangeDetection({ eventCoalescing: true }),
+        provideClientHydration(withEventReplay()),
 
         // `routes` e' il risultato finale della definizione custom delle pagine.
         provideRouter(
@@ -74,7 +76,7 @@ export const appConfig: ApplicationConfig = {
             })
         ),
 
-        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
         { provide: TitleStrategy, useClass: AppTitleStrategy },
 
         /** Inizializzazione app: sessione, traduzioni, tema */

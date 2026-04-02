@@ -1,11 +1,11 @@
-﻿import { ChangeDetectionStrategy, Component, computed, inject, resource } from '@angular/core';
+﻿import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Profile } from '../../core/dto/profile.dto';
 import { ApiService } from '../../core/services/api.service';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { SocialLinkComponent } from '../../shared/components/social-link/social-link.component';
-import { NgTemplateOutlet } from '@angular/common';
 import { ContestoSito } from '../../site';
 import { NavLink } from '../../siteBuilder';
 
@@ -37,9 +37,10 @@ export class FooterComponent {
     private readonly api = inject(ApiService);
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
+    private readonly platformId = inject(PLATFORM_ID);
 
     private readonly profileState = resource({
-        request: () => this.translate.currentLang(),
+        request: () => isPlatformBrowser(this.platformId) ? this.translate.currentLang() : undefined,
         loader: () => this.api.getProfile()
     });
     readonly profile = computed<Profile | null>(() => this.profileState.value() ?? null);
