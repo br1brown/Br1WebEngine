@@ -39,7 +39,7 @@ export class AppComponent {
     // L'header menu non e' definito qui: arriva dalla configurazione custom del sito.
     readonly menuItems = ContestoSito.menuNav;
     // La navbar viene mostrata se abbiamo voci di menu oppure il selettore lingua.
-    readonly showNavbar = computed(() =>
+    readonly showNavbar = computed(() => ContestoSito.config.showHeader || 
         this.menuItems.length > 0 || this.translate.getAvailableLanguages().length > 1
     );
 
