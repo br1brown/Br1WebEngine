@@ -18,7 +18,6 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 - [Operazioni Comuni](#operazioni-comuni)
 - [Da locale a produzione](#da-locale-a-produzione)
 - [Estendere l'Engine](#estendere-lengine)
-- [Come Contribuire](#come-contribuire)
 - [Licenza](#licenza)
 
 ---
