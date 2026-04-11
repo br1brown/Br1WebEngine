@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { TranslateService } from './translate.service';
-import Swal from 'sweetalert2';
 
 /**
  * Notifiche utente via SweetAlert2.
@@ -10,18 +9,30 @@ import Swal from 'sweetalert2';
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
+    private swalPromise?: Promise<typeof import('sweetalert2').default>;
+
+    /**
+     * Carica SweetAlert2 solo al primo utilizzo e riusa la stessa Promise.
+     * Questo evita di mettere la libreria nel bundle iniziale.
+     */
+    private loadSwal(): Promise<typeof import('sweetalert2').default> {
+        return this.swalPromise ??= import('sweetalert2').then(module => module.default);
+    }
 
     /** Mostra un popup di successo con il messaggio specificato */
-    success(message: string): Promise<any> {
+    async success(message: string): Promise<any> {
+        const Swal = await this.loadSwal();
         return Swal.fire(
-            this.translate.t('ottimo') + '!',
+            this.translate.translate('ottimo') + '!',
             message,
             'success'
         );
     }
 
     /** Mostra un popup di errore con titolo e messaggio personalizzati */
-    error(title: string, message: string): Promise<any> {
+    async error(title: string, message: string): Promise<any> {
+        const Swal = await this.loadSwal();
+        if (Swal.isVisible()) return;
         return Swal.fire(title, message, 'error');
     }
 
@@ -29,14 +40,15 @@ export class NotificationService {
      * Mostra un popup di conferma con bottoni "Si" e "Annulla".
      * @returns true se l'utente ha cliccato "Si", false se ha annullato
      */
-    confirm(title: string, text: string): Promise<boolean> {
+    async confirm(title: string, text: string): Promise<boolean> {
+        const Swal = await this.loadSwal();
         return Swal.fire({
             title,
             text,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: this.translate.t('si') || 'Sì',
-            cancelButtonText: this.translate.t('annulla') || 'Annulla'
+            confirmButtonText: this.translate.translate('si') || 'Si',
+            cancelButtonText: this.translate.translate('annulla') || 'Annulla'
         }).then(result => result.isConfirmed);
     }
 
@@ -46,7 +58,13 @@ export class NotificationService {
      * @param icon  Tipo di icona: 'success' (predefinita), 'error', 'info', 'warning'
      */
     toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
-        Swal.fire({
+        // Manteniamo l'API sincrona per i caller: il caricamento lazy resta incapsulato qui.
+        void this.showToast(message, icon);
+    }
+
+    private async showToast(message: string, icon: 'success' | 'error' | 'info' | 'warning'): Promise<void> {
+        const Swal = await this.loadSwal();
+        await Swal.fire({
             toast: true,
             position: 'top-end',
             icon,
@@ -73,16 +91,16 @@ export class NotificationService {
         const keyInfo = `errore${httpStatus}Info`;
         const keyDesc = `errore${httpStatus}Desc`;
 
-        let errorInfo = this.translate.t(keyInfo);
-        let errorMessage = this.translate.t(keyDesc);
+        let errorInfo = this.translate.translate(keyInfo);
+        let errorMessage = this.translate.translate(keyDesc);
 
         // Se la chiave non ha traduzione, il servizio restituisce la chiave stessa
         if (errorMessage === keyDesc) {
-            errorMessage = this.translate.t('erroreImprevisto');
+            errorMessage = this.translate.translate('erroreImprevisto');
         }
 
         if (errorInfo === keyInfo) {
-            errorInfo = this.translate.t('errore') + ' ' + httpStatus;
+            errorInfo = this.translate.translate('errore') + ' ' + httpStatus;
         } else {
             errorInfo = httpStatus + ': ' + errorInfo;
         }
@@ -105,16 +123,15 @@ export class NotificationService {
                 } catch {
                     // Risposta non-JSON: probabilmente le API non sono raggiungibili
                     if (httpStatus === 404 || httpStatus === 500) {
-                        errorMessage = this.translate.t('erroreAPINonDisponibile');
+                        errorMessage = this.translate.translate('erroreAPINonDisponibile');
                     }
                 }
             }
         } else if (httpStatus === 404 || httpStatus === 500) {
-            errorMessage = this.translate.t('erroreAPINonDisponibile');
+            errorMessage = this.translate.translate('erroreAPINonDisponibile');
         }
 
-        this.error(errorInfo, errorMessage);
+        // Non blocchiamo il flusso chiamante: il popup viene aperto appena SweetAlert2 e' pronto.
+        void this.error(errorInfo, errorMessage);
     }
-
-
 }

@@ -220,9 +220,13 @@ Il sito si configura in `frontend/src/app/site.ts` attraverso una DSL a builder 
 
 1. **Dichiarazione**: configurazione, pagine e navigazione con tipi `*Input` e campi opzionali
 2. **Normalizzazione**: il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`
-3. **Generazione**: produce rotte Angular, `NavLink[]` per header/footer, `getPath(PageType)` e `getSitemapPaths()`
+3. **Generazione**: produce rotte Angular, `NavLink[]` per header/footer (con flag `isExternal` su ogni link), `getPath(PageType)` e `getSitemapEntries()`
 
 Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script di build.
+
+`getSitemapEntries()` restituisce `SitemapEntry[]` — oggetti `{ path, description? }` — invece di semplici stringhe. Le pagine con `requiresAuth: true` vengono escluse automaticamente. Il campo `description` rispecchia quanto dichiarato in `site.ts` (chiave i18n o stringa letterale) ed è disponibile per script che ne abbiano bisogno, come la generazione di sitemap estesa o feed.
+
+Ogni `NavLink` porta un flag `isExternal: boolean` impostato a compile-time dal builder. Navbar e footer lo usano direttamente senza dover rilevare al runtime se un path è esterno tramite heuristica sulle stringhe.
 
 #### Enum PageType
 Ogni pagina ha un valore nell'enum `PageType`. L'enum e' l'identita' stabile: path, titoli e componenti possono cambiare, il `PageType` no.
@@ -314,7 +318,7 @@ Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Lang
 `CookieConsentService` rileva se il consenso e' necessario (es. piu' lingue → preferenza da persistere). Se l'utente non ha accettato, le scritture su cookie vengono bloccate in silenzio. Lettura e cancellazione restano sempre consentite.
 
 #### Build e script
-`npm run build` lancia in automatico generazione di meta tag e sitemap. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
+`npm run build` lancia in automatico `generate:statics` (meta tag + sitemap in un unico script) prima della compilazione Angular. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
 
 #### Docker
 Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Per derivare un nuovo progetto dal template si usa `./init-project.sh nome-progetto`, che rinomina i riferimenti interni principali e prepara la configurazione iniziale. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. Il frontend gira su Node SSR: `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript, poi avvia `dist/.../server/server.mjs`. Quando `API_URL` e' vuoto, lo stesso server Node proxya `/api/*` verso il backend interno. Asset hashati cachati un anno con `immutable`; service worker e manifest non vengono cachati.
@@ -328,7 +332,7 @@ La directive `[appContextMenu]` aggiunge un menu contestuale personalizzato a qu
 - **Desktop**: click destro, presentazione a popover posizionato al puntatore
 - **Mobile**: long-press (450ms) con soglia di movimento (12px) per distinguere dallo scroll, presentazione a sheet dal basso
 - **Chiusura**: click fuori, Escape, o apertura di un altro menu
-- **Cleanup**: listener rimossi automaticamente alla distruzione del componente
+- **Cleanup**: listener e subscription rimossi automaticamente; la subscription alla selezione si completa con `take(1)` dopo la prima scelta
 
 Uso: `<div [appContextMenu]="menuOptions">...</div>`
 
@@ -346,7 +350,9 @@ Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: priva
 Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown.
 
 #### Titoli pagina
-`AppTitleStrategy` traduce automaticamente la chiave `title` della route e compone il titolo del browser nel formato `"Pagina | NomeApp"`. Quando cambia lingua senza una nuova navigazione, il layout riallinea titolo e descrizione della pagina corrente mantenendo coerenti browser e meta tag social.
+`AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e aggiorna in automatico `description`, `og:title`, `og:description` e `twitter:description`. La `description` viene letta da `route.data` se dichiarata in `site.ts`, altrimenti cade sul valore globale del sito. Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
+
+La strategy si configura tramite `TITLE_STRATEGY_CONFIG` (injection token), che espone `appName` e `defaultDescription` senza accoppiare la strategy a `ContestoSito`.
 
 #### SSR e Prerender
 Il motore include anche il wiring base per Angular SSR. Se non ti serve, puoi ignorarlo: il default pratico resta `client`. Ogni `LeafPage` in `site.ts` puo' opzionalmente specificare un campo `renderMode`:
@@ -414,14 +420,14 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 **Frontend** (tutti `providedIn: 'root'`):
 | Servizio | Ruolo |
 |---|---|
-| `ThemeService` | Tema dinamico da colore iniziale |
+| `ThemeService` | Tema dinamico da colore iniziale; tutta la logica colore è esposta come metodi statici (`prefersDarkText`, `getReadableTextColor`, `mixHexColors`) |
 | `TranslateService` | i18n con sistema addon |
 | `AuthService` | Login, token in sessionStorage, interceptor Bearer |
 | `ApiService` | HTTP client con API key e Accept-Language |
 | `AssetService` | Risoluzione URL asset statici da mapping |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
-| `NotificationService` | Toast, errori e parsing ProblemDetails RFC 9457 |
+| `NotificationService` | Toast, errori e parsing ProblemDetails RFC 9457; SweetAlert2 caricato in lazy loading al primo utilizzo |
 | `AppTitleStrategy` | Titoli pagina tradotti nel formato `Pagina \| NomeApp` |
 
 **Componenti e directive riusabili**:
@@ -430,7 +436,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `SocialLinkComponent` | 35+ social con icona e colore brand |
 | `ContextMenuDirective` | Menu contestuale desktop (click destro) e mobile (long-press) |
 | `CookieBannerComponent` | Banner GDPR con testo Markdown e placeholder dinamici |
-| `BackToTopComponent` | Pulsante scroll-to-top con soglia e colori tema |
+| `BackToTopComponent` | Pulsante scroll-to-top con soglia; colori derivati automaticamente dal tema |
 | `SmokeEffectComponent` | Effetto particellare su canvas configurabile da `site.ts` |
 | `MarkdownPipe` | Markdown → HTML con protezione XSS integrata |
 
@@ -475,8 +481,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
 ### Script di utilita'
-- `npm run generate:site-meta`: genera i meta tag del sito
-- `npm run generate:sitemap`: genera la sitemap a partire dalle rotte
+- `npm run generate:statics`: genera meta tag e sitemap in un unico passaggio
 - `npm run generate:icons`: rigenera le icone PWA da `favicon.png`
 - `npm run build`: build production + meta + sitemap in automatico
 

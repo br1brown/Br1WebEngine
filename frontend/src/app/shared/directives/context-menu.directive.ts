@@ -6,6 +6,7 @@ import {
     OnDestroy,
     ViewContainerRef
 } from '@angular/core';
+import { take } from 'rxjs/operators';
 import { ContextMenuOption } from '../components/context-menu/context-menu.models';
 import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
 
@@ -111,7 +112,7 @@ export class ContextMenuDirective implements OnDestroy {
         this.overlayRef.instance.adjustPosition(clientX, clientY);
 
         // Sottoscrivi alla selezione di un'opzione
-        this.overlayRef.instance.optionSelected.subscribe((option: ContextMenuOption) => {
+        this.overlayRef.instance.optionSelected.pipe(take(1)).subscribe((option: ContextMenuOption) => {
             option.action?.();
             this.close();
         });

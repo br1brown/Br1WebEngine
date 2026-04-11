@@ -26,7 +26,7 @@
                             <ul class="list-unstyled mb-0">
                                 @for (sub of item.children; track sub.path) {
                                 <li>
-                                    @if (isExternalPath(sub.path)) {
+                                    @if (sub.isExternal) {
                                     <a [href]="sub.path" class="footer-link d-block small" target="_blank" rel="noreferrer">
                                         {{ sub.label | translate }}
                                     </a>
@@ -41,7 +41,7 @@
                         </div>
                         } @else {
                         <div class="footer-single">
-                            @if (isExternalPath(item.path)) {
+                            @if (item.isExternal) {
                             <a [href]="item.path" class="footer-link small" target="_blank" rel="noreferrer">
                                 {{ item.label | translate }}
                             </a>

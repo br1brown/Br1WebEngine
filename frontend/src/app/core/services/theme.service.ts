@@ -79,24 +79,6 @@ export class ThemeService {
     }
 
     /** true se il testo nero offre almeno lo stesso contrasto del bianco. */
-    prefersDarkText(hexColor: string): boolean {
-        return ThemeService.prefersDarkText(hexColor);
-    }
-
-    /** Restituisce nero o bianco in base al contrasto migliore sul colore dato. */
-    getReadableTextColor(hexColor: string): '#000000' | '#ffffff' {
-        return ThemeService.getReadableTextColor(hexColor);
-    }
-
-    mixHexColors(baseHex: string, mixHex: string, mixWeight: number): string {
-        return ThemeService.mixHexColors(baseHex, mixHex, mixWeight);
-    }
-
-    mixWithBlack(baseHex: string, mixWeight: number): string {
-        return ThemeService.mixHexColors(baseHex, '#000000', mixWeight);
-    }
-
-    /** true se il testo nero offre almeno lo stesso contrasto del bianco. */
     static prefersDarkText(hexColor: string): boolean {
         return ThemeService.calcContrastRatio(hexColor, '#000000') >=
             ThemeService.calcContrastRatio(hexColor, '#ffffff');

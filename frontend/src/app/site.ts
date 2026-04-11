@@ -56,7 +56,7 @@ export enum PageType {
 //   ContestoSito.menuNav      → voci del menu header
 //   ContestoSito.linkFooter   → voci del footer
 //   ContestoSito.getPath(PageType.X) → path di una pagina per link interni
-//   ContestoSito.getSitemapPaths()   → tutti i path per la sitemap
+//   ContestoSito.getSitemapEntries() → voci per la sitemap (path + metadati)
 //
 export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // ── CONFIGURAZIONE GLOBALE ────────────────────────────────────────

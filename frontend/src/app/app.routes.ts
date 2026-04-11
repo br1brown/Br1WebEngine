@@ -20,11 +20,10 @@ const authGuard: CanActivateFn = () => {
     if (authService.isLoggedIn()) {
         return true;
     }
-    const codErrGuard: number = 401 // o 403
 
-    notifaction.error(t.t("errore" + codErrGuard + "Info"), t.t("errore" + codErrGuard + "Desc"))
-    return router.createUrlTree(['/error/' + codErrGuard]);
-    //return router.navigateByUrl(Contesto.getPath(PageType.Login)?? Contesto.getPath(PageType.HOme));
+    // La notifica non deve bloccare il redirect: il servizio carica SweetAlert2 in lazy mode.
+    void notifaction.error(t.translate('errore401Info'), t.translate('errore401Desc'));
+    return router.createUrlTree(['/error/401']);
 };
 
 /**

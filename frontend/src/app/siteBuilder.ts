@@ -29,7 +29,7 @@ import type { PageBaseComponent } from './pages/page-base.component';
 //   - Le rotte Angular (Route[]), filtrate per escludere disabilitate ed esterne
 //   - I NavLink[] per header e footer, con i PageType risolti nei path reali
 //   - getPath(PageType) per lookup runtime
-//   - getSitemapPaths() per la sitemap
+//   - getSitemapEntries() per la sitemap
 //
 // PRINCIPIO DI IDENTITA':
 //   Il PageType enum e' l'identita' stabile di ogni pagina. Path, titoli e
@@ -288,11 +288,6 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
 export type SitePageInput = ParentPageInput | LeafPageInput | ExternalPageInput;
 
 /**
- * Proprietà comuni a tutte le tipologie di pagina normalizzate.
- */
-type BasePage = BasePageInput;
-
-/**
  * Versione interna normalizzata della pagina contenitore.
  *
  * Da questo punto in poi `kind` è sempre presente e affidabile,
@@ -335,6 +330,8 @@ export type NavLink = {
     label: string;
     /** Path o URL finale del link. */
     path: string;
+    /** true se il link punta a una risorsa esterna al sito (externalUrl o link diretto http/https). */
+    isExternal: boolean;
     /** Eventuali link figli se l'elemento rappresenta un gruppo. */
     children?: NavLink[];
 };
@@ -599,9 +596,24 @@ export interface BuiltSite {
      * @param type Tipo pagina da risolvere.
      */
     getPath: (type: PageType) => string | undefined;
-    /** Restituisce tutti i path interni raccolti per la sitemap. */
-    getSitemapPaths: () => string[];
+    /** Restituisce le voci della sitemap (path + metadati). */
+    getSitemapEntries: () => SitemapEntry[];
 }
+
+/**
+ * Voce arricchita per la generazione della sitemap.
+ * Usata da `generate-sitemap.ts` e da eventuali script di prerendering.
+ *
+ * Note:
+ * - `description` è la stringa dichiarata in `site.ts` (chiave i18n o testo statico).
+ *   Non finisce nel `<description>` dell'XML (campo non standard), ma è disponibile
+ *   per script che ne hanno bisogno (es. prerendering, sitemap JSON, feed).
+ * - Le pagine `requiresAuth: true` sono escluse automaticamente.
+ */
+export type SitemapEntry = {
+    path: string;
+    description?: string;
+};
 
 // ======================================================
 // MODELLI INTERNI DELLA NAVIGAZIONE
@@ -818,7 +830,7 @@ export function buildSite(
      *
      * Questa mappa viene popolata durante l'elaborazione dell'albero pagine.
      */
-    const pageMap = new Map<PageType, { label: string; path: string }>();
+    const pageMap = new Map<PageType, { label: string; path: string; isExternal: boolean }>();
     const seenInternalPaths = new Set<string>();
     const serverRenderEntries: ServerRenderEntry[] = [];
 
@@ -833,7 +845,7 @@ export function buildSite(
      * - se è padre, si scende ricorsivamente nei figli
      * - se è foglia interna, si salva il path completo
      */
-    const processPages = (pages: SitePage[], parent = ''): string[] => {
+    const processPages = (pages: SitePage[], parent = ''): SitemapEntry[] => {
         return pages.flatMap((page) => {
             /**
              * Le pagine disabilitate vengono completamente escluse
@@ -850,7 +862,8 @@ export function buildSite(
             if (isExternalPage(page)) {
                 pageMap.set(page.pageType, {
                     label: page.title,
-                    path: page.externalUrl
+                    path: page.externalUrl,
+                    isExternal: true
                 });
 
                 return [];
@@ -891,19 +904,29 @@ export function buildSite(
             seenInternalPaths.add(fullPath);
             pageMap.set(page.pageType, {
                 label: page.title,
-                path: fullPath
+                path: fullPath,
+                isExternal: false
             });
             serverRenderEntries.push({
                 path: fullPath,
                 renderMode: page.renderMode ?? 'client'
             });
 
-            return [fullPath];
+            /**
+             * Le pagine che richiedono autenticazione non devono essere indicizzate:
+             * un crawler non potrebbe mai accedervi, e il loro URL non porta valore SEO.
+             */
+            if (page.requiresAuth) {
+                return [];
+            }
+
+            return [{ path: fullPath, description: page.description }];
         });
     };
 
     /**
-     * Elenco finale dei path interni del sito.
+     * Elenco finale delle voci sitemap (path + metadati).
+     * Le pagine con requiresAuth e le pagine esterne sono già escluse.
      */
     const sitemap = processPages(sitePages);
 
@@ -925,7 +948,8 @@ export function buildSite(
                  * Se non esiste nella mappa, torna null e verrà filtrato via.
                  */
                 if (item.kind === 'page') {
-                    return pageMap.get(item.type) ?? null;
+                    const entry = pageMap.get(item.type);
+                    return entry ?? null;
                 }
 
                 /**
@@ -940,6 +964,7 @@ export function buildSite(
                         ? {
                             label: item.label,
                             path: `#group:${item.label}`,
+                            isExternal: false,
                             children
                         }
                         : null;
@@ -950,7 +975,8 @@ export function buildSite(
                  */
                 return {
                     label: item.label,
-                    path: item.path
+                    path: item.path,
+                    isExternal: item.path.startsWith('http://') || item.path.startsWith('https://')
                 };
             })
             .filter((item): item is NavLink => item !== null);
@@ -993,10 +1019,6 @@ export function buildSite(
          */
         getPath: (type: PageType) => pageMap.get(type)?.path,
 
-        /**
-         * Restituisce tutti i path interni del sito
-         * raccolti durante la build.
-         */
-        getSitemapPaths: () => sitemap
+        getSitemapEntries: () => sitemap
     };
 }

@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -21,8 +21,6 @@ export class BackToTopComponent {
   readonly theme = inject(ThemeService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  @Input() btnClass = '';
-
   readonly isVisible = signal(false);
 
   @HostListener('window:scroll')
@@ -41,7 +39,7 @@ export class BackToTopComponent {
   }
 
   get borderColor(): string {
-    return this.theme.mixWithBlack(this.backgroundColor, 0.2);
+    return ThemeService.mixHexColors(this.backgroundColor, '#000000', 0.2);
   }
 
   get textColor(): string {

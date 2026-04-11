@@ -34,7 +34,7 @@ export class AppTitleStrategy extends TitleStrategy {
         const titleKey = this.buildTitle(snapshot);
         if (!titleKey) return this.config.appName;
 
-        const pageTitle = this.translate.t(titleKey).trim();
+        const pageTitle = this.translate.translate(titleKey).trim();
         if (!pageTitle || pageTitle === this.config.appName) return this.config.appName;
 
         return `${pageTitle} | ${this.config.appName}`;

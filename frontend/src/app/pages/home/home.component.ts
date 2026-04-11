@@ -81,7 +81,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
                     await this.share.copyText(selected);
                     this.clipboardContent.set(selected);
                     this.contextDemoText = this.contextDemoText.replace(selected, '');
-                    this.notify.toast(this.translate.t('clipboardCut'), 'info');
+                    this.notify.toast(this.translate.translate('clipboardCut'), 'info');
                 }
             }
         },
@@ -93,9 +93,9 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
                 const text = await this.share.readText() || this.clipboardContent();
                 if (text) {
                     this.contextDemoText += text;
-                    this.notify.toast(this.translate.t('clipboardPasted'), 'success');
+                    this.notify.toast(this.translate.translate('clipboardPasted'), 'success');
                 } else {
-                    this.notify.toast(this.translate.t('clipboardEmpty'), 'warning');
+                    this.notify.toast(this.translate.translate('clipboardEmpty'), 'warning');
                 }
             }
         },
@@ -105,7 +105,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
             icon: 'fa-solid fa-circle-info',
             action: () => {
                 this.contextMenuLastAction.set('info');
-                this.notify.success(this.translate.t('contextMenuTitle'));
+                this.notify.success(this.translate.translate('contextMenuTitle'));
             }
         }
     ];
@@ -192,38 +192,38 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     // ==================== Demo modali ====================
 
     showAlert(): void {
-        this.notify.success(this.translate.t('modalAlertBody'));
+        this.notify.success(this.translate.translate('modalAlertBody'));
     }
 
     async showConfirm(): Promise<void> {
         const ok = await this.notify.confirm(
-            this.translate.t('modalConfirmTitle'),
-            this.translate.t('modalConfirmBody')
+            this.translate.translate('modalConfirmTitle'),
+            this.translate.translate('modalConfirmBody')
         );
 
         this.modalResult.set(
             ok
-                ? this.translate.t('modalResultConfirmed')
-                : this.translate.t('modalResultCancelled')
+                ? this.translate.translate('modalResultConfirmed')
+                : this.translate.translate('modalResultCancelled')
         );
     }
 
     showFormModal(): void {
         import('sweetalert2').then(({ default: Swal }) => {
             Swal.fire({
-                title: this.translate.t('modalFormTitle'),
+                title: this.translate.translate('modalFormTitle'),
                 input: 'text',
-                inputLabel: this.translate.t('modalFormNameLabel'),
-                inputPlaceholder: this.translate.t('modalFormNameLabel'),
+                inputLabel: this.translate.translate('modalFormNameLabel'),
+                inputPlaceholder: this.translate.translate('modalFormNameLabel'),
                 showCancelButton: true,
-                confirmButtonText: this.translate.t('modalFormSubmit'),
-                cancelButtonText: this.translate.t('annulla'),
+                confirmButtonText: this.translate.translate('modalFormSubmit'),
+                cancelButtonText: this.translate.translate('annulla'),
             }).then(result => {
                 if (result.isConfirmed && result.value) {
                     this.modalResult.set(
-                        `${this.translate.t('modalResultSubmitted')}: ${result.value}`
+                        `${this.translate.translate('modalResultSubmitted')}: ${result.value}`
                     );
-                    this.notify.toast(this.translate.t('modalResultSubmitted'), 'success');
+                    this.notify.toast(this.translate.translate('modalResultSubmitted'), 'success');
                 }
             });
         });

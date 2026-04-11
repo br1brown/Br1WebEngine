@@ -59,10 +59,6 @@ export class FooterComponent {
         return Array.isArray(item.children) && item.children.length > 0;
     }
 
-    isExternalPath(path: string): boolean {
-        return path.startsWith('http://') || path.startsWith('https://');
-    }
-
     readonly socialLinks = computed<SocialLinkVm[]>(() => {
         const social = this.profile()?.social;
         if (!social) return [];
@@ -135,16 +131,7 @@ export class FooterComponent {
     }
 
     isRouteActive(path: string): boolean {
-        if (this.isExternalPath(path) || path.startsWith('#')) {
-            return false;
-        }
-
-        return this.router.isActive(path, {
-            paths: 'exact' as const,
-            queryParams: 'ignored' as const,
-            fragment: 'ignored' as const,
-            matrixParams: 'ignored' as const
-        });
+        return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
     private createTextItem(value?: string | null, label = '', itemClass?: string): FooterItem | null {

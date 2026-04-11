@@ -55,12 +55,12 @@
                 <details class="nav-disclosure language-disclosure"
                          (toggle)="onDisclosureToggle($event)">
                     <summary class="nav-link nav-disclosure-summary language-disclosure-summary"
-                             [attr.aria-label]="translate.t('selezionaLingua')">
+                             [attr.aria-label]="'selezionaLingua' | translate">
                         <span class="nav-disclosure-label">{{ translate.currentLang() | uppercase }}</span>
                         <span class="nav-disclosure-caret" aria-hidden="true"></span>
                     </summary>
                     <ul class="nav-disclosure-menu language-disclosure-menu theme-bg"
-                        [attr.aria-label]="translate.t('selezionaLingua')">
+                        [attr.aria-label]="'selezionaLingua' | translate">
                         @for (lingua of languages(); track lingua) {
                         <li>
                             @if (lingua === translate.currentLang()) {
@@ -88,7 +88,7 @@
 <div class="mt-5"></div>
 }
 <ng-template #linkItem let-item="item" let-class="class">
-    @if (isExternalPath(item.path)) {
+    @if (item.isExternal) {
     <a [class]="class"
        [href]="item.path"
        target="_blank"

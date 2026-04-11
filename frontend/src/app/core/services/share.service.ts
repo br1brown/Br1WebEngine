@@ -20,7 +20,7 @@ export class ShareService {
     async copyText(text: string): Promise<boolean> {
         const copied = await this.writeToClipboard(text);
         this.notify.toast(
-            this.translate.t(copied ? 'clipboardCopied' : 'clipboardEmpty'),
+            this.translate.translate(copied ? 'clipboardCopied' : 'clipboardEmpty'),
             copied ? 'success' : 'warning'
         );
         return copied;

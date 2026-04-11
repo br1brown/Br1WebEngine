@@ -33,12 +33,6 @@ export class NavbarComponent {
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly languages = computed(() => this.translate.getAvailableLanguages());
     readonly menuOpen = signal(false);
-    private readonly activeRouteOptions = {
-        paths: 'exact' as const,
-        queryParams: 'ignored' as const,
-        fragment: 'ignored' as const,
-        matrixParams: 'ignored' as const
-    };
 
     constructor() {
         this.router.events
@@ -54,19 +48,11 @@ export class NavbarComponent {
     }
 
     isRouteActive(path: string): boolean {
-        if (this.isExternalPath(path) || path.startsWith('#')) {
-            return false;
-        }
-
-        return this.router.isActive(path, this.activeRouteOptions);
+        return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
     isDropdownActive(item: NavLink): boolean {
-        return item.children?.some(child => this.isRouteActive(child.path)) ?? false;
-    }
-
-    isExternalPath(path: string): boolean {
-        return path.startsWith('http://') || path.startsWith('https://');
+        return item.children?.some(child => !child.isExternal && this.isRouteActive(child.path)) ?? false;
     }
 
     onNavigationLinkClick(): void {
