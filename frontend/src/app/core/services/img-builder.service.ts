@@ -29,9 +29,11 @@ export interface ImgRenderOptions {
     margin: number;
 }
 
-/** Suddivide il testo in righe rispettando la larghezza massima (word-wrap via measureText) */
-function splitTextIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
-    const parole = testo.split(' ');
+/** Suddivide un singolo paragrafo in righe rispettando la larghezza massima. */
+function splitParagraphIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
+    const parole = testo.trim().split(/\s+/).filter(Boolean);
+    if (!parole.length) return [''];
+
     const righe: string[] = [];
     let rigaCorrente = '';
 
@@ -59,6 +61,14 @@ function splitTextIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWid
     }
     if (rigaCorrente) righe.push(rigaCorrente);
     return righe;
+}
+
+/** Suddivide il testo in righe rispettando sia i newline espliciti sia il word-wrap. */
+function splitTextIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
+    return testo
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .flatMap(paragrafo => splitParagraphIntoLines(ctx, paragrafo, maxWidth));
 }
 
 /** Renderizza testo su un canvas con le opzioni specificate */
