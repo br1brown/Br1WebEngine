@@ -350,9 +350,9 @@ Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: priva
 Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown.
 
 #### Titoli pagina
-`AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e aggiorna in automatico `description`, `og:title`, `og:description` e `twitter:description`. La `description` viene letta da `route.data` se dichiarata in `site.ts`, altrimenti cade sul valore globale del sito. Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
+`AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e delega a `PageMetaService` l'aggiornamento dei tag. `PageMetaService` è un setter puro: riceve titolo e descrizione già pronti e aggiorna in un'unica chiamata `description`, `og:title`, `og:description` e `twitter:description` — nessuna logica, solo applicazione. La `description` viene letta da `route.data` tramite la chiave `pageDescription` se dichiarata in `site.ts`, altrimenti cade sul valore globale `ContestoSito.config.description`. Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
 
-La strategy si configura tramite `TITLE_STRATEGY_CONFIG` (injection token), che espone `appName` e `defaultDescription` senza accoppiare la strategy a `ContestoSito`.
+La strategy è registrata due volte nel DI: come `TitleStrategy` (richiesto da Angular per agganciarsi al router) e come `AppTitleStrategy` tramite `useExisting`, così chi ne ha bisogno può iniettarla direttamente senza cast.
 
 #### SSR e Prerender
 Il motore include anche il wiring base per Angular SSR. Se non ti serve, puoi ignorarlo: il default pratico resta `client`. Ogni `LeafPage` in `site.ts` puo' opzionalmente specificare un campo `renderMode`:

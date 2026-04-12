@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet, RouterStateSnapshot, TitleStrategy } from '@angular/router';
+import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet, RouterStateSnapshot } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
@@ -30,7 +30,7 @@ import { TranslatePipe } from './shared/pipes/translate.pipe';
 export class AppComponent {
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
-    private readonly titleStrategy = inject(TitleStrategy) as AppTitleStrategy;
+    private readonly titleStrategy = inject(AppTitleStrategy);
     readonly theme = inject(ThemeService);
 
     readonly smoke = ContestoSito.config.smoke;

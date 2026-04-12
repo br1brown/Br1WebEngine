@@ -79,6 +79,7 @@ export const appConfig: ApplicationConfig = {
 
         provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
         { provide: TitleStrategy, useClass: AppTitleStrategy },
+        { provide: AppTitleStrategy, useExisting: TitleStrategy },
 
         /** Inizializzazione app: sessione, traduzioni, tema */
         provideAppInitializer(async () => {
