@@ -97,7 +97,7 @@ In produzione:
 - **Frontend** su `http://localhost:FRONTEND_PORT`
 - **Backend** solo interno (per esporlo, aggiungere `docker-compose.backend-exposed.yml`)
 
-Il frontend serve i file statici con Nginx e proxya `/api/*` al backend sulla rete Docker interna.
+Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna.
 
 ### Esporre il backend
 
@@ -160,7 +160,7 @@ docker compose exec backend sh
 | | Dev (default) | Prod |
 |---|---|---|
 | Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` + `prod` |
-| Frontend | `npm run start:docker` su `DEV_FRONTEND_PORT` | Nginx su `FRONTEND_PORT` |
+| Frontend | `npm run start:docker` su `DEV_FRONTEND_PORT` | Node SSR su `FRONTEND_PORT` |
 | Backend | ASP.NET Core su `DEV_BACKEND_PORT` | ASP.NET Core su `8080` (interno) |
 | Container | 2 | 2 |
 | Nomi container | generati da Compose | generati da Compose |

@@ -120,7 +120,7 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 │  porta 8080                                  │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
 │  │ Base API │ │ Auth API │ │ Protected API│  │
-│  │ (aperto) │ │(transito)│ │  (riservato) │  │
+│  │(api key) │ │(transito)│ │  (riservato) │  │
 │  └──────────┘ └──────────┘ └──────────────┘  │
 │  ┌──────────────────────────────────────────┐│
 │  │ Security: API Key + JWT + CORS + Rate    ││
@@ -309,7 +309,7 @@ Il pannello centrale si mostra di default (`showPanel: true`). Per lo schermo in
 Il valore arriva al layout tramite `route.data` e viene letto dall'`AppComponent` con un signal reattivo.
 
 #### Pagine di errore
-`buildErrorRoutes()` prende un array di codici HTTP (`400`, `401`, `403`, `404`, `500`, `503`) e genera tutte le rotte con `.map()`. I messaggi si traducono via i18n (chiavi `errore404Info`, `errore404Desc`) con fallback generico. Il wildcard `**` cattura qualsiasi URL non riconosciuto.
+`buildErrorRoutes()` genera una singola rotta parametrica `error/:errorCode` che accetta qualsiasi codice HTTP. I messaggi si traducono via i18n (chiavi `errore{codice}Info`, `errore{codice}Desc`) con fallback generico se la chiave non esiste. Il wildcard `**` reindirizza a `error/404`.
 
 #### Interceptor HTTP
 Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Language` nella lingua corrente e `Authorization: Bearer` se c'e' un token attivo. L'interceptor filtra solo le chiamate al backend, lasciando intatte richieste verso asset o servizi esterni.

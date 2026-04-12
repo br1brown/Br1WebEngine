@@ -24,7 +24,7 @@ export class CookieConsentService {
     private readonly languagePreferenceKey = 'lang';
     private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365;
 
-    /** true se il banner è necessario — logica centralizzata in app.config.ts */
+    /** true se il banner è necessario — logica in {@link CookieConsentService.requiresCookieConsent} */
     readonly isNeeded = CookieConsentService.requiresCookieConsent();
 
     /** true se l'utente ha accettato i cookie */

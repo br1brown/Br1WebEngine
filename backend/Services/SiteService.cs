@@ -57,12 +57,10 @@ public class SiteService
     /// Recupera il profilo aziendale nella lingua corrente dell'applicazione.
     /// </summary>
     /// <returns>
-    /// Un <see cref="UniversalLegalModel"/> localizzato e arricchito con i social principali del template.
+    /// Un <see cref="UniversalLegalModel"/> localizzato.
     /// </returns>
     /// <remarks>
     /// La lingua effettiva viene presa da <see cref="CultureInfo.CurrentUICulture"/>.
-    /// Dopo il recupero del profilo, il metodo aggiunge solo i social ritenuti principali
-    /// per le pagine istituzionali: LinkedIn, WhatsApp e Facebook.
     /// </remarks>
     public async Task<UniversalLegalModel> GetProfileAsync()
     {

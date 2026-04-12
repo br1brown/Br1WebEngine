@@ -826,7 +826,7 @@ export function buildSite(
      * Mappa interna usata per risolvere i riferimenti `PageType`.
      *
      * Esempio:
-     * PageType.Home -> { label: 'Home', path: '/home' }
+     * PageType.Home -> { label: 'Home', path: '/' }
      *
      * Questa mappa viene popolata durante l'elaborazione dell'albero pagine.
      */

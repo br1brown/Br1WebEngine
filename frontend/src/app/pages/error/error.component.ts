@@ -8,8 +8,8 @@ import { ContestoSito } from '../../site';
 /**
  * Pagina di errore generica, usata per qualsiasi codice HTTP (404, 500, ecc.).
  *
- * Il codice errore viene passato tramite la route data, ad esempio:
- *   { path: '**', data: { errorCode: 404 } }
+ * Il codice errore viene passato come path param (es. `error/:errorCode`) e letto
+ * tramite component input binding, grazie a `withComponentInputBinding()` nel router.
  *
  * Le chiavi di traduzione seguono questo pattern:
  *   - "errore{codice}Info" â†’ titolo breve (es. "errore404Info" â†’ "Pagina non trovata")
@@ -30,7 +30,7 @@ import { ContestoSito } from '../../site';
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);
 
-    /** Path della home, letto dalle route tramite NavigationService. */
+    /** Path della home, risolto da ContestoSito. */
     readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
 
     /** Codice errore HTTP, letto dalla route (param o data) tramite input binding. Predefinito: 404 */
