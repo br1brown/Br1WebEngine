@@ -14,7 +14,7 @@ import { provideRouter, TitleStrategy, withComponentInputBinding, withInMemorySc
 import { environment } from '../environments/environment';
 import { ContestoSito } from './site';
 import { routes } from './app.routes';
-import { AppTitleStrategy, TITLE_STRATEGY_CONFIG, TitleStrategyConfig } from './core/services/app-title.strategy';
+import { AppTitleStrategy } from './core/services/app-title.strategy';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
@@ -79,13 +79,6 @@ export const appConfig: ApplicationConfig = {
 
         provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
         { provide: TitleStrategy, useClass: AppTitleStrategy },
-        {
-            provide: TITLE_STRATEGY_CONFIG,
-            useValue: {
-                appName: ContestoSito.config.appName,
-                defaultDescription: ContestoSito.config.description,
-            } satisfies TitleStrategyConfig,
-        },
 
         /** Inizializzazione app: sessione, traduzioni, tema */
         provideAppInitializer(async () => {

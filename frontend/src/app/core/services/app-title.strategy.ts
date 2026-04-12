@@ -1,28 +1,20 @@
-import { inject, Injectable, InjectionToken } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, RouterStateSnapshot, TitleStrategy } from '@angular/router';
 
+import { ContestoSito } from '../../site';
 import { PageMetaService } from './page-meta.service';
 import { TranslateService } from './translate.service';
-
-export interface TitleStrategyConfig {
-    appName: string;
-    defaultDescription: string;
-}
-
-export const TITLE_STRATEGY_CONFIG =
-    new InjectionToken<TitleStrategyConfig>('TitleStrategyConfig');
 
 @Injectable()
 export class AppTitleStrategy extends TitleStrategy {
     private readonly pageMeta = inject(PageMetaService);
     private readonly translate = inject(TranslateService);
-    private readonly config = inject(TITLE_STRATEGY_CONFIG);
 
     override updateTitle(snapshot: RouterStateSnapshot): void {
         const title = this.formatTitle(snapshot);
         const description =
             this.extractData<string>(snapshot.root, 'pageDescription')
-            ?? this.config.defaultDescription;
+            ?? ContestoSito.config.description;
         this.pageMeta.setTitle(title, description);
     }
 
@@ -33,12 +25,12 @@ export class AppTitleStrategy extends TitleStrategy {
 
     private formatTitle(snapshot: RouterStateSnapshot): string {
         const titleKey = this.buildTitle(snapshot);
-        if (!titleKey) return this.config.appName;
+        if (!titleKey) return ContestoSito.config.appName;
 
         const pageTitle = this.translate.translate(titleKey).trim();
-        if (!pageTitle || pageTitle === this.config.appName) return this.config.appName;
+        if (!pageTitle || pageTitle === ContestoSito.config.appName) return ContestoSito.config.appName;
 
-        return `${pageTitle} | ${this.config.appName}`;
+        return `${pageTitle} | ${ContestoSito.config.appName}`;
     }
 
     /** Cerca ricorsivamente un dato in route.data nell'albero snapshot. */
