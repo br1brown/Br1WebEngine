@@ -5,7 +5,7 @@ export type {
     SiteConfigInput,
     SitePageInput,
     SmokeSettings,
-    SmokeSettingsInput
+    SmokeSettingsInput,
 } from './siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -15,12 +15,12 @@ export type {
 // Ogni pagina del sito DEVE avere un valore qui.
 //
 // Per aggiungere una pagina: aggiungi un valore all'enum, poi usalo
-// nel blocco setSitePages sotto. Il resto (rotte, menu, sitemap) si
-// aggiorna da solo.
+// nella chiamata defineSitePages sotto. Il resto (rotte, menu, sitemap)
+// si aggiorna da solo.
 //
 // Perche' un enum e non stringhe?
 // - Se rinomini un path (es. "chi-siamo" → "about"), cambi UNA riga
-//   sotto in setSitePages. Menu, footer, link interni continuano a
+//   in defineSitePages. Menu, footer, link interni continuano a
 //   funzionare perche' puntano a PageType.ChiSiamo, non alla stringa.
 // - Se rimuovi un valore dall'enum, TypeScript ti segnala tutti i punti
 //   del codice che ancora lo usano. Con le stringhe lo scopri a runtime.
@@ -45,7 +45,7 @@ export enum PageType {
 //
 //   1. setSiteConfiguration  → nome, lingue, colore tema, effetto smoke
 //   2. defineSitePages       → elenco pagine con path, componente, opzioni
-//   3. configureSiteNavigation → cosa appare in header e footer
+//   3. configureHeaderNavigation / configureFooterNavigation → cosa appare nei menu
 //
 // Modificare qualcosa qui aggiorna automaticamente rotte, menu e sitemap.
 // Non serve toccare nessun altro file.
@@ -70,24 +70,23 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // showFooter         → mostra/nascondi il footer
     // smoke              → effetto particellare di sfondo (omettilo per disabilitarlo)
     //
-    siteFondamentaBuilder.setSiteConfiguration(siteConfigurationSectionBuilder =>
-        siteConfigurationSectionBuilder.setSiteConfiguration({
-            appName: 'Template',
-            defaultLang: 'it',
-            availableLanguages: ['it', 'en'],
-            description: 'Template di base che serve per fare vedere le funzionalità base',
-            colorTema: '#131e24',
-            showFooter: true,
-            fixedTopHeader: true,
-            smoke: {
-                enable: true,
-                color: '#b5d9ff',
-                opacity: 0.7,
-                maximumVelocity: 120,
-                particleRadius: 350,
-                density: 18
-            }
-        }));
+    siteFondamentaBuilder.setSiteConfiguration({
+        appName: 'Template',
+        defaultLang: 'it',
+        availableLanguages: ['it', 'en'],
+        description: 'Template di base che serve per fare vedere le funzionalità base',
+        colorTema: '#131e24',
+        showFooter: true,
+        fixedTopHeader: true,
+        smoke: {
+            enable: true,
+            color: '#b5d9ff',
+            opacity: 0.7,
+            maximumVelocity: 120,
+            particleRadius: 350,
+            density: 18
+        }
+    });
 
     // ── ALBERO DELLE PAGINE ────────────────────────────────────────────
     //
@@ -111,77 +110,76 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // Il componente DEVE estendere PageBaseComponent (fornisce translate,
     // api, asset, notify gia' pronti senza ripetere inject).
     //
-    siteFondamentaBuilder.defineSitePages(sitePagesSectionBuilder =>
-        sitePagesSectionBuilder.setSitePages([
-            {
-                path: '',
-                title: 'home',
-                enabled: true,
-                pageType: PageType.Home,
-                component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
-            },
-            {
-                path: 'social-feed',
-                title: 'social',
-                enabled: true,
-                pageType: PageType.Social,
-                component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-                showPanel: false
-            },
-            {
-                path: 'legale',
-                title: 'policies',
-                enabled: true,
-                children: [
-                    {
-                        path: 'privacy',
-                        title: 'privacypolicy',
-                        description: 'privacyPolicyDesc',
-                        enabled: true,
-                        pageType: PageType.PrivacyPolicy,
-                        component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    },
-                    {
-                        path: 'termini',
-                        title: 'termsofservice',
-                        description: 'termsOfServiceDesc',
-                        enabled: true,
-                        pageType: PageType.TermsOfService,
-                        component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    },
-                    {
-                        path: 'cookie',
-                        title: 'cookiepolicy',
-                        description: 'cookiePolicyDesc',
-                        enabled: true,
-                        pageType: PageType.CookiePolicy,
-                        component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    },
-                    {
-                        path: 'legal',
-                        title: 'legalnotice',
-                        description: 'legalNoticeDesc',
-                        enabled: false,
-                        pageType: PageType.LegalNotice,
-                        component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                    }
-                ]
-            },
-            {
-                title: 'projectSources',
-                enabled: true,
-                pageType: PageType.GitHub,
-                externalUrl: 'https://github.com/br1brown/Br1WebEngine'
-            },
-            {
-                path: 'impostazioni',
-                title: 'settings',
-                enabled: true,
-                requiresAuth: true,
-                pageType: PageType.Impostazioni,
-                component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-            }
-        ]));
+    siteFondamentaBuilder.defineSitePages([
+        {
+            path: '',
+            title: 'home',
+            enabled: true,
+            pageType: PageType.Home,
+            component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
+        },
+        {
+            path: 'social-feed',
+            title: 'social',
+            enabled: true,
+            pageType: PageType.Social,
+            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
+            showPanel: false
+        },
+        {
+            path: 'legale',
+            title: 'policies',
+            enabled: true,
+            children: [
+                {
+                    path: 'privacy',
+                    title: 'privacypolicy',
+                    description: 'privacyPolicyDesc',
+                    enabled: true,
+                    pageType: PageType.PrivacyPolicy,
+                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                },
+                {
+                    path: 'termini',
+                    title: 'termsofservice',
+                    description: 'termsOfServiceDesc',
+                    enabled: true,
+                    pageType: PageType.TermsOfService,
+                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                },
+                {
+                    path: 'cookie',
+                    title: 'cookiepolicy',
+                    description: 'cookiePolicyDesc',
+                    enabled: true,
+                    pageType: PageType.CookiePolicy,
+                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                },
+                {
+                    path: 'legal',
+                    title: 'legalnotice',
+                    description: 'legalNoticeDesc',
+                    enabled: false,
+                    pageType: PageType.LegalNotice,
+                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                }
+            ]
+        },
+        {
+            title: 'projectSources',
+            enabled: true,
+            pageType: PageType.GitHub,
+            externalUrl: 'https://github.com/br1brown/Br1WebEngine'
+        },
+        {
+            path: 'impostazioni',
+            title: 'settings',
+            enabled: true,
+            requiresAuth: true,
+            pageType: PageType.Impostazioni,
+            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
+        }
+    ]);
 
     // ── NAVIGAZIONE (header e footer) ───────────────────────────────────
     //
@@ -196,28 +194,26 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // Le pagine disabilitate (enabled: false) vengono escluse in automatico.
     // Se un gruppo resta vuoto (tutti i figli disabilitati), scompare anche lui.
     //
-    siteFondamentaBuilder.configureSiteNavigation(siteNavigationSectionsBuilder => {
-        siteNavigationSectionsBuilder.configureHeaderNavigation(headerNavigationBuilder => {
-            headerNavigationBuilder.addPage(PageType.Impostazioni);
+    siteFondamentaBuilder.configureHeaderNavigation(h => {
+        h.addPage(PageType.Impostazioni);
 
-            headerNavigationBuilder.addGroup('policies', policyGroupNavigationBuilder => {
-                policyGroupNavigationBuilder.addPage(PageType.PrivacyPolicy);
-                policyGroupNavigationBuilder.addPage(PageType.CookiePolicy);
-                policyGroupNavigationBuilder.addPage(PageType.TermsOfService);
-                policyGroupNavigationBuilder.addPage(PageType.LegalNotice);
-            });
-
-            headerNavigationBuilder.addPage(PageType.Social);
+        h.addGroup('policies', g => {
+            g.addPage(PageType.PrivacyPolicy);
+            g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.TermsOfService);
+            g.addPage(PageType.LegalNotice);
         });
 
-        siteNavigationSectionsBuilder.configureFooterNavigation(footerNavigationBuilder => {
-            footerNavigationBuilder.addPage(PageType.GitHub);
-            footerNavigationBuilder.addGroup('policies', policyGroupNavigationBuilder => {
-                policyGroupNavigationBuilder.addPage(PageType.PrivacyPolicy);
-                policyGroupNavigationBuilder.addPage(PageType.CookiePolicy);
-                policyGroupNavigationBuilder.addPage(PageType.TermsOfService);
-                policyGroupNavigationBuilder.addPage(PageType.LegalNotice);
-            });
+        h.addPage(PageType.Social);
+    });
+
+    siteFondamentaBuilder.configureFooterNavigation(f => {
+        f.addPage(PageType.GitHub);
+        f.addGroup('policies', g => {
+            g.addPage(PageType.PrivacyPolicy);
+            g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.TermsOfService);
+            g.addPage(PageType.LegalNotice);
         });
     });
 });

@@ -35,7 +35,7 @@ import type { PageBaseComponent } from './pages/page-base.component';
 //   Il PageType enum e' l'identita' stabile di ogni pagina. Path, titoli e
 //   componenti possono cambiare; il PageType no. Menu, footer, guard, sitemap
 //   e link interni referenziano sempre il PageType, mai stringhe. Se un path
-//   cambia, basta aggiornare setSitePages: tutti i riferimenti si risolvono
+//   cambia, basta aggiornare defineSitePages: tutti i riferimenti si risolvono
 //   automaticamente perche' passano dalla mappa PageType → path.
 //
 
@@ -499,77 +499,39 @@ export interface SiteNavigationSectionBuilder {
     ) => void;
 }
 
-export interface SiteConfigurationSectionBuilder {
-    /**
-     * Imposta la configurazione del sito.
-     * @param siteConfigurationInput Configurazione raw da normalizzare.
-     */
-    setSiteConfiguration: (siteConfigurationInput: SiteConfigInput) => void;
-}
-
-export interface SitePagesSectionBuilder {
-    /**
-     * Imposta l'albero completo delle pagine del sito.
-     * @param sitePages Pagine dichiarate dall'utente.
-     */
-    setSitePages: (sitePages: SitePageInput[]) => void;
-}
-
-export interface SiteNavigationSectionsBuilder {
-    /**
-     * Configura la navigazione dell'header.
-     * @param buildHeaderNavigationItems Callback che popola i link dell'header.
-     */
-    configureHeaderNavigation: (
-        buildHeaderNavigationItems: (headerNavigationBuilder: SiteNavigationSectionBuilder) => void
-    ) => void;
-    /**
-     * Configura la navigazione del footer.
-     * @param buildFooterNavigationItems Callback che popola i link del footer.
-     */
-    configureFooterNavigation: (
-        buildFooterNavigationItems: (footerNavigationBuilder: SiteNavigationSectionBuilder) => void
-    ) => void;
-}
-
 /**
  * Builder principale del sito.
  *
- * Tiene separate tre aree semanticamente diverse:
- * - config
- * - routes
- * - navigation
- *
- * Questa separazione è utile perché:
- * - la configurazione è una cosa
- * - la definizione delle pagine è un'altra
- * - la costruzione del menu/footer è un'altra ancora
+ * Tiene separate quattro aree semanticamente diverse:
+ * - config globale
+ * - albero delle pagine
+ * - navigazione header
+ * - navigazione footer
  */
 export interface SiteBuilder {
     /**
      * Configura i metadati e le opzioni globali del sito.
-     * @param buildSiteConfiguration Callback che riceve il builder della configurazione.
+     * @param config Configurazione grezza del sito da normalizzare.
      */
-    setSiteConfiguration: (
-        buildSiteConfiguration: (
-            siteConfigurationSectionBuilder: SiteConfigurationSectionBuilder
-        ) => void
-    ) => void;
+    setSiteConfiguration: (config: SiteConfigInput) => void;
     /**
      * Definisce l'albero delle pagine del sito.
-     * @param buildSitePages Callback che riceve il builder delle pagine.
+     * @param pages Pagine dichiarate dall'utente.
      */
-    defineSitePages: (
-        buildSitePages: (sitePagesSectionBuilder: SitePagesSectionBuilder) => void
+    defineSitePages: (pages: SitePageInput[]) => void;
+    /**
+     * Configura i link della navigazione principale (header).
+     * @param buildItems Callback che popola le voci tramite addPage / addGroup / addLink.
+     */
+    configureHeaderNavigation: (
+        buildItems: (builder: SiteNavigationSectionBuilder) => void
     ) => void;
     /**
-     * Configura le sezioni di navigazione pubbliche del sito.
-     * @param buildSiteNavigation Callback che riceve il builder di header e footer.
+     * Configura i link del footer.
+     * @param buildItems Callback che popola le voci tramite addPage / addGroup / addLink.
      */
-    configureSiteNavigation: (
-        buildSiteNavigation: (
-            siteNavigationSectionsBuilder: SiteNavigationSectionsBuilder
-        ) => void
+    configureFooterNavigation: (
+        buildItems: (builder: SiteNavigationSectionBuilder) => void
     ) => void;
 }
 
@@ -592,10 +554,12 @@ export interface BuiltSite {
     /** Piano di rendering server-only derivato dalle pagine foglia interne valide. */
     serverRenderEntries: ServerRenderEntry[];
     /**
-     * Restituisce il path associato a un `PageType`.
+     * Restituisce il path associato a un `PageType`, oppure `null` se la pagina
+     * è disabilitata o non registrata. Controlla sempre il valore prima di usarlo
+     * in un link — `null` non finisce mai silenziosamente in un href.
      * @param type Tipo pagina da risolvere.
      */
-    getPath: (type: PageType) => string | undefined;
+    getPath: (type: PageType) => string | null;
     /** Restituisce le voci della sitemap (path + metadati). */
     getSitemapEntries: () => SitemapEntry[];
 }
@@ -673,8 +637,8 @@ export function buildSite(
     /**
      * Contenitori raw delle sezioni di navigazione.
      *
-     * Qui accumuliamo la struttura dichiarata in `configureSiteNavigation(...)`
-     * prima di risolverla nei `NavLink` finali.
+     * Qui accumuliamo la struttura dichiarata in `configureHeaderNavigation` /
+     * `configureFooterNavigation` prima di risolverla nei `NavLink` finali.
      */
     const rawHeader: RawNavItem[] = [];
     const rawFooter: RawNavItem[] = [];
@@ -726,90 +690,69 @@ export function buildSite(
     /**
      * Esegue la configurazione del sito passando un builder unico.
      *
- * Ogni sezione scrive dentro le variabili locali:
- * - `configureSiteConfiguration(...)` -> valorizza `siteConfig`
- * - `defineSitePages(...)`            -> valorizza `sitePages`
- * - `configureSiteNavigation(...)`    -> valorizza `rawHeader` / `rawFooter`
+     * Ogni sezione scrive dentro le variabili locali:
+     * - `setSiteConfiguration(...)`      -> valorizza `siteConfig`
+     * - `defineSitePages(...)`           -> valorizza `sitePages`
+     * - `configureHeaderNavigation(...)` -> valorizza `rawHeader`
+     * - `configureFooterNavigation(...)` -> valorizza `rawFooter`
      */
     defineSiteStructure({
-        setSiteConfiguration: (buildSiteConfiguration) =>
-            buildSiteConfiguration({
-                setSiteConfiguration: (siteConfigurationInput) => {
-                    /**
-                     * Default dell'effetto smoke.
-                     * Vengono usati per completare eventuali campi mancanti.
-                     */
-                    const defaultSmoke: SmokeSettings = {
-                        enable: false,
-                        color: '#ffffff',
-                        opacity: 0.5,
-                        maximumVelocity: 0.5,
-                        particleRadius: 2,
-                        density: 10
-                    };
+        setSiteConfiguration: (siteConfigurationInput) => {
+            /**
+             * Default dell'effetto smoke.
+             * Vengono usati per completare eventuali campi mancanti.
+             */
+            const defaultSmoke: SmokeSettings = {
+                enable: false,
+                color: '#ffffff',
+                opacity: 0.5,
+                maximumVelocity: 0.5,
+                particleRadius: 2,
+                density: 10
+            };
 
-                    /**
-                     * Normalizzazione della config:
-                     * - garantisce che la lingua di default sia inclusa
-                     * - rimuove eventuali duplicati nelle lingue
-                     * - merge dei default smoke con i valori custom
-                     */
-                    const normalizeLang = (l?: string) =>
-                        typeof l === 'string' ? l.trim().toLowerCase() : '';
+            /**
+             * Normalizzazione della config:
+             * - garantisce che la lingua di default sia inclusa
+             * - rimuove eventuali duplicati nelle lingue
+             * - merge dei default smoke con i valori custom
+             */
+            const normalizeLang = (l?: string) =>
+                typeof l === 'string' ? l.trim().toLowerCase() : '';
 
-                    const rawLangs = [
-                        siteConfigurationInput.defaultLang,
-                        ...(siteConfigurationInput.availableLanguages ?? [])
-                    ];
+            const rawLangs = [
+                siteConfigurationInput.defaultLang,
+                ...(siteConfigurationInput.availableLanguages ?? [])
+            ];
 
-                    const availableLanguages = Array.from(
-                        new Set(rawLangs.map(normalizeLang).filter(Boolean))
-                    );
+            const availableLanguages = Array.from(
+                new Set(rawLangs.map(normalizeLang).filter(Boolean))
+            );
 
-                    siteConfig = {
-                        appName: siteConfigurationInput.appName,
-                        defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
-                        availableLanguages,
-                        description: siteConfigurationInput.description,
-                        colorTema: siteConfigurationInput.colorTema,
-                        showFooter: siteConfigurationInput.showFooter ?? true,
-                        showHeader: siteConfigurationInput.showHeader ?? true,
-                        fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
-                        smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) }
-                    };
-                }
-            }),
+            siteConfig = {
+                appName: siteConfigurationInput.appName,
+                defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
+                availableLanguages,
+                description: siteConfigurationInput.description,
+                colorTema: siteConfigurationInput.colorTema,
+                showFooter: siteConfigurationInput.showFooter ?? true,
+                showHeader: siteConfigurationInput.showHeader ?? true,
+                fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+                smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) }
+            };
+        },
 
-        defineSitePages: (buildSitePages) =>
-            buildSitePages({
-                /**
-                 * Salva l'albero delle pagine così come definito dall'utente.
-                 */
-                setSitePages: (definedSitePages) => {
-                    sitePages = normalizeSitePages(definedSitePages);
-                }
-            }),
+        defineSitePages: (definedSitePages) => {
+            sitePages = normalizeSitePages(definedSitePages);
+        },
 
-        configureSiteNavigation: (buildSiteNavigation) =>
-            buildSiteNavigation({
-                /**
-                 * Costruisce la sezione header usando un builder dedicato.
-                 */
-                configureHeaderNavigation: (buildHeaderNavigationItems) => {
-                    buildHeaderNavigationItems(
-                        createNavigationSectionBuilder(rawHeader)
-                    );
-                },
+        configureHeaderNavigation: (buildItems) => {
+            buildItems(createNavigationSectionBuilder(rawHeader));
+        },
 
-                /**
-                 * Costruisce la sezione footer usando un builder dedicato.
-                 */
-                configureFooterNavigation: (buildFooterNavigationItems) => {
-                    buildFooterNavigationItems(
-                        createNavigationSectionBuilder(rawFooter)
-                    );
-                }
-            })
+        configureFooterNavigation: (buildItems) => {
+            buildItems(createNavigationSectionBuilder(rawFooter));
+        }
     });
 
     /**
@@ -1017,7 +960,7 @@ export function buildSite(
          * Restituisce il path associato a un PageType,
          * se presente nella mappa.
          */
-        getPath: (type: PageType) => pageMap.get(type)?.path,
+        getPath: (type: PageType) => pageMap.get(type)?.path ?? null,
 
         getSitemapEntries: () => sitemap
     };

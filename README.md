@@ -30,9 +30,11 @@ git clone https://github.com/br1brown/Br1WebEngine.git
 cd Br1WebEngine
 
 # 2. (Opzionale) Personalizza il nome del progetto
+#    Lo script crea anche .env a partire da .env.example con PROJECT_NAME già valorizzato.
 ./init-project.sh mio-progetto
 
 # 3. Configura le variabili d'ambiente
+#    Salta questo passo se hai già eseguito init-project.sh (il file .env è già stato creato).
 cp .env.example .env
 # Modifica .env con i tuoi valori (PROJECT_NAME, porte, API key)
 
@@ -216,7 +218,16 @@ Se la chiave e' troppo corta per HMAC-SHA256, viene espansa tramite SHA-256. Il 
 Il frontend e' una SPA Angular 19 con tema dinamico, i18n, PWA e un sistema dichiarativo che genera rotte, navigazione e meta tag da un unico file di configurazione.
 
 #### DSL dichiarativa e builder
-Il sito si configura in `frontend/src/app/site.ts` attraverso una DSL a builder in tre fasi:
+Il sito si configura interamente in `frontend/src/app/site.ts` con quattro chiamate sul builder:
+
+```typescript
+siteFondamentaBuilder.setSiteConfiguration({ appName, colorTema, defaultLang, ... }); // vedi campi sotto
+siteFondamentaBuilder.defineSitePages([ /* array di pagine */ ]);
+siteFondamentaBuilder.configureHeaderNavigation(h => { h.addPage(...); h.addGroup(...); });
+siteFondamentaBuilder.configureFooterNavigation(f => { f.addPage(...); });
+```
+
+Internamente `buildSite` lavora in tre fasi:
 
 1. **Dichiarazione**: configurazione, pagine e navigazione con tipi `*Input` e campi opzionali
 2. **Normalizzazione**: il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`
@@ -243,29 +254,52 @@ export enum PageType {
 }
 ```
 
-Rinomini un path → cambi una riga in `setSitePages`, menu e link interni seguono. Rimuovi un valore → TypeScript segnala ogni riferimento rimasto.
+Rinomini un path → cambi una riga in `defineSitePages`, menu e link interni seguono. Rimuovi un valore → TypeScript segnala ogni riferimento rimasto.
+
+`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni nel codice. Restituisce `null` se la pagina è disabilitata (`enabled: false`) o se il `PageType` non è registrato — in questo modo `null` non finisce mai silenziosamente in un `href` o in una stringa di navigazione. Usa sempre il fallback: `ContestoSito.getPath(PageType.X) ?? '/'`.
+
+Le pagine accettano un campo opzionale `data: Record<string, any>` per passare dati arbitrari al componente tramite `route.data`. Il componente li legge con `ActivatedRoute` o tramite component input binding (abilitato di default nell'engine).
 
 #### Navigazione header e footer
 Si definisce in `site.ts` tramite builder type-safe:
 
 ```typescript
-configureSiteNavigation(nav => {
-    nav.configureHeaderNavigation(header => {
-        header.addPage(PageType.Impostazioni);
-        header.addGroup('policies', group => {
-            group.addPage(PageType.PrivacyPolicy);
-            group.addPage(PageType.CookiePolicy);
-        });
-        header.addPage(PageType.Social);
+siteFondamentaBuilder.configureHeaderNavigation(h => {
+    h.addPage(PageType.Impostazioni);
+    h.addGroup('policies', g => {
+        g.addPage(PageType.PrivacyPolicy);
+        g.addPage(PageType.CookiePolicy);
     });
-    nav.configureFooterNavigation(footer => {
-        footer.addPage(PageType.GitHub);
-        footer.addGroup('policies', group => { /* ... */ });
-    });
+    h.addPage(PageType.Social);
+});
+
+siteFondamentaBuilder.configureFooterNavigation(f => {
+    f.addPage(PageType.GitHub);
+    f.addGroup('policies', g => { /* ... */ });
 });
 ```
 
-Pagine disabilitate escluse in automatico. Gruppi svuotati rimossi. I path non si scrivono mai a mano.
+Tre metodi disponibili nei builder di navigazione:
+- `addPage(PageType.X)` — voce che risolve automaticamente il path dalla mappa interna
+- `addGroup('chiaveI18n', g => { ... })` — dropdown con sotto-voci; se tutti i figli sono disabilitati, il gruppo sparisce
+- `addLink('chiaveI18n', '/path-o-url')` — link diretto a URL arbitrario; utile per link esterni non mappati su `PageType`
+
+Pagine disabilitate escluse in automatico. I path non si scrivono mai a mano (tranne in `addLink`).
+
+#### Opzioni di setSiteConfiguration
+Tutti i campi di `SiteConfigInput`:
+
+| Campo | Obbligatorio | Effetto |
+|---|---|---|
+| `appName` | si | Nome mostrato in navbar, titoli pagina e PWA manifest |
+| `defaultLang` | si | Lingua di fallback quando la preferenza non è disponibile |
+| `description` | si | Meta description globale del sito (usata come fallback per le pagine senza `description` propria) |
+| `colorTema` | si | Colore hex principale; genera automaticamente contrasto, tono e variabili CSS |
+| `availableLanguages` | no | Lingue tra cui l'utente può scegliere; se omesso, solo `defaultLang` |
+| `showFooter` | no | Mostra/nasconde il footer (default: `true`) |
+| `showHeader` | no | Mostra/nasconde la navbar (default: `true`; utile per landing page a schermo intero) |
+| `fixedTopHeader` | no | Navbar appiccicata in cima allo scroll (default: `false`) |
+| `smoke` | no | Effetto particellare su canvas; ometti il campo per disabilitarlo. Campi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` — tutti opzionali, il builder completa i default |
 
 #### Gestione del tema
 Un colore hex in `site.ts` (`colorTema: '#131e24'`). Il `ThemeService` calcola:
@@ -321,7 +355,15 @@ Ogni richiesta verso il backend riceve automaticamente `X-Api-Key`, `Accept-Lang
 `npm run build` lancia in automatico `generate:statics` (meta tag + sitemap in un unico script) prima della compilazione Angular. Gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Le icone PWA si rigenerano da `favicon.png` in tutte le dimensioni necessarie. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
 
 #### Docker
-Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Per derivare un nuovo progetto dal template si usa `./init-project.sh nome-progetto`, che rinomina i riferimenti interni principali e prepara la configurazione iniziale. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`. Il frontend gira su Node SSR: `docker-entrypoint.sh` sostituisce `API_URL` e `API_KEY` a runtime nei bundle JavaScript, poi avvia `dist/.../server/server.mjs`. Quando `API_URL` e' vuoto, lo stesso server Node proxya `/api/*` verso il backend interno. Asset hashati cachati un anno con `immutable`; service worker e manifest non vengono cachati.
+Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`.
+
+**Iniezione runtime delle variabili d'ambiente nel frontend**
+
+Angular compila il bundle JavaScript a build time, quindi non può leggere variabili d'ambiente del container a runtime. La soluzione adottata: `environment.ts` usa i segnaposto letterali `__API_URL__` e `__API_KEY__`. All'avvio del container, `docker-entrypoint.sh` esegue `sed` su tutti i file `.js` del bundle e sostituisce quei segnaposto con i valori reali letti dalle variabili d'ambiente del container. Il server SSR parte solo dopo la sostituzione.
+
+Quando `API_URL` è vuota, il server Node SSR fa da proxy su `/api/*` verso il backend interno sulla rete Docker. Quando è valorizzata, il frontend chiama direttamente quel URL (utile se backend e frontend sono su server separati).
+
+Asset hashati cachati un anno con `immutable`; service worker e manifest non vengono cachati.
 
 #### Asset mapping
 `AssetService` carica `mapping.json` una volta, lo mette in cache con `shareReplay`, e risolve ID in path reali o URL esterni.
@@ -461,6 +503,8 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 ### Backend (`appsettings.json`)
 | Chiave | Effetto |
 |---|---|
+| `Localization.DefaultLanguage` | lingua di fallback quando `Accept-Language` non corrisponde a nessuna supportata |
+| `Localization.SupportedLanguages` | array di codici lingua accettati (es. `["it", "en", "fr"]`); nessuna modifica al codice C# |
 | `Security.ApiKeys` | chiavi API accettate |
 | `Security.CorsOrigins` | origini consentite; vuoto = aperto |
 | `Security.BehindProxy` | abilita `ForwardedHeaders` dietro reverse proxy |
@@ -471,14 +515,33 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 ### Variabili Docker (`.env`)
 | Variabile | Obbligatoria | Effetto |
 |---|---|---|
-| `PROJECT_NAME` | si | Identifica il progetto, usato per i nomi dei volumi |
-| `FRONTEND_PORT` | si | Porta del frontend in produzione, uguale lato host e container |
-| `BACKEND_PORT` | si | Porta del backend nella rete Docker; se esposto resta uguale anche lato host |
-| `API_URL` | no | Vuota = proxy Node SSR su `/api`; valorizzata = backend remoto |
-| `SITEMAP_BASE_URL` | no | URL pubblico canonico del sito, usato in build per generare `sitemap.xml` |
-| `API_KEY` | no | API key iniettata a runtime nel frontend (default: `frontend`) |
+| `PROJECT_NAME` | si | Identifica il progetto, usato per i nomi dei volumi Docker |
+| `FRONTEND_PORT` | si | Porta del frontend esposta sull'host (produzione) |
+| `BACKEND_PORT` | no | Porta del backend; lascia vuota per tenerlo interno (consigliato); valorizza solo se usi `docker-compose.backend-exposed.yml` |
+| `DEV_FRONTEND_PORT` | no | Porta del frontend in sviluppo Docker (default: `4200`) |
+| `DEV_BACKEND_PORT` | no | Porta del backend in sviluppo Docker (default: `5000`) |
+| `API_URL` | no | Vuota = il server Node SSR fa da proxy su `/api`; valorizzata = il frontend chiama direttamente il backend remoto |
+| `SITEMAP_BASE_URL` | no | URL pubblico canonico usato a build time per generare `sitemap.xml`; se manca usa `https://example.com` con warning |
+| `API_KEY` | no | API key iniettata a runtime nei bundle JS dal `docker-entrypoint.sh` (default: `frontend`) |
 
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
+
+### Sviluppo locale senza Docker
+Per lavorare senza container, avvia backend e frontend in due terminali separati:
+
+```bash
+# Terminale 1 — backend
+cd backend
+dotnet run
+# oppure con hot-reload: dotnet watch
+
+# Terminale 2 — frontend
+cd frontend
+npm start
+# oppure: ./start-frontend.sh dalla root del progetto
+```
+
+Il frontend usa `proxy.local.conf.json` che reindirizza `/api/*` a `http://localhost:62715` (porta definita in `backend/Properties/launchSettings.json`). Se cambi la porta del backend in `launchSettings.json`, aggiorna anche il target nel proxy.
 
 ### Script di utilita'
 - `npm run generate:statics`: genera meta tag e sitemap in un unico passaggio
@@ -503,7 +566,7 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 ### Aggiungere una pagina
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
 2. Crea il componente sotto `frontend/src/app/pages/` estendendo `PageBaseComponent`.
-3. Registra la pagina in `setSitePages(...)` con path, titolo e componente.
+3. Registra la pagina in `defineSitePages(...)` con path, titolo e componente.
 4. (Opzionale) Aggiungi `description: 'chiaveI18n'` per personalizzare i meta tag social della pagina.
 5. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
 6. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
@@ -517,8 +580,8 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 
 ### Abilitare il login
 1. Imposta `Security.Token.SecretKey` in `appsettings.json` o via env var.
-2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`.
-3. Emetti il token tramite `Auth.GenerateToken()`.
+2. Implementa la validazione credenziali in `backend/Controllers/AuthController.cs`. **Questo passo è obbligatorio**: il template include un endpoint `POST /api/auth/login` che per design risponde sempre `valid: false`. Devi sostituire quella logica con la tua (database, hash password, ecc.).
+3. Emetti il token tramite `Auth.GenerateToken(additionalClaims)` quando le credenziali sono valide. I claim aggiuntivi (es. userId, ruoli) vengono inclusi nel JWT e sono verificabili lato server nelle route protette.
 
 ---
 
@@ -602,7 +665,7 @@ public class AdminController : EngineProtectedController
 1. Aggiungi il codice in `availableLanguages` dentro `site.ts`.
 2. Crea `basic.{lang}.json` e `addon.{lang}.json` in `frontend/src/assets/i18n/`.
 3. Registra il loader della nuova lingua in `frontend/src/app/core/i18n/translation-catalogs.ts`, seguendo il pattern delle lingue esistenti.
-4. Aggiungi la `CultureInfo` corrispondente in `Program.cs` nell'array `supported`.
+4. Aggiungi il codice in `Localization.SupportedLanguages` dentro `appsettings.json` (es. `"fr"`). Nessuna modifica al codice C#.
 5. Se i contenuti JSON in `backend/data/` hanno campi localizzati, aggiungi il ramo della nuova lingua.
 
 ### Cambiare il tema

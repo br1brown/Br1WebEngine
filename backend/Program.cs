@@ -56,14 +56,19 @@ builder.Services
 
 // ── LOCALIZZAZIONE ──────────────────────────────────────────────────
 //
-// La lingua della richiesta viene letta dall'header Accept-Language inviato
-// dal frontend (impostato dall'interceptor Angular in base alla lingua corrente).
-// Supporta italiano e inglese, con fallback all'italiano.
+// Le lingue supportate vengono lette da appsettings.json (sezione "Localization").
+// La lingua della richiesta viene poi risolta dall'header Accept-Language
+// inviato dal frontend (impostato dall'interceptor Angular).
 //
+var langCodes = builder.Configuration
+    .GetSection("Localization:SupportedLanguages")
+    .Get<string[]>() ?? ["it"];
+var defaultLang = builder.Configuration["Localization:DefaultLanguage"] ?? langCodes[0];
+
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
-    var supported = new[] { new CultureInfo("it"), new CultureInfo("en") };
-    options.DefaultRequestCulture = new RequestCulture("it");
+    var supported = langCodes.Select(l => new CultureInfo(l)).ToArray();
+    options.DefaultRequestCulture = new RequestCulture(defaultLang);
     options.SupportedCultures = supported;
     options.SupportedUICultures = supported;
     options.ApplyCurrentCultureToResponseHeaders = true;
