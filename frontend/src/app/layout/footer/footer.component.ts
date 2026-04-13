@@ -168,7 +168,11 @@ export class FooterComponent {
     private formatCurrency(value?: number | null): string | null {
         if (typeof value !== 'number' || !Number.isFinite(value)) return null;
 
-        const locale = this.translate.currentLang() === 'en' ? 'en-US' : 'it-IT';
+        const LOCALE_MAP: Record<string, string> = {
+            it: 'it-IT',
+            en: 'en-GB',
+        };
+        const locale = LOCALE_MAP[this.translate.currentLang()] ?? 'it-IT';
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency: 'EUR'

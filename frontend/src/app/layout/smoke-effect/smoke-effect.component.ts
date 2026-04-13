@@ -78,7 +78,7 @@ export class SmokeEffectComponent implements AfterViewInit {
                 y: Math.random() * canvas.height,
                 vx: (Math.random() - 0.5) * this.config.maximumVelocity * 0.02,
                 vy: (Math.random() - 0.5) * this.config.maximumVelocity * 0.02,
-                radius: Math.random() * this.config.particleRadius
+                radius: 1 + Math.random() * Math.max(0, this.config.particleRadius - 1)
             });
         }
     }

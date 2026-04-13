@@ -195,38 +195,34 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         this.notify.success(this.translate.translate('modalAlertBody'));
     }
 
-    async showConfirm(): Promise<void> {
-        const ok = await this.notify.confirm(
+    showConfirm(): void {
+        this.notify.confirm(
             this.translate.translate('modalConfirmTitle'),
-            this.translate.translate('modalConfirmBody')
-        );
-
-        this.modalResult.set(
-            ok
-                ? this.translate.translate('modalResultConfirmed')
-                : this.translate.translate('modalResultCancelled')
+            this.translate.translate('modalConfirmBody'),
+            {
+                onConfirm: () => this.modalResult.set(this.translate.translate('modalResultConfirmed')),
+                onCancel: () => this.modalResult.set(this.translate.translate('modalResultCancelled')),
+            }
         );
     }
 
     showFormModal(): void {
-        import('sweetalert2').then(({ default: Swal }) => {
-            Swal.fire({
-                title: this.translate.translate('modalFormTitle'),
-                input: 'text',
-                inputLabel: this.translate.translate('modalFormNameLabel'),
-                inputPlaceholder: this.translate.translate('modalFormNameLabel'),
-                showCancelButton: true,
-                confirmButtonText: this.translate.translate('modalFormSubmit'),
-                cancelButtonText: this.translate.translate('annulla'),
-            }).then(result => {
-                if (result.isConfirmed && result.value) {
+        this.notify.prompt(
+            this.translate.translate('modalFormTitle'),
+            this.translate.translate('modalFormNameLabel'),
+            {
+                onSubmit: (value) => {
                     this.modalResult.set(
-                        `${this.translate.translate('modalResultSubmitted')}: ${result.value}`
+                        `${this.translate.translate('modalResultSubmitted')}: ${value}`
                     );
                     this.notify.toast(this.translate.translate('modalResultSubmitted'), 'success');
-                }
-            });
-        });
+                },
+            },
+            {
+                confirmText: this.translate.translate('modalFormSubmit'),
+                cancelText: this.translate.translate('annulla'),
+            }
+        );
     }
 
     // ==================== Sistema & API ====================

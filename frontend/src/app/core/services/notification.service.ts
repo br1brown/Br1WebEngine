@@ -19,37 +19,40 @@ export class NotificationService {
         return this.swalPromise ??= import('sweetalert2').then(module => module.default);
     }
 
-    /** Mostra un popup di successo con il messaggio specificato */
-    async success(message: string): Promise<any> {
-        const Swal = await this.loadSwal();
-        return Swal.fire(
-            this.translate.translate('ottimo') + '!',
-            message,
-            'success'
+    /** Mostra un popup di successo. Se fornito, onClose viene invocato alla chiusura. */
+    success(message: string, onClose?: () => void): void {
+        void this.loadSwal().then(Swal =>
+            Swal.fire(
+                this.translate.translate('ottimo') + '!',
+                message,
+                'success'
+            ).then(() => onClose?.())
         );
     }
 
     /** Mostra un popup di errore con titolo e messaggio personalizzati */
-    async error(title: string, message: string): Promise<any> {
-        const Swal = await this.loadSwal();
-        if (Swal.isVisible()) return;
-        return Swal.fire(title, message, 'error');
+    error(title: string, message: string): void {
+        void this.loadSwal().then(Swal => {
+            if (Swal.isVisible()) return;
+            Swal.fire(title, message, 'error');
+        });
     }
 
     /**
      * Mostra un popup di conferma con bottoni "Si" e "Annulla".
-     * @returns true se l'utente ha cliccato "Si", false se ha annullato
+     * Invoca onConfirm o onCancel in base alla scelta dell'utente.
      */
-    async confirm(title: string, text: string): Promise<boolean> {
-        const Swal = await this.loadSwal();
-        return Swal.fire({
-            title,
-            text,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: this.translate.translate('si') || 'Si',
-            cancelButtonText: this.translate.translate('annulla') || 'Annulla'
-        }).then(result => result.isConfirmed);
+    confirm(title: string, text: string, callbacks: { onConfirm: () => void; onCancel?: () => void }): void {
+        void this.loadSwal().then(Swal =>
+            Swal.fire({
+                title,
+                text,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: this.translate.translate('si') || 'Si',
+                cancelButtonText: this.translate.translate('annulla') || 'Annulla'
+            }).then(result => result.isConfirmed ? callbacks.onConfirm() : callbacks.onCancel?.())
+        );
     }
 
     /**
@@ -75,6 +78,33 @@ export class NotificationService {
         });
     }
 
+
+    /**
+     * Mostra un popup con un campo di testo.
+     * Invoca onSubmit con il valore inserito, oppure onCancel se l'utente annulla.
+     */
+    prompt(title: string, inputLabel: string, callbacks: { onSubmit: (value: string) => void; onCancel?: () => void }, options?: {
+        confirmText?: string;
+        cancelText?: string;
+    }): void {
+        void this.loadSwal().then(Swal =>
+            Swal.fire({
+                title,
+                input: 'text',
+                inputLabel,
+                inputPlaceholder: inputLabel,
+                showCancelButton: true,
+                confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
+                cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+            }).then(result => {
+                if (result.isConfirmed && result.value) {
+                    callbacks.onSubmit(result.value as string);
+                } else {
+                    callbacks.onCancel?.();
+                }
+            })
+        );
+    }
 
     /**
      * Gestisce gli errori delle chiamate API.

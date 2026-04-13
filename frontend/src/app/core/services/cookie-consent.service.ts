@@ -82,7 +82,8 @@ export class CookieConsentService {
     /** Legge un cookie per nome. Sempre consentito (il dato potrebbe esistere da prima). */
     getCookie(key: string): string | null {
         if (!this.isBrowser) return null;
-        const match = this.document.cookie.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`));
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = this.document.cookie.match(new RegExp(`(?:^|;\\s*)${escapedKey}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : null;
     }
 
