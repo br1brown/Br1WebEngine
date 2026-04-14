@@ -7,7 +7,6 @@
 #   ./rebuild.sh --help   Mostra questo messaggio
 #
 # Prima installazione: cp .env.example .env, edita .env, poi ./rebuild.sh
-# Per esporre il backend sull'host: imposta EXPOSE_BACKEND=yes in .env
 # =============================================================================
 
 set -euo pipefail
@@ -54,40 +53,35 @@ if [[ ! -f .env ]]; then
 fi
 ok ".env presente"
 
-# Variabili obbligatorie e placeholder
 PROJECT_NAME=$(env_get PROJECT_NAME)
 FRONTEND_PORT=$(env_get FRONTEND_PORT)
 
-[[ -z "$PROJECT_NAME" ]]          && fail "PROJECT_NAME non impostato in .env"
+[[ -z "$PROJECT_NAME" ]]             && fail "PROJECT_NAME non impostato in .env"
 [[ "$PROJECT_NAME" == "CHANGE_ME" ]] && fail "PROJECT_NAME è ancora il placeholder 'CHANGE_ME'"
-[[ -z "$FRONTEND_PORT" ]]         && fail "FRONTEND_PORT non impostato in .env"
+[[ -z "$FRONTEND_PORT" ]]            && fail "FRONTEND_PORT non impostato in .env"
 
 [[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "CHANGE_ME" ]] && ok "PROJECT_NAME = $PROJECT_NAME"
 [[ -n "$FRONTEND_PORT" ]] && ok "FRONTEND_PORT = $FRONTEND_PORT"
 
-# Avvisi di sicurezza (non bloccanti)
-JWT_SECRET=$(env_get Security__Token__SecretKey)
-CORS=$(env_get Security__CorsOrigins__0)
-EXPOSE=$(env_get EXPOSE_BACKEND)
-API_URL=$(env_get API_URL)
-
-if [[ -z "$JWT_SECRET" ]]; then
-    warn "Security__Token__SecretKey non impostata — login JWT disabilitato (ok se non serve)"
-elif [[ "$JWT_SECRET" == "CAMBIAMI_MIN_32_CHARS" ]]; then
-    fail "Security__Token__SecretKey è ancora il placeholder. Impostare una chiave reale."
-else
-    ok "JWT SecretKey impostata"
-fi
-
-if [[ "$EXPOSE" == "yes" || -n "$API_URL" ]] && [[ -z "$CORS" ]]; then
-    warn "Security__CorsOrigins__0 non impostata — il backend accetta richieste da qualunque dominio"
-fi
-
-# ── Blocca se ci sono errori ───────────────────────────────────────────────────
 if (( ERRORS > 0 )); then
     echo
     echo -e "  ${RED}Trovati $ERRORS errori. Correggere .env prima di procedere.${RESET}" >&2
     exit 1
+fi
+
+# ── Esposizione backend ────────────────────────────────────────────────────────
+EXPOSE=$(env_get EXPOSE_BACKEND)
+
+if [[ -z "$EXPOSE" ]]; then
+    echo
+    read -rp "  Esporre la porta backend sull'host? [s/N]: " _reply
+    if [[ "$_reply" =~ ^[SsYy]$ ]]; then
+        EXPOSE=yes
+        echo "EXPOSE_BACKEND=yes" >> .env
+    else
+        EXPOSE=no
+        echo "EXPOSE_BACKEND=no" >> .env
+    fi
 fi
 
 # ── Determina comando compose ──────────────────────────────────────────────────
