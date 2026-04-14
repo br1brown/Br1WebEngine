@@ -178,7 +178,12 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
 
         if (error instanceof DOMException && error.name === 'TimeoutError') {
             if (!response.headersSent) {
-                response.status(504).json({ error: 'backend timeout' });
+                // ProblemDetails (RFC 9457): il frontend legge .detail per il messaggio
+                response.status(504).json({
+                    status: 504,
+                    title: 'Gateway Timeout',
+                    detail: 'Il backend non ha risposto in tempo.'
+                });
             } else {
                 response.end();
             }
