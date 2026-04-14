@@ -25,14 +25,24 @@ services:
       dockerfile: Dockerfile
       args:
         SITEMAP_BASE_URL: "${SITEMAP_BASE_URL:-}"
+        # Nome del progetto Angular (angular.json). Cambiare se si rinomina il progetto.
+        DIST_PATH: "${DIST_PATH:-br1-web-engine}"
     environment:
       PROJECT_NAME: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}"
       PORT: "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
       BACKEND_PORT: "${BACKEND_PORT:-8080}"
+      DIST_PATH: "${DIST_PATH:-br1-web-engine}"
       # Vuoto = Node SSR proxya /api/* al backend (stesso host).
       # Valorizzato = il browser chiama direttamente il backend remoto.
       API_URL: "${API_URL:-}"
       API_KEY: "${API_KEY:-frontend}"
+      PROXY_TIMEOUT_MS: "${PROXY_TIMEOUT_MS:-30000}"
+      # Header di sicurezza HTML. Vuoti = usa i default di server.ts.
+      # Sovrascrivere se il progetto usa CDN, Google Fonts, analytics, ecc.
+      SECURITY_CSP: "${SECURITY_CSP:-}"
+      SECURITY_X_FRAME_OPTIONS: "${SECURITY_X_FRAME_OPTIONS:-}"
+      SECURITY_REFERRER_POLICY: "${SECURITY_REFERRER_POLICY:-}"
+      SECURITY_PERMISSIONS_POLICY: "${SECURITY_PERMISSIONS_POLICY:-}"
     ports:
       - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
     depends_on:
@@ -56,8 +66,17 @@ services:
       # Decommentare e valorizzare in produzione:
       # Security__ApiKeys__0: frontend
       # Security__Token__SecretKey: CAMBIAMI_MIN_32_CHARS
+      # Security__Token__ExpirationSeconds: "3000"
       # Security__CorsOrigins__0: https://miosito.it
       # Security__BehindProxy: "true"   # true se c'è Nginx/Cloudflare/ALB davanti
+      # Lingue supportate dal backend - decommentare per modificare:
+      # Localization__DefaultLanguage: it
+      # Localization__SupportedLanguages__0: it
+      # Localization__SupportedLanguages__1: en
+      # Header di sicurezza backend (sulle risposte API). Nota: i nomi contengono trattini
+      # quindi non sono sovrascrivibili via .env ma solo da qui o da appsettings.json.
+      # Security__Headers__Content-Security-Policy: "default-src 'self'"
+      # Security__Headers__X-Frame-Options: "SAMEORIGIN"
     # Backend non esposto di default (raggiungibile solo via rete Docker).
     # Per esporlo: usare docker-compose.backend-exposed.yml
     healthcheck:

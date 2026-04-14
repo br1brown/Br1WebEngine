@@ -44,12 +44,15 @@ const defaultCsp = [
     "form-action 'self'"
 ].join('; ');
 
+// Usare || invece di ?? per trattare la stringa vuota come "usa il default":
+// docker-compose passa le variabili come SECURITY_CSP="${SECURITY_CSP:-}" che
+// produce una stringa vuota se non impostata — ?? non cattura il caso vuoto.
 const htmlSecurityHeaders: [string, string][] = [
-    ['X-Frame-Options',        process.env['SECURITY_X_FRAME_OPTIONS'] ?? 'SAMEORIGIN'],
+    ['X-Frame-Options',        process.env['SECURITY_X_FRAME_OPTIONS'] || 'SAMEORIGIN'],
     ['X-Content-Type-Options', 'nosniff'],
-    ['Referrer-Policy',        process.env['SECURITY_REFERRER_POLICY'] ?? 'strict-origin-when-cross-origin'],
-    ['Permissions-Policy',     process.env['SECURITY_PERMISSIONS_POLICY'] ?? 'camera=(), microphone=(), geolocation=()'],
-    ['Content-Security-Policy', process.env['SECURITY_CSP'] ?? defaultCsp],
+    ['Referrer-Policy',        process.env['SECURITY_REFERRER_POLICY'] || 'strict-origin-when-cross-origin'],
+    ['Permissions-Policy',     process.env['SECURITY_PERMISSIONS_POLICY'] || 'camera=(), microphone=(), geolocation=()'],
+    ['Content-Security-Policy', process.env['SECURITY_CSP'] || defaultCsp],
 ];
 
 app.disable('x-powered-by');
