@@ -145,7 +145,11 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
         }
 
         if (error instanceof DOMException && error.name === 'TimeoutError') {
-            response.status(504).json({ error: 'backend timeout' });
+            if (!response.headersSent) {
+                response.status(504).json({ error: 'backend timeout' });
+            } else {
+                response.end();
+            }
             return;
         }
 

@@ -55,9 +55,9 @@ services:
       # Segreti - sovrascrivono appsettings.json via configuration binding .NET
       # Decommentare e valorizzare in produzione:
       # Security__ApiKeys__0: frontend
-      # Security__Token__Password: CAMBIAMI
       # Security__Token__SecretKey: CAMBIAMI_MIN_32_CHARS
       # Security__CorsOrigins__0: https://miosito.it
+      # Security__BehindProxy: "true"   # true se c'è Nginx/Cloudflare/ALB davanti
     # Backend non esposto di default (raggiungibile solo via rete Docker).
     # Per esporlo: usare docker-compose.backend-exposed.yml
     healthcheck:
