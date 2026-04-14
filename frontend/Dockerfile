@@ -37,11 +37,7 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist/${DIST_PATH} ./dist/${DIST_PATH}
 
-RUN chmod +x /docker-entrypoint.sh \
-    && adduser -D -u 1000 appuser \
-    && chown -R appuser:appuser /app /docker-entrypoint.sh
-
-USER appuser
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000
 
