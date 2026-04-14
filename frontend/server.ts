@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { dirname, resolve } from 'node:path';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import {
     AngularNodeAppEngine,
@@ -20,6 +21,7 @@ const backendPort = Number(process.env['BACKEND_PORT'] ?? 8080);
 const externalApiOrigin = process.env['API_URL']?.trim().replace(/\/$/, '');
 const internalApiOrigin = `http://backend:${backendPort}`;
 const apiOrigin = externalApiOrigin || internalApiOrigin;
+const proxyTimeoutMs = Number(process.env['PROXY_TIMEOUT_MS'] ?? 30_000);
 
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -46,7 +48,7 @@ function buildProxyHeaders(request: Request): Headers {
     const headers = new Headers();
 
     for (const [name, value] of Object.entries(request.headers)) {
-        if (value === undefined || name === 'host' || name === 'content-length') {
+        if (value === undefined || name === 'host') {
             continue;
         }
 
@@ -99,14 +101,14 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
     const targetUrl = new URL(request.originalUrl, `${apiOrigin}/`);
     const requestHeaders = buildProxyHeaders(request);
     const hasRequestBody = shouldProxyRequestBody(request);
-    const requestBody = hasRequestBody ? (request as unknown as BodyInit) : undefined;
+    const requestBody = hasRequestBody ? Readable.toWeb(request) as BodyInit : undefined;
     const fetchOptions: RequestInit & { duplex?: 'half' } = {
         method: request.method,
         headers: requestHeaders,
         body: requestBody,
         duplex: hasRequestBody ? 'half' : undefined,
         redirect: 'manual',
-        signal: abortController.signal
+        signal: AbortSignal.any([abortController.signal, AbortSignal.timeout(proxyTimeoutMs)])
     };
 
     request.on('close', () => abortController.abort());
@@ -139,6 +141,11 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
         response.end();
     } catch (error) {
         if (abortController.signal.aborted) {
+            return;
+        }
+
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+            response.status(504).json({ error: 'backend timeout' });
             return;
         }
 
