@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { dirname, resolve } from 'node:path';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import {
     AngularNodeAppEngine,
@@ -20,6 +21,39 @@ const backendPort = Number(process.env['BACKEND_PORT'] ?? 8080);
 const externalApiOrigin = process.env['API_URL']?.trim().replace(/\/$/, '');
 const internalApiOrigin = `http://backend:${backendPort}`;
 const apiOrigin = externalApiOrigin || internalApiOrigin;
+const proxyTimeoutMs = Number(process.env['PROXY_TIMEOUT_MS'] ?? 30_000);
+
+// Security headers per le risposte HTML e gli asset statici.
+// Le API (/api/*) ricevono questi header dal backend; li escludiamo qui per evitare duplicati.
+//
+// connect-src include automaticamente l'origine esterna quando API_URL è impostato
+// (deploy separato frontend/backend): senza questo il browser bloccherebbe le chiamate API.
+//
+// Tutti i valori sono sovrascrivibili via env (es. SECURITY_CSP=...) per i progetti derivati
+// che devono aggiungere origini (Google Fonts, CDN, analytics, ecc.).
+const connectSrc = externalApiOrigin ? `'self' ${externalApiOrigin}` : "'self'";
+const defaultCsp = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    `connect-src ${connectSrc}`,
+    "frame-ancestors 'self'",
+    "base-uri 'self'",
+    "form-action 'self'"
+].join('; ');
+
+// Usare || invece di ?? per trattare la stringa vuota come "usa il default":
+// docker-compose passa le variabili come SECURITY_CSP="${SECURITY_CSP:-}" che
+// produce una stringa vuota se non impostata — ?? non cattura il caso vuoto.
+const htmlSecurityHeaders: [string, string][] = [
+    ['X-Frame-Options',        process.env['SECURITY_X_FRAME_OPTIONS'] || 'SAMEORIGIN'],
+    ['X-Content-Type-Options', 'nosniff'],
+    ['Referrer-Policy',        process.env['SECURITY_REFERRER_POLICY'] || 'strict-origin-when-cross-origin'],
+    ['Permissions-Policy',     process.env['SECURITY_PERMISSIONS_POLICY'] || 'camera=(), microphone=(), geolocation=()'],
+    ['Content-Security-Policy', process.env['SECURITY_CSP'] || defaultCsp],
+];
 
 app.disable('x-powered-by');
 app.set('trust proxy', true);
@@ -46,7 +80,7 @@ function buildProxyHeaders(request: Request): Headers {
     const headers = new Headers();
 
     for (const [name, value] of Object.entries(request.headers)) {
-        if (value === undefined || name === 'host' || name === 'content-length') {
+        if (value === undefined || name === 'host') {
             continue;
         }
 
@@ -99,14 +133,14 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
     const targetUrl = new URL(request.originalUrl, `${apiOrigin}/`);
     const requestHeaders = buildProxyHeaders(request);
     const hasRequestBody = shouldProxyRequestBody(request);
-    const requestBody = hasRequestBody ? (request as unknown as BodyInit) : undefined;
+    const requestBody = hasRequestBody ? Readable.toWeb(request) as BodyInit : undefined;
     const fetchOptions: RequestInit & { duplex?: 'half' } = {
         method: request.method,
         headers: requestHeaders,
         body: requestBody,
         duplex: hasRequestBody ? 'half' : undefined,
         redirect: 'manual',
-        signal: abortController.signal
+        signal: AbortSignal.any([abortController.signal, AbortSignal.timeout(proxyTimeoutMs)])
     };
 
     request.on('close', () => abortController.abort());
@@ -142,6 +176,20 @@ async function proxyApiRequest(request: Request, response: Response, next: NextF
             return;
         }
 
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+            if (!response.headersSent) {
+                // ProblemDetails (RFC 9457): il frontend legge .detail per il messaggio
+                response.status(504).json({
+                    status: 504,
+                    title: 'Gateway Timeout',
+                    detail: 'Il backend non ha risposto in tempo.'
+                });
+            } else {
+                response.end();
+            }
+            return;
+        }
+
         next(error);
     }
 }
@@ -155,6 +203,15 @@ app.get('/health', (_request, response) => {
 
 app.use('/api', (request, response, next) => {
     void proxyApiRequest(request, response, next);
+});
+
+// Applica security headers a tutte le risposte non-API (HTML, assets statici).
+// Posizionato dopo il proxy /api: quelle risposte non passano da qui.
+app.use((_request, response, next) => {
+    for (const [name, value] of htmlSecurityHeaders) {
+        response.setHeader(name, value);
+    }
+    next();
 });
 
 app.use(

@@ -112,20 +112,23 @@ public static class SecurityExtensions
 
         // ── CORS ────────────────────────────────────────────────────────
         //
-        // Controlla quali origini (domini) possono chiamare le API.
+        // Controlla quali origini (domini) possono chiamare le API dal browser.
+        // CORS e' rilevante solo per client browser: chiamate server-to-server,
+        // app mobile e altri client non-web non sono soggetti a questa policy.
         //
+        // CorsOrigins vuoto = AllowAnyOrigin: scelta deliberata per API pubbliche
+        // accessibili da qualsiasi richiedente. La protezione reale e' l'API key
+        // (X-Api-Key), che identifica il tipo di client indipendentemente dall'origine.
+        // Valorizzare Security.CorsOrigins solo se si vuole limitare l'accesso
+        // browser a domini specifici (es. pannello admin su dominio separato).
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(policy =>
             {
-                // CorsOrigins vuoto = AllowAnyOrigin (comodo in sviluppo, pericoloso
-				// in produzione perche' qualsiasi sito potrebbe fare richieste).
                 if (security.CorsOrigins.Length == 0)
-					policy.AllowAnyOrigin();
+                    policy.AllowAnyOrigin();
                 else
-					// In produzione va SEMPRE configurato con i domini esatti
-					// nell'array Security.CorsOrigins di appsettings.json.
-					policy.WithOrigins(security.CorsOrigins);
+                    policy.WithOrigins(security.CorsOrigins);
 
 				// Gli header consentiti sono quelli usati dal frontend:
 				// Content-Type (body JSON), Authorization (JWT), X-Api-Key, Accept-Language.

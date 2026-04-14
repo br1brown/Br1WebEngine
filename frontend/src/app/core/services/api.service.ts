@@ -2,17 +2,16 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
 import { NotificationService } from './notification.service';
+import { apiPrefix } from '../api-prefix';
 import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
 
 /** Endpoint backend. Aggiungere qui ogni nuovo path per evitare stringhe duplicate. */
-const apiBase = environment.apiUrl.replace(/\/$/, '');
 const API = {
-    social:  `${apiBase}/api/social`,
-    profile: `${apiBase}/api/profile`,
-    login:   `${apiBase}/api/auth/login`,
+    social:  `${apiPrefix}/social`,
+    profile: `${apiPrefix}/profile`,
+    login:   `${apiPrefix}/auth/login`,
 } as const;
 
 /**

@@ -15,8 +15,8 @@ API_URL="${API_URL:-}"
 API_KEY="${API_KEY:-frontend}"
 PORT="${PORT:-3000}"
 DIST_PATH="${DIST_PATH:-br1-web-engine}"
-BROWSER_DIST="/app/dist/${DIST_PATH}/browser"
-SERVER_ENTRY="/app/dist/${DIST_PATH}/server/server.mjs"
+DIST_OUT="/app/dist/${DIST_PATH}"
+SERVER_ENTRY="${DIST_OUT}/server/server.mjs"
 
 echo "[entrypoint] PORT=${PORT}"
 echo "[entrypoint] API_URL=${API_URL:-<vuoto, usa proxy Node /api>}"
@@ -29,13 +29,8 @@ escape_sed() {
 API_URL_ESCAPED=$(escape_sed "$API_URL")
 API_KEY_ESCAPED=$(escape_sed "$API_KEY")
 
-SERVER_DIST="/app/dist/${DIST_PATH}/server"
-
 # browser + server SSR
-find "$BROWSER_DIST" -name '*.js' -exec \
-    sed -i "s|__API_URL__|${API_URL_ESCAPED}|g;s|__API_KEY__|${API_KEY_ESCAPED}|g" {} +
-
-find "$SERVER_DIST" \( -name '*.js' -o -name '*.mjs' \) -exec \
+find "$DIST_OUT" \( -name '*.js' -o -name '*.mjs' \) -exec \
     sed -i "s|__API_URL__|${API_URL_ESCAPED}|g;s|__API_KEY__|${API_KEY_ESCAPED}|g" {} +
 
 exec node "$SERVER_ENTRY"

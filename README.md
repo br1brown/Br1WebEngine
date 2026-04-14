@@ -523,6 +523,9 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `API_URL` | no | Vuota = il server Node SSR fa da proxy su `/api`; valorizzata = il frontend chiama direttamente il backend remoto |
 | `SITEMAP_BASE_URL` | no | URL pubblico canonico usato a build time per generare `sitemap.xml`; se manca usa `https://example.com` con warning |
 | `API_KEY` | no | API key iniettata a runtime nei bundle JS dal `docker-entrypoint.sh` (default: `frontend`) |
+| `PROXY_TIMEOUT_MS` | no | Timeout del proxy Node SSR verso il backend in millisecondi (default: `30000`). Aumentare per endpoint lenti. |
+| `DIST_PATH` | no | Nome cartella dist Angular; cambiare solo se si rinomina il progetto rispetto al template (default: `br1-web-engine`) |
+| `SECURITY_CSP` | no | Override del Content-Security-Policy per HTML e asset statici; il default include automaticamente `API_URL` nel `connect-src`. Vedere `.env.example` per tutti gli header sovrascrivibili (`SECURITY_X_FRAME_OPTIONS`, `SECURITY_REFERRER_POLICY`, `SECURITY_PERMISSIONS_POLICY`). |
 
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
@@ -598,7 +601,8 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
    - `docker-compose.yml`
    - `docker-compose.backend-exposed.yml` (solo se vuoi pubblicare anche la porta backend)
    - `.env` (obbligatorio, puoi partire da `.env.example`)
-   - eventuali override (`docker-compose.override.yml`) se vuoi differenziare ambiente dev/prod
+
+   > Non copiare `docker-compose.override.yml`: è pensato per lo sviluppo locale e verrebbe applicato automaticamente.
 
 3. **Configura `.env` per l'ambiente remoto**
    - `PROJECT_NAME`: nome stack/volumi (es. `miosito`).
@@ -611,27 +615,34 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 
 4. **Scegli come esporre i servizi**
    - **Scenario consigliato**: esponi solo il frontend e lascia il backend interno alla rete Docker.
-   - **Scenario con client alternativi**: aggiungi `-f docker-compose.backend-exposed.yml` se il progetto ha UI non web (app mobile, desktop, client terzi) che devono raggiungere il backend direttamente.
+     ```bash
+     docker compose -f docker-compose.yml up -d --build
+     ```
+   - **Scenario con client alternativi** (app mobile, desktop, API pubbliche): aggiungi il file che espone la porta backend.
+     ```bash
+     docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml up -d --build
+     ```
 
 5. **Avvia e verifica**
    ```bash
-   docker compose --env-file .env up -d --build
-   docker compose ps
-   docker compose logs -f frontend
-   docker compose logs -f backend
+   # -f docker-compose.yml esclude il file di override (sviluppo locale)
+   docker compose -f docker-compose.yml up -d --build
+   docker compose -f docker-compose.yml ps
+   docker compose -f docker-compose.yml logs -f frontend
+   docker compose -f docker-compose.yml logs -f backend
    ```
    Verifica poi: homepage raggiungibile, chiamate `/api/*` funzionanti, health check backend OK.
 
 6. **Aggiornamenti futuri (deploy successivi)**
    - Aggiorna codice/immagini.
-   - Riesegui `docker compose --env-file .env up -d --build`.
-   - Se hai cambiato solo env/runtime e non il codice, basta `docker compose --env-file .env up -d`.
+   - Riesegui `docker compose -f docker-compose.yml up -d --build`.
+   - Se hai cambiato solo env/runtime e non il codice, basta `docker compose -f docker-compose.yml up -d`.
 
 7. **Hardening minimo produzione**
    - Metti HTTPS davanti (Nginx/Caddy/Traefik o proxy del provider).
    - Usa API key e secret JWT robusti, non quelli di esempio.
    - Tieni backup di `.env` e dei volumi nominati.
-   - Imposta una policy di restart (`unless-stopped`/`always`) e monitora i log.
+   - La policy `restart: unless-stopped` e il log rotation (json-file, 10 MB, 3 file) sono già configurati nel compose base.
 
 Se vuoi, puoi tenere `DOCKER_README.md` come riferimento operativo dettagliato e lasciare questa sezione nel README come guida rapida da "locale" a "server".
 
