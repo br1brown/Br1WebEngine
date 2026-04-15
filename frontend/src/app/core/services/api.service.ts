@@ -8,7 +8,6 @@ import { TranslateService } from './translate.service';
 import { TokenService } from './auth.service';
 import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
-import { FeatureCatalogEntry } from '../dto/feature-catalog.dto';
 
 /**
  * Prefisso base di tutte le chiamate al backend.
