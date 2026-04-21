@@ -550,7 +550,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `SECURITY_CSP` | no | Override del Content-Security-Policy per HTML e asset statici; il default include automaticamente `API_URL` nel `connect-src`. Vedere `.env.example` per tutti gli header sovrascrivibili (`SECURITY_X_FRAME_OPTIONS`, `SECURITY_REFERRER_POLICY`, `SECURITY_PERMISSIONS_POLICY`). |
 | `Security__BehindProxy` | no | Impostata automaticamente a `true` da `rebuild.sh`. Abilita la lettura di `X-Forwarded-For` nel backend, necessaria affinché il rate limiter veda l'IP reale del client invece dell'IP del proxy. Da impostare manualmente solo se si bypassa `rebuild.sh`. |
 
-Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
+Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare le CORS (`Security__CorsOrigins__*`) sul backend: usa `appsettings.json` per i domini stabili del progetto e le env var (che sovrascrivono per indice) solo per gli override.
 
 ### Sviluppo locale senza Docker
 Per lavorare senza container, avvia backend e frontend separatamente:
@@ -637,7 +637,7 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
    - `API_URL`: lascia vuota se frontend e backend stanno nello stesso compose (Node SSR usa il proxy interno `/api`); valorizzala solo se punti a backend esterno.
    - `SITEMAP_BASE_URL`: URL pubblico canonico del sito; viene letto in fase di build per generare `sitemap.xml`.
    - `API_KEY`: chiave usata dal frontend per chiamare le API.
-   - Se usi backend separato o domini diversi, ricorda di allineare anche le CORS nel backend (`Security__CorsOrigins__*`).
+   - Se usi backend separato o domini diversi, allinea le CORS nel backend (`Security__CorsOrigins__*`). Nota: le env var hanno priorità e sovrascrivono il JSON per indice (`__0`, `__1`). Usa il JSON per i domini stabili, le env var per gli override.
 
 4. **Avvia con `rebuild.sh`**
 
