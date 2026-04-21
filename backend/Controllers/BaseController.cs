@@ -5,31 +5,27 @@ using Backend.Services;
 namespace Backend.Controllers;
 
 /// <summary>
-/// Controller concreto del progetto che eredita la logica di base dell'engine.
+/// Controller concreto del progetto per gli endpoint pubblici (API key).
 /// </summary>
 /// <remarks>
-/// <para>
-/// Eredita <see cref="EngineBaseController.GetProfile"/> e lo espone come endpoint.
-/// Deve essere sovrascritto per personalizzare la logica del profilo.
-/// </para>
-/// <para>
-/// Gli endpoint aggiuntivi di questo controller sono specifici del progetto.
-/// Ad esempio <see cref="GetSocial"/> e' un endpoint dimostrativo
-/// che mostra come aggiungere funzionalita' sopra la base dell'engine.
-/// </para>
+/// Eredita sicurezza e logger da <see cref="EngineApiController"/>.
+/// Aggiungere qui gli endpoint del progetto che non richiedono autenticazione utente.
+/// <see cref="GetSocial"/> e' un endpoint dimostrativo incluso nel template.
 /// </remarks>
 [Route("api")]
-public class BaseController : EngineBaseController
+public class BaseController : EngineApiController
 {
     private readonly SiteService _service;
+    private readonly IContentStore _store;
 
     /// <summary>
     /// Inizializza il controller con il servizio di business e le dipendenze dell'engine.
     /// </summary>
     public BaseController(SiteService service, IContentStore store, ILogger<BaseController> logger)
-        : base(store, logger)
+        : base(logger)
     {
         _service = service;
+        _store = store;
     }
 
     /// <summary>
@@ -38,7 +34,7 @@ public class BaseController : EngineBaseController
     /// che arricchisce il profilo con i social principali.
     /// </summary>
     [HttpGet("profile")]
-    public override async Task<IActionResult> GetProfile()
+    public async Task<IActionResult> GetProfile()
     {
         Logger.LogInformation(
             "Richiesta profilo - lingua: {Lang}",

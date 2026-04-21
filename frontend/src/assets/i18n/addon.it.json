@@ -1,4 +1,4 @@
-{
+  {
   "createdBy": "Creato con <strong>{0}</strong>",
   "dashboardHome": "Dashboard",
   "welcomeConsole": "Benvenuto nel pannello di controllo.",
@@ -61,12 +61,22 @@
   "modalConfirmTitle": "Sei sicuro?",
   "modalConfirmBody": "Questa azione non può essere annullata. Vuoi procedere?",
   "modalFormTitle": "Feedback",
+  "speechDemoTitle": "Sintesi Vocale (TTS)",
+  "speechDemoDesc": "Sperimenta l'accessibilità con lo SpeechService integrato.",
+  "speechInputLabel": "Testo da leggere",
+  "speechPlaceholder": "Scrivi qualcosa da far leggere...",
+  "speechPlay": "Ascolta",
+  "speechStop": "Interrompi",
+  "speechPlaying": "Riproduzione in corso...",
+  "speechVoiceLabel": "Voce sistema",
   "modalFormNameLabel": "Nome",
   "modalFormEmailLabel": "Email",
   "modalFormMessageLabel": "Messaggio",
   "modalFormSubmit": "Invia",
-  "modalResultConfirmed": "Confermato!",
-  "modalResultCancelled": "Annullato",
   "modalResultSubmitted": "Form inviato",
-  "contextMenuSampleText": "Questo è un testo di esempio. Selezionalo e usa il menu contestuale per copiarlo, tagliarlo o incollarlo."
-}
+  "contextMenuSampleText": "Questo è un testo di esempio. Selezionalo e usa il menu contestuale per copiarlo, tagliarlo o incollarlo.",
+  "contextMenuCopy": "Copia",
+  "contextMenuCut": "Taglia",
+  "contextMenuPaste": "Incolla",
+  "contextMenuInfo": "Informazioni"
+  }

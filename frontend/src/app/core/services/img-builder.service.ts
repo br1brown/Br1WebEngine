@@ -10,11 +10,11 @@
  * Per aggiungerne: 'Nome Visibile': '"font-family CSS", fallback-generico'
  */
 const FONTS: Record<string, string> = {
-    'Arial':            'Arial, sans-serif',
-    'Georgia':          'Georgia, serif',
-    'Courier New':      '"Courier New", monospace',
-    'Verdana':          'Verdana, sans-serif',
-    'Times':  '"Times New Roman", serif',
+    'Arial': 'Arial, sans-serif',
+    'Georgia': 'Georgia, serif',
+    'Courier New': '"Courier New", monospace',
+    'Verdana': 'Verdana, sans-serif',
+    'Times': '"Times New Roman", serif',
 };
 
 export const FONT_NAMES = Object.keys(FONTS);

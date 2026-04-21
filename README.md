@@ -90,12 +90,13 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 - 35+ [social con icona e colore brand](#social-link) mappati in un componente: passi il nome, esce l'icona giusta col colore giusto
 - Un [servizio di condivisione](#condivisione-e-clipboard) unifica Clipboard API, Web Share API e download in un'unica interfaccia con fallback automatico
 - L'[image builder](#generazione-immagini-su-canvas) genera immagini su canvas con word-wrap calcolato via `measureText()`, pronte per social sharing
-- Gli [asset](#asset-mapping) si risolvono da un `mapping.json` cachato con `shareReplay`
+- Gli [asset](#ottimizzazione-immagini) si risolvono da un `mapping.json` piatto: immagini raster vengono ottimizzate con Sharp, gli altri file serviti direttamente — tutto accessibile tramite ID, senza esporre il filesystem
 
 ### Build e Deploy
 
 - [`npm run build`](#build-e-script) lancia meta tag, sitemap e icone PWA in automatico via `prebuild`
 - [Docker](#docker) esegue proxy, sostituzione env a runtime e caching hashato senza configurare nulla
+- Le [immagini degli asset](#ottimizzazione-immagini) vengono ottimizzate on-demand dal server Node: resize, WebP e cache automatici, senza configurazione
 
 ## Tech Stack
 | Categoria | Tecnologia | Note |
@@ -103,18 +104,19 @@ Br1WebEngine e' costruito intorno a un principio: **se una cosa puo' derivarsi d
 | Backend | ASP.NET Core 9, C# | REST API, API key, JWT opzionale, ProblemDetails |
 | Frontend | Angular 19, TypeScript, Bootstrap 5 | SPA/PWA, prerender, i18n, tema dinamico |
 | Container | Docker, Docker Compose, Node SSR | template riusabile per multi-progetto, `.env`-driven |
-| Tooling | Node 22+, npm 10+ | script meta, sitemap e icone |
+| Tooling | Node 22+, npm 10+, Sharp | script meta, sitemap, icone e ottimizzazione immagini |
 
 ## Architettura del Progetto
 
 ```
-┌──────────────────────────────────────────────┐
-│  Frontend (Angular 19)                       │
-│  porta 80                                    │
-│  ┌─────────────┐  ┌───────────────────────┐  │
-│  │ Static SPA  │  │ /api/* → proxy backend│  │
-│  └─────────────┘  └───────────────────────┘  │
-└────────────────────────┬─────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  Frontend — Node SSR (Angular 19 + Express)          │
+│  porta 80                                            │
+│  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │
+│  │ Angular SSR  │  │/api/* proxy│  │/cdn-cgi/asset│  │
+│  │  (pagine)    │  │ → backend  │  │ Sharp + cache│  │
+│  └──────────────┘  └────────────┘  └──────────────┘  │
+└───────────────────────────┬──────────────────────────┘
                          │
                          ▼
 ┌──────────────────────────────────────────────┐
@@ -162,6 +164,7 @@ Il backend e' un'API ASP.NET Core 9 con sicurezza a piu' livelli (API key obblig
 |---|---|---|---|
 | `GET` | `/api/profile` | API key | profilo aziendale localizzato |
 | `GET` | `/api/social` | API key | filtro opzionale con `nomi` |
+| `GET` | `/api/blob/{slug}` | API key | file dal volume `/app/uploads`; path traversal bloccato; Content-Type rilevato automaticamente |
 | `POST` | `/api/auth/login` | API key | placeholder; body JSON `{ "pwd": "..." }`; esposto solo quando il login JWT e' abilitato |
 | `GET` | `/health` | nessuna | health check |
 
@@ -173,11 +176,11 @@ Tre controller astratti dell'engine abilitano automaticamente attributi di sicur
 
 | Controller astratto | Attributi ereditati | Cosa fornisce |
 |---|---|---|
-| `EngineBaseController` | `[ApiController]`, `[Authorize]` | `IContentStore` e `ILogger` pronti all'uso |
+| `EngineApiController` | `[ApiController]`, `[Authorize]` | `ILogger` condiviso; radice comune di tutti i controller engine |
 | `EngineAuthController` | `[ApiController]`, `[Authorize]` | `AuthService` per generazione e validazione JWT |
 | `EngineProtectedController` | `[ApiController]`, `[Authorize(Policy = RequireLoginPolicy)]` | `ILogger` condiviso, richiede API key + JWT con ruolo `Authenticated` |
 
-Il controller concreto estende la base giusta e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze. I controller che ereditano da `EngineAuthController` o `EngineProtectedController` vengono esposti solo quando il login JWT e' attivo.
+Il controller concreto estende la base giusta e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze. I controller che ereditano da `EngineAuthController` o `EngineProtectedController` vengono esposti solo quando il login JWT e' attivo. `BlobController` — che eredita da `EngineApiController` — è un esempio di controller concreto già incluso nel template.
 
 #### Pipeline di sicurezza
 La sicurezza si divide in due parti: **registrazione** (`AddTemplateSecurity`) e **pipeline HTTP** (`UseTemplateSecurity`).
@@ -345,10 +348,12 @@ Il valore arriva al layout tramite `route.data` e viene letto dall'`AppComponent
 #### Pagine di errore
 `buildErrorRoutes()` genera una singola rotta parametrica `error/:errorCode` che accetta qualsiasi codice HTTP. I messaggi si traducono via i18n (chiavi `errore{codice}Info`, `errore{codice}Desc`) con fallback generico se la chiave non esiste. Il wildcard `**` reindirizza a `error/404`.
 
-#### ApiService
-`ApiService` è l'unico punto di accesso al backend. Ogni metodo pubblico corrisponde a un endpoint e costruisce la richiesta tramite `buildHeaders()`, che aggiunge automaticamente `X-Api-Key`, `Accept-Language` nella lingua corrente e `Authorization: Bearer` se c'è un token attivo in `sessionStorage`. Non serve un interceptor globale: poiché tutte le chiamate backend passano da qui, gli header vengono applicati direttamente, senza filtrare per URL.
+#### ApiService e BaseApiService
+`ApiService` è l'unico punto di accesso al backend. Estende `BaseApiService`, una classe astratta che raccoglie tutta l'infrastruttura HTTP condivisa: costruzione degli header (`X-Api-Key`, `Accept-Language`, `Bearer`), metodi protetti `api_get<T>()` e `api_post<T>()`, health check e gestione errori centralizzata. `ApiService` aggiunge solo i metodi pubblici degli endpoint concreti.
 
 Il prefisso `/api` è definito come costante privata del modulo (`apiBase`) e deve corrispondere all'attributo `[Route("api")]` del `BaseController` backend. Ogni endpoint è dichiarato nell'oggetto `API` in cima al file: per aggiungere un endpoint basta aggiungere lì il path e creare il metodo pubblico corrispondente.
+
+Metodi già inclusi: `getProfile()`, `getSocial()`, `login()`, `getBlob(slug)` (scarica un file dal volume uploads come `Blob`) e `exportDocument(md, format)` (converte Markdown in PDF o DOCX tramite Pandoc sul backend).
 
 #### Consenso cookie
 `CookieConsentService` rileva se il consenso e' necessario (es. piu' lingue → preferenza da persistere). Se l'utente non ha accettato, le scritture su cookie vengono bloccate in silenzio. Lettura e cancellazione restano sempre consentite.
@@ -365,10 +370,18 @@ Angular compila il bundle JavaScript a build time, quindi non può leggere varia
 
 Quando `API_URL` è vuota, il server Node SSR fa da proxy su `/api/*` verso il backend interno sulla rete Docker. Quando è valorizzata, il frontend chiama direttamente quel URL (utile se backend e frontend sono su server separati).
 
-Asset hashati cachati un anno con `immutable`; service worker e manifest non vengono cachati.
+Asset con hash nel nome cachati un anno con `immutable`; asset non hashati (i18n, legal, mapping) con `no-cache` per garantire aggiornamenti immediati al deploy; service worker e manifest gestiti separatamente.
 
-#### Asset mapping
-`AssetService` carica `mapping.json` una volta, lo mette in cache con `shareReplay`, e risolve ID in path reali o URL esterni.
+#### Ottimizzazione immagini e asset
+Il server Node SSR espone un endpoint unico `/cdn-cgi/asset?id=X` che serve qualsiasi file registrato in `assets/mapping.json`. Il comportamento dipende dal tipo del file: le immagini raster (PNG, JPG, GIF, AVIF…) vengono ridimensionate e convertite in WebP tramite Sharp con cache su disco; gli altri file (PDF, SVG, testi…) vengono serviti direttamente con `Content-Type` rilevato automaticamente dall'estensione.
+
+La directory `assets/files/` è bloccata dal middleware: i file non sono mai raggiungibili direttamente, solo tramite ID. Questo nasconde il filesystem reale al client.
+
+La cache immagini è effimera — si azzera ad ogni deploy, così le immagini aggiornate vengono sempre rielaborate. Le icone PWA vivono in `public/icons/` (generate a build time, non tracciate da git).
+
+`AssetService` gestisce tutto in modo trasparente: nei componenti si usa `this.asset.getUrl('hero', 1080)` e il resto avviene lato server.
+
+Le larghezze disponibili e il mapping ID→file sono configurati in `app.config.ts` e `assets/mapping.json`.
 
 #### Context menu
 La directive `[appContextMenu]` aggiunge un menu contestuale personalizzato a qualsiasi elemento:
@@ -394,7 +407,11 @@ Un singolo componente (`PolicyComponent`) gestisce tutte le pagine legali: priva
 Questo separa i contenuti legali dal codice applicativo: i testi restano revisionabili come semplici file Markdown.
 
 #### Titoli pagina
-`AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e delega a `PageMetaService` l'aggiornamento dei tag. `PageMetaService` è un setter puro: riceve titolo e descrizione già pronti e aggiorna in un'unica chiamata `description`, `og:title`, `og:description` e `twitter:description` — nessuna logica, solo applicazione. La `description` viene letta da `route.data` se dichiarata in `site.ts`, altrimenti cade sul valore globale `ContestoSito.config.description`. Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
+`AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e delega a `PageMetaService` l'aggiornamento dei tag. La `description` dichiarata in `site.ts` è una chiave i18n: viene tradotta prima di essere passata al servizio, così i crawler sociali ricevono testo leggibile e non la chiave tecnica. In assenza di descrizione specifica per la pagina, si usa `ContestoSito.config.description` come fallback.
+
+`PageMetaService` è un setter puro che aggiorna in un'unica chiamata: `description`, `og:title`, `og:description`, `og:url`, `og:image`, `twitter:title`, `twitter:description`, `twitter:image` e il tag `<link rel="canonical">`. L'URL assoluto viene letto da `DOCUMENT.URL` (in SSR riflette l'URL della richiesta corrente): questo garantisce che i crawler leggano `og:url` e canonical già corretti nell'HTML servito da Node, senza attendere l'hydration client. L'immagine di default è l'icona PWA (`/icons/icon-512x512.png`); pagine con immagine specifica possono passare un `imgId` che viene risolto tramite `/cdn-cgi/asset`.
+
+Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
 
 La strategy è registrata due volte nel DI: come `TitleStrategy` (richiesto da Angular per agganciarsi al router) e come `AppTitleStrategy` tramite `useExisting`, così chi ne ha bisogno può iniettarla direttamente senza cast.
 
@@ -468,8 +485,10 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `TranslateService` | i18n con sistema addon |
 | `TokenService` | Conserva il token JWT in memoria e sessionStorage; letto da `ApiService` per l'header `Bearer` |
 | `AuthService` | Login, logout e stato sessione; delega lo storage del token a `TokenService` |
-| `ApiService` | Unico client HTTP verso il backend: costruisce header (`X-Api-Key`, `Accept-Language`, `Bearer`) e centralizza GET/POST |
-| `AssetService` | Risoluzione URL asset statici da mapping |
+| `BaseApiService` | Classe astratta: infrastruttura HTTP condivisa (header, error handling, health check); estesa da `ApiService` |
+| `ApiService` | Unico client HTTP verso il backend: endpoint concreti (`getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login`) |
+| `SpeechService` | Text-to-speech via Web Speech API: `speak(text, options?)`, `stop()`, segnali `isSpeaking` e `currentVoice`; voce e lingua seguono automaticamente `TranslateService` |
+| `AssetService` | Costruisce URL verso `/cdn-cgi/asset?id=X&w=Y`; il server Node gestisce resize, WebP e cache per immagini raster; file generici serviti direttamente |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
 | `NotificationService` | Toast, errori e parsing ProblemDetails RFC 9457; SweetAlert2 caricato in lazy loading al primo utilizzo |
@@ -501,7 +520,7 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 - `backend/data/irl.json`: dati legali del sito
 - `frontend/src/assets/i18n/`: traduzioni del progetto (`addon.*.json`)
 - `frontend/src/assets/legal/`: privacy, cookie policy, termini di servizio e note legali
-- `frontend/src/assets/file/` e `frontend/src/assets/mapping.json`: file statici e mapping asset
+- `frontend/src/assets/files/` e `frontend/src/assets/mapping.json`: file statici e mapping asset (ID piatto → filename; immagini raster ottimizzate da Sharp, altri tipi serviti direttamente)
 
 ### Backend (`appsettings.json`)
 | Chiave | Effetto |
@@ -534,21 +553,24 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare anche `Security__CorsOrigins__*` sul backend.
 
 ### Sviluppo locale senza Docker
-Per lavorare senza container, avvia backend e frontend in due terminali separati:
+Per lavorare senza container, avvia backend e frontend separatamente:
 
 ```bash
-# Terminale 1 — backend
-cd backend
-dotnet run
-# oppure con hot-reload: dotnet watch
+# Backend — Visual Studio o terminale
+cd backend && dotnet run   # oppure: dotnet watch
 
-# Terminale 2 — frontend
-cd frontend
-npm start
-# oppure: ./start-frontend.sh dalla root del progetto
+# Frontend — dalla root del progetto
+./start-frontend-dev.sh
 ```
 
-Il frontend usa `proxy.local.conf.json` che reindirizza `/api/*` a `http://localhost:62715` (porta definita in `backend/Properties/launchSettings.json`). Se cambi la porta del backend in `launchSettings.json`, aggiorna anche il target nel proxy.
+Lo script `start-frontend-dev.sh` esegue `npm run dev`, che fa tre cose in sequenza:
+1. **Build completa** (`ng build`) — genera il bundle e le icone PWA
+2. **Server SSR** su `:3000` — gestisce `/cdn-cgi/asset` (immagini: resize + WebP + cache; altri file: serve diretto)
+3. **Dev server** su `:4200` — `ng serve` con hot reload, proxy `/api/*` e `/cdn-cgi/*` verso `:3000`
+
+Il `proxy.local.conf.json` reindirizza sia `/api/*` a `http://localhost:62715` (backend, porta definita in `backend/Properties/launchSettings.json`) sia `/cdn-cgi/asset` al server SSR locale. Se cambi la porta del backend in `launchSettings.json`, aggiorna anche il target nel proxy.
+
+> Con questo setup testi localmente SSR, image optimization e proxy esattamente come funzionano in produzione — senza Docker.
 
 ### Script di utilita'
 - `npm run generate:statics`: genera meta tag e sitemap in un unico passaggio

@@ -38,4 +38,5 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 frontend/public/sitemap.xml
+frontend/public/icons/
 .claude

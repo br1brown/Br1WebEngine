@@ -102,7 +102,7 @@ services:
         max-size: "10m"
         max-file: "3"
     volumes:
-      - app-data:/app/data
+      - uploads-data:/app/uploads
     restart: unless-stopped
     networks:
       - app-network
@@ -112,6 +112,6 @@ networks:
     driver: bridge
 
 volumes:
-  app-data:
-    name: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}-app-data"
+  uploads-data:
+    name: "${PROJECT_NAME:?ERRORE: impostare PROJECT_NAME nel file .env}-uploads-data"
     driver: local

@@ -12,6 +12,7 @@ import { NavbarComponent } from './layout/navbar/navbar.component';
 import { SmokeEffectComponent } from './layout/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './shared/components/back-to-top/back-to-top.component';
 import { CookieBannerComponent } from './shared/components/cookie-banner/cookie-banner.component';
+import { PageMetaService } from './core/services/page-meta.service';
 import { TranslatePipe } from './shared/pipes/translate.pipe';
 
 /**
@@ -33,6 +34,7 @@ export class AppComponent {
     private readonly titleStrategy = inject(AppTitleStrategy);
     readonly theme = inject(ThemeService);
 
+
     readonly smoke = ContestoSito.config.smoke;
     readonly showFooter = ContestoSito.config.showFooter;
     readonly menuItems = ContestoSito.menuNav;
@@ -45,9 +47,9 @@ export class AppComponent {
     private readonly currentRoute = toSignal(
         this.router.events.pipe(
             filter(e => e instanceof NavigationEnd),
-            map(() => getLeaf(this.router.routerState.snapshot))
+            map(() => PageMetaService.getLeaf(this.router.routerState.snapshot))
         ),
-        { initialValue: getLeaf(this.router.routerState.snapshot) }
+        { initialValue: PageMetaService.getLeaf(this.router.routerState.snapshot) }
     );
 
     // Ogni pagina puo' decidere se mostrare il pannello globale passando `showPanel`
@@ -66,8 +68,3 @@ export class AppComponent {
     }
 }
 
-const getLeaf = (route: ActivatedRouteSnapshot | RouterStateSnapshot) => {
-    let leaf = route instanceof RouterStateSnapshot ? route.root : route;
-    while (leaf.firstChild) leaf = leaf.firstChild;
-    return leaf;
-};

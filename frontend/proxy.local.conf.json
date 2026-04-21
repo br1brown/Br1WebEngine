@@ -3,5 +3,10 @@
     "target": "http://localhost:62715",
     "secure": false,
     "changeOrigin": true
+  },
+  "/cdn-cgi": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
   }
 }

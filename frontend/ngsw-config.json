@@ -21,6 +21,7 @@
       "resources": {
         "files": [
           "/assets/**",
+          "/icons/**",
           "/media/**"
         ]
       }

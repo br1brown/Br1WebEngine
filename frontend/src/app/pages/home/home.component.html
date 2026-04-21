@@ -166,7 +166,7 @@
 
                                 <p class="text-muted mb-3">{{ 'contextMenuHint' | translate }}</p>
 
-                                <div [appContextMenu]="contextMenuOptions"
+                                <div [appContextMenu]="contextMenuOptions()"
                                      class="demo-context-area border rounded p-3">
                                     <textarea class="form-control context-textarea"
                                               rows="4"
@@ -190,6 +190,51 @@
                                     </span>
                                     }
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sintesi Vocale (TTS) -->
+                    <div class="col-12 col-xl-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="card-title mb-1 h5">{{ 'speechDemoTitle' | translate }}</h2>
+                                <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
+
+                                <div class="mb-3">
+                                    <label class="form-label">{{ 'speechInputLabel' | translate }}</label>
+                                    <textarea class="form-control"
+                                              rows="3"
+                                              [(ngModel)]="speechDemoText"
+                                              [placeholder]="translate.translate('speechPlaceholder')">
+                </textarea>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn"
+                                            [ngClass]="speech.isSpeaking() ? 'btn-danger' : 'btn-success'"
+                                            (click)="toggleSpeech()">
+                                        <i class="fa-solid me-1"
+                                           [class.fa-play]="!speech.isSpeaking()"
+                                           [class.fa-stop]="speech.isSpeaking()"></i>
+
+                                        {{ (speech.isSpeaking() ? 'speechStop' : 'speechPlay') | translate }}
+                                    </button>
+
+                                    @if (speech.currentVoice()) {
+                                    <span class="badge text-bg-light border" [title]="('speechVoiceLabel' | translate)">
+                                        <i class="fa-solid fa-robot me-1"></i>
+                                        {{ speech.currentVoice()?.name }}
+                                    </span>
+                                    }
+                                </div>
+
+                                @if (speech.isSpeaking()) {
+                                <div class="mt-2 small text-primary animate-pulse">
+                                    <i class="fa-solid fa-volume-high me-1"></i>
+                                    {{ 'speechPlaying' | translate }}
+                                </div>
+                                }
                             </div>
                         </div>
                     </div>
@@ -305,8 +350,8 @@
                         </div>
                     </div>
 
-                    <!-- Asset -->
-                    <div class="col-md-6 col-xl-3">
+                    <!-- Asset + Image Resize Playground -->
+                    <div class="col-12 col-xl-6">
                         <div class="card h-100">
                             <div class="card-body">
                                 <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
@@ -318,12 +363,29 @@
                                            [(ngModel)]="assetId"
                                            [placeholder]="translate.translate('assetResolverInputLabel')">
                                     <button class="btn btn-outline-primary" (click)="resolveAsset()">
-                                        {{ 'cerca' | translate }}
+                                        Originale
                                     </button>
                                 </div>
 
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="small text-muted">Resize:</span>
+                                    @for (w of assetWidths; track w) {
+                                    <button class="btn btn-sm"
+                                            [class.btn-primary]="assetResizeWidth() === w"
+                                            [class.btn-outline-secondary]="assetResizeWidth() !== w"
+                                            (click)="resolveAssetResized(w)">
+                                        {{ w }}px
+                                    </button>
+                                    }
+                                </div>
+
                                 @if (assetUrl()) {
-                                <p class="mb-2 small"><code>{{ assetUrl() }}</code></p>
+                                <p class="mb-2 mt-2 small font-monospace d-flex align-items-center gap-2 flex-wrap">
+                                    <code>{{ assetUrl() }}</code>
+                                    @if (assetResizeWidth()) {
+                                    <span class="badge text-bg-success">WebP · {{ assetResizeWidth() }}px</span>
+                                    }
+                                </p>
                                 <img [src]="assetUrl()"
                                      [alt]="translate.translate('assetPreviewAlt')"
                                      class="img-fluid rounded border asset-preview-image">

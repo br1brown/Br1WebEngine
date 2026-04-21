@@ -16,9 +16,9 @@ namespace Backend.Controllers;
 public class AuthController : EngineAuthController
 {
     /// <summary>
-    /// Inizializza il controller con il servizio JWT dell'engine.
+    /// Inizializza il controller con il servizio JWT e il logger dell'engine
     /// </summary>
-    public AuthController(AuthService auth) : base(auth) { }
+    public AuthController(AuthService auth, ILogger<AuthController> logger) : base(auth, logger) { }
 
     /// <summary>
     /// Endpoint di login. Nel template base e' un placeholder che risponde <c>valid = false</c>.

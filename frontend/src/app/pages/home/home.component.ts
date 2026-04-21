@@ -4,11 +4,13 @@ import {
     ElementRef,
     ViewChild,
     inject,
-    signal
+    signal,
+    effect,
+    computed,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-
+import { CommonModule } from '@angular/common';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { ShareService } from '../../core/services/share.service';
 import { ThemeService } from '../../core/services/theme.service';
@@ -19,10 +21,12 @@ import { ContextMenuOption } from '../../shared/components/context-menu/context-
 import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
+import { SpeechService } from '../../core/services/speech.service';
+import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, FormsModule, ContextMenuDirective],
+    imports: [TranslatePipe, FormsModule, CommonModule, ContextMenuDirective],
     templateUrl: './home.component.html',
     styleUrl: './home.component.css'
 })
@@ -30,8 +34,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
     readonly appName = ContestoSito.config.appName;
+    readonly speech = inject(SpeechService);
+
+
 
     @ViewChild('homeImageCanvas') homeImageCanvasRef!: ElementRef<HTMLCanvasElement>;
+
+    // --- Inizializza con una traduzione ---
+    speechDemoText = this.translate.translate('speechPlaceholder');
 
     // --- Laboratorio Markdown ---
     markdownInput = '';
@@ -49,18 +59,20 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     socialFilter = '';
     readonly socialResult = signal('');
 
-    // --- Risoluzione asset ---
+    // --- Risoluzione asset + playground resize ---
     assetId = 'favIcon';
     readonly assetUrl = signal('');
+    readonly assetResizeWidth = signal<number | null>(null);
+    readonly assetWidths = ALLOWED_WIDTHS;
 
     // --- Demo menu contestuale ---
     readonly contextMenuLastAction = signal('');
     readonly clipboardContent = signal('');
     contextDemoText = '';
 
-    readonly contextMenuOptions: ContextMenuOption[] = [
+    readonly contextMenuOptions = computed<ContextMenuOption[]>(() => [
         {
-            label: 'Copia',
+            label: this.translate.translate('contextMenuCopy'),
             icon: 'fa-solid fa-copy',
             action: async () => {
                 this.contextMenuLastAction.set('copy');
@@ -72,7 +84,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
             }
         },
         {
-            label: 'Taglia',
+            label: this.translate.translate('contextMenuCut'),
             icon: 'fa-solid fa-scissors',
             action: async () => {
                 this.contextMenuLastAction.set('cut');
@@ -86,7 +98,7 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
             }
         },
         {
-            label: 'Incolla',
+            label: this.translate.translate('contextMenuPaste'),
             icon: 'fa-solid fa-paste',
             action: async () => {
                 this.contextMenuLastAction.set('paste');
@@ -101,14 +113,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         },
         { separator: true, label: '' },
         {
-            label: 'Informazioni',
+            label: this.translate.translate('contextMenuInfo'),
             icon: 'fa-solid fa-circle-info',
             action: () => {
                 this.contextMenuLastAction.set('info');
                 this.notify.success(this.translate.translate('contextMenuTitle'));
             }
         }
-    ];
+    ]);
 
     // --- Demo modali ---
     readonly modalResult = signal('');
@@ -116,6 +128,11 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     constructor() {
         super();
         this.contextDemoText = '';
+
+        effect(() => {
+            this.translate.currentLang(); // traccia cambio lingua
+            this.speechDemoText = this.translate.translate('speechPlaceholder');
+        });
     }
 
     ngAfterViewInit(): void {
@@ -200,8 +217,8 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
             this.translate.translate('modalConfirmTitle'),
             this.translate.translate('modalConfirmBody'),
             {
-                onConfirm: () => this.modalResult.set(this.translate.translate('modalResultConfirmed')),
-                onCancel: () => this.modalResult.set(this.translate.translate('modalResultCancelled')),
+                onConfirm: () => this.modalResult.set(this.translate.translate('confirmed')),
+                onCancel: () => this.modalResult.set(this.translate.translate('cancelled')),
             }
         );
     }
@@ -225,6 +242,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         );
     }
 
+    toggleSpeech(): void {
+        if (this.speech.isSpeaking()) {
+            this.speech.stop();
+        } else {
+            this.speech.speak(this.speechDemoText);
+        }
+    }
+
     // ==================== Sistema & API ====================
 
     async callSocialApi(): Promise<void> {
@@ -237,7 +262,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     }
 
     async resolveAsset(): Promise<void> {
+        this.assetResizeWidth.set(null);
         const url = await firstValueFrom(this.asset.getUrl(this.assetId));
+        this.assetUrl.set(url);
+    }
+
+    async resolveAssetResized(width: AssetWidth): Promise<void> {
+        this.assetResizeWidth.set(width);
+        const url = await firstValueFrom(this.asset.getUrl(this.assetId, width));
         this.assetUrl.set(url);
     }
 

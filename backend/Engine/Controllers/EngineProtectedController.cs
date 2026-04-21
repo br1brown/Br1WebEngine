@@ -8,21 +8,16 @@ namespace Backend.Controllers;
 /// Base astratta dell'engine per gli endpoint protetti da login JWT.
 /// </summary>
 /// <remarks>
-/// Fornisce il logger condiviso e gli attributi di sicurezza
-/// (<c>[ApiController]</c>, <c>[Authorize(Policy = RequireLoginPolicy)]</c>)
-/// ereditati dai controller concreti.
-/// Il routing (<c>[Route]</c>) resta responsabilita' del controller concreto.
+/// Aggiunge il requisito JWT (<c>[Authorize(Policy = RequireLoginPolicy)]</c>)
+/// all'autenticazione API key ereditata da <see cref="EngineApiController"/>.
+/// Il routing resta responsabilità del controller concreto.
 /// </remarks>
-[ApiController]
 [Authorize(Policy = SecurityDefaults.RequireLoginPolicy)]
-public abstract class EngineProtectedController : ControllerBase
+public abstract class EngineProtectedController : EngineApiController
 {
-    /// <summary>Logger condiviso con i controller derivati.</summary>
-    protected readonly ILogger Logger;
-
     /// <inheritdoc cref="EngineProtectedController"/>
     protected EngineProtectedController(ILogger logger)
+        : base(logger)
     {
-        Logger = logger;
     }
 }

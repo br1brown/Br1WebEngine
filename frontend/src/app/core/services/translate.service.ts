@@ -73,7 +73,7 @@ export class TranslateService {
     }
 
     /** Restituisce la lista delle lingue disponibili, ordinata con la predefinita per prima. */
-    getAvailableLanguages(): string[]  {
+    getAvailableLanguages(): string[] {
         return TranslateService.availableLanguages();
     }
 

@@ -17,6 +17,7 @@
     "prebuild": "npm run generate:statics && npm run generate:icons",
     "build": "ng build",
     "serve:ssr": "node dist/br1-web-engine/server/server.mjs",
+    "dev": "npm run build && concurrently \"npm run serve:ssr\" \"ng serve --open --ssl false --proxy-config proxy.local.conf.json\"",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -39,7 +40,9 @@
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
     "marked": "^15.0.0",
+    "mime-types": "^3.0.2",
     "rxjs": "~7.8.0",
+    "sharp": "^0.33.0",
     "sweetalert2": "^11.0.0",
     "tslib": "^2.6.0",
     "zone.js": "~0.15.0"
@@ -48,8 +51,9 @@
     "@angular/build": "^19.0.0",
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
+    "@types/mime-types": "^3.0.1",
+    "concurrently": "^9.0.0",
     "eslint": "^10.1.0",
-    "sharp": "^0.33.0",
     "tsx": "^4.19.0",
     "typescript": "~5.6.0"
   }
