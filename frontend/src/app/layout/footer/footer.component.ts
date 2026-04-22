@@ -1,6 +1,7 @@
 ﻿import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { injectCurrentUrl } from '../../app.routes';
 import { Profile } from '../../core/dto/profile.dto';
 import { ApiService } from '../../core/services/api.service';
 import { TranslateService } from '../../core/services/translate.service';
@@ -38,6 +39,7 @@ export class FooterComponent {
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
     private readonly platformId = inject(PLATFORM_ID);
+    private readonly currentUrl = injectCurrentUrl();
 
     private readonly profileState = resource({
         request: () => isPlatformBrowser(this.platformId) ? this.translate.currentLang() : undefined,
@@ -131,6 +133,7 @@ export class FooterComponent {
     }
 
     isRouteActive(path: string): boolean {
+        this.currentUrl(); // signal dependency → re-render on every navigation
         return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 

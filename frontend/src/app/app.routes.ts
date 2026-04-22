@@ -1,5 +1,18 @@
-import { CanActivateFn, Route, Router, Routes } from '@angular/router';
+import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/router';
 import { inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs/operators';
+
+export function injectCurrentUrl() {
+    const router = inject(Router);
+    return toSignal(
+        router.events.pipe(
+            filter(e => e instanceof NavigationEnd),
+            map(() => router.url)
+        ),
+        { initialValue: router.url }
+    );
+}
 
 import { ContestoSito } from './site';
 export { PageType } from './site';

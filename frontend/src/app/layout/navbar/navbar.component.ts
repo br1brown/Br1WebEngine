@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
+import { injectCurrentUrl } from '../../app.routes';
 
 import { PageType } from '../../app.routes';
 import { ThemeService } from '../../core/services/theme.service';
@@ -35,6 +36,7 @@ export class NavbarComponent {
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly languages = computed(() => this.translate.getAvailableLanguages());
     readonly menuOpen = signal(false);
+    private readonly currentUrl = injectCurrentUrl();
 
     constructor() {
         this.router.events
@@ -50,6 +52,7 @@ export class NavbarComponent {
     }
 
     isRouteActive(path: string): boolean {
+        this.currentUrl(); // signal dependency → re-render on every navigation
         return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
