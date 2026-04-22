@@ -1,4 +1,4 @@
-import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from '../../../core/services/theme.service';
 
@@ -13,9 +13,9 @@ import { ThemeService } from '../../../core/services/theme.service';
  */
 @Component({
   selector: 'app-back-to-top',
-
   templateUrl: './back-to-top.component.html',
-  styleUrl: './back-to-top.component.css'
+  styleUrl: './back-to-top.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class BackToTopComponent {
   readonly theme = inject(ThemeService);
@@ -34,15 +34,7 @@ export class BackToTopComponent {
       window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  get backgroundColor(): string {
-    return this.theme.colorPrimary();
-  }
-
-  get borderColor(): string {
-    return ThemeService.mixHexColors(this.backgroundColor, '#000000', 0.2);
-  }
-
-  get textColor(): string {
-    return this.theme.colorPrimaryText();
-  }
+  readonly backgroundColor = computed(() => this.theme.colorPrimary());
+  readonly borderColor = computed(() => ThemeService.mixHexColors(this.backgroundColor(), '#000000', 0.2));
+  readonly textColor = computed(() => this.theme.colorPrimaryText());
 }

@@ -1,11 +1,12 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 @Component({
     selector: 'app-social-link',
     standalone: true,
     imports: [],
     templateUrl: './social-link.component.html',
-    styleUrl: './social-link.component.css'
+    styleUrl: './social-link.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SocialLinkComponent {
     readonly type = input.required<string>();

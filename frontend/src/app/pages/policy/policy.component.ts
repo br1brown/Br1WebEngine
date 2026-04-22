@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, Injector, OnInit, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PageType } from '../../app.routes';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
@@ -19,7 +19,8 @@ import { ContestoSito } from '../../site';
     selector: 'app-policy',
     imports: [MarkdownPipe],
     templateUrl: './policy.component.html',
-    styleUrl: './policy.component.css'
+    styleUrl: './policy.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PolicyComponent extends PageBaseComponent implements OnInit {
     private readonly http = inject(HttpClient);

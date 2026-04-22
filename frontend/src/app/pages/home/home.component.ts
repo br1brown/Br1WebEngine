@@ -1,5 +1,6 @@
 import {
     AfterViewInit,
+    ChangeDetectionStrategy,
     Component,
     ElementRef,
     ViewChild,
@@ -9,7 +10,6 @@ import {
     computed,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { ShareService } from '../../core/services/share.service';
@@ -28,7 +28,8 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
     selector: 'app-home',
     imports: [TranslatePipe, FormsModule, CommonModule, ContextMenuDirective],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css'
+    styleUrl: './home.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     readonly theme = inject(ThemeService);
@@ -261,16 +262,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         this.socialResult.set(JSON.stringify(res, null, 2));
     }
 
-    async resolveAsset(): Promise<void> {
+    resolveAsset(): void {
         this.assetResizeWidth.set(null);
-        const url = await firstValueFrom(this.asset.getUrl(this.assetId));
-        this.assetUrl.set(url);
+        this.assetUrl.set(this.asset.getUrl(this.assetId));
     }
 
-    async resolveAssetResized(width: AssetWidth): Promise<void> {
+    resolveAssetResized(width: AssetWidth): void {
         this.assetResizeWidth.set(width);
-        const url = await firstValueFrom(this.asset.getUrl(this.assetId, width));
-        this.assetUrl.set(url);
+        this.assetUrl.set(this.asset.getUrl(this.assetId, width));
     }
 
     copyToClipboard(text: string): void {

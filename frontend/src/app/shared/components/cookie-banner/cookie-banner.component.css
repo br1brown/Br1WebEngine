@@ -48,8 +48,7 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
         color-mix(in srgb, var(--colorTema) 88%, white 12%),
         color-mix(in srgb, var(--colorTema) 82%, black 18%)
     );
-    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
-    backdrop-filter: blur(18px) saturate(1.08);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {

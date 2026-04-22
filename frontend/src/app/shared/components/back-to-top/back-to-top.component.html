@@ -1,9 +1,9 @@
 @if (isVisible()) {
   <button type="button"
           class="btn btn-lg back-to-top"
-          [style.background-color]="backgroundColor"
-          [style.border-color]="borderColor"
-          [style.color]="textColor"
+          [style.background-color]="backgroundColor()"
+          [style.border-color]="borderColor()"
+          [style.color]="textColor()"
           (click)="scrollToTop()"
           aria-label="Back to top">
     <i class="fas fa-chevron-up" aria-hidden="true"></i>

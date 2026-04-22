@@ -1,4 +1,5 @@
-import { Component, computed, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -19,7 +20,8 @@ import { NavLink } from '../../siteBuilder';
     selector: 'app-navbar',
     imports: [NgTemplateOutlet, RouterLink, TranslatePipe, UpperCasePipe],
     templateUrl: './navbar.component.html',
-    styleUrl: './navbar.component.css'
+    styleUrl: './navbar.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NavbarComponent {
     readonly theme = inject(ThemeService);
@@ -36,7 +38,7 @@ export class NavbarComponent {
 
     constructor() {
         this.router.events
-            .pipe(filter(e => e instanceof NavigationEnd))
+            .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
             .subscribe(() => this.closeNavigation());
     }
 

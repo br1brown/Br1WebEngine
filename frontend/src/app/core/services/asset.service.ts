@@ -23,10 +23,10 @@ export class AssetService implements OnDestroy {
     }
 
     /** URL da ID per risorse su server. */
-    getUrl(id: string, width?: AssetWidth): Observable<string> {
+    getUrl(id: string, width?: AssetWidth): string {
         let url = `${this.virtualPath}?id=${id}`;
         if (width) url += `&w=${width}`;
-        return of(url);
+        return (url);
     }
 
     /** * Genera URL da Blob (scaricati da API esterne o prodotti da Canvas). 

@@ -1,4 +1,4 @@
-﻿import { Component, computed, inject, input } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PageType } from '../../app.routes';
 import { TranslateService } from '../../core/services/translate.service';
@@ -22,10 +22,10 @@ import { ContestoSito } from '../../site';
  */
 @Component({
     selector: 'app-error',
-
     imports: [RouterLink, TranslatePipe],
     templateUrl: './error.component.html',
-    styleUrl: './error.component.css'
+    styleUrl: './error.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);

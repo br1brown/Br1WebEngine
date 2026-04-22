@@ -14,7 +14,6 @@
     max-height: min(24rem, calc(100vh - 1rem));
     padding: 4px 0;
     overflow: auto;
-    backdrop-filter: blur(8px);
     /* Animazione apertura */
     animation: ctx-fade-in 0.12s ease;
 }
