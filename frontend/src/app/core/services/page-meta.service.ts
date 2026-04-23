@@ -31,24 +31,32 @@ export class PageMetaService {
         return leaf;
     }
 
-    setTitle(title: string, description: string, imgId?: string | null): void {
-        const url    = this.document.URL;
+    setTitle(
+        title: string,
+        description?: string | null,
+        imgId?: string | null,
+    ): void {
+
+        this.title.setTitle(title);
+
+        this.meta.updateTag({ name: 'twitter:title', content: title });
+        this.meta.updateTag({ property: 'og:title', content: title });
+        if (!!description) {
+            this.meta.updateTag({ name: 'description', content: description });
+            this.meta.updateTag({ property: 'og:description', content: description });
+            this.meta.updateTag({ name: 'twitter:description', content: description });
+        }
+
         const origin = this.document.location.origin;
         const imageUrl = imgId
             ? `${origin}/cdn-cgi/asset?id=${imgId}`
             : `${origin}/icons/icon-512x512.png`;
 
-        this.title.setTitle(title);
-
-        this.meta.updateTag({ name: 'description', content: description });
-        this.meta.updateTag({ property: 'og:title', content: title });
-        this.meta.updateTag({ property: 'og:description', content: description });
         this.meta.updateTag({ property: 'og:url', content: url });
         this.meta.updateTag({ property: 'og:image', content: imageUrl });
-        this.meta.updateTag({ name: 'twitter:title', content: title });
-        this.meta.updateTag({ name: 'twitter:description', content: description });
         this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
 
+        const url = this.document.URL;
         this.updateCanonical(url);
     }
 
