@@ -40,4 +40,4 @@ jobs:
 
       - name: Build
         working-directory: frontend
-        run: npx ng build --configuration production
+        run: npm run build -- --configuration production

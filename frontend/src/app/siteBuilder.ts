@@ -244,6 +244,18 @@ export type LeafPageInput = BasePageInput & {
     /**
      * Resolver per pre-caricare dati prima che la route si attivi.
      * In SSR Angular attende il completamento: usare per dati necessari ai meta tag SEO.
+     *
+     * OBBLIGATORIO: usare sempre `lazyResolver()` dal siteBuilder.
+     * Un import statico del resolver causerebbe il caricamento di Angular DI
+     * durante l'esecuzione di generate-statics.ts (contesto Node.js puro),
+     * producendo un errore JIT a build time.
+     *
+     * Esempio corretto:
+     *   resolve: {
+     *     myData: lazyResolver(() =>
+     *       import('./core/services/my.resolver').then(m => m.myResolver(arg))
+     *     ),
+     *   }
      */
     resolve?: Record<string, ResolveFn<unknown>>;
     /**
@@ -997,4 +1009,25 @@ export function buildSite(
 
         getSitemapEntries: () => sitemap
     };
+}
+
+/**
+ * Avvolge un import dinamico in una ResolveFn lazy-loaded.
+ *
+ * Garantisce che Angular (e qualsiasi servizio iniettato nel resolver)
+ * non venga mai caricato durante l'esecuzione di script Node.js come
+ * generate-statics.ts: il dynamic import scatta solo quando il router
+ * attiva la route, mai al bootstrap dello script.
+ *
+ * Uso tipico in site.ts:
+ *   resolve: {
+ *       myData: lazyResolver(() =>
+ *           import('./core/services/my.resolver').then(m => m.myResolver(arg))
+ *       ),
+ *   }
+ */
+export function lazyResolver<T>(
+    factory: () => Promise<ResolveFn<T>>
+): ResolveFn<T> {
+    return (route, state) => factory().then(fn => fn(route, state));
 }
