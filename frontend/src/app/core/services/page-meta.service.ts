@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import { ContestoSito } from '../../site';
 
 /**
  * Setter puro per titolo browser e meta tag SEO (description, og:*, twitter:*, canonical).
@@ -54,9 +55,11 @@ export class PageMetaService {
             try { return new URL(url).origin; } catch { return ''; }
         })();
 
+        const v = ContestoSito.config.version ? `?v=${ContestoSito.config.version}` : '';
+
         const imageUrl = imgId
-            ? `${origin}/cdn-cgi/asset?id=${imgId}`
-            : `${origin}/icons/icon-512x512.png`;
+            ? `${origin}/cdn-cgi/asset?id=${imgId}${v}`
+            : `${origin}/icons/icon-512x512.png${v}`;
 
         this.meta.updateTag({ property: 'og:url', content: url });
         this.meta.updateTag({ property: 'og:image', content: imageUrl });

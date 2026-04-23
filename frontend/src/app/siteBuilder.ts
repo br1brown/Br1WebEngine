@@ -739,6 +739,9 @@ export function buildSite(
             const normalizeLang = (l?: string) =>
                 typeof l === 'string' ? l.trim().toLowerCase() : '';
 
+            const normalizeVersion = (v?: string) =>
+                typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
+
             const rawLangs = [
                 siteConfigurationInput.defaultLang,
                 ...(siteConfigurationInput.availableLanguages ?? [])
@@ -750,7 +753,7 @@ export function buildSite(
 
             siteConfig = {
                 appName: siteConfigurationInput.appName,
-                version: siteConfigurationInput.version ?? '1.0.0',
+                version: normalizeVersion(siteConfigurationInput.version) || '1.0.0',
                 defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
                 availableLanguages,
                 description: siteConfigurationInput.description,

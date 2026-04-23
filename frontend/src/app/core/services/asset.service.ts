@@ -4,6 +4,7 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Router, NavigationEnd } from '@angular/router';
 import { Observable, of, filter, Subscription } from 'rxjs';
 import { type AssetWidth } from '../../app.config';
+import { ContestoSito } from '../../site';
 
 @Injectable({ providedIn: 'root' })
 export class AssetService implements OnDestroy {
@@ -26,7 +27,8 @@ export class AssetService implements OnDestroy {
     getUrl(id: string, width?: AssetWidth): string {
         let url = `${this.virtualPath}?id=${id}`;
         if (width) url += `&w=${width}`;
-        return (url);
+        if (ContestoSito.config.version) url += `&v=${ContestoSito.config.version}`;
+        return url;
     }
 
     /** * Genera URL da Blob (scaricati da API esterne o prodotti da Canvas). 

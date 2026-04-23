@@ -91,7 +91,7 @@ function updateIndexHtml(): void {
     html = replaceTag(html, /<html lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
-    const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
+    const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png?v=${ContestoSito.config.version}`;
 
     const nameMeta: [string, string][] = [
         ['app-version',                  ContestoSito.config.version],
