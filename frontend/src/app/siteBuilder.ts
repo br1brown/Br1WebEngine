@@ -1027,8 +1027,12 @@ export function buildSite(
  *   }
  */
 export function lazyResolver<T>(
-    factory: () => Promise<ResolveFn<T>>
+    loadResolver: () => Promise<ResolveFn<T>>
 ): ResolveFn<T> {
-    return (route, state) =>
-        factory().then(fn => fn(route, state) as T | RedirectCommand);
+    return async (route, state) => {
+        // Lazy import del resolver
+        const resolver = await loadResolver();
+        // Cast necessario: lazyResolver non supporta resolver che ritornano Observable
+        return resolver(route, state) as T | RedirectCommand;
+    };
 }
