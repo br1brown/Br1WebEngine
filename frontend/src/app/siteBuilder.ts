@@ -1,5 +1,5 @@
 ﻿import type { Type, EnvironmentProviders, Provider } from '@angular/core';
-import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
+import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers, RedirectCommand } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
 
@@ -1029,5 +1029,6 @@ export function buildSite(
 export function lazyResolver<T>(
     factory: () => Promise<ResolveFn<T>>
 ): ResolveFn<T> {
-    return (route, state) => factory().then(fn => fn(route, state));
+    return (route, state) =>
+        factory().then(fn => fn(route, state) as T | RedirectCommand);
 }
