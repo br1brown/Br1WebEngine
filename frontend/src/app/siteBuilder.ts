@@ -1,5 +1,5 @@
 ﻿import type { Type, EnvironmentProviders, Provider } from '@angular/core';
-import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers, RedirectCommand } from '@angular/router';
+import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
 
@@ -241,35 +241,28 @@ export type LeafPageInput = BasePageInput & {
      * Se omessa, viene usata la descrizione globale del sito come fallback.
      */
     description?: string;
-    /**
-     * Resolver per pre-caricare dati prima che la route si attivi.
-     * In SSR Angular attende il completamento: usare per dati necessari ai meta tag SEO.
-     *
-     * OBBLIGATORIO: usare sempre `lazyResolver()` dal siteBuilder.
-     * Un import statico del resolver causerebbe il caricamento di Angular DI
-     * durante l'esecuzione di generate-statics.ts (contesto Node.js puro),
-     * producendo un errore JIT a build time.
-     *
-     * Esempio corretto:
-     *   resolve: {
-     *     myData: lazyResolver(() =>
-     *       import('./core/services/my.resolver').then(m => m.myResolver(arg))
-     *     ),
-     *   }
-     */
-    resolve?: Record<string, ResolveFn<unknown>>;
-    /**
-     * Quando rieseguire guard e resolver sulla stessa route.
-     * Necessario se lo stesso componente è usato su path diversi (es. /generatori/incel e /generatori/auto).
-     */
-    runGuardsAndResolvers?: RunGuardsAndResolvers;
-    /** Guard all'uscita dalla route. Utile per pagine con stato non salvato. */
-    canDeactivate?: CanDeactivateFn<PageBaseComponent>[];
-    /** Provider con scope limitato alla route. Utile per isolare service con stato locale. */
-    providers?: (Provider | EnvironmentProviders)[];
     /** Non consentito per una pagina interna. */
     externalUrl?: never;
 };
+
+/**
+ * Configurazione Angular-specifica aggiuntiva per una route.
+ *
+ * Dichiarata in `routeExtras` (in site.ts) invece che in LeafPageInput
+ * perché richiede import Angular runtime (resolver, guard, etc.) che non
+ * devono essere caricati dagli script Node.js come generate-statics.ts.
+ *
+ * Vedere `lazyResolver` in core/utils/lazy-resolver.ts per i resolver.
+ */
+export type RouteExtras = {
+    resolve?: Record<string, ResolveFn<unknown>>;
+    runGuardsAndResolvers?: RunGuardsAndResolvers;
+    canDeactivate?: CanDeactivateFn<PageBaseComponent>[];
+    providers?: (Provider | EnvironmentProviders)[];
+};
+
+/** Mappa PageType → configurazione Angular aggiuntiva della route. */
+export type RouteExtrasMap = Partial<Record<PageType, RouteExtras>>;
 
 /**
  * Pagina esterna dichiarabile in `site.ts`.

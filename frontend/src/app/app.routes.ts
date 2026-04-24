@@ -14,10 +14,10 @@ export function injectCurrentUrl() {
     );
 }
 
-import { ContestoSito } from './site';
+import { ContestoSito, routeExtras } from './site';
 export { PageType } from './site';
 import { AuthService } from './core/services/auth.service';
-import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
+import { InternalSitePage, isInternalPage, isParentPage, RouteExtrasMap } from './siteBuilder';
 import { NotificationService } from './core/services/notification.service';
 import { TranslateService } from './core/services/translate.service';
 
@@ -45,23 +45,23 @@ const authGuard: CanActivateFn = () => {
  */
 export const routes: Routes = [
     // Contesto.pages contiene solo pagine interne; qui filtriamo quelle abilitate.
-    ...buildRoutes(ContestoSito.pages),
+    ...buildRoutes(ContestoSito.pages, routeExtras),
     ...buildErrorRoutes()
 ];
 
 /**
  * Trasforma ricorsivamente l'albero di pagine interne in Routes di Angular.
  */
-function buildRoutes(pages: InternalSitePage[]): Routes {
+function buildRoutes(pages: InternalSitePage[], extras: RouteExtrasMap): Routes {
     return pages
         .filter(page => page.enabled)
-        .map(page => toAngularRoute(page));
+        .map(page => toAngularRoute(page, extras));
 }
 
 /**
  * Converte un singolo nodo della DSL (Parent o Leaf) in una Route di Angular.
  */
-function toAngularRoute(page: InternalSitePage): Route {
+function toAngularRoute(page: InternalSitePage, extras: RouteExtrasMap): Route {
     const route: Route = {
         path: page.path,
         title: page.title,
@@ -75,7 +75,7 @@ function toAngularRoute(page: InternalSitePage): Route {
 
     if (isParentPage(page)) {
         // Se e' un Parent, non carichiamo un componente ma i suoi figli.
-        route.children = buildRoutes(page.children.filter(isInternalPage));
+        route.children = buildRoutes(page.children.filter(isInternalPage), extras);
     } else {
         // Se e' una LeafPage, carichiamo il componente in modo lazy.
         route.loadComponent = page.component;
@@ -85,14 +85,19 @@ function toAngularRoute(page: InternalSitePage): Route {
             showPanel: page.showPanel !== undefined ? page.showPanel : true,
             pageDescription: page.description ?? null,
         };
-        if (page.resolve)
-            route.resolve = page.resolve;
-        if (page.runGuardsAndResolvers)
-            route.runGuardsAndResolvers = page.runGuardsAndResolvers;
-        if (page.canDeactivate)
-            route.canDeactivate = page.canDeactivate;
-        if (page.providers)
-            route.providers = page.providers;
+        let pageExtras = page.pageType !== undefined ? extras[page.pageType] : undefined;
+
+        if (!!pageExtras?.resolve)
+            route.resolve = pageExtras.resolve;
+
+        if (!!pageExtras?.runGuardsAndResolvers)
+            route.runGuardsAndResolvers = pageExtras.runGuardsAndResolvers;
+
+        if (!!pageExtras?.canDeactivate)
+            route.canDeactivate = pageExtras.canDeactivate;
+
+        if (!!pageExtras?.providers)
+            route.providers = pageExtras.providers;
     }
 
     return route;

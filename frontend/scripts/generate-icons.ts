@@ -9,12 +9,12 @@
 import { existsSync, copyFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const ROOT       = join(__dirname, '..');
+const ROOT = join(__dirname, '..');
 const ASSETS_DIR = join(ROOT, 'src', 'assets', 'files');
-const ICONS_DIR  = join(ROOT, 'public', 'icons');
-const SIZES      = [192, 512];
+const ICONS_DIR = join(ROOT, 'public', 'icons');
+const SIZES = [192, 512];
 
-type RawMappingEntry = string | { file: string; [key: string]: unknown };
+type RawMappingEntry = string | { file: string;[key: string]: unknown };
 
 function resolveFaviconPath(): string {
     const mappingPath = join(ROOT, 'src', 'assets', 'mapping.json');

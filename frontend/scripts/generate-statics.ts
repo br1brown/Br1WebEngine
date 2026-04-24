@@ -23,10 +23,10 @@ import { join } from 'path';
 import { ContestoSito } from '../src/app/site';
 import { SitemapEntry } from '../src/app/siteBuilder';
 
-const ROOT     = join(__dirname, '..');
-const INDEX    = join(ROOT, 'src', 'index.html');
+const ROOT = join(__dirname, '..');
+const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
-const SITEMAP  = join(ROOT, 'public', 'sitemap.xml');
+const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
 const BASE_URL = process.env['SITEMAP_BASE_URL'] || 'https://example.com';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -81,10 +81,10 @@ function getChangefreq(path: string): string {
 // ── Aggiornamento index.html ──────────────────────────────────────────────
 
 function updateIndexHtml(): void {
-    const appName     = escapeHtml(ContestoSito.config.appName);
+    const appName = escapeHtml(ContestoSito.config.appName);
     const description = escapeHtml(ContestoSito.config.description);
-    const lang        = escapeHtml(ContestoSito.config.defaultLang);
-    const themeColor  = escapeHtml(ContestoSito.config.colorTema);
+    const lang = escapeHtml(ContestoSito.config.defaultLang);
+    const themeColor = escapeHtml(ContestoSito.config.colorTema);
 
     let html = readFileSync(INDEX, 'utf8');
 
@@ -94,24 +94,24 @@ function updateIndexHtml(): void {
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png?v=${ContestoSito.config.version}`;
 
     const nameMeta: [string, string][] = [
-        ['app-version',                  ContestoSito.config.version],
-        ['description',                  description],
-        ['apple-mobile-web-app-title',   appName],
+        ['app-version', ContestoSito.config.version],
+        ['description', description],
+        ['apple-mobile-web-app-title', appName],
         ['apple-mobile-web-app-status-bar-style', 'default'],
-        ['application-name',             appName],
-        ['theme-color',                  themeColor],
-        ['twitter:title',                appName],
-        ['twitter:description',          description],
-        ['twitter:image',                defaultImageUrl],
+        ['application-name', appName],
+        ['theme-color', themeColor],
+        ['twitter:title', appName],
+        ['twitter:description', description],
+        ['twitter:image', defaultImageUrl],
     ];
 
     const propertyMeta: [string, string][] = [
-        ['og:title',       appName],
+        ['og:title', appName],
         ['og:description', description],
-        ['og:site_name',   appName],
-        ['og:locale',      lang],
-        ['og:url',         BASE_URL],
-        ['og:image',       defaultImageUrl],
+        ['og:site_name', appName],
+        ['og:locale', lang],
+        ['og:url', BASE_URL],
+        ['og:image', defaultImageUrl],
     ];
 
     for (const [key, value] of nameMeta) {
@@ -151,13 +151,13 @@ function updateIndexHtml(): void {
 function updateManifest(): void {
     const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, unknown>;
 
-    manifest['name']             = ContestoSito.config.appName;
-    manifest['short_name']       = ContestoSito.config.appName;
-    manifest['description']      = ContestoSito.config.description;
-    manifest['lang']             = ContestoSito.config.defaultLang;
-    manifest['theme_color']      = ContestoSito.config.colorTema;
+    manifest['name'] = ContestoSito.config.appName;
+    manifest['short_name'] = ContestoSito.config.appName;
+    manifest['description'] = ContestoSito.config.description;
+    manifest['lang'] = ContestoSito.config.defaultLang;
+    manifest['theme_color'] = ContestoSito.config.colorTema;
     manifest['background_color'] = ContestoSito.config.colorTema;
-    manifest['version']          = ContestoSito.config.version;
+    manifest['version'] = ContestoSito.config.version;
 
     writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');
     console.log(`[statics] manifest.webmanifest aggiornato`);
