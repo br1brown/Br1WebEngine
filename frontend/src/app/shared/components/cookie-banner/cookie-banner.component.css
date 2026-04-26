@@ -43,11 +43,7 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     align-items: center;
     border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
     border-radius: 1.5rem;
-    background: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--colorTema) 88%, white 12%),
-        color-mix(in srgb, var(--colorTema) 82%, black 18%)
-    );
+    background: var(--colorTema);
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
 }
 

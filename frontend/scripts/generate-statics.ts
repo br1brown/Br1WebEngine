@@ -18,6 +18,8 @@
  *   - Pagine protette da autenticazione (requiresAuth: true)
  */
 
+// Necessario: carica il JIT compiler di Angular così i decoratori @Injectable
+// funzionano quando Node.js importa site.ts e il suo grafo di dipendenze.
 import '@angular/compiler';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';

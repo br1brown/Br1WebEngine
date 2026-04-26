@@ -4,6 +4,8 @@ import { provideServerRouting, RenderMode, type ServerRoute } from '@angular/ssr
 import { appConfig } from './app.config';
 import { ContestoSito } from './site';
 import type { SiteRenderMode } from './siteBuilder';
+import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/services/base-api.service';
+import { serverEnv } from '../server-env';
 
 const toAngularServerPath = (path: string): string =>
     path === '/' ? '' : path.replace(/^\/+/, '');
@@ -43,7 +45,15 @@ const serverRoutes: ServerRoute[] = [
 const serverConfig: ApplicationConfig = {
     providers: [
         provideServerRendering(),
-        provideServerRouting(serverRoutes)
+        provideServerRouting(serverRoutes),
+        {
+            provide: SSR_BACKEND_ORIGIN,
+            useValue: serverEnv.backendOrigin,
+        },
+        {
+            provide: SSR_API_KEY,
+            useValue: serverEnv.backendApiKey,
+        },
     ]
 };
 

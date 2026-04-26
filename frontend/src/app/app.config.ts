@@ -15,6 +15,7 @@ import { AppTitleStrategy } from './core/services/app-title.strategy';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
+import { SSR_API_PREFIX } from './core/services/base-api.service';
 
 /**
  * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
@@ -72,5 +73,9 @@ export const appConfig: ApplicationConfig = {
             enabled: !isDevMode(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
+        {
+            provide: SSR_API_PREFIX,
+            useValue: '/api',
+        },
     ]
 };

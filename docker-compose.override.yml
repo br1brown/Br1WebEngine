@@ -1,6 +1,6 @@
 # Override di sviluppo — applicato automaticamente da Docker Compose.
-# Backend con dotnet watch, frontend con proxy Angular verso il container backend.
-# Uso: docker-compose up (senza -f, applica override automaticamente)
+# Backend in modalità Development, frontend con Angular dev server.
+# Uso: docker compose up (senza -f, applica override automaticamente)
 services:
   frontend:
     image: node:22-alpine
@@ -20,16 +20,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "${DEV_BACKEND_PORT:-5000}:5000"
+      - "${DEV_BACKEND_PORT:-5000}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:5000
-      BACKEND_PORT: "5000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
-    volumes:
-      - ./backend:/app/backend
-      - app-data:/app/data
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      start_period: 15s
     restart: unless-stopped
     networks:
       - app-network

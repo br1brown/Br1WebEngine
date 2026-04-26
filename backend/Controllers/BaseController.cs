@@ -12,7 +12,7 @@ namespace Backend.Controllers;
 /// Aggiungere qui gli endpoint del progetto che non richiedono autenticazione utente.
 /// <see cref="GetSocial"/> e' un endpoint dimostrativo incluso nel template.
 /// </remarks>
-[Route("api")]
+[Route("")]
 public class BaseController : EngineApiController
 {
     private readonly SiteService _service;

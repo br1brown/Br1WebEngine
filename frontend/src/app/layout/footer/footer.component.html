@@ -96,7 +96,7 @@
 
 <ng-template #infoList let-items="items">
     <ul class="list-unstyled small">
-        @for (item of items; track item.value) {
+        @for (item of items; track $index) {
         <li [class]="item.itemClass ? 'my-1 ' + item.itemClass : 'my-1'">
             @if (item.label) { <span>{{ item.label }}:</span>&nbsp; }
                                <strong>

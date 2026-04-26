@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 # =============================================================================
-# rebuild.sh — Deploy e rebuild produzione Br1WebEngine
+# deploy.sh — Avvio e deploy Br1WebEngine
 #
 # Uso:
-#   ./rebuild.sh          Controlla .env, poi ricostruisce e riavvia
-#   ./rebuild.sh --help   Mostra questo messaggio
+#   ./deploy.sh          Deploy produzione (ricostruisce e riavvia)
+#   ./deploy.sh --dev    Avvia in sviluppo (Angular dev server + backend Development)
+#   ./deploy.sh --help   Mostra questo messaggio
 #
-# Prima installazione: cp .env.example .env, edita .env, poi ./rebuild.sh
+# Prima installazione:
+#   cp .env.example .env && edita .env, poi ./deploy.sh
 # =============================================================================
 
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    sed -n '2,10p' "$0" | sed 's/^# \?//'
+    sed -n '2,11p' "$0" | sed 's/^# \?//'
     exit 0
+fi
+
+DEV_MODE=false
+if [[ "${1:-}" == "--dev" ]]; then
+    DEV_MODE=true
 fi
 
 # ── Colori ─────────────────────────────────────────────────────────────────────
@@ -30,21 +37,20 @@ fail() { echo -e "  ${RED}✗${RESET} $*" >&2; ERRORS=$(( ERRORS + 1 )); }
 env_get() {
     local key="$1"
     local line
-
     line=$(grep -E "^[[:space:]]*${key}=" .env 2>/dev/null | tail -n 1 || true)
     line="${line#*=}"
-
-    if [[ "$line" =~ ^\"(.*)\"$ ]]; then
-        printf '%s\n' "${BASH_REMATCH[1]}"
-        return
-    fi
-
-    if [[ "$line" =~ ^\'(.*)\'$ ]]; then
-        printf '%s\n' "${BASH_REMATCH[1]}"
-        return
-    fi
-
+    if [[ "$line" =~ ^\"(.*)\"$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
+    if [[ "$line" =~ ^\'(.*)\'$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
     printf '%s\n' "$line"
+}
+
+env_set() {
+    local key="$1" val="$2"
+    if grep -qE "^${key}=" .env; then
+        sed -i "s|^${key}=.*|${key}=${val}|" .env
+    else
+        echo "${key}=${val}" >> .env
+    fi
 }
 
 ERRORS=0
@@ -66,33 +72,44 @@ if [[ ! -f .env ]]; then
     echo -e "    Crea il file di configurazione e riprova:" >&2
     echo -e "      cp .env.example .env" >&2
     echo -e "      # edita .env con i tuoi valori, poi:" >&2
-    echo -e "      ./rebuild.sh" >&2
+    echo -e "      ./deploy.sh" >&2
     exit 1
 fi
 ok ".env presente"
 
-PROJECT_NAME="$(env_get PROJECT_NAME)"
+# ── Modalità sviluppo ──────────────────────────────────────────────────────────
+if [[ "$DEV_MODE" == true ]]; then
+    echo
+    echo -e "${BOLD}Avvio in modalità sviluppo...${RESET}"
+    echo
+    echo "  Frontend: http://localhost:$(env_get DEV_FRONTEND_PORT || echo 4200)"
+    echo "  Backend:  http://localhost:$(env_get DEV_BACKEND_PORT || echo 5000)"
+    echo
+    echo "  Ctrl+C per fermare. I log sono in tempo reale."
+    echo
+    docker compose up --build
+    exit 0
+fi
+
+# ── Produzione: validazione variabili obbligatorie ─────────────────────────────
+COMPOSE_PROJECT_NAME="$(env_get COMPOSE_PROJECT_NAME)"
 FRONTEND_PORT="$(env_get FRONTEND_PORT)"
 BACKEND_PORT="$(env_get BACKEND_PORT)"
 EXPOSE_BACKEND="$(env_get EXPOSE_BACKEND)"
 SITEMAP_BASE_URL="$(env_get SITEMAP_BASE_URL)"
-SECURITY_BEHIND_PROXY="$(env_get Security__BehindProxy)"
 
-# ── Validazione variabili obbligatorie ─────────────────────────────────────────
-[[ -z "$PROJECT_NAME" ]]             && fail "PROJECT_NAME non impostato in .env"
-[[ "$PROJECT_NAME" == "CHANGE_ME" ]] && fail "PROJECT_NAME è ancora il placeholder 'CHANGE_ME'"
-[[ -n "$PROJECT_NAME" && ! "$PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "PROJECT_NAME contiene caratteri non validi (usare solo lowercase, numeri, - e _)"
+[[ -z "$COMPOSE_PROJECT_NAME" ]]             && fail "COMPOSE_PROJECT_NAME non impostato in .env"
+[[ "$COMPOSE_PROJECT_NAME" == "CHANGE_ME" ]] && fail "COMPOSE_PROJECT_NAME è ancora il placeholder 'CHANGE_ME'"
+[[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi (usare solo lowercase, numeri, - e _)"
 
-[[ -z "$FRONTEND_PORT" ]]            && fail "FRONTEND_PORT non impostato in .env"
+[[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT non impostato in .env"
 
-# Se vuoi esporre il backend, la porta diventa obbligatoria per evitare conflitti tra progetti
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "$BACKEND_PORT" ]]; then
     fail "EXPOSE_BACKEND=yes richiede che BACKEND_PORT sia definita in .env"
 fi
 
-[[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "CHANGE_ME" ]] && ok "PROJECT_NAME = $PROJECT_NAME"
-[[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "CHANGE_ME" ]] && ok "PROJECT_NAME = $PROJECT_NAME"
-[[ -n "$FRONTEND_PORT" ]]                                  && ok "FRONTEND_PORT = $FRONTEND_PORT"
+[[ -n "$COMPOSE_PROJECT_NAME" && "$COMPOSE_PROJECT_NAME" != "CHANGE_ME" ]] && ok "COMPOSE_PROJECT_NAME = $COMPOSE_PROJECT_NAME"
+[[ -n "$FRONTEND_PORT" ]] && ok "FRONTEND_PORT = $FRONTEND_PORT"
 
 if (( ERRORS > 0 )); then
     echo
@@ -106,35 +123,14 @@ if [[ -z "$EXPOSE_BACKEND" ]]; then
     read -rp "  Esporre la porta backend sull'host? [s/N]: " _reply
     if [[ "$_reply" =~ ^[SsYy]$ ]]; then
         EXPOSE_BACKEND=yes
-        echo "EXPOSE_BACKEND=yes" >> .env
+        env_set EXPOSE_BACKEND yes
     else
         EXPOSE_BACKEND=no
-        echo "EXPOSE_BACKEND=no" >> .env
-    fi
-fi
-
-# ── BehindProxy ────────────────────────────────────────────────────────────────
-# Necessario affinché il rate limiter del backend veda l'IP reale del client
-# invece dell'IP del container frontend.
-# Impostare a true se c'è un reverse proxy davanti (NPM, Nginx, Cloudflare, ecc.).
-if [[ -z "$SECURITY_BEHIND_PROXY" ]]; then
-    echo
-    read -rp "  C'è un reverse proxy davanti (NPM, Nginx, Cloudflare...)? [S/n]: " _reply
-    if [[ "$_reply" =~ ^[Nn]$ ]]; then
-        SECURITY_BEHIND_PROXY=false
-        echo "Security__BehindProxy=false" >> .env
-        ok "Security__BehindProxy=false"
-    else
-        SECURITY_BEHIND_PROXY=true
-        echo "Security__BehindProxy=true" >> .env
-        ok "Security__BehindProxy=true"
+        env_set EXPOSE_BACKEND no
     fi
 fi
 
 # ── Sitemap ────────────────────────────────────────────────────────────────────
-# SITEMAP_BASE_URL è un build arg Docker: viene letto da generate-statics.ts
-# durante npm run build per generare sitemap.xml con URL corretti.
-# Se manca, la build procede ma la sitemap usa https://example.com.
 if [[ -z "$SITEMAP_BASE_URL" ]]; then
     warn "SITEMAP_BASE_URL non impostato — sitemap.xml userà https://example.com"
     warn "Impostare SITEMAP_BASE_URL=https://tuodominio.it in .env per la produzione"
@@ -148,8 +144,8 @@ if [[ "$EXPOSE_BACKEND" == "yes" ]]; then
         warn "EXPOSE_BACKEND=yes ma docker-compose.backend-exposed.yml non trovato — procedo senza"
         COMPOSE="docker compose -f docker-compose.yml"
     else
-		COMPOSE="docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml"
-		ok "Backend esposto sull'host (porta $BACKEND_PORT)"
+        COMPOSE="docker compose -f docker-compose.yml -f docker-compose.backend-exposed.yml"
+        ok "Backend esposto sull'host (porta ${BACKEND_PORT:-8080})"
     fi
 else
     COMPOSE="docker compose -f docker-compose.yml"
@@ -158,7 +154,7 @@ fi
 
 # ── Deploy ─────────────────────────────────────────────────────────────────────
 echo
-echo -e "${BOLD}Avvio rebuild...${RESET}"
+echo -e "${BOLD}Avvio deploy...${RESET}"
 echo
 $COMPOSE up -d --build
 echo

@@ -12,7 +12,7 @@ namespace Backend.Controllers;
 /// Eredita il placeholder di login dall'engine.
 /// e chiamare <c>Auth.GenerateToken()</c> dopo la validazione.
 /// </remarks>
-[Route("api/auth")]
+[Route("auth")]
 public class AuthController : EngineAuthController
 {
     /// <summary>

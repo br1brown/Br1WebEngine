@@ -78,5 +78,10 @@
   "contextMenuCopy": "Copia",
   "contextMenuCut": "Taglia",
   "contextMenuPaste": "Incolla",
-  "contextMenuInfo": "Informazioni"
-  }
+  "contextMenuInfo": "Informazioni",
+  "siteDesc": "Template di base per mostrare le funzionalità core",
+  "homeDesc": "Pagina principale del template",
+  "socialDesc": "Pagina dedicata ai social",
+  "settingsDesc": "Gestisci le tue preferenze e impostazioni",
+  "githubDesc": "Guarda il codice sorgente su GitHub"
+}

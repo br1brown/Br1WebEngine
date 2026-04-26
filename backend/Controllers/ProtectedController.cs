@@ -7,7 +7,7 @@ namespace Backend.Controllers;
 /// Richiede API key valida + token JWT con ruolo <c>Authenticated</c>.
 /// Aggiungere qui gli endpoint riservati agli utenti autenticati.
 /// </summary>
-[Route("api")]
+[Route("")]
 public class ProtectedController : EngineProtectedController
 {
     /// <summary>

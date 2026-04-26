@@ -1,6 +1,7 @@
 bin/
 obj/
-appsettings.Secrets.json
+.env
+.env.*
 *.md
 *.log
 .DS_Store

@@ -10,6 +10,23 @@ import { PageType } from '../site';
  * Espone il contesto di pagina e i servizi piu' usati dai page component.
  * I meta route-based vengono sincronizzati centralmente da AppComponent,
  * quindi i componenti pagina non dipendono da lifecycle hook condivisi.
+ *
+ * ── Pattern SSR ──────────────────────────────────────────────────────────
+ * Le pagine con renderMode: 'server' dichiarano in site.ts un resolver
+ * esplicito e tipizzato:
+ *
+ *   resolve: { nomeInput: () => inject(ApiService).getSomething() }
+ *
+ * Il componente dichiara l'input con lo stesso nome e tipo corretto:
+ *
+ *   readonly nomeInput = input<MioTipo>();
+ *
+ * Angular (withComponentInputBinding) inietta automaticamente il valore
+ * risolto nell'input. Il componente legge da `this.nomeInput()` senza
+ * sapere né curarsi del renderMode.
+ *
+ * Usare computed() per derivare stato dai dati risolti — mai effect(),
+ * che crea macrotask Zone.js e può bloccare la stabilizzazione SSR.
  */
 @Directive()
 export abstract class PageBaseComponent {
@@ -18,14 +35,9 @@ export abstract class PageBaseComponent {
     readonly asset = inject(AssetService);
     readonly notify = inject(NotificationService);
 
-    protected readonly pageType = input<PageType>();
-
-    /** Valore della signal pageType (helper per i componenti figli) */
-    protected get PageType(): PageType {
-        const value = this.pageType();
-        if (value === undefined) {
-            throw new Error('PageType non definito per questa pagina');
-        }
-        return value;
-    }
+    /**
+     * Tipo logico della pagina corrente.
+     * Sempre presente: il builder lo inietta via route.data con withComponentInputBinding.
+     */
+    protected readonly pageType = input.required<PageType>();
 }

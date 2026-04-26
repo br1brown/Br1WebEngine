@@ -1,5 +1,5 @@
-﻿import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
-import { Component, PLATFORM_ID, computed, inject, resource } from '@angular/core';
+﻿import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { injectCurrentUrl } from '../../app.routes';
 import { Profile } from '../../core/dto/profile.dto';
@@ -37,16 +37,10 @@ export class FooterComponent {
     private readonly api = inject(ApiService);
     private readonly router = inject(Router);
     private readonly translate = inject(TranslateService);
-    private readonly platformId = inject(PLATFORM_ID);
     private readonly currentUrl = injectCurrentUrl();
 
-    private readonly profileState = resource({
-        request: () => isPlatformBrowser(this.platformId) ? this.translate.currentLang() : undefined,
-        loader: () => this.api.getProfile()
-    });
-    readonly profile = computed<Profile | null>(() => this.profileState.value() ?? null);
-    readonly isLoading = computed(() => this.profileState.isLoading());
-    readonly error = computed(() => this.profileState.error());
+    private readonly profileResource = this.api.getProfileResource();
+    readonly profile = computed<Profile | null>(() => this.profileResource.value() ?? null);
 
     readonly appName = ContestoSito.config.appName;
     readonly description = ContestoSito.config.description;

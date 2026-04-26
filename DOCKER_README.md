@@ -12,18 +12,18 @@ Il template Docker e' progettato per essere **riusabile su piu' progetti sulla s
 ./init-project.sh mio-progetto
 ```
 
-Rinomina tutti i riferimenti interni al template (`package.json`, `angular.json`, `.csproj`, Dockerfile, README) e crea il file `.env` con `PROJECT_NAME` gia' impostato.
+Crea il file `.env` con `COMPOSE_PROJECT_NAME` gia' impostato, poi edita `.env` e `backend/appsettings.json` con i valori specifici del progetto.
 
 ### Avvio di un progetto derivato
 
 ```bash
 # Se non hai gia' eseguito init-project.sh:
 cp .env.example .env
-# Modificare .env: impostare almeno PROJECT_NAME e FRONTEND_PORT
-./rebuild.sh
+# Edita .env (COMPOSE_PROJECT_NAME, FRONTEND_PORT) e backend/appsettings.json (segreti)
+./deploy.sh
 ```
 
-`rebuild.sh` è il punto di ingresso consigliato per il deploy in produzione: verifica `.env`, chiede se esporre il backend, imposta automaticamente le variabili di produzione (tra cui `Security__BehindProxy`) e avvia i container.
+`deploy.sh` verifica la configurazione e avvia i container.
 
 ### Esposizione dei servizi
 
@@ -31,44 +31,40 @@ cp .env.example .env
 - Il backend puo' essere esposto aggiungendo `docker-compose.backend-exposed.yml`
 - Frontend e backend comunicano sempre tramite rete Docker interna
 
-### Scelta architetturale: niente sottopath
-
-> Il template espone ogni progetto su una porta dedicata e non usa sottopath del tipo `/nome-progetto`.
-> Questa scelta evita di dover adattare il frontend per supportare base path custom (routing Angular, asset statici, base href).
-> In futuro, se necessario, i servizi potranno essere pubblicati tramite subdomain o tunnel, mantenendo invariata la struttura dell'applicazione.
-
 ### Esempio: due progetti sulla stessa VPS
 
 ```text
-/home/deploy/progetto-a/.env   →  PROJECT_NAME=progetto-a  FRONTEND_PORT=3000
-/home/deploy/progetto-b/.env   →  PROJECT_NAME=progetto-b  FRONTEND_PORT=3001
+/home/deploy/progetto-a/.env   →  COMPOSE_PROJECT_NAME=progetto-a  FRONTEND_PORT=3000
+/home/deploy/progetto-b/.env   →  COMPOSE_PROJECT_NAME=progetto-b  FRONTEND_PORT=3001
 ```
 
 Risultato:
 - `http://IP:3000` → progetto-a
 - `http://IP:3001` → progetto-b
-- Volumi separati: `progetto-a-app-data`, `progetto-b-app-data`
-- Nessun conflitto di container (nomi gestiti automaticamente da Docker Compose)
+- Volumi separati: `progetto-a_uploads-data`, `progetto-b_uploads-data` (naming automatico Docker Compose)
+- Nessun conflitto di container
 
 ## File Compose
 
-- **`docker-compose.yml`** - base riusabile: servizi, build, rete, volumi con nome derivato da `PROJECT_NAME`. Usato direttamente anche in produzione (`restart: unless-stopped` e log rotation già inclusi).
-- **`docker-compose.override.yml`** - sviluppo locale: applicato automaticamente, frontend con `npm run start:docker`, backend su porta dev
-- **`docker-compose.backend-exposed.yml`** - opzionale: espone il backend verso l'host su `BACKEND_PORT`
+- **`docker-compose.yml`** — base: servizi, build, rete, volumi. Usato direttamente in produzione.
+- **`docker-compose.override.yml`** — sviluppo locale: applicato automaticamente, frontend con `ng serve`, backend in Development
+- **`docker-compose.backend-exposed.yml`** — opzionale: espone il backend verso l'host su `BACKEND_PORT`
 
 ## Variabili `.env`
 
 | Variabile | Obbligatoria | Default | Descrizione |
 |---|---|---|---|
-| `PROJECT_NAME` | si | — | Identifica il progetto, usato per i volumi |
+| `COMPOSE_PROJECT_NAME` | si | — | Identifica il progetto; Docker Compose usa questo per nominare i volumi (built-in) |
 | `FRONTEND_PORT` | si | — | Porta host del frontend in produzione |
-| `BACKEND_PORT` | no | vuoto | Porta host del backend (vuoto = solo rete interna) |
-| `API_KEY` | no | `frontend` | API key iniettata nel frontend a runtime |
-| `API_URL` | no | vuoto | Vuoto = proxy Node SSR; valorizzato = backend remoto |
+| `BACKEND_PORT` | no | `8080` | Porta host del backend (usata solo con `backend-exposed.yml`) |
+| `BACKEND_ORIGIN` | no | `http://backend:8080` | Host backend per proxy Node e chiamate SSR |
+| `BACKEND_API_KEY` | no | `frontend` | API key iniettata dal proxy Node verso il backend |
 | `DEV_FRONTEND_PORT` | no | `4200` | Porta frontend in sviluppo |
 | `DEV_BACKEND_PORT` | no | `5000` | Porta backend in sviluppo |
-| `EXPOSE_BACKEND` | no | — | Impostata da `rebuild.sh`: `yes` espone la porta backend sull'host |
-| `Security__BehindProxy` | no | — | Chiesta da `rebuild.sh`: `true` se c'è un reverse proxy davanti. Necessaria affinché il rate limiter backend veda l'IP reale del client |
+| `SITEMAP_BASE_URL` | no | — | URL canonico build-time per sitemap.xml |
+| `EXPOSE_BACKEND` | no | — | Impostata da `deploy.sh`: `yes` espone la porta backend sull'host |
+
+I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
 
 ## Sviluppo
 
@@ -84,50 +80,30 @@ Questo comando usa automaticamente `docker-compose.override.yml` e avvia:
 Note pratiche:
 
 - Al primo avvio il frontend esegue `npm ci` nel container, quindi puo' metterci un po'
-- Nel container frontend le richieste `/api/*` vengono proxate internamente al backend
 - In sviluppo restano due container separati: uno per il frontend e uno per il backend
 
 ## Produzione
 
 ```bash
 cp .env.example .env
-# Modificare .env: impostare almeno PROJECT_NAME e FRONTEND_PORT
-./rebuild.sh
+# Edita .env e backend/appsettings.json con i tuoi valori, poi:
+./deploy.sh
 ```
 
 In produzione:
 
 - **Frontend** su `http://localhost:FRONTEND_PORT`
-- **Backend** solo interno per default (per esporlo, rispondere `s` alla domanda di `rebuild.sh`)
+- **Backend** solo interno per default (per esporlo, rispondere `s` alla domanda di `deploy.sh`)
 
-Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna.
+Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
 ### Esporre il backend
 
-Rispondere `s` alla domanda di `rebuild.sh` alla prima esecuzione. La scelta viene salvata in `.env` (`EXPOSE_BACKEND=yes`) e ricordata nei deploy successivi. In alternativa, impostare manualmente `EXPOSE_BACKEND=yes` in `.env` e rieseguire `./rebuild.sh`.
+Rispondere `s` alla domanda di `deploy.sh` alla prima esecuzione. La scelta viene salvata in `.env` (`EXPOSE_BACKEND=yes`) e ricordata nei deploy successivi.
 
 ### Controlli all'avvio
 
-- Se `PROJECT_NAME` o `FRONTEND_PORT` mancano nel `.env`, Docker Compose fallisce con errore esplicito
-- Se `PROJECT_NAME` contiene ancora il placeholder `CHANGE_ME`, il frontend si ferma con errore
-
-## Host separati
-
-Se frontend e backend stanno su macchine diverse:
-
-```bash
-# Server backend
-docker compose up --build -d backend
-
-# Server frontend
-API_URL=https://api.tuodominio.it docker compose up --build -d frontend
-```
-
-In questo scenario:
-
-- `API_URL` valorizzata fa chiamare il backend remoto direttamente dal browser
-- `API_KEY` puo' essere sovrascritta via variabile d'ambiente
-- il backend deve avere `Security__CorsOrigins` configurato per il dominio del frontend
+`deploy.sh` verifica che `COMPOSE_PROJECT_NAME` e `FRONTEND_PORT` siano impostati prima di avviare Docker.
 
 ## Comandi utili
 
@@ -159,11 +135,10 @@ docker compose exec backend sh
 | | Dev (default) | Prod |
 |---|---|---|
 | Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` |
-| Frontend | `npm run start:docker` su `DEV_FRONTEND_PORT` | Node SSR su `FRONTEND_PORT` |
-| Backend | ASP.NET Core su `DEV_BACKEND_PORT` | ASP.NET Core su `8080` (interno) |
+| Frontend | `ng serve` su `DEV_FRONTEND_PORT` | Node SSR su `FRONTEND_PORT` |
+| Backend | ASP.NET Core Development su `DEV_BACKEND_PORT` | ASP.NET Core Production su `8080` (interno) |
+| Configurazione backend | `appsettings.json` (ASPNETCORE_ENVIRONMENT=Development) | `appsettings.json` (ASPNETCORE_ENVIRONMENT=Production) |
 | Container | 2 | 2 |
-| Nomi container | generati da Compose | generati da Compose |
-| Volumi | `PROJECT_NAME-app-data` | `PROJECT_NAME-app-data` |
 
 ## Nota pratica
 

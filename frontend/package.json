@@ -1,5 +1,5 @@
 {
-  "name": "br1-web-engine",
+  "name": "app",
   "version": "1.0.0",
   "private": true,
   "engines": {
@@ -16,8 +16,9 @@
     "generate:icons": "tsx scripts/generate-icons.ts",
     "prebuild": "npm run generate:statics && npm run generate:icons",
     "build": "ng build",
-    "serve:ssr": "node dist/br1-web-engine/server/server.mjs",
-    "dev": "npm run build && concurrently \"npm run serve:ssr\" \"ng serve --open --ssl false --proxy-config proxy.local.conf.json\"",
+    "serve:ssr": "node dist/app/server/server.mjs",
+    "dev": "ng serve --open --ssl false --proxy-config proxy.local.conf.json",
+    "dev:ssr": "npm run build && node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
@@ -51,9 +52,15 @@
     "@angular/build": "^19.0.0",
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
+    "@types/jasmine": "^6.0.0",
     "@types/mime-types": "^3.0.1",
-    "concurrently": "^9.0.0",
     "eslint": "^10.1.0",
+    "jasmine-core": "^6.2.0",
+    "karma": "^6.4.4",
+    "karma-chrome-launcher": "^3.2.0",
+    "karma-coverage": "^2.2.1",
+    "karma-jasmine": "^5.1.0",
+    "karma-jasmine-html-reporter": "^2.2.0",
     "tsx": "^4.19.0",
     "typescript": "~5.6.0"
   }

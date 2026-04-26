@@ -12,6 +12,9 @@ import {
     isMainModule,
     writeResponseToNodeResponse
 } from '@angular/ssr/node';
+import { serverEnv } from './src/server-env';
+
+const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
 
 // Percorsi del bundle Angular: server/ contiene server.mjs, browser/ gli asset statici
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
@@ -89,47 +92,31 @@ const immutableAssetPattern =
     /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/i;
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
-const port = Number(process.env['PORT'] ?? process.env['FRONTEND_PORT'] ?? 3000);
-const backendPort = Number(process.env['BACKEND_PORT'] ?? 8080);
-// API_URL valorizzato = frontend e backend su host separati; vuoto = proxy interno Docker
-const externalApiOrigin = process.env['API_URL']?.trim().replace(/\/$/, '');
-const internalApiOrigin = `http://backend:${backendPort}`;
-const apiOrigin = externalApiOrigin || internalApiOrigin;
-const proxyTimeoutMs = Number(process.env['PROXY_TIMEOUT_MS'] ?? 30_000);
+const angularApp = new AngularNodeAppEngine({
+    allowedHosts: [new URL(backendOrigin).hostname, 'localhost', '127.0.0.1']
+});
 
 // Security headers per le risposte HTML e gli asset statici.
 // Le API (/api/*) ricevono questi header dal backend; li escludiamo qui per evitare duplicati.
-//
-// connect-src include automaticamente l'origine esterna quando API_URL è impostato
-// (deploy separato frontend/backend): senza questo il browser bloccherebbe le chiamate API.
-//
-// Tutti i valori sono sovrascrivibili via env (es. SECURITY_CSP=...) per i progetti derivati
-// che devono aggiungere origini (Google Fonts, CDN, analytics, ecc.).
+// 'unsafe-inline' in script-src richiesto da Angular withEventReplay() (SSR hydration).
 const defaultCsp = [
     "default-src 'self'",
-    // 'unsafe-inline' richiesto da Angular withEventReplay() (SSR hydration):
-    // Angular inietta script inline nell'HTML per catturare eventi utente prima che
-    // la hydration sia completata. Senza questo flag la CSP li bloccherebbe.
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    `connect-src ${externalApiOrigin ? `'self' ${externalApiOrigin}` : "'self'"}`,
+    "connect-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",
-    "form-action 'self'"
+    "form-action 'self'",
 ].join('; ');
 
-// Usare || invece di ?? per trattare la stringa vuota come "usa il default":
-// docker-compose passa le variabili come SECURITY_CSP="${SECURITY_CSP:-}" che
-// produce una stringa vuota se non impostata — ?? non cattura il caso vuoto.
 const htmlSecurityHeaders: [string, string][] = [
-    ['X-Frame-Options', process.env['SECURITY_X_FRAME_OPTIONS'] || 'SAMEORIGIN'],
+    ['X-Frame-Options', 'SAMEORIGIN'],
     ['X-Content-Type-Options', 'nosniff'],
-    ['Referrer-Policy', process.env['SECURITY_REFERRER_POLICY'] || 'strict-origin-when-cross-origin'],
-    ['Permissions-Policy', process.env['SECURITY_PERMISSIONS_POLICY'] || 'camera=(), microphone=(), geolocation=()'],
-    ['Content-Security-Policy', process.env['SECURITY_CSP'] || defaultCsp],
+    ['Referrer-Policy', 'strict-origin-when-cross-origin'],
+    ['Permissions-Policy', 'camera=(), microphone=(), geolocation=()'],
+    ['Content-Security-Policy', defaultCsp],
 ];
 
 app.disable('x-powered-by');  // non esporre la versione di Express negli header
@@ -143,18 +130,19 @@ app.get('/health', (_request, response) => {
     });
 });
 
-// Proxy /api/* → backend.
-// Montato a root con pathFilter (non app.use('/api', ...)): Express con app.use('/api', ...)
-// striscia il prefisso /api prima di passare la richiesta al middleware, causando 404.
-// Con pathFilter il percorso completo (/api/XXXX ecc.) viene preservato.
+// Proxy /api/* → backend: intercetta le chiamate con prefisso /api e le gira al backend
+// strippando il prefisso stesso. Il backend non conosce /api: i controller partono da /.
+// pathFilter (non app.use('/api', ...)): evita che Express strisci il prefisso prima del middleware.
 app.use(createProxyMiddleware({
-    target: apiOrigin,
+    target: backendOrigin,
     pathFilter: '/api',
+    pathRewrite: { '^/api': '' },
     changeOrigin: true,
     xfwd: true,
-    proxyTimeout: proxyTimeoutMs,
-    timeout: proxyTimeoutMs,
+    proxyTimeout: proxyTimeout,
+    timeout: proxyTimeout,
     on: {
+        proxyReq: (proxyReq) => proxyReq.setHeader('x-api-key', backendApiKey),
         error: (err, _req, res, next) => {
             const response = res as Response;
             if (response.headersSent) {
@@ -239,8 +227,11 @@ app.get('/cdn-cgi/asset', async (req, res) => {
             .toFile(cacheFile);
 
         inProgress.set(cacheKey, job as any);
-        await job;
-        inProgress.delete(cacheKey);
+        try {
+            await job;
+        } finally {
+            inProgress.delete(cacheKey);
+        }
 
         AssetHandler.serveImage(res, cacheFile);
     } catch (err) {
@@ -299,9 +290,7 @@ app.use((request, response, next) => {
 if (isMainModule(import.meta.url)) {
     app.listen(port, () => {
         console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
-        console.log(
-            `[frontend] API mode: ${externalApiOrigin ? `direct (${externalApiOrigin})` : `proxy (${internalApiOrigin})`}`
-        );
+        console.log(`[frontend] Backend origin: ${backendOrigin}`);
     });
 }
 

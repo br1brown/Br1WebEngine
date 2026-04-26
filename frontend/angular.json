@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "br1-web-engine": {
+    "app": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,7 +13,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/br1-web-engine",
+            "outputPath": "dist/app",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "server": "src/main.server.ts",
@@ -70,10 +70,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "br1-web-engine:build:production"
+              "buildTarget": "app:build:production"
             },
             "development": {
-              "buildTarget": "br1-web-engine:build:development"
+              "buildTarget": "app:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -82,6 +82,10 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "tsconfig.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
             "assets": [
               {
                 "glob": "**/*",

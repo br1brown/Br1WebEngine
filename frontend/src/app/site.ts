@@ -1,4 +1,6 @@
+import { inject } from '@angular/core';
 import { buildSite } from './siteBuilder';
+import { ApiService } from './core/services/api.service';
 
 export type {
     SiteConfig,
@@ -118,6 +120,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             title: 'home',
             enabled: true,
             pageType: PageType.Home,
+            description: 'homeDesc',
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
         {
@@ -125,8 +128,13 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             title: 'social',
             enabled: true,
             pageType: PageType.Social,
+            description: 'socialDesc',
+            renderMode: 'server',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-            showPanel: false
+            showPanel: false,
+            resolve: {
+                social: () => inject(ApiService).getSocial(),
+            },
         },
         {
             path: 'legale',
@@ -179,6 +187,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             enabled: true,
             requiresAuth: true,
             pageType: PageType.Impostazioni,
+            description: 'settingsDesc',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
         }
     ]);

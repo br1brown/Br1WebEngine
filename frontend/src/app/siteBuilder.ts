@@ -246,7 +246,7 @@ export type LeafPageInput = BasePageInput & {
     /** Non consentito per una pagina interna */
     externalUrl?: never;
 
-    /** Resolver dati */
+    /** Resolver dati. Le chiavi corrispondono agli input del componente (withComponentInputBinding). */
     resolve?: Record<string, ResolveFn<unknown>>;
 
     /** Strategia di esecuzione di guard e resolver */
@@ -886,6 +886,25 @@ export function buildSite(
                 path: fullPath,
                 renderMode: page.renderMode ?? 'client'
             });
+
+            /**
+             * Pagina server-rendered senza resolver: Angular SSR renderizzerà la pagina
+             * senza dati dinamici. Di solito è un errore di configurazione.
+             *
+             * Il warning appare all'avvio del processo (browser e Node SSR) perché
+             * buildSite() viene eseguito a livello di modulo durante il bootstrap.
+             * In sviluppo è il primo segnale visibile prima ancora del primo render.
+             */
+            if (page.renderMode === 'server' && !page.resolve) {
+                console.warn(
+                    `[SiteBuilder] ⚠ La pagina "${fullPath}" ha renderMode 'server' ma nessun resolver dichiarato.\n` +
+                    `  Se la pagina non ha bisogno di dati dal backend puoi ignorare questo avviso.\n` +
+                    `  Altrimenti aggiungi in site.ts:\n` +
+                    `    resolve: { nomeInput: () => inject(TuoService).tuoMetodo() }\n` +
+                    `  e nel componente:\n` +
+                    `    readonly nomeInput = input<TuoTipo>();`
+                );
+            }
 
             /**
              * Le pagine che richiedono autenticazione non devono essere indicizzate:

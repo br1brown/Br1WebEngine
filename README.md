@@ -30,19 +30,19 @@ git clone https://github.com/br1brown/Br1WebEngine.git
 cd Br1WebEngine
 
 # 2. (Opzionale) Personalizza il nome del progetto
-#    Lo script crea anche .env a partire da .env.example con PROJECT_NAME già valorizzato.
+#    Lo script crea .env a partire da .env.example con COMPOSE_PROJECT_NAME già valorizzato.
 ./init-project.sh mio-progetto
 
-# 3. Configura le variabili d'ambiente
-#    Salta questo passo se hai già eseguito init-project.sh (il file .env è già stato creato).
-cp .env.example .env
-# Modifica .env con i tuoi valori (PROJECT_NAME, porte, API key)
+# 3. Configura variabili d'ambiente e segreti backend
+cp .env.example .env  # se non hai eseguito init-project.sh
+# Modifica .env: COMPOSE_PROJECT_NAME, FRONTEND_PORT, SITEMAP_BASE_URL
+# Modifica backend/appsettings.json: Token.SecretKey, ApiKeys, CorsOrigins, BehindProxy
 
 # 4. Deploy in produzione
-./rebuild.sh
+./deploy.sh
 ```
 
-Lo script controlla `.env`, configura automaticamente le variabili di produzione e avvia i container. Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
+Lo script controlla la configurazione e avvia i container. Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
 
 ---
 
@@ -436,6 +436,36 @@ Il motore include anche il wiring base per Angular SSR. Se non ti serve, puoi ig
 
 Le rotte non dichiarate esplicitamente restano `client`. In un progetto derivato, `server` o `prerender` vanno usati solo per pagine compatibili con quel modello di esecuzione.
 
+**Pagine `renderMode: 'server'` e caricamento dati**
+
+Quando una pagina viene renderizzata lato server, i dati devono essere disponibili *prima* che il componente venga costruito — quindi non possono essere caricati nel costruttore né con `ngOnInit`. Il pattern corretto usa il `resolver` dichiarato direttamente in `site.ts`:
+
+```typescript
+// In site.ts, nella definizione della pagina:
+{
+    path: 'profilo',
+    renderMode: 'server',
+    component: () => import('./pages/profilo/profilo.component').then(m => m.ProfiloComponent),
+    resolve: {
+        profilo: () => inject(ApiService).getProfilo(),
+    },
+}
+```
+
+Il componente riceve i dati tramite un `input()` con lo stesso nome del resolver — Angular li inietta automaticamente grazie a `withComponentInputBinding()`:
+
+```typescript
+export class ProfiloComponent extends PageBaseComponent {
+    readonly profilo = input<Profilo>();
+
+    readonly nomeCompleto = computed(() => this.profilo()?.nome ?? '');
+}
+```
+
+Due regole da seguire sempre con SSR:
+- Usa `computed()` per derivare stato dai dati del resolver — **mai `effect()`**, che crea macrotask Zone.js e puo' bloccare la stabilizzazione SSR.
+- Se una pagina ha `renderMode: 'server'` ma nessun `resolve`, `SiteBuilder` emette un avviso a console al caricamento dell'app (sia browser che Node). L'avviso e' innocuo se la pagina non ha bisogno di dati dal backend, ma e' utile come promemoria.
+
 #### Sistema CSS con color-mix()
 Il `ThemeService` imposta una sola variabile CSS (`--colorTema`). Tutto il resto viene derivato dal browser via `color-mix()`:
 
@@ -548,20 +578,18 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 ### Variabili Docker (`.env`)
 | Variabile | Obbligatoria | Effetto |
 |---|---|---|
-| `PROJECT_NAME` | si | Identifica il progetto, usato per i nomi dei volumi Docker |
+| `COMPOSE_PROJECT_NAME` | si | Identifica il progetto; Docker Compose usa questo per nominare i volumi (built-in) |
 | `FRONTEND_PORT` | si | Porta del frontend esposta sull'host (produzione) |
 | `BACKEND_PORT` | no | Porta del backend; lascia vuota per tenerlo interno (consigliato); valorizza solo se usi `docker-compose.backend-exposed.yml` |
 | `DEV_FRONTEND_PORT` | no | Porta del frontend in sviluppo Docker (default: `4200`) |
 | `DEV_BACKEND_PORT` | no | Porta del backend in sviluppo Docker (default: `5000`) |
-| `API_URL` | no | Vuota = il server Node SSR fa da proxy su `/api`; valorizzata = il frontend chiama direttamente il backend remoto |
+| `BACKEND_ORIGIN` | no | Host backend per proxy Node e chiamate SSR (default: `http://backend:8080`) |
+| `BACKEND_API_KEY` | no | API key iniettata dal proxy Node verso il backend (default: `frontend`) |
 | `SITEMAP_BASE_URL` | no | URL pubblico canonico usato a build time per generare `sitemap.xml`; se manca usa `https://example.com` con warning |
-| `API_KEY` | no | API key iniettata a runtime nei bundle JS dal `docker-entrypoint.sh` (default: `frontend`) |
-| `PROXY_TIMEOUT_MS` | no | Timeout del proxy Node SSR verso il backend in millisecondi (default: `30000`). Aumentare per endpoint lenti. |
-| `DIST_PATH` | no | Nome cartella dist Angular; cambiare solo se si rinomina il progetto rispetto al template (default: `br1-web-engine`) |
-| `SECURITY_CSP` | no | Override del Content-Security-Policy per HTML e asset statici; il default include automaticamente `API_URL` nel `connect-src`. Vedere `.env.example` per tutti gli header sovrascrivibili (`SECURITY_X_FRAME_OPTIONS`, `SECURITY_REFERRER_POLICY`, `SECURITY_PERMISSIONS_POLICY`). |
-| `Security__BehindProxy` | no | Impostata automaticamente a `true` da `rebuild.sh`. Abilita la lettura di `X-Forwarded-For` nel backend, necessaria affinché il rate limiter veda l'IP reale del client invece dell'IP del proxy. Da impostare manualmente solo se si bypassa `rebuild.sh`. |
 
-Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script aggiorna i riferimenti del template e crea `.env` a partire da `.env.example` con `PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`. Se frontend e backend girano su host separati, allineare le CORS (`Security__CorsOrigins__*`) sul backend: usa `appsettings.json` per i domini stabili del progetto e le env var (che sovrascrivono per indice) solo per gli override.
+I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
+
+Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script crea `.env` con `COMPOSE_PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`.
 
 ### Sviluppo locale senza Docker
 Per lavorare senza container, avvia backend e frontend separatamente:
@@ -574,12 +602,14 @@ cd backend && dotnet run   # oppure: dotnet watch
 ./start-frontend-dev.sh
 ```
 
-Lo script `start-frontend-dev.sh` esegue `npm run dev`, che fa tre cose in sequenza:
-1. **Build completa** (`ng build`) — genera il bundle e le icone PWA
-2. **Server SSR** su `:3000` — gestisce `/cdn-cgi/asset` (immagini: resize + WebP + cache; altri file: serve diretto)
-3. **Dev server** su `:4200` — `ng serve` con hot reload, proxy `/api/*` e `/cdn-cgi/*` verso `:3000`
+Lo script `start-frontend-dev.sh` esegue `npm run dev` (`ng serve` con hot reload e proxy `/api/*` verso il backend locale).
 
-Il `proxy.local.conf.json` reindirizza sia `/api/*` a `http://localhost:62715` (backend, porta definita in `backend/Properties/launchSettings.json`) sia `/cdn-cgi/asset` al server SSR locale. Se cambi la porta del backend in `launchSettings.json`, aggiorna anche il target nel proxy.
+Il `proxy.local.conf.json` reindirizza `/api/*` a `http://localhost:5000` (backend, allineato a `DEV_BACKEND_PORT`). Se cambi la porta del backend in `launchSettings.json`, aggiorna anche il target nel proxy.
+
+Per testare SSR localmente (con server Node, senza hot reload), usa invece:
+```bash
+npm run dev:ssr   # build + avvia server.mjs
+```
 
 > Con questo setup testi localmente SSR, image optimization e proxy esattamente come funzionano in produzione — senza Docker.
 
@@ -601,7 +631,7 @@ Br1WebEngine funziona direttamente cosi' com'e': puoi clonare, configurare `.env
 ./init-project.sh mio-progetto
 ```
 
-Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1WebEngine`) nei file principali frontend/backend, rinomina il file `.sln` e genera `.env` con `PROJECT_NAME` coerente. E' un'operazione opzionale: se preferisci mantenere i nomi originali o rinominarli a mano in un secondo momento, puoi farlo.
+Lo script crea `.env` con `COMPOSE_PROJECT_NAME` gia' valorizzato. E' un'operazione opzionale: puoi anche copiare manualmente `.env.example` in `.env` e impostare `COMPOSE_PROJECT_NAME` a mano.
 
 ### Aggiungere una pagina
 1. Aggiungi un valore a `PageType` in `frontend/src/app/site.ts`.
@@ -610,6 +640,20 @@ Lo script sostituisce i riferimenti interni al template (`br1-web-engine`, `Br1W
 4. (Opzionale) Aggiungi `description: 'chiaveI18n'` per personalizzare i meta tag social della pagina.
 5. Aggiungila alla navigazione con `addPage(PageType.X)` se serve.
 6. Inserisci le chiavi i18n in `addon.it.json` e `addon.en.json`.
+
+**Se la pagina usa `renderMode: 'server'`**, aggiungi anche:
+
+7. Dichiara un `resolve` in `site.ts` con le chiamate API che servono alla pagina:
+   ```typescript
+   resolve: { nomeInput: () => inject(ApiService).tuoMetodo() }
+   ```
+8. Nel componente, dichiara un `input()` con lo stesso nome e il tipo corretto:
+   ```typescript
+   readonly nomeInput = input<TuoTipo>();
+   ```
+9. Usa `computed()` (non `effect()`) per derivare lo stato dai dati risolti.
+
+   > Se dimentichi il `resolve`, `SiteBuilder` lo segnala con un avviso a console al caricamento dell'app.
 
 ### Aggiungere un endpoint API
 1. Scegli il controller giusto: `BaseController`, `AuthController` o `ProtectedController`. Quelli auth/protected vengono esposti solo quando il login JWT e' abilitato.
@@ -641,25 +685,29 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 
    > Non copiare `docker-compose.override.yml`: è pensato per lo sviluppo locale e verrebbe applicato automaticamente.
 
-3. **Configura `.env` per l'ambiente remoto**
-   - `PROJECT_NAME`: nome stack/volumi (es. `miosito`).
-   - `FRONTEND_PORT`: porta del frontend. Il template usa lo stesso valore sia dentro al container sia sull'host.
-   - `BACKEND_PORT`: porta del backend nella rete Docker. Se vuoi esporlo anche fuori, verra' pubblicata la stessa porta.
-   - `API_URL`: lascia vuota se frontend e backend stanno nello stesso compose (Node SSR usa il proxy interno `/api`); valorizzala solo se punti a backend esterno.
-   - `SITEMAP_BASE_URL`: URL pubblico canonico del sito; viene letto in fase di build per generare `sitemap.xml`.
-   - `API_KEY`: chiave usata dal frontend per chiamare le API.
-   - Se usi backend separato o domini diversi, allinea le CORS nel backend (`Security__CorsOrigins__*`). Nota: le env var hanno priorità e sovrascrivono il JSON per indice (`__0`, `__1`). Usa il JSON per i domini stabili, le env var per gli override.
+3. **Configura segreti e `.env`**
 
-4. **Avvia con `rebuild.sh`**
+   Edita `backend/appsettings.json` e imposta:
+   - `Security.Token.SecretKey`: stringa random di almeno 32 caratteri
+   - `Security.ApiKeys`: array con la chiave usata dal proxy Node (deve corrispondere a `BACKEND_API_KEY` in `.env`)
+   - `Security.CorsOrigins`: domini del frontend in produzione
+   - `Security.BehindProxy`: `true` se hai Nginx/Caddy/Traefik davanti (necessario per rate limiting per IP reale)
+   - `AllowedHosts`: il tuo dominio (es. `"miosito.it;www.miosito.it"`)
+
+4. **Configura `.env` per l'ambiente remoto**
+   - `COMPOSE_PROJECT_NAME`: nome stack/volumi (es. `miosito`).
+   - `FRONTEND_PORT`: porta del frontend esposta sull'host.
+   - `SITEMAP_BASE_URL`: URL pubblico canonico del sito; viene letto in fase di build per generare `sitemap.xml`.
+
+5. **Avvia con `deploy.sh`**
 
    Il modo consigliato per il primo avvio e per tutti i deploy successivi:
    ```bash
-   ./rebuild.sh
+   ./deploy.sh
    ```
    Lo script:
-   - Verifica che `.env` sia corretto e completo
+   - Verifica che `.env` sia presente e corretto
    - Chiede se esporre la porta backend sull'host (salva la risposta in `.env`)
-   - Imposta automaticamente `Security__BehindProxy=true` (necessario per il rate limiting per IP reale)
    - Sceglie il file compose corretto in base a `EXPOSE_BACKEND`
    - Avvia i container in background
 
@@ -673,7 +721,8 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 
 6. **Aggiornamenti futuri (deploy successivi)**
    - Aggiorna codice/immagini.
-   - Riesegui `./rebuild.sh` — risponde alle domande già salvate in `.env`, quindi è non interattivo.
+   - Riesegui `./deploy.sh` — risponde automaticamente usando i valori già salvati in `.env`, quindi è non interattivo.
+   - Per aggiornare segreti: modifica `backend/appsettings.json`, commit e riesegui `./deploy.sh` (rebuild incluso).
 
 7. **Hardening minimo produzione**
    - Metti HTTPS davanti (Nginx/Caddy/Traefik o proxy del provider).

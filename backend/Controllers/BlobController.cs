@@ -11,7 +11,7 @@ namespace Backend.Controllers;
 /// L'accesso richiede API key (ereditata da <see cref="EngineApiController"/>), ma nessuna autenticazione utente.
 /// Il file viene identificato dal suo slug univoco assegnato al momento dell'upload.
 /// </remarks>
-[Route("api/blob")]
+[Route("blob")]
 public class BlobController : EngineApiController
 {
     private readonly string _uploadsPath;
