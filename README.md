@@ -180,7 +180,7 @@ Tre controller astratti dell'engine abilitano automaticamente attributi di sicur
 | Controller astratto | Attributi ereditati | Cosa fornisce |
 |---|---|---|
 | `EngineApiController` | `[ApiController]`, `[Authorize]` | `ILogger` condiviso; radice comune di tutti i controller engine |
-| `EngineAuthController` | `[ApiController]`, `[Authorize]` | `AuthService` per generazione e validazione JWT |
+| `EngineAuthController` | `[ApiController]`, `[Authorize]` | `AuthService` per la generazione del token JWT; la validazione è gestita dal middleware JWT Bearer |
 | `EngineProtectedController` | `[ApiController]`, `[Authorize(Policy = RequireLoginPolicy)]` | `ILogger` condiviso, richiede API key + JWT con ruolo `Authenticated` |
 
 Il controller concreto estende la base giusta e aggiunge solo routing (`[Route]`) e logica endpoint. Non deve ripetere `[Authorize]` ne' il wiring delle dipendenze. I controller che ereditano da `EngineAuthController` o `EngineProtectedController` vengono esposti solo quando il login JWT e' attivo. `BlobController` — che eredita da `EngineApiController` — è un esempio di controller concreto già incluso nel template.
@@ -217,7 +217,7 @@ Il sistema JWT si accende in base a una sola condizione: `Security.Token.SecretK
 - **Chiave vuota** -> `LoginEnabled = false`: nessun `AuthService` registrato, nessun middleware JWT, nessun overhead e nessun controller auth/protected esposto
 - **Chiave valorizzata** -> `LoginEnabled = true`: `AuthService` singleton, middleware JWT attivo, rotte con `requiresAuth: true` protette da guard Angular
 
-Se la chiave e' troppo corta per HMAC-SHA256, viene espansa tramite SHA-256. Il token frontend vive in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab).
+Se la chiave e' troppo corta per HMAC-SHA256 (meno di 32 caratteri), il server lancia un'eccezione all'avvio. Il token frontend vive in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab).
 
 ### Frontend
 
@@ -568,7 +568,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 |---|---|---|
 | `FileContentStore` | Singleton | Legge contenuti da `backend/data/*.json` |
 | `SiteService` | Scoped | Filtro social, profilo localizzato |
-| `AuthService` | Singleton (condizionale) | Generazione e validazione JWT |
+| `AuthService` | Singleton (condizionale) | Generazione del token JWT; la validazione è delegata al middleware JWT Bearer |
 
 **Frontend** (tutti `providedIn: 'root'`):
 | Servizio | Ruolo |
@@ -577,7 +577,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `TranslateService` | i18n con sistema addon |
 | `TokenService` | Conserva il token JWT in memoria e sessionStorage; letto da `ApiService` per l'header `Bearer` |
 | `AuthService` | Login, logout e stato sessione; delega lo storage del token a `TokenService` |
-| `BaseApiService` | Classe astratta: infrastruttura HTTP condivisa (header, error handling, health check); estesa da `ApiService` |
+| `BaseApiService` | Classe astratta: infrastruttura HTTP condivisa (header, URL normalization, error handling, health check); estesa da `ApiService` |
 | `ApiService` | Unico client HTTP verso il backend: endpoint concreti (`getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login`) |
 | `SpeechService` | Text-to-speech via Web Speech API: `speak(text, options?)`, `stop()`, segnali `isSpeaking` e `currentVoice`; voce e lingua seguono automaticamente `TranslateService` |
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
@@ -585,7 +585,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `QrCodeService` | Genera QR code in blob PNG e SVG per testo/URL, WhatsApp, email, Wi-Fi e SEPA; colori tema automatici; `create()` / `createWithColors()` / `toSVG()` / `toSVGWithColors()`; caching per payload+colori; SSR-safe |
 | `ImgBuilderService` | Wrapper injectable su `renderToCanvas`: `render()` usa i colori del tema (WCAG), `renderWithColors()` per colori espliciti |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
-| `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `loading()` / `close()`, `confirm()` (con opzioni icona/testi/click-esterno), `prompt()`, `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
+| `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `loading()` / `close()`, `confirm()` → `Promise<boolean>` (opzioni icona/testi/click-esterno), `prompt()` → `Promise<string\|null>`, `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
 | `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |
 | `AppTitleStrategy` | Titoli pagina tradotti nel formato `Pagina \| NomeApp` |
 

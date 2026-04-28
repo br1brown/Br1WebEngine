@@ -10,7 +10,9 @@ namespace Backend.Controllers;
 /// </summary>
 /// <remarks>
 /// Eredita il placeholder di login dall'engine.
-/// e chiamare <c>Auth.GenerateToken()</c> dopo la validazione.
+/// Il template base risponde con 501 Not Implemented finche' non si implementa la verifica
+/// reale delle credenziali. Quando la password e' corretta, restituire
+/// <c>Ok(new LoginResult(true, Token: Auth.GenerateToken()))</c>.
 /// </remarks>
 [Route("auth")]
 public class AuthController : EngineAuthController
@@ -21,17 +23,19 @@ public class AuthController : EngineAuthController
     public AuthController(AuthService auth, ILogger<AuthController> logger) : base(auth, logger) { }
 
     /// <summary>
-    /// Endpoint di login. Nel template base e' un placeholder che risponde <c>valid = false</c>.
+    /// Endpoint di login. Nel template base e' un placeholder che risponde 501 Not Implemented.
     /// Sovrascrivere questo metodo per validare le credenziali e generare il token JWT
     /// tramite <c>Auth.GenerateToken()</c>.
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
-    public ActionResult<TokenResult> Login([FromBody] LoginRequest request)
+    public ActionResult<LoginResult> Login([FromBody] LoginRequest request)
     {
         _ = request.Pwd;
-        return Ok(new TokenResult(false, Error: "Login applicativo non implementato nel template base."));
+        return StatusCode(
+            StatusCodes.Status501NotImplemented,
+            new LoginResult(false, Error: "Login applicativo non implementato nel template base."));
         // Esempio minimo quando il login va a buon fine:
-        // return Ok(Auth.GenerateToken());
+        // return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
     }
 }

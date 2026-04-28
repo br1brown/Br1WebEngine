@@ -1,7 +1,6 @@
-@import 'bootstrap/dist/css/bootstrap.min.css';
-@import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
-@import '@fortawesome/fontawesome-free/css/solid.min.css';
-@import '@fortawesome/fontawesome-free/css/brands.min.css';
+/* Vendor CSS (bootstrap, fontawesome) gestiti da angular.json -> "styles":
+   evita @import dentro CSS, riduce warning del bundler ed evita doppio
+   processing del CSS di terze parti. */
 @import './styles/base.css';
 @import './styles/social.css';
 

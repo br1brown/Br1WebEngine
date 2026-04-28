@@ -54,18 +54,25 @@ public class SiteService
     }
 
     /// <summary>
-    /// Recupera il profilo aziendale nella lingua corrente dell'applicazione.
+    /// Recupera il profilo aziendale nella lingua corrente dell'applicazione,
+    /// arricchito con i social principali.
     /// </summary>
     /// <returns>
-    /// Un <see cref="UniversalLegalModel"/> localizzato.
+    /// Un <see cref="UniversalLegalModel"/> localizzato con la sezione social valorizzata.
     /// </returns>
     /// <remarks>
-    /// La lingua effettiva viene presa da <see cref="CultureInfo.CurrentUICulture"/>.
+    /// La lingua effettiva viene presa da <see cref="CultureInfo.CurrentCulture"/>.
     /// </remarks>
     public async Task<UniversalLegalModel> GetProfileAsync()
     {
-        var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        var language = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
         var profile = await _store.GetProfileAsync(language);
+        var social = await _store.GetSocialAsync();
+
+        string[] principali = ["linkedin", "whatsapp", "facebook"];
+        profile.Social = social
+            .Where(kv => principali.Contains(kv.Key, StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
 
         return profile;
     }

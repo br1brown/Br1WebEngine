@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { buildSite } from './siteBuilder';
 import { ApiService } from './core/services/api.service';
+import { policyContent } from './pages/policy/policy-content.service';
 
 export type {
     SiteConfig,
@@ -147,7 +148,11 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'privacyPolicyDesc',
                     enabled: true,
                     pageType: PageType.PrivacyPolicy,
+                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                    resolve: {
+                        content: policyContent(PageType.PrivacyPolicy),
+                    },
                 },
                 {
                     path: 'termini',
@@ -155,7 +160,11 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'termsOfServiceDesc',
                     enabled: true,
                     pageType: PageType.TermsOfService,
+                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                    resolve: {
+                        content: policyContent(PageType.TermsOfService),
+                    },
                 },
                 {
                     path: 'cookie',
@@ -163,7 +172,11 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'cookiePolicyDesc',
                     enabled: true,
                     pageType: PageType.CookiePolicy,
+                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                    resolve: {
+                        content: policyContent(PageType.CookiePolicy),
+                    },
                 },
                 {
                     path: 'legal',
@@ -171,7 +184,11 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'legalNoticeDesc',
                     enabled: false,
                     pageType: PageType.LegalNotice,
+                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
+                    resolve: {
+                        content: policyContent(PageType.LegalNotice),
+                    },
                 }
             ]
         },

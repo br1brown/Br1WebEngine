@@ -37,13 +37,15 @@ public class FileContentStore : IContentStore
     }
 
     /// <summary>
-    /// Recupera il profilo legale localizzato e lo arricchisce con i social principali del template.
+    /// Recupera il profilo legale localizzato dal file <c>irl.json</c>.
     /// </summary>
     /// <param name="language">
     /// Lingua richiesta dal livello applicativo, tipicamente derivata da <c>Accept-Language</c>.
     /// </param>
     /// <returns>
-    /// Un <see cref="UniversalLegalModel"/> con i campi localizzati risolti e la sezione social valorizzata.
+    /// Un <see cref="UniversalLegalModel"/> con i campi localizzati risolti.
+    /// L'arricchimento con i social e' responsabilita' del livello applicativo (<c>SiteService</c>),
+    /// cosi' lo store resta pure-storage e non conosce regole di business.
     /// </returns>
     /// <remarks>
     /// Il file <c>irl.json</c> puo' contenere oggetti localizzati del tipo <c>{ "it": ..., "en": ... }</c>.
@@ -51,22 +53,8 @@ public class FileContentStore : IContentStore
     /// </remarks>
     public async Task<UniversalLegalModel> GetProfileAsync(string language)
     {
-        var socialPrincipali = new List<string>
-        {
-            "linkedin",
-            "whatsapp",
-            "facebook",
-        };
-
         var json = await ReadFileAsync("irl");
-        var profile = LocalizedJsonDeserializer.Deserialize<UniversalLegalModel>(json, language, "it");
-        var social = await GetSocialAsync();
-
-        profile.Social = social
-            .Where(item => socialPrincipali.Contains(item.Key))
-            .ToDictionary();
-
-        return profile;
+        return LocalizedJsonDeserializer.Deserialize<UniversalLegalModel>(json, language, "it");
     }
 
     /// <summary>

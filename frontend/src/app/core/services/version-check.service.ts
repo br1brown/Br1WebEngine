@@ -47,20 +47,21 @@ export class VersionCheckService implements OnDestroy {
         }
     }
 
-    private showUpdateDialog(): void {
-        this.notify.confirm(
+    private async showUpdateDialog(): Promise<void> {
+        const confirmed = await this.notify.confirm(
             this.translate.translate('nuovaVersioneTitle'),
             this.translate.translate('nuovaVersioneDesc'),
-            {
-                onConfirm: () => window.location.reload(),
-                onCancel: () => { this.updateShown = false; },
-            },
             {
                 icon: 'info',
                 confirmText: this.translate.translate('aggiornaApp'),
                 allowOutsideClick: false,
             }
         );
+        if (confirmed) {
+            window.location.reload();
+        } else {
+            this.updateShown = false;
+        }
     }
 
     ngOnDestroy(): void {

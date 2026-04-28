@@ -2,6 +2,7 @@ import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
+import { tryNormalizeBcp47 } from './core/i18n/bcp47';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -731,29 +732,37 @@ export function buildSite(
 
             /**
              * Normalizzazione della config:
+             * - valida ogni tag lingua secondo BCP 47 (RFC 5646) tramite Intl.getCanonicalLocales,
+             *   cosi' qualsiasi tag accettato qui e' garantito accettabile anche dal backend
              * - garantisce che la lingua di default sia inclusa
              * - rimuove eventuali duplicati nelle lingue
              * - merge dei default smoke con i valori custom
              */
-            const normalizeLang = (l?: string) =>
-                typeof l === 'string' ? l.trim().toLowerCase() : '';
+            const normalizeLang = (l: string | null | undefined, context: string): string => {
+                const normalized = tryNormalizeBcp47(l);
+                if (normalized === null) {
+                    throw new Error(
+                        `[SiteBuilder] Tag lingua non valido in ${context}: "${l}". Usare un tag BCP 47 (es. "it", "en", "zh-Hant-TW").`
+                    );
+                }
+                return normalized;
+            };
 
             const normalizeVersion = (v?: string) =>
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-            const rawLangs = [
-                siteConfigurationInput.defaultLang,
-                ...(siteConfigurationInput.availableLanguages ?? [])
-            ];
-
-            const availableLanguages = Array.from(
-                new Set(rawLangs.map(normalizeLang).filter(Boolean))
-            );
+            const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
+            const availableLanguages = Array.from(new Set([
+                defaultLang,
+                ...(siteConfigurationInput.availableLanguages ?? []).map((l, i) =>
+                    normalizeLang(l, `siteConfig.availableLanguages[${i}]`)
+                )
+            ]));
 
             siteConfig = {
                 appName: siteConfigurationInput.appName,
                 version: normalizeVersion(siteConfigurationInput.version) || '1.0.0',
-                defaultLang: normalizeLang(siteConfigurationInput.defaultLang) || siteConfigurationInput.defaultLang,
+                defaultLang,
                 availableLanguages,
                 description: siteConfigurationInput.description,
                 colorTema: siteConfigurationInput.colorTema,

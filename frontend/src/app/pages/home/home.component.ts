@@ -283,34 +283,27 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         this.notify.success(this.translate.translate('modalAlertBody'));
     }
 
-    showConfirm(): void {
-        this.notify.confirm(
+    async showConfirm(): Promise<void> {
+        const confirmed = await this.notify.confirm(
             this.translate.translate('modalConfirmTitle'),
-            this.translate.translate('modalConfirmBody'),
-            {
-                onConfirm: () => this.modalResult.set(this.translate.translate('confirmed')),
-                onCancel: () => this.modalResult.set(this.translate.translate('cancelled')),
-            }
+            this.translate.translate('modalConfirmBody')
         );
+        this.modalResult.set(this.translate.translate(confirmed ? 'confirmed' : 'cancelled'));
     }
 
-    showFormModal(): void {
-        this.notify.prompt(
+    async showFormModal(): Promise<void> {
+        const value = await this.notify.prompt(
             this.translate.translate('modalFormTitle'),
             this.translate.translate('modalFormNameLabel'),
-            {
-                onSubmit: (value) => {
-                    this.modalResult.set(
-                        `${this.translate.translate('modalResultSubmitted')}: ${value}`
-                    );
-                    this.notify.toast(this.translate.translate('modalResultSubmitted'), 'success');
-                },
-            },
             {
                 confirmText: this.translate.translate('modalFormSubmit'),
                 cancelText: this.translate.translate('annulla'),
             }
         );
+        if (value !== null) {
+            this.modalResult.set(`${this.translate.translate('modalResultSubmitted')}: ${value}`);
+            this.notify.toast(this.translate.translate('modalResultSubmitted'), 'success');
+        }
     }
 
     toggleSpeech(): void {

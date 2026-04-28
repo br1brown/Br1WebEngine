@@ -56,9 +56,8 @@ namespace Backend.Security;
 /// </item>
 /// </list>
 /// <para>
-/// Gli header vengono applicati PRIMA di chiamare <c>_next(context)</c>, cioe' prima che
-/// qualsiasi altro middleware o controller scriva nella risposta. Questo garantisce che siano
-/// presenti sempre, indipendentemente da cosa succede dopo nella pipeline.
+/// Gli header vengono iniettati prima di chiamare <c>_next(context)</c>, quindi sono presenti
+/// anche sulle risposte di errore restituite dai middleware successivi (401, 403, 500 ecc.).
 /// </para>
 /// </remarks>
 public class SecurityHeadersMiddleware
@@ -78,22 +77,22 @@ public class SecurityHeadersMiddleware
     }
 
     /// <summary>
-    /// Applica gli header configurati e passa il controllo al middleware successivo.
+    /// Registra l'iniezione degli header e passa al middleware successivo.
     /// </summary>
     /// <param name="context">Contesto HTTP corrente.</param>
-    /// <returns>Task della pipeline in corso.</returns>
-    /// <remarks>
-    /// Gli header vengono scritti PRIMA di <c>_next(context)</c>: anche se la pipeline
-    /// successiva restituisce un errore (401, 500, etc.), la risposta avra' comunque
-    /// le protezioni anti-clickjacking, anti-XSS e anti-MIME-sniffing attive.
-    /// </remarks>
-    public async Task InvokeAsync(HttpContext context)
+    public Task InvokeAsync(HttpContext context)
     {
-        // Inietta tutti gli header configurati nella risposta PRIMA di proseguire.
-        // Questo copre anche risposte di errore generate dai middleware successivi.
-        foreach (var (key, value) in _headers)
-            context.Response.Headers[key] = value;
+        // OnStarting garantisce che gli header siano presenti anche sulle risposte riscritte
+        // dall'exception handler o da UseStatusCodePages, che chiamano Response.Clear()
+        // prima di riscrivere la risposta — eliminando qualsiasi header impostato prima di _next().
+        context.Response.OnStarting(static state =>
+        {
+            var (response, headers) = ((HttpResponse, Dictionary<string, string>))state;
+            foreach (var (key, value) in headers)
+                response.Headers[key] = value;
+            return Task.CompletedTask;
+        }, (context.Response, _headers));
 
-        await _next(context);
+        return _next(context);
     }
 }

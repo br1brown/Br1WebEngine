@@ -27,6 +27,11 @@ import { PageType } from '../site';
  *
  * Usare computed() per derivare stato dai dati risolti — mai effect(),
  * che crea macrotask Zone.js e può bloccare la stabilizzazione SSR.
+ *
+ * Eccezione: è lecito registrare un effect() guardato da isPlatformBrowser()
+ * quando serve reagire a stato locale del client dopo l'idratazione (es.
+ * cambio lingua su pagine SSR senza rinavigare), purché l'effect non venga
+ * mai creato durante l'SSR. Vedi PolicyComponent per il pattern di riferimento.
  */
 @Directive()
 export abstract class PageBaseComponent {

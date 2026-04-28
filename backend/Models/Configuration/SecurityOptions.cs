@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
@@ -67,12 +66,10 @@ public class TokenOptions
     /// </summary>
     /// <returns>Una <see cref="SymmetricSecurityKey"/> pronta per la firma o la validazione dei token.</returns>
     /// <exception cref="InvalidOperationException">
-    /// Sollevata quando il metodo viene chiamato senza una <see cref="SecretKey"/> valida.
+    /// Sollevata quando la <see cref="SecretKey"/> e' vuota o piu' corta del minimo richiesto da HMAC-SHA256.
+    /// La configurazione va corretta in <c>appsettings.json</c>: una chiave corta non viene piu' espansa
+    /// automaticamente, perche' avrebbe l'entropia della chiave originale e mascherererebbe segreti deboli.
     /// </exception>
-    /// <remarks>
-    /// Se la chiave testuale e' troppo corta per l'uso diretto, viene espansa tramite SHA-256
-    /// cosi' da ottenere sempre un buffer della dimensione minima richiesta da HMAC-SHA256.
-    /// </remarks>
     public SymmetricSecurityKey GetSigningKey()
     {
         if (string.IsNullOrEmpty(SecretKey))
@@ -82,7 +79,9 @@ public class TokenOptions
 
         var keyBytes = Encoding.UTF8.GetBytes(SecretKey);
         if (keyBytes.Length < 32)
-            keyBytes = SHA256.HashData(keyBytes);
+            throw new InvalidOperationException(
+                $"Security.Token.SecretKey troppo corta ({keyBytes.Length} byte). " +
+                "HMAC-SHA256 richiede almeno 32 byte: configurare una chiave piu' lunga in appsettings.json.");
 
         return new SymmetricSecurityKey(keyBytes);
     }

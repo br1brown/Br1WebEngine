@@ -20,7 +20,8 @@ public class BlobController : EngineApiController
     public BlobController(IWebHostEnvironment env, ILogger<BlobController> logger)
         : base(logger)
     {
-        _uploadsPath = Path.Combine(env.ContentRootPath, "uploads");
+        // Trailing separator: senza, "/app/uploads-public/x" supererebbe il check StartsWith("/app/uploads").
+        _uploadsPath = Path.Combine(env.ContentRootPath, "uploads") + Path.DirectorySeparatorChar;
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Backend.Infrastructure;
 using Backend.Services;
 
 namespace Backend.Controllers;
@@ -16,16 +15,14 @@ namespace Backend.Controllers;
 public class BaseController : EngineApiController
 {
     private readonly SiteService _service;
-    private readonly IContentStore _store;
 
     /// <summary>
-    /// Inizializza il controller con il servizio di business e le dipendenze dell'engine.
+    /// Inizializza il controller con il servizio di business e il logger dell'engine.
     /// </summary>
-    public BaseController(SiteService service, IContentStore store, ILogger<BaseController> logger)
+    public BaseController(SiteService service, ILogger<BaseController> logger)
         : base(logger)
     {
         _service = service;
-        _store = store;
     }
 
     /// <summary>

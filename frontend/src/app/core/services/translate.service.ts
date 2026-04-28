@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { inject, Injectable, signal } from '@angular/core';
 import { CookieConsentService } from './cookie-consent.service';
 import { hasTranslationCatalogs, loadTranslationCatalogs } from '../i18n/translation-catalogs';
+import { tryNormalizeBcp47 } from '../i18n/bcp47';
 import { ContestoSito } from '../../site';
 
 /**
@@ -23,7 +24,7 @@ export class TranslateService {
     /** Dizionario chiave→traduzione per la lingua corrente (signal reattivo) */
     private translations = signal<Record<string, string>>({});
 
-    /** Lingua iniziale: preferenza salvata se valida, altrimenti predefinita del template */
+    /** Lingua iniziale: cookie salvato o lingua di default come fallback. */
     getInitialLanguage(): string {
         if (!this.hasMultipleLanguages()) {
             this.clearSavedLanguage();
@@ -107,9 +108,19 @@ export class TranslateService {
         return typeof lang === 'string' && TranslateService.availableLanguages().includes(lang);
     }
 
+    /**
+     * Sanifica qualsiasi tag esterno (cookie, query string, header) prima di usarlo:
+     * 1) deve essere un tag BCP 47 well-formed (Intl.getCanonicalLocales)
+     * 2) deve essere fra le lingue dichiarate dal sito
+     * 3) deve avere un catalogo di traduzioni disponibile
+     *
+     * Qualsiasi fallimento ricade sulla lingua di default. Cosi' il backend
+     * riceve sempre un Accept-Language valido e nessun layer a valle si rompe.
+     */
     private resolveLanguage(lang: string | null | undefined): string {
-        if (this.isSupportedLanguage(lang) && hasTranslationCatalogs(lang)) {
-            return lang;
+        const normalized = tryNormalizeBcp47(lang);
+        if (normalized && this.isSupportedLanguage(normalized) && hasTranslationCatalogs(normalized)) {
+            return normalized;
         }
 
         return ContestoSito.config.defaultLang;

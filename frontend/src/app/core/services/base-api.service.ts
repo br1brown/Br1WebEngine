@@ -34,14 +34,12 @@ export abstract class BaseApiService {
      * - SSR:     http://backend:8080/social → chiamata diretta, X-Api-Key aggiunta da build_api_Headers
      */
     protected resolveUrl(url: string): string {
-        const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+        const base = this.ssrOrigin ?? this.ssrApiPrefix ?? '/';
+        return BaseApiService.joinUrl(base, url);
+    }
 
-        if (!this.ssrOrigin) {
-            const prefix = this.ssrApiPrefix ? this.ssrApiPrefix.replace(/\/$/, '') + '/' : '/';
-            return prefix + cleanUrl;
-        }
-
-        return this.ssrOrigin.replace(/\/$/, '') + '/' + cleanUrl;
+    private static joinUrl(base: string, path: string): string {
+        return base.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
     }
 
     /** Verifica che il backend sia raggiungibile. */

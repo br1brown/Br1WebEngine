@@ -7,33 +7,26 @@ using Backend.Security;
 
 namespace Backend.Services;
 
-/// <summary>
-/// Descrive l'esito della generazione di un token JWT.
-/// </summary>
-/// <param name="Valid"><see langword="true"/> se il token e' stato generato correttamente.</param>
-/// <param name="Token">Token JWT serializzato da restituire al client quando l'operazione ha successo.</param>
-/// <param name="Error">Messaggio di errore applicativo, valorizzato solo in caso di fallimento.</param>
-public record TokenResult(bool Valid, string? Token = null, string? Error = null);
-
 /// <summary>Body JSON della richiesta di login.</summary>
 /// <param name="Pwd">Password in chiaro inviata dal client.</param>
 public record LoginRequest(string? Pwd);
 
 /// <summary>
-/// Descrive l'esito della validazione di un token JWT gia' esistente.
+/// Esito della richiesta di login esposto al client.
 /// </summary>
-/// <param name="Valid"><see langword="true"/> se il token risulta valido e non scaduto.</param>
-/// <param name="Error">Messaggio sintetico per distinguere token scaduti o non validi.</param>
-/// <param name="Code">Codice HTTP suggerito da restituire al client in base all'esito della validazione.</param>
-public record TokenValidation(bool Valid, string? Error = null, int Code = 200);
+/// <param name="Valid"><see langword="true"/> se le credenziali sono valide e il token e' stato emesso.</param>
+/// <param name="Token">Token JWT serializzato, valorizzato solo quando <paramref name="Valid"/> e' <see langword="true"/>.</param>
+/// <param name="Error">Messaggio di errore applicativo, valorizzato solo in caso di fallimento.</param>
+public record LoginResult(bool Valid, string? Token = null, string? Error = null);
 
 /// <summary>
-/// Fornisce l'infrastruttura JWT del template: generazione e validazione dei token di login.
+/// Fornisce l'infrastruttura JWT del template: generazione dei token di login.
 /// </summary>
 /// <remarks>
 /// Il servizio non verifica credenziali utente.
 /// Quella responsabilita' resta al chiamante, tipicamente un controller che decide quando invocare
-/// <see cref="GenerateToken"/>.
+/// <see cref="GenerateToken"/>. La validazione del token in ingresso e' gestita dal middleware
+/// JWT Bearer di ASP.NET, configurato in <c>SecurityExtensions.AddTemplateSecurity</c>.
 /// </remarks>
 public class AuthService
 {
@@ -58,8 +51,8 @@ public class AuthService
     /// Claim aggiuntivi da includere nel token, ad esempio identificativi utente o ruoli specifici.
     /// Il ruolo <c>Authenticated</c> viene aggiunto comunque in modo automatico.
     /// </param>
-    /// <returns>Un <see cref="TokenResult"/> contenente il token serializzato pronto per la risposta HTTP.</returns>
-    public TokenResult GenerateToken(IEnumerable<Claim>? additionalClaims = null)
+    /// <returns>Il token JWT serializzato, pronto per essere restituito al client.</returns>
+    public string GenerateToken(IEnumerable<Claim>? additionalClaims = null)
     {
         var claims = new List<Claim>
         {
@@ -79,38 +72,6 @@ public class AuthService
         };
 
         var token = tokenHandler.CreateToken(descriptor);
-        return new TokenResult(true, Token: tokenHandler.WriteToken(token));
-    }
-
-    /// <summary>
-    /// Verifica che un token JWT sia valido, firmato correttamente e non scaduto.
-    /// </summary>
-    /// <param name="token">Token JWT serializzato da controllare.</param>
-    /// <returns>
-    /// Un <see cref="TokenValidation"/> con esito booleano, messaggio sintetico e codice HTTP suggerito.
-    /// </returns>
-    public TokenValidation ValidateToken(string token)
-    {
-        try
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = _signingKey,
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero
-            }, out _);
-            return new TokenValidation(true);
-        }
-        catch (SecurityTokenExpiredException)
-        {
-            return new TokenValidation(false, "Token scaduto.", 401);
-        }
-        catch
-        {
-            return new TokenValidation(false, "Token non valido.", 401);
-        }
+        return tokenHandler.WriteToken(token);
     }
 }

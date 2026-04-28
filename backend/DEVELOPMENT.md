@@ -54,7 +54,7 @@ Request → API Key → RateLimiter → (JWT se protetto) → Controller → Ser
 | Scenario | Classe base da ereditare |
 |----------|--------------------------|
 | Endpoint pubblico (solo API key) | `EngineApiController` |
-| Endpoint di autenticazione (login) | `EngineAuthController` |
+| Endpoint di autenticazione (login, solo generazione token) | `EngineAuthController` |
 | Endpoint protetto (API key + JWT utente) | `EngineProtectedController` |
 
 I controller esistenti (`BaseController`, `AuthController`, `ProtectedController`)
@@ -349,21 +349,21 @@ public class ProtectedController : EngineProtectedController
 ### Implementare il login (AuthController)
 
 Il template include un `AuthController` con un placeholder che risponde sempre
-`valid = false`. Per implementare il login reale:
+`501 Not Implemented`. Per implementare il login reale:
 
 ```csharp
 // Controllers/AuthController.cs
 [HttpPost("login")]
 [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
-public ActionResult<TokenResult> Login([FromBody] LoginRequest request)
+public ActionResult<LoginResult> Login([FromBody] LoginRequest request)
 {
     // Validare le credenziali (es. da database o da appsettings)
     var password = _configuration["Security:Token:AdminPassword"];
     if (request.Pwd != password)
-        return Ok(new TokenResult(false, Error: "Credenziali non valide"));
+        return Unauthorized(new LoginResult(false, Error: "Credenziali non valide"));
 
     // Generare il token JWT tramite il servizio engine
-    return Ok(Auth.GenerateToken());
+    return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
 }
 ```
 
@@ -385,7 +385,7 @@ si trovano in `appsettings.json` sotto le sezioni `Security` e `Localization`.
     "BehindProxy": false,                   // true se dietro nginx/Cloudflare
     "LoginEnabled": false,                  // true per abilitare /auth/login e JWT
     "Token": {
-      "SecretKey": "chiave-jwt-min-32-char",
+      "SecretKey": "chiave-jwt-min-32-char",  // < 32 caratteri = eccezione all'avvio
       "Issuer": "mio-sito",
       "Audience": "mio-sito-frontend",
       "ExpiresInMinutes": 60

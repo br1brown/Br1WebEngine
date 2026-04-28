@@ -1,21 +1,16 @@
-import { Component, computed, inject } from '@angular/core';
-import { toSignal, toObservable } from '@angular/core/rxjs-interop';
-import { HttpClient } from '@angular/common/http';
-import { switchMap, map, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { Component, computed, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
-import { ContestoSito, PageType } from '../../site';
+import { PolicyContentService } from './policy-content.service';
 
 /**
  * Componente riusabile per tutte le pagine legali.
  *
- * Il pageType arriva dall'input required (withComponentInputBinding), non è
- * necessario alcun resolver: il file Markdown viene scelto a runtime.
- *
- * Il contenuto reagisce sia al cambio di pageType (navigazione tra policy)
- * sia al cambio di lingua, senza effect() né lifecycle hook:
- * toSignal+switchMap cancella automaticamente le richieste in volo superate.
+ * Il contenuto iniziale arriva da un resolver dichiarato in site.ts che usa
+ * PolicyContentService — questo permette il render lato server (SEO sui testi
+ * legali). Sul client un effect riallinea il contenuto al cambio lingua senza
+ * dover rinavigare; gira solo dopo l'idratazione, mai durante l'SSR.
  */
 @Component({
     selector: 'app-policy',
@@ -24,44 +19,27 @@ import { ContestoSito, PageType } from '../../site';
     styleUrl: './policy.component.css'
 })
 export class PolicyComponent extends PageBaseComponent {
-    private readonly http = inject(HttpClient);
+    private readonly policyService = inject(PolicyContentService);
+    private readonly platformId = inject(PLATFORM_ID);
 
-    readonly content = toSignal(
-        toObservable(computed(() => ({
-            slug: this.fileSlug(this.pageType()),
-            lang: this.translate.currentLang()
-        }))).pipe(
-            switchMap(({ slug, lang }) => {
-                if (!slug) return of('');
+    readonly content = input<string>('');
 
-                const defaultLang = ContestoSito.config.defaultLang;
+    private readonly liveContent = signal<string | null>(null);
 
-                return this.tryLoad(`/assets/legal/${slug}.${lang}.md`).pipe(
-                    switchMap(text =>
-                        text !== null ? of(text) :
-                        lang !== defaultLang
-                            ? this.tryLoad(`/assets/legal/${slug}.${defaultLang}.md`).pipe(map(t => t ?? ''))
-                            : of('')
-                    )
-                );
-            })
-        ),
-        { initialValue: '' }
-    );
+    readonly displayContent = computed(() => this.liveContent() ?? this.content());
 
-    private fileSlug(pageType: PageType): string {
-        switch (pageType) {
-            case PageType.PrivacyPolicy:  return 'privacy';
-            case PageType.CookiePolicy:   return 'cookie';
-            case PageType.TermsOfService: return 'TOS';
-            case PageType.LegalNotice:    return 'legal';
-            default: return '';
+    constructor() {
+        super();
+
+        // Eccezione consapevole alla regola "no effect()" di PageBaseComponent:
+        // l'effect e' guardato da isPlatformBrowser, quindi non viene mai
+        // registrato durante l'SSR e non puo' bloccarne la stabilizzazione.
+        if (isPlatformBrowser(this.platformId)) {
+            effect(() => {
+                const lang = this.translate.currentLang();
+                this.policyService.load(this.pageType(), lang)
+                    .then(text => this.liveContent.set(text));
+            });
         }
-    }
-
-    private tryLoad(path: string) {
-        return this.http.get(path, { responseType: 'text' }).pipe(
-            catchError(() => of(null))
-        );
     }
 }
