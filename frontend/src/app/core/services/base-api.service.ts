@@ -78,8 +78,17 @@ export abstract class BaseApiService {
     }
 
     /**
-     * Utilizza le nuove API Resource di Angular 19 per gestire flussi di dati reattivi.
-     * Ottimizzato per SSR: previene il blocco del rendering durante il recupero dati.
+     * Versione reattiva di `api_get` — esegue esclusivamente richieste **GET**.
+     *
+     * Restituisce un `HttpResourceRef<T | undefined>` con i signal `.value()` e `.isLoading`
+     * aggiornati automaticamente ogni volta che cambia un segnale reattivo letto
+     * all'interno della factory (es. lingua corrente, token).
+     *
+     * Usa questo metodo per componenti **sempre attivi** (header, footer) che devono
+     * rimanere sincronizzati senza richiedere navigazione o trigger manuali.
+     * Per chiamate una-tantum usa `api_get`; per mutazioni usa `api_post`.
+     *
+     * Ottimizzato per SSR: non blocca il rendering durante il recupero dati.
      */
     protected api_resource<T>(url: string, params?: HttpParams): HttpResourceRef<T | undefined> {
         return httpResource<T>(() => ({

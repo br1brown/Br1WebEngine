@@ -287,7 +287,9 @@ creaMioOggetto(payload: MioPayload): Promise<MioTipo> {
     return this.api_post<MioTipo>(API.mioEndpoint, payload);
 }
 
-// Versione reattiva (httpResource) — per componenti persistenti come footer/header
+// Versione reattiva GET-only (httpResource) — per componenti persistenti come footer/header.
+// Restituisce HttpResourceRef<T|undefined> con i signal .value() e .isLoading.
+// Si aggiorna automaticamente quando cambiano i segnali reattivi (lingua, token).
 getMioOggettoResource() {
     return this.api_resource<MioTipo>(API.mioEndpoint);
 }
