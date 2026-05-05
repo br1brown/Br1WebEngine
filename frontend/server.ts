@@ -197,9 +197,9 @@ app.use('/api', async (req: Request, res: Response) => {
         res.status(response.status);
 
         const skipHeaders = new Set(['transfer-encoding', 'connection', 'keep-alive']);
-        for (const [key, val] of response.headers.entries()) {
+        response.headers.forEach((val, key) => {
             if (!skipHeaders.has(key.toLowerCase())) res.setHeader(key, val);
-        }
+        });
 
         if (response.body) {
             const { Readable } = await import('node:stream');
@@ -307,11 +307,16 @@ app.use('/assets/files', (_req, res) => { res.status(404).end(); });
 app.use('/assets/legal', (req, res, next) => {
     const legalDir = join(browserDistFolder, 'assets/legal');
     const resolved = resolve(join(legalDir, req.path));
-    if (!resolved.startsWith(legalDir + sep)) return res.status(403).end();
+    if (!resolved.startsWith(legalDir + sep)) {
+        res.status(403).end();
+        return;
+    }
     if (existsSync(resolved)) {
         res.setHeader('Cache-Control', 'no-cache');
         res.sendFile(resolved);
-    } else { next(); }
+        return;
+    }
+    next();
 });
 
 /** Serve tutti i restanti file statici (JS, CSS, Immagini del template) */

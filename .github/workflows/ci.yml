@@ -62,4 +62,4 @@ jobs:
           echo "FRONTEND_PORT=3000" >> .env.param
 
       - name: Run Smoke Test
-        run: ./deploy.sh --test-public --down-after
+        run: bash deploy.sh --test-public --down-after
