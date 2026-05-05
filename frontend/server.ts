@@ -131,10 +131,10 @@ app.disable('x-powered-by');
 app.set('trust proxy', true);
 
 /** TEMP DEBUG: log ogni richiesta in ingresso con host e path */
-app.use((req, _res, next) => {
-    console.log(`[debug-req] ${req.method} ${req.path} | host=${req.hostname} | headers.host=${req.headers.host}`);
-    next();
-});
+// app.use((req, _res, next) => {
+//     console.log(`[debug-req] ${req.method} ${req.path} | host=${req.hostname} | headers.host=${req.headers.host}`);
+//     next();
+// });
 
 /** Rotta Health: usata dai sistemi di monitoraggio per sapere se il frontend è attivo */
 app.get('/health', (_request, response) => {
@@ -370,10 +370,9 @@ if (isMainModule(import.meta.url)) {
         console.log(`[frontend] Backend origin: ${backendOrigin}`);
         console.log(`[frontend] Frontend base URL: ${serverEnv.frontendBaseUrl || '(not set)'}`);
         console.log(
-            `[frontend] NG_ALLOWED_HOSTS: ${
-                serverEnv.allowedHosts.length > 0
-                    ? serverEnv.allowedHosts.join(', ')
-                    : '(not set)'
+            `[frontend] NG_ALLOWED_HOSTS: ${serverEnv.allowedHosts.length > 0
+                ? serverEnv.allowedHosts.join(', ')
+                : '(not set)'
             }`
         );
     });
