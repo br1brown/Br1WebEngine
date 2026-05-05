@@ -24,11 +24,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        SITEMAP_BASE_URL: "${SITEMAP_BASE_URL:-}"
+        FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
     environment:
       PORT: "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
       BACKEND_ORIGIN: "${BACKEND_ORIGIN:-http://backend:8080}"
       BACKEND_API_KEY: "${BACKEND_API_KEY:-frontend}"
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
+      NG_ALLOWED_HOSTS: "${NG_ALLOWED_HOSTS:-}"
+      DIST_PATH: "app"
     ports:
       - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
     depends_on:

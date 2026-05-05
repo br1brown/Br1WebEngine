@@ -1,11 +1,10 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import sharp from 'sharp';
 import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from './src/app/app.config';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
@@ -101,7 +100,7 @@ const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png
 const app = express();
 /** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: [new URL(backendOrigin).hostname, 'localhost', '127.0.0.1']
+    allowedHosts: serverEnv.allowedHosts
 });
 
 /** Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne */
@@ -131,6 +130,12 @@ app.disable('x-powered-by');
 /** Abilita il riconoscimento degli IP reali quando il server è dietro un reverse proxy (es. Nginx/Docker) */
 app.set('trust proxy', true);
 
+/** TEMP DEBUG: log ogni richiesta in ingresso con host e path */
+app.use((req, _res, next) => {
+    console.log(`[debug-req] ${req.method} ${req.path} | host=${req.hostname} | headers.host=${req.headers.host}`);
+    next();
+});
+
 /** Rotta Health: usata dai sistemi di monitoraggio per sapere se il frontend è attivo */
 app.get('/health', (_request, response) => {
     response.json({
@@ -139,38 +144,79 @@ app.get('/health', (_request, response) => {
     });
 });
 
-/** Middleware Proxy: devia tutte le chiamate /api verso il backend reale */
-app.use(createProxyMiddleware({
-    target: backendOrigin,
-    pathFilter: '/api',
-    pathRewrite: { '^/api': '' }, // Rimuove '/api' dall'URL finale inviato al backend
-    changeOrigin: true,
-    xfwd: true,
-    proxyTimeout: proxyTimeout,
-    timeout: proxyTimeout,
-    on: {
-        /** Aggiunge automaticamente la chiave API segreta a ogni richiesta verso il backend */
-        proxyReq: (proxyReq) => proxyReq.setHeader('x-api-key', backendApiKey),
-        /** Gestisce il fallimento del backend restituendo un errore 504 JSON standard */
-        error: (err, _req, res, next) => {
-            const response = res as Response;
-            if (response.headersSent) {
-                // Headers già inviati: non possiamo mandare un nuovo status.
-                // Passiamo l'errore a Express per logging e cleanup.
-                (next as NextFunction)(err);
-                return;
-            }
-            // ProblemDetails (RFC 9457): il frontend legge .detail per il messaggio.
-            // Tutti gli errori del proxy sono errori gateway (504), indipendentemente
-            // dalla causa (timeout, ECONNREFUSED, ecc.).
-            response.status(504).json({
+/** Rifiuta richieste pubbliche con host non autorizzato prima di raggiungere proxy o SSR */
+app.use((request, response, next) => {
+    if (serverEnv.allowedHosts.length === 0 || request.path === '/health') {
+        next();
+        return;
+    }
+
+    const requestHost = request.hostname.trim().toLowerCase();
+    const isAllowed = serverEnv.allowedHosts.some((host) => host.toLowerCase() === requestHost);
+
+    if (isAllowed) {
+        next();
+        return;
+    }
+
+    console.warn(`[debug-host-blocked] host="${requestHost}" not in allowedHosts=[${serverEnv.allowedHosts.join(',')}]`);
+    response.status(421).json({
+        status: 421,
+        title: 'Misdirected Request',
+        detail: 'Host non autorizzato.'
+    });
+});
+
+/** Proxy manuale: /api/* → backend, stripping il prefisso /api */
+app.use('/api', async (req: Request, res: Response) => {
+    const url = `${backendOrigin}${req.url}`;
+    const headers: Record<string, string> = { 'x-api-key': backendApiKey };
+
+    for (const h of ['content-type', 'authorization', 'accept', 'accept-language', 'range']) {
+        const v = req.headers[h];
+        if (v) headers[h] = Array.isArray(v) ? v.join(', ') : v;
+    }
+    if (req.headers['x-forwarded-for']) headers['x-forwarded-for'] = req.headers['x-forwarded-for'] as string;
+    if (req.headers.host) headers['x-forwarded-host'] = req.headers.host;
+
+    try {
+        let body: Buffer | undefined;
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) chunks.push(Buffer.from(chunk));
+            if (chunks.length) body = Buffer.concat(chunks);
+        }
+
+        const response = await fetch(url, {
+            method: req.method,
+            headers,
+            body,
+            signal: AbortSignal.timeout(proxyTimeout),
+        });
+
+        res.status(response.status);
+
+        const skipHeaders = new Set(['transfer-encoding', 'connection', 'keep-alive']);
+        for (const [key, val] of response.headers.entries()) {
+            if (!skipHeaders.has(key.toLowerCase())) res.setHeader(key, val);
+        }
+
+        if (response.body) {
+            const { Readable } = await import('node:stream');
+            Readable.fromWeb(response.body as any).pipe(res);
+        } else {
+            res.end();
+        }
+    } catch {
+        if (!res.headersSent) {
+            res.status(504).json({
                 status: 504,
                 title: 'Gateway Timeout',
-                detail: 'Il backend non ha risposto in tempo.'
+                detail: 'Il backend non ha risposto in tempo.',
             });
         }
     }
-}));
+});
 
 /** Middleware Security: inietta gli header di protezione in ogni risposta (non API) */
 app.use((_request, response, next) => {
@@ -255,13 +301,16 @@ app.get('/cdn-cgi/asset', async (req, res) => {
 /** Sicurezza: nega l'accesso diretto alla cartella file per forzare l'uso della CDN via ID */
 app.use('/assets/files', (_req, res) => { res.status(404).end(); });
 
-/** Middleware Legal: serve i file Markdown delle policy garantendo che siano sempre aggiornati (no cache) */
+/** Middleware Legal: serve i file Markdown delle policy garantendo che siano sempre aggiornati (no cache).
+ *  Usa resolve() + prefix check invece di replace(/\.\./g,'') per bloccare path traversal anche via
+ *  URL encoding (%2e%2e) o sequenze come ....// che Express decodifica prima del middleware. */
 app.use('/assets/legal', (req, res, next) => {
-    const safePath = req.path.replace(/\.\./g, '');
-    const filePath = join(browserDistFolder, 'assets/legal', safePath);
-    if (existsSync(filePath)) {
+    const legalDir = join(browserDistFolder, 'assets/legal');
+    const resolved = resolve(join(legalDir, req.path));
+    if (!resolved.startsWith(legalDir + sep)) return res.status(403).end();
+    if (existsSync(resolved)) {
         res.setHeader('Cache-Control', 'no-cache');
-        res.sendFile(filePath);
+        res.sendFile(resolved);
     } else { next(); }
 });
 
@@ -314,6 +363,14 @@ if (isMainModule(import.meta.url)) {
     app.listen(port, () => {
         console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
         console.log(`[frontend] Backend origin: ${backendOrigin}`);
+        console.log(`[frontend] Frontend base URL: ${serverEnv.frontendBaseUrl || '(not set)'}`);
+        console.log(
+            `[frontend] NG_ALLOWED_HOSTS: ${
+                serverEnv.allowedHosts.length > 0
+                    ? serverEnv.allowedHosts.join(', ')
+                    : '(not set)'
+            }`
+        );
     });
 }
 

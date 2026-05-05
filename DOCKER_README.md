@@ -12,18 +12,18 @@ Il template Docker e' progettato per essere **riusabile su piu' progetti sulla s
 ./init-project.sh mio-progetto
 ```
 
-Crea il file `.env` con `COMPOSE_PROJECT_NAME` gia' impostato, poi edita `.env` e `backend/appsettings.json` con i valori specifici del progetto.
+Crea il file `.env` con `COMPOSE_PROJECT_NAME` gia' impostato, poi edita `.env.param` e `backend/appsettings.json` con i valori specifici del progetto.
 
 ### Avvio di un progetto derivato
 
 ```bash
 # Se non hai gia' eseguito init-project.sh:
-cp .env.example .env
-# Edita .env (COMPOSE_PROJECT_NAME, FRONTEND_PORT) e backend/appsettings.json (segreti)
+# Crea un file .env.param inserendo le tue variabili
+# Edita .env.param e backend/appsettings.json (segreti)
 ./deploy.sh
 ```
 
-`deploy.sh` verifica la configurazione e avvia i container.
+`deploy.sh` sincronizza `.env` a partire da `.env.param`, verifica la configurazione e avvia i container.
 
 ### Esposizione dei servizi
 
@@ -49,8 +49,30 @@ Risultato:
 - **`docker-compose.yml`** — base: servizi, build, rete, volumi. Usato direttamente in produzione.
 - **`docker-compose.override.yml`** — sviluppo locale: applicato automaticamente, frontend con `ng serve`, backend in Development
 - **`docker-compose.backend-exposed.yml`** — opzionale: espone il backend verso l'host su `BACKEND_PORT`
+- **`docker-compose.public-test.yml`** — overlay locale per simulare un reverse proxy pubblico davanti al frontend SSR
+
+## Variabili `.env.param`
+
+Questo e' il file "umano" da modificare in produzione.
+
+| Variabile | Obbligatoria | Default | Descrizione |
+|---|---|---|---|
+| `SITE_HOSTNAME` | si | -- | Hostname pubblico del sito |
+| `SITE_SCHEME` | no | `https` | Schema usato per derivare `FRONTEND_BASE_URL` |
+| `FRONTEND_PORT` | si | -- | Porta host del frontend |
+| `EXPOSE_BACKEND` | no | `no` | `yes` per esporre il backend sull'host |
+| `BACKEND_PORT` | no | `8080` | Porta host del backend, solo se esposto |
+| `COMPOSE_PROJECT_NAME` | no | derivato da `SITE_HOSTNAME` | Nome progetto Docker Compose |
+
+Da qui `deploy.sh` deriva automaticamente:
+
+- `FRONTEND_BASE_URL`
+- `NG_ALLOWED_HOSTS`
+- `COMPOSE_PROJECT_NAME` se non specificato
 
 ## Variabili `.env`
+
+Questo resta il file consumato da Docker Compose.
 
 | Variabile | Obbligatoria | Default | Descrizione |
 |---|---|---|---|
@@ -59,10 +81,14 @@ Risultato:
 | `BACKEND_PORT` | no | `8080` | Porta host del backend (usata solo con `backend-exposed.yml`) |
 | `BACKEND_ORIGIN` | no | `http://backend:8080` | Host backend per proxy Node e chiamate SSR |
 | `BACKEND_API_KEY` | no | `frontend` | API key iniettata dal proxy Node verso il backend |
+| `NG_ALLOWED_HOSTS` | no | derivato da `FRONTEND_BASE_URL` via `deploy.sh` | Host autorizzati da Angular SSR |
 | `DEV_FRONTEND_PORT` | no | `4200` | Porta frontend in sviluppo |
 | `DEV_BACKEND_PORT` | no | `5000` | Porta backend in sviluppo |
-| `SITEMAP_BASE_URL` | no | — | URL canonico build-time per sitemap.xml |
+| `FRONTEND_BASE_URL` | no | — | URL canonico pubblico del frontend |
 | `EXPOSE_BACKEND` | no | — | Impostata da `deploy.sh`: `yes` espone la porta backend sull'host |
+| `PUBLIC_TEST_PORT` | no | `8088` | Porta host usata dal reverse proxy del test pubblico |
+| `PUBLIC_TEST_BASE_URL` | no | `http://br1gaming.localhost:8088` | URL pubblico simulato per il test locale |
+| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `br1gaming.localhost` | Host inoltrato dal reverse proxy al frontend SSR |
 
 I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
 
@@ -85,25 +111,78 @@ Note pratiche:
 ## Produzione
 
 ```bash
-cp .env.example .env
-# Edita .env e backend/appsettings.json con i tuoi valori, poi:
+# Crea o modifica .env.param e backend/appsettings.json con i tuoi valori, poi:
 ./deploy.sh
 ```
 
 In produzione:
 
 - **Frontend** su `http://localhost:FRONTEND_PORT`
-- **Backend** solo interno per default (per esporlo, rispondere `s` alla domanda di `deploy.sh`)
+- **Backend** solo interno per default (per esporlo, imposta `EXPOSE_BACKEND=yes` in `.env.param`)
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
+## Test pubblico dietro reverse proxy
+
+Per riprodurre in locale la catena reale `browser -> reverse proxy -> frontend SSR -> backend` usa l'overlay dedicato:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --build
+```
+
+URL di test predefinito:
+
+- `http://br1gaming.localhost:8088`
+
+Cosa simula davvero:
+
+- browser che parla con un hostname pubblico
+- reverse proxy che inoltra `Host`, `X-Forwarded-Host`, `X-Forwarded-Proto` e `X-Forwarded-Port`
+- frontend SSR che valida l'host autorizzato
+- proxy `/api/*` del frontend verso il backend interno Docker
+
+Smoke test utili:
+
+```bash
+curl -i http://127.0.0.1:8088/health -H "Host: br1gaming.localhost"
+curl -i http://127.0.0.1:8088/avventura/poveri-maschi -H "Host: br1gaming.localhost"
+curl -i http://127.0.0.1:8088/generatori/incel -H "Host: br1gaming.localhost"
+curl -i http://127.0.0.1:8088/api/stories -H "Host: br1gaming.localhost"
+```
+
+Script pronti:
+
+```bash
+./deploy.sh --test-public --down-after
+```
+
+Per cambiare dominio/porta simulati senza toccare i file:
+
+```bash
+PUBLIC_TEST_PORT=9090 \
+PUBLIC_TEST_BASE_URL=http://miosito.localhost:9090 \
+PUBLIC_TEST_ALLOWED_HOSTS=miosito.localhost \
+docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --build
+```
+
+Se vuoi verificare che il problema sia davvero l'host check SSR, prova intenzionalmente un host non autorizzato:
+
+```bash
+curl -i http://127.0.0.1:8088/avventura/poveri-maschi -H "Host: host-sbagliato.localhost"
+```
+
+In quel caso il frontend dovrebbe loggare il rifiuto dell'host e smettere di comportarsi come se fosse una richiesta pubblica valida.
+
 ### Esporre il backend
 
-Rispondere `s` alla domanda di `deploy.sh` alla prima esecuzione. La scelta viene salvata in `.env` (`EXPOSE_BACKEND=yes`) e ricordata nei deploy successivi.
+Imposta `EXPOSE_BACKEND=yes` in `.env.param`. `deploy.sh` sincronizza il valore in `.env` per Docker Compose.
+
+Nota: `BACKEND_PORT` controlla solo la porta pubblicata sull'host. Il container backend continua ad ascoltare internamente su `8080`, quindi l'overlay `docker-compose.backend-exposed.yml` mappa `BACKEND_PORT:8080`.
 
 ### Controlli all'avvio
 
 `deploy.sh` verifica che `COMPOSE_PROJECT_NAME` e `FRONTEND_PORT` siano impostati prima di avviare Docker.
+Con `--no-cache` forza la ricostruzione delle immagini partendo da zero.
 
 ## Comandi utili
 

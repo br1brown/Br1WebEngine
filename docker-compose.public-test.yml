@@ -1,0 +1,23 @@
+services:
+  frontend:
+    environment:
+      FRONTEND_BASE_URL: "${PUBLIC_TEST_BASE_URL:-http://br1gaming.localhost:8088}"
+      NG_ALLOWED_HOSTS: "${PUBLIC_TEST_ALLOWED_HOSTS:-br1gaming.localhost}"
+
+  public-proxy:
+    image: nginx:1.27-alpine
+    depends_on:
+      frontend:
+        condition: service_started
+    ports:
+      - "${PUBLIC_TEST_PORT:-8088}:80"
+    volumes:
+      - ./docker/public-test/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    networks:
+      - app-network

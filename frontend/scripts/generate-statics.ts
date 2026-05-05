@@ -10,7 +10,7 @@
  *   npm run generate:statics
  *
  * Variabile d'ambiente:
- *   SITEMAP_BASE_URL — URL base del sito (default: https://example.com con warning)
+ *   FRONTEND_BASE_URL — URL base del sito (default: https://example.com con warning)
  *
  * Esclusioni sitemap automatiche (gestite dal siteBuilder):
  *   - Pagine disabilitate (enabled: false)
@@ -30,7 +30,7 @@ const ROOT = join(__dirname, '..');
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
-const BASE_URL = process.env['SITEMAP_BASE_URL'] || 'https://example.com';
+const BASE_URL = process.env['FRONTEND_BASE_URL'] || 'https://example.com';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -200,8 +200,8 @@ function updateSitemap(): void {
     console.log(`[statics] sitemap.xml aggiornata (${entries.length} pagine)`);
 
     if (BASE_URL === 'https://example.com') {
-        console.warn('[statics] ATTENZIONE: SITEMAP_BASE_URL non configurato. ' +
-            'Impostare SITEMAP_BASE_URL=https://tuodominio.it prima del build di produzione.');
+        console.warn('[statics] ATTENZIONE: FRONTEND_BASE_URL non configurato. ' +
+            'Impostare FRONTEND_BASE_URL=https://tuodominio.it prima del build di produzione.');
     }
 }
 

@@ -49,3 +49,17 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npx ng build --configuration production
+
+  smoke-test:
+    name: Docker Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        run: |
+          echo "COMPOSE_PROJECT_NAME=ci_test" > .env.param
+          echo "FRONTEND_PORT=3000" >> .env.param
+
+      - name: Run Smoke Test
+        run: ./deploy.sh --test-public --down-after
