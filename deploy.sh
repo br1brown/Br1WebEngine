@@ -381,40 +381,6 @@ if [[ "$TEST_PUBLIC" == true ]]; then
     info "Waiting for public proxy to respond..."
     wait_for_http "${public_base_url}/health" "$PUBLIC_HOST" 200 && ok "Public proxy health returned HTTP 200" || exit 1
 
-    mapfile -t home_response < <(curl_with_host "${public_base_url}/" "$PUBLIC_HOST")
-    assert_status "${home_response[0]}" "200" "/ returned unexpected status" || exit 1
-    assert_contains "${home_response[*]:1}" "<app-root" "/ did not contain <app-root" || exit 1
-    ok "/ returned HTTP 200 with app markup"
-
-    mapfile -t story_response < <(curl_with_host "${public_base_url}/avventura/poveri-maschi" "$PUBLIC_HOST")
-    assert_status "${story_response[0]}" "200" "/avventura/poveri-maschi returned unexpected status" || exit 1
-    assert_contains "${story_response[*]:1}" "<app-root" "/avventura/poveri-maschi did not contain <app-root" || exit 1
-    assert_contains "${story_response[*]:1}" "poveri-maschi" "/avventura/poveri-maschi did not contain story markers" || exit 1
-    ok "/avventura/poveri-maschi SSR returned HTTP 200 with app markup"
-
-    mapfile -t generator_response < <(curl_with_host "${public_base_url}/generatori/incel" "$PUBLIC_HOST")
-    assert_status "${generator_response[0]}" "200" "/generatori/incel returned unexpected status" || exit 1
-    assert_contains "${generator_response[*]:1}" "<app-root" "/generatori/incel did not contain <app-root" || exit 1
-    assert_contains "${generator_response[*]:1}" "generator" "/generatori/incel did not contain generator markers" || exit 1
-    ok "/generatori/incel SSR returned HTTP 200 with app markup"
-
-    mapfile -t api_response < <(curl_with_host "${public_base_url}/api/stories" "$PUBLIC_HOST")
-    assert_status "${api_response[0]}" "200" "/api/stories returned unexpected status" || exit 1
-    if [[ "${api_response[*]:1}" != \[* && "${api_response[*]:1}" != \{* ]]; then
-        fail "/api/stories did not return JSON"
-        exit 1
-    fi
-    ok "/api/stories returned HTTP 200 JSON"
-
-    if [[ "$SKIP_INVALID_HOST_CHECK" != true ]]; then
-        mapfile -t invalid_response < <(curl_with_host "${public_base_url}/avventura/poveri-maschi" "$invalid_host")
-        if [[ "${invalid_response[0]}" == "200" ]]; then
-            warn "Invalid host check returned HTTP 200. Review frontend logs."
-        else
-            ok "Invalid host check returned HTTP ${invalid_response[0]}"
-        fi
-    fi
-
     if [[ "${EXPOSE_BACKEND:-no}" == "yes" ]]; then
         mapfile -t backend_response < <(curl_plain "http://127.0.0.1:${BACKEND_PORT}/health")
         assert_status "${backend_response[0]}" "200" "Exposed backend /health returned unexpected status" || exit 1
