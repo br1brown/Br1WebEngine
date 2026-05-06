@@ -1,5 +1,5 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, inject, PLATFORM_ID, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../site';
 
@@ -15,6 +15,7 @@ export class CookieConsentService {
     // Iniezione delle dipendenze per l'accesso sicuro al DOM e al contesto SSR
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    private readonly injector = inject(Injector);
 
     // Chiavi per lo storage
     private readonly consentKey = 'cookie-consent-accepted';
@@ -22,11 +23,31 @@ export class CookieConsentService {
     private readonly languagePreferenceKey = 'lang';
     private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365; // 1 anno
 
-    /** 
-     * Flag calcolato staticamente: indica se l'app ha funzionalità che richiedono cookie 
-     * (es. multilingua). Se false, il banner potrebbe non essere mostrato affatto.
+    /**
+     * True se l'app ha funzionalità che richiedono cookie.
+     * computed() reattivo: si aggiorna automaticamente quando cambiano le dipendenze.
+     *
+     * Aggiungere condizioni qui per nuove funzionalità future (font preference, analytics, ecc.).
      */
-    readonly isNeeded = CookieConsentService.requiresCookieConsent();
+    readonly isNeeded = computed(() => this.requiresCookieConsent());
+
+    /**
+     * Logica centralizzata che stabilisce se il banner va mostrato.
+     * Legge autonomamente lo stato dell'app — il chiamante non deve sapere nulla dei criteri.
+     *
+     * @remarks Perché `injector.get()` invece di `inject(TranslateService)` nel costruttore:
+     * esiste una dipendenza circolare tra i due servizi:
+     * `CookieConsentService` → `TranslateService` (per `availableLangs`) e
+     * `TranslateService` → `CookieConsentService` (per `getSavedLanguage` / `setSavedLanguage`).
+     * Angular lancerebbe un errore al boot se entrambi i lati usassero `inject()` nel costruttore.
+     * `injector.get()` è lazy: viene risolto solo quando la `computed` viene letta,
+     * ovvero dopo che entrambi i servizi sono stati costruiti, spezzando il ciclo.
+     *
+     * @warning NON sostituire con `inject(TranslateService)` nel costruttore: l'app crasherebbe al boot.
+     */
+    private requiresCookieConsent(): boolean {
+        return this.injector.get(TranslateService).availableLangs().length > 1;
+    }
 
     /** Signal: stato attuale del consenso (true = accettato) */
     readonly accepted = signal(false);
@@ -134,18 +155,4 @@ export class CookieConsentService {
         this.removeCookie(this.languagePreferenceKey);
     }
 
-    /**
-     * LOGICA DI BUSINESS: Stabilisce se mostrare il banner.
-     * Attualmente richiede il consenso se l'app supporta più di una lingua
-     * (perché deve salvare la preferenza dell'utente).
-     */
-    public static requiresCookieConsent(): boolean {
-        let req = false;
-
-        // Se l'app ha più lingue, serve un cookie per ricordare la scelta dell'utente
-        if (TranslateService.availableLanguages().length > 1)
-            req = true;
-
-        return req;
-    }
 }

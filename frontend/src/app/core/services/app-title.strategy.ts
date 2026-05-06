@@ -13,10 +13,10 @@ export class AppTitleStrategy extends TitleStrategy {
     override updateTitle(snapshot: RouterStateSnapshot): void {
         const leaf = PageMetaService.getLeaf(snapshot);
         const title = this.formatTitle(snapshot);
-        const rawDesc = leaf.data['pageDescription'] as string | null | undefined;
-        const description = this.resolveDescription(rawDesc);
+        const description = this.resolveDescription(leaf.data['pageDescription']);
+        const ogImage = leaf.data['ogImage'] as string | null | undefined;
 
-        this.pageMeta.setTitle(title, description);
+        this.pageMeta.setTitle(title, description, ogImage);
     }
 
     /**

@@ -10,6 +10,7 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 
 ## Indice
 - [Guida Rapida](#guida-rapida)
+- [Personalizzare il template](#personalizzare-il-template)
 - [Cosa fa da solo](#cosa-fa-da-solo)
 - [Tech Stack](#tech-stack)
 - [Architettura del Progetto](#architettura-del-progetto)
@@ -37,6 +38,50 @@ cd Br1WebEngine
 ```
 
 Lo script controlla la configurazione e avvia i container. Il frontend sara' disponibile sulla porta configurata in `FRONTEND_PORT`. Per lo sviluppo locale senza Docker, consulta la sezione [Configurazione](#configurazione).
+
+---
+
+## Personalizzare il template
+
+### Creare un nuovo progetto
+
+Clona il template, aggiungi i due remote e lancia lo script di setup:
+
+```bash
+git clone https://github.com/br1brown/Br1WebEngine.git NomeProgetto
+cd NomeProgetto
+
+# Rinomina il remote originale in "template" (mantieni il collegamento al padre)
+git remote rename origin template
+
+# Aggiungi il remote del tuo nuovo repo su GitHub (crealo prima su github.com)
+git remote add origin https://github.com/tuoaccount/NomeProgetto.git
+git push -u origin main
+
+# Personalizza il nome del progetto
+node setup.mjs "Nome Progetto"
+```
+
+Lo script aggiorna automaticamente:
+- `appName` in `frontend/src/app/site.ts` — il nome visualizzato in navbar, titoli e PWA manifest
+- Rinomina `App.sln` → `NomeProgetto.sln`
+
+Al termine suggerisce i campi da toccare a mano in `site.ts`: `version`, `description`, `defaultLang` e `colorTema`.
+
+> `package.json` e `angular.json` usano già nomi generici (`"app"`) — non richiedono modifiche.
+
+### Ricevere aggiornamenti dal template
+
+Con i due remote configurati, puoi aggiornare il tuo progetto ogni volta che il template evolve:
+
+```bash
+git fetch template
+git merge template/main
+# risolvi eventuali conflitti, poi:
+git push origin main
+```
+
+I conflitti saranno solo sui file che hai personalizzato (tipicamente `site.ts`, i file i18n e le pagine). Il codice infrastrutturale del template (servizi, layout, build) si aggiorna senza toccare la tua logica applicativa.
 
 ---
 
@@ -297,7 +342,6 @@ Tutti i campi di `SiteConfigInput`:
 | `defaultLang` | si | Lingua di fallback quando la preferenza non è disponibile |
 | `description` | si | Meta description globale del sito (usata come fallback per le pagine senza `description` propria) |
 | `colorTema` | si | Colore hex principale; genera automaticamente contrasto, tono e variabili CSS |
-| `availableLanguages` | no | Lingue tra cui l'utente può scegliere; se omesso, solo `defaultLang` |
 | `showFooter` | no | Mostra/nasconde il footer (default: `true`) |
 | `showHeader` | no | Mostra/nasconde la navbar (default: `true`; utile per landing page a schermo intero) |
 | `fixedTopHeader` | no | Navbar appiccicata in cima allo scroll (default: `false`) |
@@ -315,9 +359,9 @@ Un colore hex in `site.ts` (`colorTema: '#131e24'`). Il `ThemeService` calcola:
 Tutto reattivo via Angular signals. `ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori, garantendo coerenza visiva e contrasto WCAG senza configurazione aggiuntiva.
 
 #### Sistema di traduzione addon
-Due file per lingua: `basic.{lang}.json` (template) e `addon.{lang}.json` (progetto). Caricati in parallelo, fusi con `Object.assign` — l'addon vince. Supporta placeholder posizionali: `t('saluto', 'Mario')` → `"Ciao Mario"`.
+Due file per lingua: `basic.{lang}.json` (template) e `addon.{lang}.json` (progetto). Caricati in parallelo a runtime via `HttpClient`, fusi con `Object.assign` — l'addon vince. Supporta placeholder posizionali: `t('saluto', 'Mario')` → `"Ciao Mario"`.
 
-I loader per ciascuna lingua sono registrati in `frontend/src/app/core/i18n/translation-catalogs.ts` come import statici. Questo garantisce che i file JSON vengano inclusi nel bundle a compile time, rendendo le traduzioni disponibili anche durante l'eventuale build prerender SSR senza richieste HTTP aggiuntive.
+Le lingue supportate sono dichiarate come costante statica in `TranslateService.SUPPORTED_LANGS`. All'avvio, il service verifica quali file `basic.{lang}.json` siano effettivamente raggiungibili e aggiorna il signal reattivo `availableLangs` di conseguenza: le lingue senza file non vengono mai esposte nel selettore. Per aggiungere o rimuovere una lingua e' sufficiente modificare `SUPPORTED_LANGS` e creare (o eliminare) i file `basic.{lang}.json` e `addon.{lang}.json` corrispondenti.
 
 La lingua si persiste in cookie (solo con consenso GDPR), si ripristina al reload e si propaga al backend tramite `Accept-Language`.
 
@@ -477,12 +521,16 @@ Il pannello contenuti si adatta automaticamente: su temi scuri usa superficie ch
 Supporta anche la condivisione di canvas come immagini PNG tramite `shareCanvas()`.
 
 #### Generazione immagini su canvas
-`renderToCanvas` e' la funzione pura che esegue il rendering. `ImgBuilderService` e' il wrapper Angular injectable:
+`ImgBuilderService` espone un'unica API pubblica: `build(text, opts?)` che crea il canvas internamente e restituisce un `Promise<Blob>` PNG. Nessun elemento DOM da gestire dal chiamante — il canvas viene creato e distrutto all'interno del service.
 
-- `render(canvas, opts)` — usa automaticamente `colorPrimary` (sfondo) e `colorPrimaryText` (testo) dal tema attivo; contrasto WCAG garantito da `ThemeService`
-- `renderWithColors(canvas, opts, fg, bg)` — colori espliciti quando il componente offre un color picker o necessita di colori specifici
+```typescript
+const blob = await this.imgBuilder.build('Hello World', { fontSize: 64, width: 1200 });
+this.imgUrl.set(URL.createObjectURL(blob));
+```
 
-`opts` non include `bgColor`/`textColor`: chi usa il service non deve preoccuparsi dei colori. La funzione pura `renderToCanvas` rimane disponibile per chi ha gia' tutti i parametri.
+Tutti i campi di `opts` sono opzionali e hanno default sensati:
+- `bgColor` / `textColor`: colori del tema attivo (`colorPrimary` / `colorPrimaryText`); contrasto WCAG garantito da `ThemeService`
+- `fontSize`: 48px — `width`: 800px — `fontFamily`: Arial — `margin`: 24px
 
 Funzionalita' del renderer:
 
@@ -570,7 +618,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `QrCodeService` | Genera QR code in blob PNG e SVG per testo/URL, WhatsApp, email, Wi-Fi e SEPA; colori tema automatici; `create()` / `createWithColors()` / `toSVG()` / `toSVGWithColors()`; caching per payload+colori; SSR-safe |
-| `ImgBuilderService` | Wrapper injectable su `renderToCanvas`: `render()` usa i colori del tema (WCAG), `renderWithColors()` per colori espliciti |
+| `ImgBuilderService` | Genera immagini PNG su canvas: `build(text, opts?)` → `Promise<Blob>`; crea e distrugge il canvas internamente; colori, font e dimensioni opzionali con default dal tema (WCAG) |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
 | `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `openLoading()` / `closeLoading()`, `confirm()` → `Promise<boolean>` (opzioni icona/testi/click-esterno), `prompt()` → `Promise<string\|null>`, `interact<T>(config)` → `Promise<T\|null>` (dialog custom con validazione e mapping risultato), `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
 | `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |

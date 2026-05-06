@@ -40,7 +40,7 @@ export class AppComponent {
     readonly showFooter = ContestoSito.config.showFooter;
     readonly menuItems = ContestoSito.menuNav;
     readonly showNavbar = computed(() => ContestoSito.config.showHeader ||
-        this.menuItems.length > 0 || this.translate.getAvailableLanguages().length > 1
+        this.menuItems.length > 0 || this.translate.availableLangs().length > 1
     );
 
     // Espone la route foglia corrente come signal, cosi' il layout globale

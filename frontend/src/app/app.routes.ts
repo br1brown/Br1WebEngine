@@ -83,6 +83,7 @@ function toAngularRoute(page: InternalSitePage): Route {
             pageType: page.pageType,
             showPanel: page.showPanel !== undefined ? page.showPanel : true,
             pageDescription: page.description ?? null,
+            ogImage: page.ogImage ?? null,
         };
 
         if (page.resolve) {

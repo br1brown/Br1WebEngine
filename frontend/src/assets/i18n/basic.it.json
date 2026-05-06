@@ -95,6 +95,7 @@
   "apiStatus": "API: {0}",
   "online": "online",
   "skipToContent": "Vai al contenuto principale",
+  "cookieBannerText": "Questo sito utilizza cookie tecnici per il corretto funzionamento. Nessun dato viene condiviso con terze parti. [Leggi la cookie policy]({0})",
   "cookieBannerAccept": "Accetta",
   "cookieBannerReject": "Rifiuta",
   "nuovaVersioneTitle": "Nuova versione disponibile",

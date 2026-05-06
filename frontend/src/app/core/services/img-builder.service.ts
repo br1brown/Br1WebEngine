@@ -1,158 +1,155 @@
 /**
- * Servizio di generazione immagini su canvas — funzioni pure, nessuna dipendenza Angular.
- * Utilizzabile da qualsiasi componente per creare immagini dinamiche (banner, placeholder, ecc.)
+ * Servizio di generazione immagini su canvas.
+ *
+ * API pubblica: un solo metodo `build(text, opts?)` che crea il canvas
+ * internamente e restituisce un Blob PNG pronto per download o condivisione.
+ * Tutte le opzioni sono facoltative — se omesse vengono applicati i default
+ * (colori dal tema corrente, font Arial 48px, larghezza 800px).
  */
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from './theme.service';
 
-// Utility Type: prende le opzioni di render ma esclude i colori (che verranno iniettati dal tema)
-type ImgRenderCoreOpts = Omit<ImgRenderOptions, 'bgColor' | 'textColor'>;
-
-/**
- * Font web-safe affidabili per garantire che il rendering sia coerente 
- * tra diversi sistemi operativi (Windows, macOS, Linux).
- */
-const FONTS: Record<string, string> = {
-    'Arial': 'Arial, sans-serif',
-    'Georgia': 'Georgia, serif',
-    'Courier New': '"Courier New", monospace',
-    'Verdana': 'Verdana, sans-serif',
-    'Times': '"Times New Roman", serif',
-};
-
-export const FONT_NAMES = Object.keys(FONTS);
-
-export interface ImgRenderOptions {
-    text: string;         // Testo da scrivere
-    bgColor: string;      // Colore di sfondo (es. HEX o RGB)
-    textColor: string;    // Colore del font
-    fontSize: number;     // Dimensione font in pixel
-    canvasWidth: number;  // Larghezza fissa dell'immagine
-    fontFamily: string;   // Nome del font (chiave di FONTS)
-    margin: number;       // Padding interno per il testo
+export interface ImgBuildOptions {
+    /** Colore di sfondo; default: colore primario del tema */
+    bgColor?: string;
+    /** Colore del testo; default: testo su colore primario del tema */
+    textColor?: string;
+    /** Dimensione font in px; default: 48 */
+    fontSize?: number;
+    /** Larghezza canvas in px; default: 800 */
+    width?: number;
+    /** Nome font (web-safe); default: 'Arial' */
+    fontFamily?: string;
+    /** Padding interno in px; default: 24 */
+    margin?: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class ImgBuilderService {
     private readonly theme = inject(ThemeService);
+    private readonly platformId = inject(PLATFORM_ID);
 
-    /** 
-     * Renderizza sul canvas usando i colori correnti del tema.
-     * Molto utile per generare asset che si adattano al Dark/Light mode.
+    /** Font web-safe affidabili per rendering coerente su Windows, macOS e Linux. */
+    private readonly fonts: Record<string, string> = {
+        'Arial': 'Arial, sans-serif',
+        'Georgia': 'Georgia, serif',
+        'Courier New': '"Courier New", monospace',
+        'Verdana': 'Verdana, sans-serif',
+        'Times': '"Times New Roman", serif',
+    };
+
+    /**
+     * Genera un'immagine con il testo fornito e restituisce un Blob PNG.
+     * Il canvas viene creato e distrutto internamente — nessun elemento DOM da gestire.
      */
-    render(canvas: HTMLCanvasElement, opts: ImgRenderCoreOpts): void {
-        renderToCanvas(canvas, {
-            ...opts,
-            bgColor: this.theme.colorPrimary(),
-            textColor: this.theme.colorPrimaryText(),
+    build(text: string, opts?: ImgBuildOptions): Promise<Blob> {
+        if (!isPlatformBrowser(this.platformId)) {
+            return Promise.reject(new Error('Canvas non disponibile in SSR'));
+        }
+        const canvas = document.createElement('canvas');
+        this.renderToCanvas(canvas, {
+            text,
+            bgColor: opts?.bgColor ?? this.theme.colorPrimary(),
+            textColor: opts?.textColor ?? this.theme.colorPrimaryText(),
+            fontSize: opts?.fontSize ?? 48,
+            canvasWidth: opts?.width ?? 800,
+            fontFamily: opts?.fontFamily ?? 'Arial',
+            margin: opts?.margin ?? 24,
+        });
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(
+                blob => blob ? resolve(blob) : reject(new Error('Rendering canvas fallito')),
+                'image/png'
+            );
         });
     }
 
-    /** Permette il rendering ignorando il tema (colori custom scelti dall'utente). */
-    renderWithColors(canvas: HTMLCanvasElement, opts: ImgRenderCoreOpts, fg: string, bg: string): void {
-        renderToCanvas(canvas, { ...opts, bgColor: bg, textColor: fg });
-    }
-}
+    /** Disegna sfondo e testo sul canvas con le impostazioni fornite. */
+    private renderToCanvas(canvas: HTMLCanvasElement, opts: {
+        text: string;
+        bgColor: string;
+        textColor: string;
+        fontSize: number;
+        canvasWidth: number;
+        fontFamily: string;
+        margin: number;
+    }): void {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
 
-/** 
- * LOGICA DI WRAPPING (Andata a capo)
- * Suddivide un blocco di testo in riga basandosi sulla larghezza massima del canvas.
- */
-function splitParagraphIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
-    const parole = testo.trim().split(/\s+/).filter(Boolean);
-    if (!parole.length) return [''];
+        const { text, bgColor, textColor, fontSize, canvasWidth: width, fontFamily, margin } = opts;
+        const fontCss = `${fontSize}px ${this.fonts[fontFamily] ?? fontFamily}`;
+        ctx.font = fontCss;
 
-    const righe: string[] = [];
-    let rigaCorrente = '';
+        const righe = this.splitTextIntoLines(ctx, text, width - margin * 2);
 
-    for (const parola of parole) {
-        const candidato = rigaCorrente ? `${rigaCorrente} ${parola}` : parola;
+        // Altezza dinamica: contiene tutto il testo, minimo aspect ratio 4:3
+        const height = Math.max(
+            righe.length * fontSize * 1.4 + margin * 2,
+            Math.ceil(width * 3 / 4)
+        );
 
-        // Se la riga con la nuova parola ci sta, la aggiungiamo
-        if (ctx.measureText(candidato).width <= maxWidth) {
-            rigaCorrente = candidato;
-        } else {
-            // Se non ci sta, salviamo la riga corrente e iniziamo la riga successiva
-            if (rigaCorrente) righe.push(rigaCorrente);
+        canvas.width = width;
+        canvas.height = height;
 
-            // Caso critico: la singola parola è più lunga dell'intero canvas (es. un URL lunghissimo)
-            if (ctx.measureText(parola).width > maxWidth) {
-                let chunk = '';
-                for (const char of parola) {
-                    if (ctx.measureText(chunk + char).width <= maxWidth) {
-                        chunk += char;
-                    } else {
-                        if (chunk) righe.push(chunk);
-                        chunk = char;
-                    }
-                }
-                rigaCorrente = chunk;
-            } else {
-                rigaCorrente = parola;
-            }
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, width, height);
+
+        // Ri-applicato dopo il resize del canvas che resetta il contesto
+        ctx.font = fontCss;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        const lineHeight = fontSize * 1.4;
+        const startY = (height - righe.length * lineHeight) / 2;
+
+        for (let i = 0; i < righe.length; i++) {
+            ctx.fillText(righe[i], width / 2, startY + i * lineHeight);
         }
     }
-    if (rigaCorrente) righe.push(rigaCorrente);
-    return righe;
-}
 
-/** 
- * Gestisce i newline (\n) inseriti manualmente dall'utente
- * e poi applica lo split automatico su ogni riga risultante.
- */
-function splitTextIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
-    return testo
-        .replace(/\r\n/g, '\n') // Normalizza i ritorni a capo Windows
-        .split('\n')
-        .flatMap(paragrafo => splitParagraphIntoLines(ctx, paragrafo, maxWidth));
-}
+    /** Gestisce i newline manuali (\n) e poi fa il wrapping automatico per ogni paragrafo. */
+    private splitTextIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
+        return testo
+            .replace(/\r\n/g, '\n')
+            .split('\n')
+            .flatMap(paragrafo => this.splitParagraphIntoLines(ctx, paragrafo, maxWidth));
+    }
 
-/** 
- * FUNZIONE CORE DI RENDERING
- * Applica le impostazioni al contesto 2D del Canvas e disegna.
- */
-export function renderToCanvas(canvas: HTMLCanvasElement, opts: ImgRenderOptions): void {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    /** Spezza un paragrafo in righe che rispettano la larghezza massima del canvas. */
+    private splitParagraphIntoLines(ctx: CanvasRenderingContext2D, testo: string, maxWidth: number): string[] {
+        const parole = testo.trim().split(/\s+/).filter(Boolean);
+        if (!parole.length) return [''];
 
-    const { text, bgColor, textColor, fontSize, canvasWidth: width, fontFamily, margin } = opts;
+        const righe: string[] = [];
+        let rigaCorrente = '';
 
-    // Preparazione font
-    const fontCss = `${fontSize}px ${FONTS[fontFamily] ?? fontFamily}`;
-    ctx.font = fontCss;
-
-    // Calcolo delle righe necessarie
-    const maxWidth = width - margin * 2;
-    const righe = splitTextIntoLines(ctx, text, maxWidth);
-
-    // Calcolo dell'altezza dinamica: 
-    // L'altezza deve contenere tutto il testo, ma manteniamo almeno un aspect ratio di 4:3
-    const altezzaMinima = Math.ceil(width * 3 / 4);
-    const altezzaTesto = righe.length * fontSize * 1.4 + margin * 2; // Interlinea 1.4
-    const height = Math.max(altezzaTesto, altezzaMinima);
-
-    // Applichiamo le dimensioni al canvas (questo resetta il contesto)
-    canvas.width = width;
-    canvas.height = height;
-
-    // Disegno dello sfondo
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, width, height);
-
-    // Configurazione stile testo (centrato orizzontalmente e verticalmente)
-    ctx.font = fontCss; // Ri-settato perché il cambio width/height resetta il ctx
-    ctx.fillStyle = textColor;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-
-    const lineHeight = fontSize * 1.4;
-    const totalTextHeight = righe.length * lineHeight;
-
-    // Calcoliamo la Y iniziale per centrare il blocco di testo verticalmente
-    const startY = (height - totalTextHeight) / 2;
-
-    // Disegno riga per riga
-    for (let i = 0; i < righe.length; i++) {
-        ctx.fillText(righe[i], width / 2, startY + i * lineHeight);
+        for (const parola of parole) {
+            const candidato = rigaCorrente ? `${rigaCorrente} ${parola}` : parola;
+            if (ctx.measureText(candidato).width <= maxWidth) {
+                rigaCorrente = candidato;
+            } else {
+                if (rigaCorrente) righe.push(rigaCorrente);
+                // Caso limite: singola parola più larga del canvas (es. URL lunghissimo)
+                if (ctx.measureText(parola).width > maxWidth) {
+                    let chunk = '';
+                    for (const char of parola) {
+                        if (ctx.measureText(chunk + char).width <= maxWidth) {
+                            chunk += char;
+                        } else {
+                            if (chunk) righe.push(chunk);
+                            chunk = char;
+                        }
+                    }
+                    rigaCorrente = chunk;
+                } else {
+                    rigaCorrente = parola;
+                }
+            }
+        }
+        if (rigaCorrente) righe.push(rigaCorrente);
+        return righe;
     }
 }

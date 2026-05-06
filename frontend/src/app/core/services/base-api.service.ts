@@ -135,10 +135,13 @@ export abstract class BaseApiService {
      * Invia una notifica alla UI e propaga l'errore per logica specifica nei componenti.
      */
     protected handleError(error: HttpErrorResponse): Observable<never> {
-        // Mostra un messaggio di errore (es. toast o alert) tramite il NotificationService
-        this.notify.handleApiError(error.status, error.error);
-
-        // Rilancia l'errore sotto forma di Observable per permettere il catch() nei chiamanti
+        /* Il try-catch garantisce il degrado grazioso: se NotificationService non riesce a mostrare
+           l'errore (es. SweetAlert2 non ancora caricato), si cade su console.error senza bloccare il flusso. */
+        try {
+            this.notify.handleApiError(error.status, error.error);
+        } catch {
+            console.error('[API Error]', error.status, error.message);
+        }
         return throwError(() => error);
     }
 }

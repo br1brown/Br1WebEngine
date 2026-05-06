@@ -34,7 +34,7 @@ export class AssetService implements OnDestroy {
     constructor() {
         /**
          * LOGICA DI PULIZIA AUTOMATICA
-         * I "Blob URL" occupano memoria finché non vengono revocati esplicitamente.
+         * I "Blob URL" occupano memoria finchï¿½ non vengono revocati esplicitamente.
          * Sottoscrivendosi agli eventi del router, il servizio libera la RAM 
          * ogni volta che l'utente cambia pagina.
          */
@@ -72,17 +72,18 @@ export class AssetService implements OnDestroy {
             return { rawUrl: '', angularUrl: this.sanitizer.bypassSecurityTrustUrl('') };
         }
 
-        // Genera l'URL del tipo blob:http://...
-        const rawUrl = URL.createObjectURL(blob);
-
-        // Registra l'URL nel set per la futura eliminazione
-        this.blobUrls.add(rawUrl);
-
-        return {
-            rawUrl,
-            // Sanitizzazione necessaria per permettere ad Angular di inserire l'URL in [src]
-            angularUrl: this.sanitizer.bypassSecurityTrustUrl(rawUrl)
-        };
+        // Il try-catch gestisce il caso in cui createObjectURL fallisca (es. memoria esaurita):
+        // restituisce URL vuoti invece di propagare un'eccezione bloccante.
+        try {
+            const rawUrl = URL.createObjectURL(blob);
+            this.blobUrls.add(rawUrl);
+            return {
+                rawUrl,
+                angularUrl: this.sanitizer.bypassSecurityTrustUrl(rawUrl)
+            };
+        } catch {
+            return { rawUrl: '', angularUrl: this.sanitizer.bypassSecurityTrustUrl('') };
+        }
     }
 
     /** 

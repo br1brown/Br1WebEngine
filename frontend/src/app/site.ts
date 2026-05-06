@@ -63,15 +63,13 @@ export enum PageType {
 export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // ── CONFIGURAZIONE GLOBALE ────────────────────────────────────────
     //
-    // appName            → nome mostrato in navbar, titolo pagina, PWA manifest
-    // defaultLang        → lingua di fallback (anche se il cookie non c'e')
-    // availableLanguages → lingue tra cui l'utente puo' scegliere
-    // description        → meta description per SEO
+    // appName     → nome mostrato in navbar, titolo pagina, PWA manifest
+    // defaultLang → lingua di default (anche se il cookie non c'e')
+    // description → meta description per SEO
     // colorTema          → colore principale del sito (hex). Determina automaticamente
     //                       il tono del testo (chiaro/scuro) e la CSS var --colorTema
     // showFooter         → mostra/nascondi il footer
     // smoke              → effetto particellare di sfondo (omettilo per disabilitarlo)
-    //
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
         version: '1.0.0',

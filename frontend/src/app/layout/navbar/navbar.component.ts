@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
@@ -31,7 +31,7 @@ export class NavbarComponent {
     readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
     readonly menuItems = ContestoSito.menuNav;
     readonly fixTop = ContestoSito.config.fixedTopHeader;
-    readonly languages = computed(() => this.translate.getAvailableLanguages());
+    readonly languages = this.translate.availableLangs;
     readonly menuOpen = signal(false);
     private readonly currentUrl = injectCurrentUrl();
 

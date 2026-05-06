@@ -1,14 +1,10 @@
-import { Component, ViewEncapsulation, effect, inject, input, signal } from '@angular/core';
+import { Component, ViewEncapsulation, computed, inject, input } from '@angular/core';
 import { CookieConsentService } from '../../../core/services/cookie-consent.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { TranslateService } from '../../../core/services/translate.service';
 import { ContestoSito, PageType } from '../../../site';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import { TranslatePipe } from '../../pipes/translate.pipe';
-import cookieBannerLegalCatalog from './cookie-banner.legal.json';
-
-const PLACEHOLDER = '{{COOKIE_POLICY_URL}}';
-const cookieBannerCatalog: Record<string, string> = cookieBannerLegalCatalog;
 
 @Component({
     selector: 'app-cookie-banner',
@@ -20,34 +16,14 @@ const cookieBannerCatalog: Record<string, string> = cookieBannerLegalCatalog;
 export class CookieBannerComponent {
     readonly tiny = input(false);
     readonly cookieConsent = inject(CookieConsentService);
-    private readonly translate = inject(TranslateService);
     readonly theme = inject(ThemeService);
+    private readonly translate = inject(TranslateService);
 
-    readonly bannerText = signal('');
-
-    constructor() {
-        effect(() => {
-            const lang = this.translate.currentLang();
-            const text = this.getBannerText(lang);
-            this.bannerText.set(this.resolvePlaceholder(text));
-        });
-    }
-
-    accept(): void {
-        this.cookieConsent.accept();
-    }
-
-    reject(): void {
-        this.cookieConsent.reject();
-    }
-
-    private getBannerText(lang: string): string {
-        const defaultLang = ContestoSito.config.defaultLang;
-        return cookieBannerCatalog[lang] ?? cookieBannerCatalog[defaultLang] ?? '';
-    }
-
-    private resolvePlaceholder(text: string): string {
+    readonly bannerText = computed(() => {
         const path = ContestoSito.getPath(PageType.CookiePolicy) ?? '';
-        return text.replaceAll(PLACEHOLDER, path);
-    }
+        return this.translate.translate('cookieBannerText', path);
+    });
+
+    accept(): void { this.cookieConsent.accept(); }
+    reject(): void { this.cookieConsent.reject(); }
 }

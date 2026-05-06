@@ -138,11 +138,11 @@
 
                                     <div class="col-md-7">
                                         <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface">
-                                            <canvas #homeImageCanvas
-                                                    class="img-fluid rounded border image-preview-canvas"
-                                                    role="img"
-                                                    [attr.aria-label]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
-                                            </canvas>
+                                            @if (imgPreviewUrl()) {
+                                                <img [src]="imgPreviewUrl()"
+                                                     class="img-fluid rounded border image-preview-canvas"
+                                                     [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -462,7 +462,7 @@
                                 </p>
 
                                 <div class="d-flex flex-wrap gap-1">
-                                    @for (lang of translate.getAvailableLanguages(); track lang) {
+                                    @for (lang of translate.availableLangs(); track lang) {
                                     <span class="badge bg-secondary">{{ lang }}</span>
                                     }
                                 </div>

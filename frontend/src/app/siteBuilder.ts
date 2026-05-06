@@ -2,7 +2,6 @@ import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
-import { tryNormalizeBcp47 } from './core/i18n/bcp47';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -93,7 +92,7 @@ export interface SiteConfig {
     version: string;
     /** Lingua predefinita del sito. */
     defaultLang: string;
-    /** Elenco delle lingue supportate dal sito. */
+    /** Lingue tra cui l'utente può scegliere. Deve includere sempre defaultLang. */
     availableLanguages: string[];
     /** Descrizione generale del sito o dell'applicazione. */
     description: string;
@@ -122,8 +121,11 @@ export interface SiteConfigInput {
     version?: string;
     /** Lingua predefinita del sito. */
     defaultLang: string;
-    /** Lingue dichiarate dall'utente, prima della normalizzazione. */
-    availableLanguages?: string[] | null;
+    /**
+     * Lingue tra cui l'utente può scegliere.
+     * Se omesso, il sito è monolingua (solo defaultLang).
+     */
+    availableLanguages?: string[];
     /** Descrizione generale del sito o dell'applicazione. */
     description: string;
     /** Colore tema principale usato dalla UI. */
@@ -243,6 +245,12 @@ export type LeafPageInput = BasePageInput & {
      * Se omessa, viene usata la descrizione globale del sito come fallback.
      */
     description?: string;
+
+    /**
+     * ID asset dell'immagine di anteprima per og:image e twitter:image.
+     * Se omesso, viene usata l'icona del sito come fallback.
+     */
+    ogImage?: string;
 
     /** Non consentito per una pagina interna */
     externalUrl?: never;
@@ -732,17 +740,14 @@ export function buildSite(
              * - merge dei default smoke con i valori custom
              */
             const normalizeLang = (l: string | null | undefined, context: string): string => {
-                // tryNormalizeBcp47 chiama Intl.getCanonicalLocales internamente:
-                // se il tag non è accettato da tutti i runtime JS/browser, ritorna null.
-                // Questo garantisce che qualsiasi lingua passata qui sia valida anche
-                // nel backend (Accept-Language → CultureInfo) e nei file JSON localizzati.
-                const normalized = tryNormalizeBcp47(l);
-                if (normalized === null) {
-                    throw new Error(
-                        `[SiteBuilder] Tag lingua non valido in ${context}: "${l}". Usare un tag BCP 47 (es. "it", "en", "zh-Hant-TW").`
-                    );
-                }
-                return normalized;
+                try {
+                    // Intl.getCanonicalLocales valida BCP 47 — stesso oracolo usato da Accept-Language e Intl.*
+                    const [canonical] = Intl.getCanonicalLocales(l ?? '');
+                    if (canonical) return canonical.toLowerCase();
+                } catch { /* tag malformato */ }
+                throw new Error(
+                    `[SiteBuilder] Tag lingua non valido in ${context}: "${l}". Usare un tag BCP 47 (es. "it", "en", "zh-Hant-TW").`
+                );
             };
 
             const normalizeVersion = (v?: string) =>
@@ -751,20 +756,24 @@ export function buildSite(
                 // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-            // Prima normalizza e valida la lingua di default (viene sempre inclusa).
             const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
 
-            // Costruisce l'array finale delle lingue disponibili:
-            // 1. Parte da un Set per eliminare i duplicati automaticamente.
-            // 2. Il primo elemento è sempre defaultLang, così è garantito che sia presente.
-            // 3. Le lingue dichiarate dall'utente vengono aggiunte dopo, ognuna normalizzata e validata.
-            // 4. Array.from converte il Set in array ordinato (defaultLang sempre in testa).
-            const availableLanguages = Array.from(new Set([
-                defaultLang,
-                ...(siteConfigurationInput.availableLanguages ?? []).map((l, i) =>
-                    normalizeLang(l, `siteConfig.availableLanguages[${i}]`)
+            /**
+             * Normalizza availableLanguages:
+             * - valida ogni tag BCP-47
+             * - deduplicazione tramite Set
+             * - garantisce che defaultLang sia sempre inclusa
+             * - se omesso in input, il sito è monolingua (solo defaultLang)
+             */
+            const availableLanguages = [
+                ...new Set(
+                    (siteConfigurationInput.availableLanguages ?? [defaultLang])
+                        .map((l, i) => normalizeLang(l, `siteConfig.availableLanguages[${i}]`))
                 )
-            ]));
+            ];
+            if (!availableLanguages.includes(defaultLang)) {
+                availableLanguages.unshift(defaultLang);
+            }
 
             siteConfig = {
                 appName: siteConfigurationInput.appName,

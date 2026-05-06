@@ -1,4 +1,4 @@
-@if (cookieConsent.isNeeded && !cookieConsent.responded()) {
+@if (cookieConsent.isNeeded() && !cookieConsent.responded()) {
     <div class="cookie-banner theme-bg"
          [class.cookie-banner-modern]="!tiny()"
          role="alert"

@@ -1,8 +1,5 @@
 import {
-    AfterViewInit,
     Component,
-    ElementRef,
-    ViewChild,
     inject,
     signal,
     effect,
@@ -31,7 +28,7 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
     templateUrl: './home.component.html',
     styleUrl: './home.component.css'
 })
-export class HomeComponent extends PageBaseComponent implements AfterViewInit {
+export class HomeComponent extends PageBaseComponent {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
     private readonly imgBuilder = inject(ImgBuilderService);
@@ -41,7 +38,8 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
 
 
 
-    @ViewChild('homeImageCanvas') homeImageCanvasRef!: ElementRef<HTMLCanvasElement>;
+    private _imgBlob: Blob | null = null;
+    readonly imgPreviewUrl = signal<string | null>(null);
 
     // --- Signal scrivibile: aggiornato al cambio lingua, modificabile dall'utente ---
     readonly speechDemoText = signal(this.translate.translate('speechPlaceholder'));
@@ -152,14 +150,11 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
         super();
         this.contextDemoText = '';
 
-        // Aggiorna il testo di esempio al cambio lingua, preservando eventuali modifiche utente
         effect(() => {
             this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
         });
-    }
 
-    ngAfterViewInit(): void {
-        this.renderHomeImage();
+        void this.renderHomeImage();
     }
 
     // ==================== Laboratorio Markdown ====================
@@ -189,24 +184,24 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
 
     // ==================== Demo immagini ====================
 
-    renderHomeImage(): void {
-        const canvas = this.homeImageCanvasRef?.nativeElement;
-        if (!canvas) return;
+    async renderHomeImage(): Promise<void> {
+        const prev = this.imgPreviewUrl();
+        if (prev) URL.revokeObjectURL(prev);
 
-        this.imgBuilder.renderWithColors(canvas, {
-            text: this.imgText || 'Hello World',
+        this._imgBlob = await this.imgBuilder.build(this.imgText || 'Hello World', {
+            bgColor: this.imgBgColor,
+            textColor: this.imgTextColor,
             fontSize: this.imgFontSize,
-            canvasWidth: 600,
-            fontFamily: 'Arial',
-            margin: 24
-        }, this.imgTextColor, this.imgBgColor);
+            width: 600,
+        });
+        this.imgPreviewUrl.set(URL.createObjectURL(this._imgBlob));
     }
 
     resetHomeImage(): void {
         this.imgText = 'Hello World';
         this.applyThemeImageDefaults();
         this.imgFontSize = 48;
-        this.renderHomeImage();
+        void this.renderHomeImage();
     }
 
     private applyThemeImageDefaults(): void {
@@ -215,16 +210,14 @@ export class HomeComponent extends PageBaseComponent implements AfterViewInit {
     }
 
     downloadHomeImage(): void {
-        const canvas = this.homeImageCanvasRef?.nativeElement;
-        if (!canvas) return;
-        this.share.downloadCanvas(canvas);
+        if (!this._imgBlob) return;
+        this.share.downloadBlob(this._imgBlob, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
     }
 
     shareHomeImage(): void {
-        const canvas = this.homeImageCanvasRef?.nativeElement;
-        if (!canvas) return;
+        if (!this._imgBlob) return;
         const filename = `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`;
-        this.share.shareCanvas(canvas, this.appName, filename);
+        void this.share.shareFile(this._imgBlob, filename, this.appName);
     }
 
     // ==================== QR Code ====================
