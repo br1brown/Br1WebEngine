@@ -407,14 +407,12 @@ si trovano in `appsettings.json` sotto le sezioni `Security` e `Localization`.
 ```json
 {
   "Security": {
-    "ApiKey": "chiave-segreta-api",         // Richiesta da tutti gli endpoint
+    "ApiKeys": [ "chiave-segreta-api" ],    // Array di chiavi accettate
+    "CorsOrigins": [],                      // Origini consentite; vuoto = aperto
     "BehindProxy": false,                   // true se dietro nginx/Cloudflare
-    "LoginEnabled": false,                  // true per abilitare /auth/login e JWT
     "Token": {
-      "SecretKey": "chiave-jwt-min-32-char",  // < 32 caratteri = eccezione all'avvio
-      "Issuer": "mio-sito",
-      "Audience": "mio-sito-frontend",
-      "ExpiresInMinutes": 60
+      "SecretKey": "",                      // Vuoto = JWT disabilitato; < 32 char = eccezione all'avvio
+      "ExpirationSeconds": 3000
     }
   }
 }

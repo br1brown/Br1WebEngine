@@ -28,16 +28,11 @@ Br1WebEngine e' un'engine full-stack per siti content-driven e piccoli portali: 
 git clone https://github.com/br1brown/Br1WebEngine.git
 cd Br1WebEngine
 
-# 2. (Opzionale) Personalizza il nome del progetto
-#    Lo script crea .env a partire da .env.example con COMPOSE_PROJECT_NAME già valorizzato.
-./init-project.sh mio-progetto
-
-# 3. Configura variabili d'ambiente e segreti backend
-cp .env.example .env  # se non hai eseguito init-project.sh
-# Modifica .env: COMPOSE_PROJECT_NAME, FRONTEND_PORT, SITEMAP_BASE_URL
+# 2. Configura variabili d'ambiente
+# Modifica .env.param: SITE_HOSTNAME, FRONTEND_PORT
 # Modifica backend/appsettings.json: Token.SecretKey, ApiKeys, CorsOrigins, BehindProxy
 
-# 4. Deploy in produzione
+# 3. Deploy in produzione
 ./deploy.sh
 ```
 
@@ -367,7 +362,7 @@ Metodi già inclusi: `getProfile()`, `getSocial()`, `login()`, `getBlob(slug)` (
 `CookieConsentService` rileva se il consenso e' necessario (es. piu' lingue → preferenza da persistere). Se l'utente non ha accettato, le scritture su cookie vengono bloccate in silenzio. Lettura e cancellazione restano sempre consentite.
 
 #### Build e script
-`npm run build` esegue in automatico `prebuild` prima della compilazione Angular, che comprende due step in sequenza: `generate:statics` (meta tag + sitemap) e `generate:icons` (icone PWA da `favicon.png` in tutte le dimensioni). Entrambi gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Per una `sitemap.xml` corretta in produzione, impostare `SITEMAP_BASE_URL` con l'URL pubblico del sito; se manca, la build usa `https://example.com` e stampa un warning.
+`npm run build` esegue in automatico `prebuild` prima della compilazione Angular, che comprende due step in sequenza: `generate:statics` (meta tag + sitemap) e `generate:icons` (icone PWA da `favicon.png` in tutte le dimensioni). Entrambi gli script leggono da `ContestoSito`: nome app, descrizione, colore tema, lingue e path delle pagine. Per una `sitemap.xml` corretta in produzione, la variabile `FRONTEND_BASE_URL` deve essere valorizzata nell'ambiente di build (derivata automaticamente da `deploy.sh` a partire da `SITE_HOSTNAME`); se manca, la build usa `https://example.com` e stampa un warning.
 
 #### Docker
 Il template Docker e' progettato per essere riusabile: piu' progetti derivati possono girare sulla stessa VPS, ciascuno su una porta dedicata configurata via `.env`. Non si usano `container_name` fissi ne' porte hardcoded. I volumi dati sono isolati per progetto tramite `PROJECT_NAME`.
@@ -622,21 +617,20 @@ La maggior parte dei contenuti testuali e' gestita tramite file, aggiornabili se
 | `Security.Token.ExpirationSeconds` | durata del token |
 | `Security.Headers` | header di sicurezza aggiunti alle risposte |
 
-### Variabili Docker (`.env`)
-| Variabile | Obbligatoria | Effetto |
-|---|---|---|
-| `COMPOSE_PROJECT_NAME` | si | Identifica il progetto; Docker Compose usa questo per nominare i volumi (built-in) |
-| `FRONTEND_PORT` | si | Porta del frontend esposta sull'host (produzione) |
-| `BACKEND_PORT` | no | Porta del backend; lascia vuota per tenerlo interno (consigliato); valorizza solo se usi `docker-compose.backend-exposed.yml` |
-| `DEV_FRONTEND_PORT` | no | Porta del frontend in sviluppo Docker (default: `4200`) |
-| `DEV_BACKEND_PORT` | no | Porta del backend in sviluppo Docker (default: `5000`) |
-| `BACKEND_ORIGIN` | no | Host backend per proxy Node e chiamate SSR (default: `http://backend:8080`) |
-| `BACKEND_API_KEY` | no | API key iniettata dal proxy Node verso il backend (default: `frontend`) |
-| `SITEMAP_BASE_URL` | no | URL pubblico canonico usato a build time per generare `sitemap.xml`; se manca usa `https://example.com` con warning |
+### Variabili `.env.param` (file "umano" da modificare)
+| Variabile | Obbligatoria | Default | Effetto |
+|---|---|---|---|
+| `SITE_HOSTNAME` | si | — | Hostname pubblico del sito; usato per derivare `FRONTEND_BASE_URL` |
+| `SITE_SCHEME` | no | `https` | Schema usato per derivare `FRONTEND_BASE_URL` |
+| `FRONTEND_PORT` | si | — | Porta host del frontend |
+| `EXPOSE_BACKEND` | no | `no` | `yes` per esporre il backend sull'host |
+| `BACKEND_PORT` | no | `8080` | Porta host del backend, solo se esposto |
+| `BACKEND_API_KEY` | no | `frontend` | API key iniettata dal proxy Node verso il backend |
+| `COMPOSE_PROJECT_NAME` | no | derivato da `SITE_HOSTNAME` | Nome progetto Docker Compose |
+
+Da `.env.param`, `deploy.sh` genera `.env` (consumato da Docker Compose) derivando automaticamente `FRONTEND_BASE_URL`, `NG_ALLOWED_HOSTS` e `COMPOSE_PROJECT_NAME` se assente.
 
 I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
-
-Se stai creando un progetto derivato, esegui prima `./init-project.sh nome-progetto`: lo script crea `.env` con `COMPOSE_PROJECT_NAME` gia' valorizzato. Per la lista completa vedi `.env.example`.
 
 ### Sviluppo locale senza Docker
 Per lavorare senza container, avvia backend e frontend separatamente:
@@ -679,7 +673,8 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
 2. **Copia i file essenziali sul server**
    - `docker-compose.yml`
    - `docker-compose.backend-exposed.yml` (solo se vuoi pubblicare anche la porta backend)
-   - `.env` (obbligatorio, puoi partire da `.env.example`)
+   - `.env.param` (il file "umano" da compilare)
+   - `deploy.sh`
 
    > Non copiare `docker-compose.override.yml`: è pensato per lo sviluppo locale e verrebbe applicato automaticamente.
 
@@ -692,10 +687,10 @@ Checklist per portare il progetto da locale a una VPS o un altro server. Segui i
    - `Security.BehindProxy`: `true` se hai Nginx/Caddy/Traefik davanti (necessario per rate limiting per IP reale)
    - `AllowedHosts`: il tuo dominio (es. `"miosito.it;www.miosito.it"`)
 
-4. **Configura `.env` per l'ambiente remoto**
-   - `COMPOSE_PROJECT_NAME`: nome stack/volumi (es. `miosito`).
+4. **Configura `.env.param` per l'ambiente remoto**
+   - `SITE_HOSTNAME`: hostname pubblico del sito (es. `miosito.it`); da qui `deploy.sh` deriva `FRONTEND_BASE_URL` per la sitemap e `NG_ALLOWED_HOSTS` per Angular SSR.
    - `FRONTEND_PORT`: porta del frontend esposta sull'host.
-   - `SITEMAP_BASE_URL`: URL pubblico canonico del sito; viene letto in fase di build per generare `sitemap.xml`.
+   - `COMPOSE_PROJECT_NAME`: opzionale; se assente viene derivato da `SITE_HOSTNAME`.
 
 5. **Avvia con `deploy.sh`**
 

@@ -8,18 +8,12 @@ Il template Docker e' progettato per essere **riusabile su piu' progetti sulla s
 
 ### Inizializzazione (una sola volta dopo la clonazione)
 
-```bash
-./init-project.sh mio-progetto
-```
-
-Crea il file `.env` con `COMPOSE_PROJECT_NAME` gia' impostato, poi edita `.env.param` e `backend/appsettings.json` con i valori specifici del progetto.
+Compila `.env.param` con i valori del progetto (hostname, porta, ecc.) e `backend/appsettings.json` con i segreti (ApiKeys, Token.SecretKey, CorsOrigins).
 
 ### Avvio di un progetto derivato
 
 ```bash
-# Se non hai gia' eseguito init-project.sh:
-# Crea un file .env.param inserendo le tue variabili
-# Edita .env.param e backend/appsettings.json (segreti)
+# Edita .env.param e backend/appsettings.json, poi:
 ./deploy.sh
 ```
 
