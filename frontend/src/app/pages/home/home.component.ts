@@ -36,9 +36,7 @@ export class HomeComponent extends PageBaseComponent {
     readonly appName = ContestoSito.config.appName;
     readonly speech = inject(SpeechService);
 
-
-
-    private _imgBlob: Blob | null = null;
+    private _imgCanvas: HTMLCanvasElement | null = null;
     readonly imgPreviewUrl = signal<string | null>(null);
 
     // --- Signal scrivibile: aggiornato al cambio lingua, modificabile dall'utente ---
@@ -54,7 +52,7 @@ export class HomeComponent extends PageBaseComponent {
     imgText = 'Hello World';
     imgBgColor = this.theme.colorPrimary();
     imgTextColor = this.theme.colorPrimaryText();
-    imgFontSize = 48;
+    imgFontSize = 25;
 
     // --- QR Code playground ---
     qrType: QrConfig['type'] = 'text';
@@ -184,17 +182,13 @@ export class HomeComponent extends PageBaseComponent {
 
     // ==================== Demo immagini ====================
 
-    async renderHomeImage(): Promise<void> {
-        const prev = this.imgPreviewUrl();
-        if (prev) URL.revokeObjectURL(prev);
-
-        this._imgBlob = await this.imgBuilder.build(this.imgText || 'Hello World', {
+    renderHomeImage(): void {
+        this._imgCanvas = this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
             bgColor: this.imgBgColor,
             textColor: this.imgTextColor,
             fontSize: this.imgFontSize,
-            width: 600,
         });
-        this.imgPreviewUrl.set(URL.createObjectURL(this._imgBlob));
+        this.imgPreviewUrl.set(this._imgCanvas.toDataURL('image/png'));
     }
 
     resetHomeImage(): void {
@@ -210,14 +204,14 @@ export class HomeComponent extends PageBaseComponent {
     }
 
     downloadHomeImage(): void {
-        if (!this._imgBlob) return;
-        this.share.downloadBlob(this._imgBlob, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
+        if (!this._imgCanvas) return;
+        void this.share.downloadCanvas(this._imgCanvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
     }
 
     shareHomeImage(): void {
-        if (!this._imgBlob) return;
+        if (!this._imgCanvas) return;
         const filename = `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`;
-        void this.share.shareFile(this._imgBlob, filename, this.appName);
+        void this.share.shareCanvas(this._imgCanvas, this.appName, filename);
     }
 
     // ==================== QR Code ====================
@@ -267,7 +261,7 @@ export class HomeComponent extends PageBaseComponent {
     }
 
     async shareQrCode(): Promise<void> {
-        if (this.qrBlob) await this.share.shareFile(this.qrBlob, 'qrcode.png', 'QR Code');
+        if (this.qrBlob) await this.share.shareBlob(this.qrBlob, 'qrcode.png', 'QR Code');
     }
 
     // ==================== Demo modali ====================
