@@ -47,7 +47,10 @@ while [[ $# -gt 0 ]]; do
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
-        *) shift ;; # Ignora opzioni sconosciute
+        *)
+            echo "  WARN unknown option ignored: $1" >&2
+            shift
+            ;;
     esac
 done
 
@@ -73,11 +76,14 @@ env_get() {
 }
 
 env_set() {
-    local key="$1" val="$2"
+    local key="$1" val="$2" escaped
+    escaped="${val//\\/\\\\}"
+    escaped="${escaped//&/\\&}"
+    escaped="${escaped//|/\\|}"
     if grep -qE "^${key}=" .env 2>/dev/null; then
-        sed -i "s|^${key}=.*|${key}=${val}|" .env
+        sed -i "s|^${key}=.*|${key}=${escaped}|" .env
     else
-        echo "${key}=${val}" >> .env
+        printf '%s=%s\n' "$key" "$val" >> .env
     fi
 }
 
@@ -275,7 +281,7 @@ wait_for_http() {
     local expected_status="${3:-200}"
     local attempts="${4:-40}"
     local delay_seconds="${5:-2}"
-    local i status body
+    local i status body response
 
     for ((i=1; i<=attempts; i++)); do
         if [[ -n "$host_header" ]]; then

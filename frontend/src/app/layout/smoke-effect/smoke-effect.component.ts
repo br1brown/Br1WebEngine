@@ -40,6 +40,7 @@ export class SmokeEffectComponent implements AfterViewInit {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private animationId = 0;
     private particles: Particle[] = [];
+    private rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
 
     ngAfterViewInit(): void {
         if (!this.isBrowser) return;
@@ -53,6 +54,10 @@ export class SmokeEffectComponent implements AfterViewInit {
         // Listener di resize con cleanup automatico via DestroyRef
         const onResize = () => this.resizeCanvas(canvas);
         window.addEventListener('resize', onResize);
+
+        // rgb calcolato una sola volta: animate() gira a 60fps,
+        // non vogliamo riparsare la stringa hex ad ogni frame
+        this.rgb = SmokeEffectComponent.parseHexColor(this.config.color);
 
         this.initParticles(canvas);
         this.animate(canvas, ctx);
@@ -86,10 +91,7 @@ export class SmokeEffectComponent implements AfterViewInit {
     private animate(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const hex = this.config.color.replace('#', '');
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
+        const { r, g, b } = this.rgb;
 
         for (const p of this.particles) {
             p.x += p.vx;
@@ -111,6 +113,21 @@ export class SmokeEffectComponent implements AfterViewInit {
         }
 
         this.animationId = requestAnimationFrame(() => this.animate(canvas, ctx));
+    }
+
+    /**
+     * Estrae r/g/b da una stringa hex. Gestisce '#abc' e '#aabbcc'; per
+     * stringhe corte/malformate fa pad con '0' invece di restituire NaN.
+     */
+    private static parseHexColor(input: string): { r: number; g: number; b: number } {
+        const hex = (input ?? '').replace('#', '').trim();
+        const expanded = hex.length === 3
+            ? hex.split('').map(c => c + c).join('')
+            : hex.padEnd(6, '0').slice(0, 6);
+        const r = parseInt(expanded.substring(0, 2), 16) || 0;
+        const g = parseInt(expanded.substring(2, 4), 16) || 0;
+        const b = parseInt(expanded.substring(4, 6), 16) || 0;
+        return { r, g, b };
     }
 }
 

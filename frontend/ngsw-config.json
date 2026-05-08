@@ -26,18 +26,5 @@
         ]
       }
     }
-  ],
-  "dataGroups": [
-    {
-      "name": "api",
-      "urls": [
-        "/api/social"
-      ],
-      "cacheConfig": {
-        "maxSize": 50,
-        "maxAge": "1h",
-        "strategy": "freshness"
-      }
-    }
   ]
 }

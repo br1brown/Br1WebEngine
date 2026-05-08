@@ -40,8 +40,31 @@ export class QrCodeService {
     private readonly theme = inject(ThemeService);
     private readonly translate = inject(TranslateService);
 
-    /** Cache per evitare calcoli ridondanti e risparmiare memoria su QR identici. */
+    /**
+     * Cache LRU per evitare calcoli ridondanti su QR identici. Insertion-order
+     * della Map = ordine di accesso (aggiornato da cacheGet/cacheSet).
+     * Cap fisso per evitare crescita indefinita su sessioni lunghe.
+     */
     private readonly cache = new Map<string, Blob>();
+    private static readonly CACHE_MAX_SIZE = 32;
+
+    private cacheGet(key: string): Blob | undefined {
+        const blob = this.cache.get(key);
+        if (blob === undefined) return undefined;
+        // Touch: re-inserisce per spostare l'entry in coda (most recently used)
+        this.cache.delete(key);
+        this.cache.set(key, blob);
+        return blob;
+    }
+
+    private cacheSet(key: string, blob: Blob): void {
+        if (this.cache.has(key)) this.cache.delete(key);
+        this.cache.set(key, blob);
+        if (this.cache.size > QrCodeService.CACHE_MAX_SIZE) {
+            const oldest = this.cache.keys().next().value;
+            if (oldest !== undefined) this.cache.delete(oldest);
+        }
+    }
 
     // ─── VALIDATORI ───────────────────────────────────────────────────────
 
@@ -126,9 +149,8 @@ export class QrCodeService {
      */
     private async generate(payload: string, fg: string, bg: string): Promise<QrResponse> {
         const cacheKey = `${payload}|${fg}|${bg}`;
-        if (this.cache.has(cacheKey)) {
-            return { success: true, blob: this.cache.get(cacheKey)! };
-        }
+        const cached = this.cacheGet(cacheKey);
+        if (cached) return { success: true, blob: cached };
 
         // Limite tecnico per QR Code versione 40
         if (payload.length > 2953) {
@@ -147,7 +169,7 @@ export class QrCodeService {
             return new Promise<QrResponse>(resolve => {
                 canvas.toBlob(blob => {
                     if (blob) {
-                        this.cache.set(cacheKey, blob);
+                        this.cacheSet(cacheKey, blob);
                         resolve({ success: true, blob });
                     } else {
                         resolve(this.err(QrError.CONVERSION_ERROR));

@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
+import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from './api.service';
 
@@ -111,8 +111,11 @@ export class TokenService implements OnDestroy {
 
             // Il campo 'exp' nei JWT è solitamente in secondi, lo convertiamo in ms
             return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
-        } catch {
-            return null; // Errore nella decodifica (token non valido)
+        } catch (err) {
+            // Trattiamo il token come scaduto (fail closed). In dev logghiamo
+            // per distinguere "token corrotto" da "nessuna scadenza valida"
+            if (isDevMode()) console.warn('[auth] decoding del token JWT fallito', err);
+            return null;
         }
     }
 }

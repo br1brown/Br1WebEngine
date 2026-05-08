@@ -53,6 +53,8 @@ function loadAssetMapping(): boolean {
 
         if (mappingData) {
             const raw = JSON.parse(mappingData) as Record<string, RawEntry>;
+            // Pulisce le entry esistenti: serve a non mantenere file rimossi dal mapping
+            for (const k of Object.keys(assetMapping)) delete assetMapping[k];
             for (const [id, val] of Object.entries(raw)) {
                 /** Normalizza il mapping: estrae solo il nome file indipendentemente dal formato */
                 assetMapping[id] = typeof val === 'string' ? val : val.file;
@@ -91,8 +93,8 @@ class AssetHandler {
     }
 }
 
-/** Mappa per gestire le richieste pendenti ed evitare race conditions sulla creazione delle miniature */
-const inProgress = new Map<string, Promise<void>>();
+/** Job di generazione miniature attualmente in volo: richieste concorrenti per la stessa chiave riusano la stessa Promise invece di rilanciare sharp */
+const inProgress = new Map<string, Promise<unknown>>();
 /** Pattern per identificare asset con hash (es. main.v123.js) per abilitare la cache immutabile */
 const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|avif|ico)$/i;
 
@@ -103,7 +105,22 @@ const angularApp = new AngularNodeAppEngine({
     allowedHosts: serverEnv.allowedHosts
 });
 
-/** Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne */
+/**
+ * Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne.
+ *
+ * Perché 'unsafe-inline' resta:
+ * - script-src: Angular SSR con withEventReplay() (in app.config.ts) emette
+ *   uno <script id="ng-event-dispatch-contract"> inline e un piccolo bootstrap
+ *   inline che captura gli eventi pre-hydration. Per stringere a 'self'
+ *   secco bisognerebbe rimuovere withEventReplay (perdendo il replay degli
+ *   eventi pre-hydration) o iniettare un nonce per richiesta e configurarlo
+ *   nel builder Angular. La build genera anche un onload="this.media='all'"
+ *   inline per il preload degli stylesheet — disattivabile con
+ *   optimization.styles.inlineCritical=false in angular.json (costo: CSS
+ *   render-blocking, FCP leggermente peggiore).
+ * - style-src: ViewEncapsulation.Emulated inietta <style> a runtime per i
+ *   componenti, e le template usano comunemente style="..." attributi.
+ */
 const defaultCsp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
@@ -127,8 +144,12 @@ const htmlSecurityHeaders: [string, string][] = [
 
 /** Nasconde l'uso di Express per rendere più difficile il fingerprinting del server */
 app.disable('x-powered-by');
-/** Abilita il riconoscimento degli IP reali quando il server è dietro un reverse proxy (es. Nginx/Docker) */
-app.set('trust proxy', true);
+/**
+ * Abilita il riconoscimento degli IP reali quando il server è dietro un reverse proxy.
+ * Lista ristretta (default: subnet private) per evitare che un client esterno
+ * possa spoofare X-Forwarded-Host / X-Forwarded-For e bypassare l'allowlist.
+ */
+app.set('trust proxy', serverEnv.trustProxy);
 
 /** TEMP DEBUG: log ogni richiesta in ingresso con host e path */
 // app.use((req, _res, next) => {
@@ -180,34 +201,41 @@ app.use('/api', async (req: Request, res: Response) => {
     if (req.headers.host) headers['x-forwarded-host'] = req.headers.host;
 
     try {
-        let body: Buffer | undefined;
+        const { Readable } = await import('node:stream');
+
+        /** Streaming del body: niente buffering in RAM per upload anche grossi */
+        let body: ReadableStream<Uint8Array> | undefined;
         if (req.method !== 'GET' && req.method !== 'HEAD') {
-            const chunks: Buffer[] = [];
-            for await (const chunk of req) chunks.push(Buffer.from(chunk));
-            if (chunks.length) body = Buffer.concat(chunks);
+            body = Readable.toWeb(req) as ReadableStream<Uint8Array>;
         }
 
         const response = await fetch(url, {
             method: req.method,
             headers,
             body,
+            // duplex 'half' è richiesto da undici quando body è uno stream
+            duplex: 'half',
             signal: AbortSignal.timeout(proxyTimeout),
-        });
+        } as RequestInit & { duplex?: 'half' });
 
         res.status(response.status);
 
-        const skipHeaders = new Set(['transfer-encoding', 'connection', 'keep-alive']);
+        // set-cookie va trattato a parte: forEach/get della Headers Web API
+        // joina cookie multipli con la virgola, rompendo le date Expires
+        const skipHeaders = new Set(['transfer-encoding', 'connection', 'keep-alive', 'set-cookie']);
         response.headers.forEach((val, key) => {
             if (!skipHeaders.has(key.toLowerCase())) res.setHeader(key, val);
         });
+        const cookies = response.headers.getSetCookie?.() ?? [];
+        if (cookies.length) res.setHeader('set-cookie', cookies);
 
         if (response.body) {
-            const { Readable } = await import('node:stream');
             Readable.fromWeb(response.body as any).pipe(res);
         } else {
             res.end();
         }
-    } catch {
+    } catch (err) {
+        console.error('[proxy /api]', err);
         if (!res.headersSent) {
             res.status(504).json({
                 status: 504,
@@ -272,24 +300,22 @@ app.get('/cdn-cgi/asset', async (req, res) => {
         /** Se la miniatura esiste già in cache, la serve istantaneamente */
         if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
 
-        /** Se un altro utente sta già generando questa immagine, si mette in attesa della stessa Promise */
-        if (inProgress.has(cacheKey)) {
-            await inProgress.get(cacheKey);
-            return AssetHandler.serveImage(res, cacheFile);
+        /**
+         * Lookup singolo nella mappa: se la generazione è già in corso si riusa
+         * la stessa Promise, altrimenti se ne avvia una nuova. Il .finally()
+         * rimuove l'entry quando il job termina (successo o errore), così la
+         * mappa contiene solo job effettivamente in volo.
+         */
+        let job = inProgress.get(cacheKey);
+        if (!job) {
+            job = sharp(absolutePath)
+                .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
+                .toFormat(format, { quality: 80 })
+                .toFile(cacheFile)
+                .finally(() => inProgress.delete(cacheKey));
+            inProgress.set(cacheKey, job);
         }
-
-        /** Elaborazione Sharp: ridimensiona, converte in WebP 80% e salva su disco */
-        const job = sharp(absolutePath)
-            .resize(finalWidth, null, { withoutEnlargement: true, fastShrinkOnLoad: true })
-            .toFormat(format, { quality: 80 })
-            .toFile(cacheFile);
-
-        inProgress.set(cacheKey, job as any);
-        try {
-            await job;
-        } finally {
-            inProgress.delete(cacheKey);
-        }
+        await job;
 
         AssetHandler.serveImage(res, cacheFile);
     } catch (err) {

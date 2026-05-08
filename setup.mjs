@@ -63,7 +63,7 @@ async function main() {
     console.log(' Setup progetto da template Br1WebEngine');
     console.log('──────────────────────────────────────────\n');
 
-    const rawName = process.argv[2] || await ask('Nome del progetto (es. MercatinoApp): ');
+    const rawName = process.argv.slice(2).join(' ').trim() || await ask('Nome del progetto (es. MercatinoApp): ');
 
     if (!rawName) {
         console.error('Errore: nome non fornito.');
@@ -81,8 +81,8 @@ async function main() {
     editFile(
         join(ROOT, 'frontend/src/app/site.ts'),
         src => src.replace(
-            /(appName\s*:\s*)('.*?'|".*?")/,
-            `$1'${displayName}'`
+            /(appName\s*:\s*)('[^']*'|"[^"]*")/,
+            `$1${JSON.stringify(displayName)}`
         )
     );
 
@@ -107,7 +107,7 @@ async function main() {
  ✅  Completato!
 
  Prossimi passi consigliati in site.ts:
-   • version      → a '1.0.0' 
+   • version      → imposta la versione iniziale del tuo progetto
    • description  → scrivi la descrizione del tuo progetto
    • colorTema    → imposta il colore principale del brand
 ──────────────────────────────────────────
