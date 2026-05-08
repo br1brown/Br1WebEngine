@@ -184,9 +184,8 @@ export class HomeComponent extends PageBaseComponent {
 
     renderHomeImage(): void {
         this._imgCanvas = this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
-            bgColor: this.imgBgColor,
-            textColor: this.imgTextColor,
             fontSize: this.imgFontSize,
+            wordWrap: false,
         });
         this.imgPreviewUrl.set(this._imgCanvas.toDataURL('image/png'));
     }
