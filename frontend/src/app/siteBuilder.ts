@@ -171,10 +171,10 @@ export type SitePageKind = 'parent' | 'leaf' | 'external';
 /**
  * Strategia di rendering dichiarativa associabile a una pagina interna.
  *
- * È solo metadato di configurazione: il builder lo conserva e lo espone,
- * mentre l'eventuale integrazione Angular SSR/prerender potrà usarlo in futuro.
+ * Usato da `siteBuilder.ts` per determinare la strategia di rendering SSR di ogni pagina
+ * e passarla ad Angular tramite `provideServerRouting` in `app.config.server.ts`.
  */
-export type SiteRenderMode = 'client' | 'prerender' | 'server';
+export type SiteRenderMode = 'client' | 'server';
 
 /**
  * Pagina contenitore dichiarabile in `site.ts`.
@@ -190,10 +190,8 @@ export type SiteRenderMode = 'client' | 'prerender' | 'server';
  */
 export type ParentPageInput = BasePageInput & {
     /**
-     * Discriminante opzionale.
-     *
-     * In `site.ts` non serve più scriverlo: il builder deduce il tipo
-     * dalla presenza di `children`.
+     * Discriminante opzionale: in `site.ts` puo' essere omesso perche'
+     * il builder deduce il tipo dalla presenza di `children`.
      */
     kind?: 'parent';
     /** Figli annidati della pagina contenitore. */
@@ -236,7 +234,14 @@ export type LeafPageInput = BasePageInput & {
     /** Consente di mostrare o nascondere il pannello  */
     showPanel?: boolean;
 
-    /** Strategia di rendering dichiarativa della pagina. Default: `client` */
+    /**
+     * Strategia di rendering della pagina.
+     *
+     * - `'server'` — HTML generato a ogni richiesta (default): dati freschi + bot-friendly
+     * - `'client'` — nessun SSR, solo browser: forzato automaticamente se `requiresAuth: true`
+     *
+     * Se omesso e `requiresAuth` è false, il builder usa `'server'` in automatico.
+     */
     renderMode?: SiteRenderMode;
 
     /**
@@ -277,10 +282,8 @@ export type LeafPageInput = BasePageInput & {
  */
 export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     /**
-     * Discriminante opzionale.
-     *
-     * In `site.ts` non serve più scriverlo: il builder deduce il tipo
-     * dalla presenza di `externalUrl`.
+     * Discriminante opzionale: in `site.ts` puo' essere omesso perche'
+     * il builder deduce il tipo dalla presenza di `externalUrl`.
      */
     kind?: 'external';
     /** Tipo logico della pagina esterna. */
@@ -913,9 +916,13 @@ export function buildSite(
                 path: fullPath,
                 isExternal: false
             });
+            // Regola di default sul render mode:
+            //   - requiresAuth → forzato 'client': i bot non possono loggarsi, l'SSR è inutile
+            //   - renderMode esplicito → rispettato così com'è
+            //   - nessun renderMode → 'server': dati sempre freschi + HTML completo per i bot
             serverRenderEntries.push({
                 path: fullPath,
-                renderMode: page.renderMode ?? 'client'
+                renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server')
             });
 
             /**

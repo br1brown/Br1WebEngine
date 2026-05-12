@@ -145,7 +145,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'privacyPolicyDesc',
                     enabled: true,
                     pageType: PageType.PrivacyPolicy,
-                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
                 {
@@ -154,7 +153,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'termsOfServiceDesc',
                     enabled: true,
                     pageType: PageType.TermsOfService,
-                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
                 {
@@ -163,7 +161,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'cookiePolicyDesc',
                     enabled: true,
                     pageType: PageType.CookiePolicy,
-                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
                 {
@@ -172,7 +169,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     description: 'legalNoticeDesc',
                     enabled: false,
                     pageType: PageType.LegalNotice,
-                    renderMode: 'server',
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 }
             ]

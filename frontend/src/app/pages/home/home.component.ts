@@ -4,6 +4,7 @@ import {
     signal,
     effect,
     computed,
+    afterNextRender,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -152,7 +153,11 @@ export class HomeComponent extends PageBaseComponent {
             this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
         });
 
-        void this.renderHomeImage();
+        // afterNextRender viene eseguito solo nel browser, mai in prerender/SSR:
+        // il rendering del canvas è quindi sicuro senza guard di piattaforma.
+        afterNextRender(() => {
+            void this.renderHomeImage();
+        });
     }
 
     // ==================== Laboratorio Markdown ====================
@@ -182,11 +187,12 @@ export class HomeComponent extends PageBaseComponent {
 
     // ==================== Demo immagini ====================
 
-    renderHomeImage(): void {
-        this._imgCanvas = this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
+    async renderHomeImage(): Promise<void> {
+        this._imgCanvas = await this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
             fontSize: this.imgFontSize,
             wordWrap: false,
         });
+        if (!this._imgCanvas) return;
         this.imgPreviewUrl.set(this._imgCanvas.toDataURL('image/png'));
     }
 

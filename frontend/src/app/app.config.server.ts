@@ -14,27 +14,10 @@ const toAngularServerPath = (path: string): string =>
 /** Funzione di mappatura: trasforma la logica del tuo engine nel formato richiesto da Angular SSR */
 function toServerRoute(path: string, renderMode: SiteRenderMode): ServerRoute {
     const normalizedPath = toAngularServerPath(path);
-
-    switch (renderMode) {
-        /** Caso Prerender: la pagina viene generata una volta sola durante la build (file statico HTML) */
-        case 'prerender':
-            return {
-                path: normalizedPath,
-                renderMode: RenderMode.Prerender
-            };
-        /** Caso Server: la pagina viene generata da zero ogni volta che un utente la richiede (SSR puro) */
-        case 'server':
-            return {
-                path: normalizedPath,
-                renderMode: RenderMode.Server
-            };
-        /** Caso Client: il server non fa nulla, lascia che sia il browser a scaricare JS e mostrare tutto */
-        default:
-            return {
-                path: normalizedPath,
-                renderMode: RenderMode.Client
-            };
-    }
+    return {
+        path: normalizedPath,
+        renderMode: renderMode === 'server' ? RenderMode.Server : RenderMode.Client
+    };
 }
 
 /** Array delle rotte server: prende le impostazioni da ContestoSito e le converte per Angular */
@@ -43,7 +26,7 @@ const serverRoutes: ServerRoute[] = [
     ...ContestoSito.serverRenderEntries.map(({ path, renderMode }) =>
         toServerRoute(path, renderMode)
     ),
-    /** Wildcard: tutto ciò che non è mappato esplicitamente viene gestito solo dal browser (Client Side) */
+    /** Wildcard: tutto ciï¿½ che non ï¿½ mappato esplicitamente viene gestito solo dal browser (Client Side) */
     {
         path: '**',
         renderMode: RenderMode.Client

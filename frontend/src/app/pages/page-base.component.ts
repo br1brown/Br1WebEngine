@@ -15,7 +15,7 @@ import { ContentResolver } from './content.resolver';
 @Directive()
 export abstract class PageBaseComponent {
     private readonly contentResolverService = inject(ContentResolver);
-    protected readonly platformId = inject(PLATFORM_ID);
+    private readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
     readonly asset = inject(AssetService);

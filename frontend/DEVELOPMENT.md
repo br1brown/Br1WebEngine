@@ -59,11 +59,15 @@ Campi opzionali utili:
 
 | Campo | Default | Quando usarlo |
 |-------|---------|---------------|
-| `requiresAuth: true` | — | Aggiunge il guard JWT; redirect a `/error/401` se non loggato |
+| `requiresAuth: true` | — | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza `renderMode: 'client'` |
 | `showPanel: false` | `true` | Pagina a tutto schermo (es. landing, social feed) |
-| `renderMode: 'server'` | — | Pre-rendering SSR; usare insieme a `resolve` |
+| `renderMode: 'server'` | `'server'`* | Rendering a runtime lato server (default); HTML completo per i crawler |
+| `renderMode: 'client'` | `'server'`* | Solo browser; usare per pagine interattive incompatibili con SSR |
 | `resolve: { nome: () => inject(ApiService).qualcosa() }` | — | Dati pre-caricati lato server |
 | `data: { chiave: valore }` | — | Dati statici passati via `route.data` |
+
+> *Regole di default: senza `renderMode` dichiarato il builder usa `server`;
+> con `requiresAuth: true` usa `client` (i bot non possono effettuare login).
 
 **Pagine con SSR (`renderMode: 'server'`):**  
 Il resolver esegue la chiamata API durante la generazione server-side.
@@ -112,7 +116,6 @@ Già disponibile da `PageBaseComponent`:
 | `this.asset` | `AssetService` | URL degli asset statici |
 | `this.notify` | `NotificationService` | Toast, dialog, conferme |
 | `this.pageContent()` | `any` | Contenuto dal resolver — castare al tipo atteso |
-| `this.platformId` | `object` | Per guard `isPlatformBrowser` |
 
 `pageContent()` è un `computed` che vale `null` per le pagine senza contenuto associato
 nel resolver e si aggiorna automaticamente ad ogni cambio lingua nel browser.
@@ -412,23 +415,38 @@ document.querySelector('.mia-classe');
 localStorage.getItem('chiave');
 ```
 
-### Cosa fare
+### Cosa fare nei componenti pagina
 
 ```typescript
-// ✅ isPlatformBrowser — il modo ufficiale Angular
-private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+// ✅ afterNextRender — garantisce esecuzione solo nel browser, mai in SSR
+constructor() {
+    afterNextRender(() => {
+        // codice browser-only: canvas, scroll, analytics, ecc.
+    });
+}
+```
 
-metodo(): void {
-    if (!this.isBrowser) return;
-    // codice browser-only
+### Cosa fare nei servizi
+
+```typescript
+// ✅ isPlatformBrowser — necessario nei servizi che non hanno accesso ad afterNextRender
+@Injectable({ providedIn: 'root' })
+export class MioService {
+    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+    metodo(): void {
+        if (!this.isBrowser) return;
+        // codice browser-only
+    }
 }
 ```
 
 ### Dove mettere il codice DOM
 
-- **`ngAfterViewInit`**: non viene chiamato lato server → sicuro per accesso DOM
+- **`afterNextRender()`**: opzione consigliata nei componenti pagina — eseguito solo nel browser, mai in SSR/prerender
+- **`ngAfterViewInit`**: non viene chiamato in SSR → sicuro per accesso DOM, ma non garantisce il browser in tutti i contesti Angular
 - **Event handler / `@HostListener`**: non vengono scatenati lato server → sicuri
-- **`constructor` / `ngOnInit`**: vengono eseguiti lato server → richiedono guard
+- **`constructor` / `ngOnInit`**: vengono eseguiti lato server → richiedono guard `isPlatformBrowser` per codice browser-only
 
 ---
 
@@ -478,19 +496,14 @@ constructor() {
     effect(() => {
         const p = this.post();
         if (!p) return;
-        this.pageMeta.setTitle(`${p.titolo} | ${ContestoSito.config.appName}`, p.descrizione);
+        this.pageMeta.setTitle(p.titolo, p.descrizione);
     });
-}
-
-ngOnInit(): void {
-    if (!isPlatformBrowser(this.platformId)) return;  // API client-only
-    // caricamento aggiuntivo lato browser se necessario
 }
 ```
 
-> ⚠️ **Non usare `afterNextRender`** per avviare chiamate API: interferisce con
-> il binding degli `input()` in SSR e causa lo stato null al primo render.
-> Usare sempre `ngOnInit` + `isPlatformBrowser`.
+> `effect()` si ri-esegue ogni volta che `post()` cambia: vale sia in SSR
+> (primo render con dati dal resolver) che nel browser (aggiornamenti successivi).
+> `PageMetaService.setTitle` è SSR-safe, quindi puo' essere invocato direttamente.
 
 **Usarlo quando:** il titolo o la descrizione vengono da un'API e cambiano per
 ogni richiesta (es. pagina dettaglio di un articolo).
@@ -512,7 +525,7 @@ constructor() {
     effect(() => {
         const m = this.meta();
         if (!m) return;
-        this.pageMeta.setTitle(`${m.name} | ${ContestoSito.config.appName}`, m.desc);
+        this.pageMeta.setTitle(m.name, m.desc);
     });
 }
 ```

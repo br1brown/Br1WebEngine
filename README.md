@@ -281,7 +281,7 @@ Internamente `buildSite` lavora in tre fasi:
 
 Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script di build.
 
-`getSitemapEntries()` restituisce `SitemapEntry[]` — oggetti `{ path, description? }` — invece di semplici stringhe. Le pagine con `requiresAuth: true` vengono escluse automaticamente. Il campo `description` rispecchia quanto dichiarato in `site.ts` (chiave i18n o stringa letterale) ed è disponibile per script che ne abbiano bisogno, come la generazione di sitemap estesa o feed.
+`getSitemapEntries()` restituisce `SitemapEntry[]` — oggetti `{ path, description? }`. Le pagine con `requiresAuth: true` vengono escluse automaticamente. Il campo `description` rispecchia quanto dichiarato in `site.ts` (chiave i18n o stringa letterale) ed è disponibile per script che ne abbiano bisogno, come la generazione di sitemap estesa o feed.
 
 Ogni `NavLink` porta un flag `isExternal: boolean` impostato a compile-time dal builder. Navbar e footer lo usano direttamente senza dover rilevare al runtime se un path è esterno tramite heuristica sulle stringhe.
 
@@ -463,22 +463,26 @@ Questo separa i contenuti legali dal codice applicativo: i testi restano revisio
 #### Titoli pagina
 `AppTitleStrategy` è l'unica sorgente per titolo e meta tag: traduce la chiave `title` della route, compone il titolo browser nel formato `"Pagina | NomeApp"` e delega a `PageMetaService` l'aggiornamento dei tag. La `description` dichiarata in `site.ts` è una chiave i18n: viene tradotta prima di essere passata al servizio, così i crawler sociali ricevono testo leggibile e non la chiave tecnica. In assenza di descrizione specifica per la pagina, si usa `ContestoSito.config.description` come fallback.
 
-`PageMetaService` è un setter puro che aggiorna in un'unica chiamata: `description`, `og:title`, `og:description`, `og:url`, `og:image`, `twitter:title`, `twitter:description`, `twitter:image` e il tag `<link rel="canonical">`. L'URL assoluto viene letto da `DOCUMENT.URL` (in SSR riflette l'URL della richiesta corrente): questo garantisce che i crawler leggano `og:url` e canonical già corretti nell'HTML servito da Node, senza attendere l'hydration client. L'immagine di default è l'icona PWA (`/icons/icon-512x512.png`); pagine con immagine specifica possono passare un `imgId` che viene risolto tramite `/cdn-cgi/asset`.
+`PageMetaService` è un setter puro che aggiorna in un'unica chiamata: `description`, `og:title`, `og:description`, `og:url`, `og:image`, `twitter:title`, `twitter:description`, `twitter:image` e il tag `<link rel="canonical">`. L'URL assoluto viene letto da `DOCUMENT.URL` (in SSR riflette l'URL della richiesta corrente): questo garantisce che i crawler leggano `og:url` e canonical già corretti nell'HTML servito da Node, senza attendere l'hydration client. Se la pagina non dichiara un `imgId` esplicito, il servizio compone l'URL dell'endpoint `/cdn-cgi/preview` usando titolo e descrizione della pagina: le anteprime social (Facebook, LinkedIn, X…) ricevono cosi' un'immagine testuale generata al volo. Per usare un'immagine specifica basta passare un `imgId`, risolto tramite `/cdn-cgi/asset`.
 
 Quando cambia lingua senza navigazione, `AppComponent` chiama `refresh()` sulla strategy per riallineare titolo e meta tag senza ricaricare la pagina.
 
 La strategy è registrata due volte nel DI: come `TitleStrategy` (richiesto da Angular per agganciarsi al router) e come `AppTitleStrategy` tramite `useExisting`, così chi ne ha bisogno può iniettarla direttamente senza cast.
 
 #### SSR e Prerender
-Il motore include anche il wiring base per Angular SSR. Se non ti serve, puoi ignorarlo: il default pratico resta `client`. Ogni `LeafPage` in `site.ts` puo' opzionalmente specificare un campo `renderMode`:
+Ogni `LeafPage` in `site.ts` puo' opzionalmente specificare un campo `renderMode` (`'client' | 'server'`). Il builder lo risolve cosi':
+
+- **`requiresAuth: true`** → `'client'` (i bot non possono loggarsi, l'SSR sarebbe inutile)
+- **`renderMode` esplicito** → usato cos&igrave; com'e'
+- **nessun `renderMode`** → `'server'` (HTML completo per i crawler, dati freschi a ogni richiesta)
 
 ```typescript
-{ path: 'home', component: ..., renderMode: 'prerender' }  // HTML statico a build time
-{ path: 'profilo', component: ..., renderMode: 'server' }  // renderizzato a runtime lato server
-{ path: 'dashboard', component: ..., renderMode: 'client' } // default, solo browser
+{ path: 'social-feed', component: ... }                       // server (default): HTML SSR per ogni richiesta
+{ path: 'dashboard',   component: ..., renderMode: 'client' } // solo browser (pagina interattiva)
+// requiresAuth: true → client
 ```
 
-Le rotte non dichiarate esplicitamente restano `client`. In un progetto derivato, `server` o `prerender` vanno usati solo per pagine compatibili con quel modello di esecuzione.
+Una pagina pubblica senza `renderMode` dichiarato viene quindi servita via SSR; `client` va usato esplicitamente per pagine interattive incompatibili con il rendering server.
 
 **Pagine `renderMode: 'server'` e caricamento dati**
 
@@ -521,23 +525,34 @@ Il pannello contenuti si adatta automaticamente: su temi scuri usa superficie ch
 Supporta anche la condivisione di canvas come immagini PNG tramite `shareCanvas()`.
 
 #### Generazione immagini su canvas
-`ImgBuilderService` espone un'unica API pubblica: `build(text, opts?)` che crea il canvas internamente e restituisce un `Promise<Blob>` PNG. Nessun elemento DOM da gestire dal chiamante — il canvas viene creato e distrutto all'interno del service.
+`ImgBuilderService` ha un'architettura a due livelli:
 
+**Metodi istanza** (browser, leggono i Signal del tema come default):
 ```typescript
-const blob = await this.imgBuilder.build('Hello World', { fontSize: 64, width: 1200 });
-this.imgUrl.set(URL.createObjectURL(blob));
+buildCanvas(text, opts?) → Promise<HTMLCanvasElement | null>  // null in SSR
+buildBlob(text, opts?)   → Promise<Blob | null>               // PNG pronto per download/share
+buildFile(text, name?, opts?) → Promise<File | null>          // File per FormData/upload
 ```
 
-Tutti i campi di `opts` sono opzionali e hanno default sensati:
-- `bgColor` / `textColor`: colori del tema attivo (`colorPrimary` / `colorPrimaryText`); contrasto WCAG garantito da `ThemeService`
-- `fontSize`: 48px — `width`: 800px — `fontFamily`: Arial — `margin`: 24px
+**Metodo statico** (SSR-safe, zero Angular, chiamabile da Node):
+```typescript
+ImgBuilderService.buildSvg(text, bgColor, textColor, fontSize, fontFamily, ratio, maxWidth, lineHeight, wordWrap)
+// → { svg: string, width: number, height: number }
+```
+
+`buildSvg` e' l'unica fonte di verita' per layout e rendering — usato sia da `buildCanvas` (browser) che dall'endpoint `/cdn-cgi/preview` (Node/SSR), garantendo output identico sulle due piattaforme.
+
+Tutti i campi di `opts` sono opzionali:
+- `bgColor` / `textColor`: colori del tema attivo; contrasto WCAG garantito da `ThemeService`
+- `fontSize`: 40px — `ratio`: `'4:3'` — `fontFamily`: Arial — `wordWrap`: true
+- `maxWidth`: 1200px (usato solo con `wordWrap: true`) — `lineHeight`: 1.4
 
 Funzionalita' del renderer:
-
-- Word-wrap intelligente via `measureText()` (spezza per parola, poi per carattere se necessario)
-- Centratura verticale automatica del testo
-- Altezza minima proporzionale alla larghezza (aspect ratio 4:3)
-- Font web-safe selezionabili (Arial, Georgia, Courier New, Verdana, Times)
+- Word-wrap con stima larghezza carattere (`fontSize × 0.55`), senza accesso a DOM/canvas
+- Centratura verticale automatica del blocco testo
+- Rapporto d'aspetto configurabile: `'4:3'`, `'16:9'`, `'1:1'`, `'9:16'`
+- Font web-safe selezionabili (Arial, Georgia, Courier New, Verdana, Times) con emoji fallback
+- In SSR `buildCanvas`, `buildBlob` e `buildFile` restituiscono `null`: il chiamante puo' gestire l'assenza di canvas senza guard di piattaforma
 
 Utile per banner, placeholder e immagini di condivisione social generate al volo.
 
@@ -618,7 +633,7 @@ Riepilogo di tutti i servizi, componenti e dati disponibili out-of-the-box. Util
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob(blob)` per Blob locali con tracking e revoca automatica |
 | `ShareService` | Clipboard, Web Share API e download con fallback |
 | `QrCodeService` | Genera QR code in blob PNG e SVG per testo/URL, WhatsApp, email, Wi-Fi e SEPA; colori tema automatici; `create()` / `createWithColors()` / `toSVG()` / `toSVGWithColors()`; caching per payload+colori; SSR-safe |
-| `ImgBuilderService` | Genera immagini PNG su canvas: `build(text, opts?)` → `Promise<Blob>`; crea e distrugge il canvas internamente; colori, font e dimensioni opzionali con default dal tema (WCAG) |
+| `ImgBuilderService` | Genera immagini PNG su canvas: `buildBlob(text, opts?)` → `Promise<Blob\|null>`, `buildCanvas` → `Promise<HTMLCanvasElement\|null>`, `buildFile` → `Promise<File\|null>`; metodo statico `buildSvg(...)` SSR-safe usato anche da `/cdn-cgi/preview`; colori, font e ratio opzionali con default dal tema (WCAG) |
 | `CookieConsentService` | Gestione consenso cookie GDPR |
 | `NotificationService` | SweetAlert2 lazy: `success()`, `error()`, `openLoading()` / `closeLoading()`, `confirm()` → `Promise<boolean>` (opzioni icona/testi/click-esterno), `prompt()` → `Promise<string\|null>`, `interact<T>(config)` → `Promise<T\|null>` (dialog custom con validazione e mapping risultato), `toast()` (con pausa hover), `validationErrors()`, `handleApiError()` |
 | `VersionCheckService` | Rileva nuove versioni dell'app ogni 10 min; propone reload via `confirm()` |
