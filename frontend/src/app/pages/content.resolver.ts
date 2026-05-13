@@ -5,6 +5,18 @@ import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ContestoSito, PageType } from '../site';
 import { TranslateService } from '../core/services/translate.service';
+import { ApiService } from '../core/services/api.service';
+import { PageInfo } from '../siteBuilder';
+
+/**
+ * Dati restituiti dal resolver: contenuto della pagina + metadati SEO.
+ * Il component base li riceve, aggiorna i meta tag via effect() e
+ * espone pageContent() già tipizzato tramite il generic T.
+ */
+export interface ResolvedPage<T = unknown> {
+    content: T | null;
+    info: PageInfo | null;
+}
 
 /**
  * Servizio centralizzato per il caricamento dei contenuti di pagina.
@@ -21,29 +33,38 @@ import { TranslateService } from '../core/services/translate.service';
 export class ContentResolver {
     private readonly http = inject(HttpClient);
     private readonly translate = inject(TranslateService);
+    private readonly apiService = inject(ApiService);
     private readonly request = inject(REQUEST, { optional: true });
 
-    async loadResolved(pageType: PageType, lang?: string): Promise<any> {
+    async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
         let language = lang ?? this.translate.currentLang();
         if (!language)
             language = ContestoSito.config.defaultLang;
 
+        let content: unknown = null;
+        //Pronto per essere modificato da eventuali api future - vedi apiService
+        let info = ContestoSito.getPageInfo(pageType);
+
         switch (pageType) {
+            case PageType.Social:
+                content = await this.apiService.getSocial();
+                break;
             case PageType.PrivacyPolicy:
-                return this.tryLoadPolicy('privacy', language);
+                content = await this.tryLoadPolicy('privacy', language);
+                break;
             case PageType.CookiePolicy:
-                return this.tryLoadPolicy('cookie', language);
+                content = await this.tryLoadPolicy('cookie', language);
+                break;
             case PageType.TermsOfService:
-                return this.tryLoadPolicy('TOS', language);
+                content = await this.tryLoadPolicy('TOS', language);
+                break;
             case PageType.LegalNotice:
-                return this.tryLoadPolicy('legal', language);
-            default:
-                return null;
+                content = await this.tryLoadPolicy('legal', language);
+                break;
         }
 
-
-        
+        return { content, info: info };
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
@@ -57,5 +78,5 @@ export class ContentResolver {
 }
 
 /* Factory ResolveFn per app.routes.ts */
-export const contentLoaderResolver = (pageType: PageType): ResolveFn<string> =>
+export const contentLoaderResolver = (pageType: PageType): ResolveFn<ResolvedPage> =>
     () => inject(ContentResolver).loadResolved(pageType);

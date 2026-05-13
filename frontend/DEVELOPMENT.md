@@ -1,12 +1,15 @@
 # Frontend — Guida allo sviluppo
 
-Questo file spiega i pattern stabiliti nel progetto per aggiungere nuove funzionalità.  
-Il README è l'overview del progetto; qui si entra nel dettaglio del "come si fa".
+Questa guida è rivolta a chi usa Br1WebEngine come template base e vuole estenderlo: aggiungere pagine, servizi, componenti o endpoint seguendo i pattern già stabiliti.
+
+Per l'overview del progetto, la configurazione e il deploy → [`README.md`](../README.md).  
+Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT.md).
 
 ---
 
 ## Sommario
 
+**Guide operative**
 - [Aggiungere una pagina](#aggiungere-una-pagina)
 - [Aggiungere un servizio](#aggiungere-un-servizio)
 - [Aggiungere un componente](#aggiungere-un-componente)
@@ -17,6 +20,14 @@ Il README è l'overview del progetto; qui si entra nel dettaglio del "come si fa
 - [Meta SEO e SSR](#meta-seo-e-ssr)
 - [Pattern dei Signal](#pattern-dei-signal)
 - [Internazionalizzazione (i18n)](#internazionalizzazione-i18n)
+
+**Riferimento**
+- [Configurazione del sito (site.ts)](#configurazione-del-sito-sitets)
+- [Tema e stile](#tema-e-stile)
+- [Asset e ottimizzazione immagini](#asset-e-ottimizzazione-immagini)
+- [Build e script](#build-e-script)
+- [Servizi disponibili](#servizi-disponibili)
+- [Componenti e directive disponibili](#componenti-e-directive-disponibili)
 
 ---
 
@@ -63,32 +74,15 @@ Campi opzionali utili:
 | `showPanel: false` | `true` | Pagina a tutto schermo (es. landing, social feed) |
 | `renderMode: 'server'` | `'server'`* | Rendering a runtime lato server (default); HTML completo per i crawler |
 | `renderMode: 'client'` | `'server'`* | Solo browser; usare per pagine interattive incompatibili con SSR |
-| `resolve: { nome: () => inject(ApiService).qualcosa() }` | — | Dati pre-caricati lato server |
 | `data: { chiave: valore }` | — | Dati statici passati via `route.data` |
 
 > *Regole di default: senza `renderMode` dichiarato il builder usa `server`;
 > con `requiresAuth: true` usa `client` (i bot non possono effettuare login).
 
-**Pagine con SSR (`renderMode: 'server'`):**  
-Il resolver esegue la chiamata API durante la generazione server-side.
-Il componente legge il risultato tramite `input()` con lo stesso nome del resolver:
-
-```typescript
-// site.ts
-resolve: { posts: () => inject(ApiService).getPosts() }
-
-// mia-pagina.component.ts
-readonly posts = input<Post[]>();
-readonly postsFiltrati = computed(() => this.posts()?.filter(...) ?? []);
-```
-
-Usare sempre `computed()` (non `effect()`) per derivare stato dai dati risolti:
-`effect()` crea macrotask Zone.js che possono bloccare la stabilizzazione SSR.
-
 ### 3. Creare il componente pagina
 
-Il componente **deve** estendere `PageBaseComponent`, che pre-inietta i servizi
-più comuni senza doverli ripetere in ogni pagina:
+Il componente **deve** estendere `PageBaseComponent<T>`, dove `T` è il tipo del
+contenuto caricato dal resolver. Il generic è obbligatorio:
 
 ```typescript
 // src/app/pages/mia-pagina/mia-pagina.component.ts
@@ -101,10 +95,16 @@ import { PageBaseComponent } from '../page-base.component';
     imports: [],
     templateUrl: './mia-pagina.component.html',
 })
-export class MiaPaginaComponent extends PageBaseComponent {
-    // translate, api, asset, notify già disponibili da PageBaseComponent
-    // pageType iniettato automaticamente dal router
+export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
+    // pageContent() è già MeteoData | null — nessun cast necessario
+    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
 }
+```
+
+Usare `<void>` per le pagine che non hanno contenuto dal resolver:
+
+```typescript
+export class HomeComponent extends PageBaseComponent<void> { }
 ```
 
 Già disponibile da `PageBaseComponent`:
@@ -115,10 +115,10 @@ Già disponibile da `PageBaseComponent`:
 | `this.api` | `ApiService` | Chiamate HTTP al backend |
 | `this.asset` | `AssetService` | URL degli asset statici |
 | `this.notify` | `NotificationService` | Toast, dialog, conferme |
-| `this.pageContent()` | `any` | Contenuto dal resolver — castare al tipo atteso |
+| `this.pageContent()` | `T \| null` | Contenuto dal resolver, già tipizzato |
 
-`pageContent()` è un `computed` che vale `null` per le pagine senza contenuto associato
-nel resolver e si aggiorna automaticamente ad ogni cambio lingua nel browser.
+`pageContent()` è un `computed` che vale `null` per le pagine senza contenuto
+e si aggiorna automaticamente ad ogni cambio lingua nel browser.
 
 ### 4. Aggiungere al menu (opzionale)
 
@@ -308,26 +308,28 @@ Non servono `try/catch` nei componenti salvo casi specifici.
 ## Resolver automatico dei contenuti
 
 `app.routes.ts` applica automaticamente `ContentResolver` come resolver
-su ogni pagina che non dichiara un `resolve` esplicito in `site.ts`.
-`PageBaseComponent` riceve il risultato e lo espone tramite `pageContent()`,
-già aggiornato ad ogni cambio lingua — funziona uguale per `server`, `client` e `prerender`.
+su ogni pagina. Il resolver restituisce un oggetto `ResolvedPage<T>` con due campi:
+`content` (i dati della pagina) e `info` (i metadati SEO da `site.ts`).
+`PageBaseComponent` li riceve, aggiorna i meta tag via `effect()` e
+espone `pageContent()` già tipizzato come `T | null`.
 
 ### Come funziona
 
 ```
 Navigazione → ContentResolver.loadResolved(pageType, lang)
                         ↓
-             switch(pageType) → dati da file, API, o null
+             switch(pageType) → content da file, API, o null
+             ContestoSito.getPageInfo(pageType) → info SEO da site.ts
                         ↓
-             contentByResolve = input  ← legato da withComponentInputBinding
+             ResolvedPage { content, info } → input contentByResolve
                         ↓
-             pageContent = computed(() => _liveContent() ?? contentByResolve())
-                        ↓
-             [SSR / prerender]  HTML serializzato con dati già dentro
-             [Browser]          effect aggiorna _liveContent ad ogni cambio lingua
+             PageBaseComponent:
+               effect(info)    → PageMetaService.setTitle()   [SSR + browser]
+               effect(lang)    → ricarica al cambio lingua     [solo browser]
+               pageContent()   → content tipizzato come T
 ```
 
-Il componente usa **solo** `this.pageContent()` — non sa nulla del render mode.
+Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né render mode.
 
 ### Aggiungere contenuto a una nuova pagina
 
@@ -336,40 +338,48 @@ Il componente usa **solo** `this.pageContent()` — non sa nulla del render mode
 ```typescript
 // pages/content.resolver.ts
 case PageType.MiaPagina:
-    return this.chiamataApi(lang);             // API esterna
+    content = await this.chiamataApi(lang);          // API esterna
     // oppure
-    return this.tryLoadPolicy('slug', lang);   // file MD da /assets/legal/
-    // oppure
-    return Promise.resolve({ statico: true }); // dati statici, nessuna chiamata HTTP
+    content = await this.tryLoadPolicy('slug', lang); // file MD da /assets/legal/
+    break;
 ```
 
-Nessun altro file da toccare: il resolver viene applicato in automatico.
+I metadati SEO statici (titolo, descrizione, ogImage) vengono letti automaticamente
+da `ContestoSito.getPageInfo(pageType)` — dichiarati una sola volta in `site.ts`.
 
-**2. Leggere `pageContent()` nel componente**
+**2. Estendere `PageBaseComponent<T>` nel componente**
 
 ```typescript
-export class MiaPaginaComponent extends PageBaseComponent {
-    // Cast al tipo atteso — null se la pagina non ha contenuto nel resolver
-    readonly meteo = computed(() => this.pageContent() as MeteoData | null);
+export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
+    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
 }
 ```
 
-Niente signal aggiuntivi, niente effect, niente override. `pageContent()` vale
-già sia per SSR che per i cambi lingua successivi.
+Nessun cast, nessun effect aggiuntivo. `pageContent()` è già `MeteoData | null`.
 
-### Override esplicito del resolver
+### Meta SEO dinamici (titolo/descrizione da API)
 
-Se una pagina ha logica incompatibile con lo switch centrale, dichiarare
-`resolve` esplicitamente in `site.ts` — il resolver automatico non viene applicato:
+Per pagine con titolo che dipende dall'API (es. articolo con ID variabile),
+aggiungere il case nel resolver e sovrascrivere `info` con i dati dell'API:
 
 ```typescript
-// site.ts
-{
-    pageType: PageType.MiaPagina,
-    resolve: { contentByResolve: mioResolverCustom() },
-    ...
+case PageType.Articolo: {
+    const articolo = await this.loadArticolo(route!.params['id'], language);
+    return {
+        content: articolo,
+        info: {
+            title: articolo.titolo,
+            description: articolo.descrizione,
+            path: ContestoSito.getPageInfo(pageType)?.path ?? '',
+            isExternal: false,
+            ogImage: articolo.previewImageId,
+        }
+    };
 }
 ```
+
+`PageBaseComponent` chiama `setTitle()` automaticamente con questi dati — nessuna
+logica SEO nel componente.
 
 ### Estendere in un progetto figlio
 
@@ -382,18 +392,20 @@ Il progetto figlio registra la propria versione del servizio nel DI:
 
 ```typescript
 // ChildContentResolverService
-override async loadResolved(pageType: PageType, lang?: string): Promise<any> {
+override async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
     switch (pageType) {
-        case PageType.GeneratoreMeteo:
-            return this.api.getMeteo(lang);
+        case PageType.GeneratoreMeteo: {
+            const content = await this.api.getMeteo(lang);
+            return { content, info: ContestoSito.getPageInfo(pageType) };
+        }
         default:
-            return super.loadResolved(pageType, lang); // delega al padre per le Policy
+            return super.loadResolved(pageType, lang);
     }
 }
 ```
 
-`contentLoaderResolver` (usato da `app.routes.ts`) chiama `inject(ContentResolver)`,
-quindi usa automaticamente la versione del figlio senza toccare nulla nell'engine.
+`contentLoaderResolver` chiama `inject(ContentResolver)`, quindi usa automaticamente
+la versione del figlio senza toccare nulla nell'engine.
 
 ---
 
@@ -452,101 +464,66 @@ export class MioService {
 
 ## Meta SEO e SSR
 
-`AppTitleStrategy` imposta `<title>` e `<meta name="description">` ad ogni
-navigazione, leggendo `title` e `description` dalla configurazione della pagina
-in `site.ts`. Sono disponibili tre pattern, in ordine di semplicità.
+I meta tag (`<title>`, `og:title`, `og:description`, `og:image`, canonical)
+vengono gestiti interamente da `ContentResolver` + `PageBaseComponent`.
+Non serve nessun codice nei componenti per i casi standard.
 
----
+### Come funziona
 
-### Pattern A — Stringhe statiche in `site.ts` *(zero codice nel componente)*
-
-```typescript
-// site.ts
-{
-    path: 'generatori/incel',
-    title: 'Generatore Incel',            // stringa letterale → titolo in <title>
-    description: 'Genera il tuo incel',   // stringa letterale → <meta description>
-    renderMode: 'server',
-    ...
-}
-```
-
-`AppTitleStrategy` accetta sia chiavi i18n (`'miaPagina'` → tradotto) sia stringhe
-letterali (`'Generatore Incel'` → usato direttamente). Non serve nessun resolver,
-nessun `input()`, nessun `effect()` nel componente.
-
-**Usarlo quando:** il titolo e la descrizione sono fissi e noti in `site.ts`.
-
----
-
-### Pattern B — Dati da API tramite resolver *(per contenuto dinamico)*
+**Per pagine statiche** (titolo e descrizione dichiarati in `site.ts`):
 
 ```typescript
 // site.ts
 {
-    renderMode: 'server',
-    resolve: { post: () => inject(ApiService).getPost() },
+    path: 'mia-pagina',
+    title: 'miaPagina',              // chiave i18n → tradotta automaticamente
+    description: 'miaPaginaDesc',   // chiave i18n → meta description
+    ogImage: 'id-asset-immagine',   // ID asset → URL costruito dal server
+    // oppure ogImage: false        → nessuna immagine (rimuove i tag og:image)
+    // oppure omesso                → preview dinamica generata da /cdn-cgi/preview
+    ogType: 'article',              // og:type (default: 'website')
+    structuredDataType: 'Article',  // JSON-LD @type (default: 'WebPage')
     ...
 }
-
-// componente
-readonly post = input<Post | null>(null);
-
-constructor() {
-    effect(() => {
-        const p = this.post();
-        if (!p) return;
-        this.pageMeta.setTitle(p.titolo, p.descrizione);
-    });
-}
 ```
 
-> `effect()` si ri-esegue ogni volta che `post()` cambia: vale sia in SSR
-> (primo render con dati dal resolver) che nel browser (aggiornamenti successivi).
-> `PageMetaService.setTitle` è SSR-safe, quindi puo' essere invocato direttamente.
+I tag aggiornati da `PageMetaService.setTitle()` in un'unica chiamata:
+`<title>`, `og:title`, `og:description`, `og:url`, `og:image`, `og:type`,
+`og:locale` / `og:locale:alternate` (da `availableLanguages`),
+`twitter:title`, `twitter:description`, `twitter:image`,
+`<link rel="canonical">` e il blocco `<script type="application/ld+json">`.
+Le immagini social includono `?v={version}` di cache busting automatico.
 
-**Usarlo quando:** il titolo o la descrizione vengono da un'API e cambiano per
-ogni richiesta (es. pagina dettaglio di un articolo).
+`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)`
+e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`.
+`PageBaseComponent` chiama `PageMetaService.setTitle()` via `effect()` — SSR-safe,
+i meta tag sono nell'HTML prima che il crawler lo riceva.
 
----
+**Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID):
 
-### Pattern C — Mappa statica per tipo di pagina *(dati fissi per PageType)*
+Aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato
+con i dati dall'API — vedi sezione *Resolver automatico dei contenuti*.
+
+### `PageMetaService.setTitle()`
 
 ```typescript
-// componente
-private static readonly META: Partial<Record<PageType, { name: string; desc: string }>> = {
-    [PageType.GeneratorIncel]: { name: 'Generatore Incel', desc: 'Genera il tuo incel' },
-    [PageType.GeneratorAuto]:  { name: 'Generatore Auto',  desc: 'Genera automobilisti' },
-};
+// Firma
+setTitle(
+    pageTitle: string,
+    description?: string | null,
+    imgId?: string | null | false,
+    ogType?: string | null,          // og:type (default: 'website')
+    structuredDataType?: string | null, // JSON-LD @type (default: 'WebPage')
+): void
 
-readonly meta = computed(() => MioComp.META[this.pageType()] ?? null);
-
-constructor() {
-    effect(() => {
-        const m = this.meta();
-        if (!m) return;
-        this.pageMeta.setTitle(m.name, m.desc);
-    });
-}
+// imgId — tre comportamenti distinti:
+// string  → ID asset: URL costruito tramite server Node (nasconde il filesystem)
+// null/undefined → preview dinamica: /cdn-cgi/preview?title=...&subtitle=...
+// false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
 
-`pageType` è un `input.required` iniettato da `route.data` in modo sincrono:
-è sempre disponibile prima del primo render, in SSR e nel browser.
-`computed()` da `pageType()` è quindi sempre non-null per i PageType noti.
-
-**Usarlo quando:** lo stesso componente serve più PageType con metadati diversi
-e i dati sono tutti noti a compile-time (non servono chiamate API).
-
----
-
-### Quale scegliere?
-
-| Caso | Pattern |
-|------|---------|
-| Titolo e descrizione fissi, gestiti in `site.ts` | **A** |
-| Titolo/descrizione da API (SEO per crawler) | **B** |
-| Un componente, N PageType con dati statici diversi | **C** |
-| Titolo dinamico che aggiorna anche dopo l'idratazione | **B** o **C** + `effect()` |
+Può essere chiamato direttamente dal componente nei rari casi in cui serve
+sovrascrivere i meta a runtime (es. dopo un'interazione utente).
 
 ---
 
@@ -601,6 +578,20 @@ constructor() {
 
 ## Internazionalizzazione (i18n)
 
+Le lingue disponibili si dichiarano in `setSiteConfiguration` con `availableLanguages`:
+
+```typescript
+// site.ts
+setSiteConfiguration({
+    defaultLang: 'it',
+    availableLanguages: ['it', 'en'], // validati BCP 47 a build time
+    ...
+});
+```
+
+Per aggiungere una lingua: aggiungerla ad `availableLanguages` e creare i file
+`basic.{lang}.json` e `addon.{lang}.json` corrispondenti.
+
 Le traduzioni stanno in `src/assets/i18n/<lang>.json`.  
 Le chiavi sono camelCase senza spazi, in inglese.
 
@@ -631,3 +622,258 @@ Nel template:
 <!-- oppure diretta da signal -->
 <h1>{{ testo() }}</h1>
 ```
+
+---
+
+## Configurazione del sito (site.ts)
+
+### Come funziona il builder
+
+`site.ts` è l'unico file da toccare per configurare il sito. Usa quattro chiamate sul builder:
+
+```typescript
+siteFondamentaBuilder.setSiteConfiguration({ appName, colorTema, defaultLang, ... });
+siteFondamentaBuilder.defineSitePages([ /* array di pagine */ ]);
+siteFondamentaBuilder.configureHeaderNavigation(h => { h.addPage(...); h.addGroup(...); });
+siteFondamentaBuilder.configureFooterNavigation(f => { f.addPage(...); });
+```
+
+Internamente `buildSite` lavora in tre fasi:
+
+1. **Dichiarazione** — l'utente descrive il sito con tipi `*Input` e campi opzionali
+2. **Normalizzazione** — il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`. PageType duplicati o path duplicati generano un errore a build time
+3. **Generazione** — produce rotte Angular, `NavLink[]` per header/footer (con flag `isExternal`), `getPath(PageType)` e `getSitemapEntries()`
+
+Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script di build.
+
+### Campi di setSiteConfiguration
+
+| Campo | Obbligatorio | Effetto |
+|---|---|---|
+| `appName` | sì | Nome in navbar, titoli e PWA manifest |
+| `version` | no | Versione app; usata per rilevare aggiornamenti e come cache busting sulle immagini social (default: `"1.0.0"`) |
+| `defaultLang` | sì | Lingua di fallback |
+| `availableLanguages` | no | Tag BCP 47 validati a build time (es. `['it', 'en']`); se omesso il sito è monolingua |
+| `description` | sì | Meta description globale (fallback per pagine senza `description` propria) |
+| `colorTema` | sì | Colore hex principale; genera contrasto WCAG, tono e CSS var |
+| `showFooter` | no | Mostra/nasconde footer (default: `true`) |
+| `showHeader` | no | Mostra/nasconde navbar (default: `true`) |
+| `fixedTopHeader` | no | Navbar fissa in cima allo scroll (default: `false`) |
+| `smoke` | no | Effetto particellare su canvas. Campi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` — tutti opzionali |
+
+### Campi opzionali di una LeafPage
+
+| Campo | Effetto |
+|---|---|
+| `requiresAuth: true` | Aggiunge guard JWT; forza `renderMode: 'client'` |
+| `showPanel: false` | Pagina a schermo intero (no pannello centrale) |
+| `renderMode: 'client'` | Solo browser — usare per pagine interattive incompatibili con SSR |
+| `renderMode: 'server'` | HTML generato a ogni richiesta lato server (default se non dichiarato) |
+| `description` | Chiave i18n o stringa per meta description e sitemap |
+| `ogImage` | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
+| `ogType` | `og:type` (es. `'article'`). Default: `'website'` |
+| `structuredDataType` | `@type` del JSON-LD (es. `'Article'`). Default: `'WebPage'` |
+| `data` | Dati arbitrari passati al componente via `route.data` |
+
+### Navigazione
+
+Tre metodi disponibili in `configureHeaderNavigation` / `configureFooterNavigation`:
+
+```typescript
+h.addPage(PageType.X)                       // voce singola — path risolto dalla mappa interna
+h.addGroup('chiaveI18n', g => { ... })      // dropdown; sparisce se tutti i figli sono disabilitati
+h.addLink('chiaveI18n', '/path-o-url')      // link diretto a URL arbitrario
+```
+
+Pagine con `enabled: false` escluse automaticamente. I path non si scrivono mai a mano (tranne in `addLink`).
+
+### PageType e getPath
+
+`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni. Restituisce `null` se la pagina è disabilitata o non registrata — non finisce mai silenziosamente in un `href`. Usa sempre il fallback:
+
+```typescript
+const path = ContestoSito.getPath(PageType.X) ?? '/';
+```
+
+---
+
+## Tema e stile
+
+### ThemeService
+
+Imposta una sola variabile CSS (`--colorTema`) e calcola in modo reattivo tutto il resto:
+
+| Signal / metodo | Cosa restituisce |
+|---|---|
+| `colorTema` | Colore hex corrente (scrivibile per switchare tema a runtime) |
+| `colorTemaText` | `#000000` o `#ffffff` — contrasto massimo WCAG sul tema |
+| `colorPrimary` | Tema + 40% nero — usato per pulsanti e accenti |
+| `colorPrimaryText` | Testo leggibile su `colorPrimary` |
+| `isDarkTextPreferred` | `true` se il tema è sufficientemente chiaro |
+
+I metodi statici (`ThemeService.prefersDarkText`, `getReadableTextColor`, `mixHexColors`) sono puri e importabili anche da Node/server.ts senza istanziare Angular.
+
+`ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori — nessuna configurazione aggiuntiva per avere coerenza visiva e contrasto WCAG.
+
+### Sistema CSS con color-mix()
+
+`ThemeService` imposta solo `--colorTema`. Tutte le variabili derivate vengono calcolate dal browser:
+
+```css
+--colorBase:          color-mix(in srgb, var(--colorTema), white 20%);
+--colorPrimary:       color-mix(in srgb, var(--colorTema), black 40%);
+--colorSurface:       color-mix(in srgb, var(--colorTema), white 24%);
+--colorSurfaceHover:  color-mix(in srgb, var(--colorTema), white 30%);
+--colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
+--colorSurfaceText:   color-mix(in srgb, white 94%, var(--colorTema) 6%);
+```
+
+Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti forzabili con `.panel-light` e `.panel-dark`.
+
+### FontConfig
+
+`src/styles/font-config.ts` — nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
+
+| Dizionario | Contesto |
+|---|---|
+| `FontConfig.WEB_FONTS` | Browser e Canvas — font di sistema, zero dipendenze esterne |
+| `FontConfig.SERVER_FONTS` | Sharp / immagini OG — font installati nel container Docker |
+
+`FontConfig.DEFAULT_WEB_FONT` e `DEFAULT_SERVER_FONT` sono i default usati da `ImgBuilderService`.
+
+---
+
+## Asset e ottimizzazione immagini
+
+Il server Node SSR espone `/cdn-cgi/asset?id=X` per ogni file in `assets/mapping.json`:
+- **Immagini raster** (PNG, JPG, GIF, AVIF…): resize + WebP tramite Sharp, cache su disco
+- **Altri file** (PDF, SVG, testi…): serviti direttamente con `Content-Type` rilevato dall'estensione
+
+La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente, solo tramite ID.
+
+Nei componenti:
+```typescript
+this.asset.getUrl('hero', 1080)      // → URL ottimizzato via /cdn-cgi/asset
+```
+
+Per Blob locali (canvas, API esterne):
+```typescript
+const { rawUrl, angularUrl } = this.asset.getUrlFromBlob(blob);
+// rawUrl → usabile in JS puro
+// angularUrl → sanitizzato per i template Angular
+// Revocati automaticamente ad ogni NavigationEnd
+```
+
+---
+
+## Build e script
+
+```bash
+npm run generate:statics   # meta tag, sitemap.xml, robots.txt, manifest
+npm run generate:icons     # icone PWA da favicon.png
+npm run build              # esegue entrambi via prebuild, poi ng build
+npm run dev:ssr            # build + avvia server Node SSR locale (senza Docker)
+```
+
+Gli script leggono da `ContestoSito`: nome app, colore, lingue, path pagine. Per avere una `sitemap.xml` corretta in produzione, `FRONTEND_BASE_URL` deve essere valorizzata nell'ambiente di build (derivata in automatico da `deploy.sh`); se manca, usa `https://example.com` con un warning.
+
+### Iniezione variabili d'ambiente a runtime (Docker)
+
+Rilevante solo in deploy con Docker — in sviluppo locale non si applica.
+
+Angular compila il bundle a build time e non può leggere env del container a runtime. La soluzione: `environment.ts` usa i segnaposto letterali `__API_URL__` e `__API_KEY__`. All'avvio del container, `docker-entrypoint.sh` esegue `sed` su tutti i `.js` del bundle sostituendo quei segnaposto con i valori reali. Il server SSR parte solo dopo la sostituzione.
+
+Quando `API_URL` è vuota, il server Node fa da proxy su `/api/*` verso il backend sulla rete Docker. Se valorizzata, il frontend chiama direttamente quell'URL (utile con backend su server separato).
+
+Cache: asset con hash nel nome → 1 anno `immutable`; asset non hashati (i18n, legal, mapping) → `no-cache` per aggiornamenti immediati al deploy.
+
+---
+
+## Servizi disponibili
+
+Tutti `providedIn: 'root'`.
+
+| Servizio | Ruolo |
+|---|---|
+| `ThemeService` | Tema dinamico; metodi statici per calcolo colori (WCAG, mix) importabili anche da Node |
+| `TranslateService` | i18n con sistema addon; `translate(key)`, `currentLang()`, `availableLangs()` |
+| `TokenService` | Token JWT in memoria + sessionStorage; letto da `ApiService` per l'header `Bearer` |
+| `AuthService` | Login, logout e stato sessione; delega storage a `TokenService` |
+| `BaseApiService` | Classe astratta: header HTTP, URL normalization, error handling, health check |
+| `ApiService` | Unico client HTTP verso il backend: `getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login` |
+| `ContentResolver` | Resolver automatico contenuti di pagina; estendibile via DI nei progetti figli |
+| `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob` per Blob locali con tracking e revoca automatica |
+| `ShareService` | Clipboard API, Web Share API, download — un'unica interfaccia con fallback |
+| `ImgBuilderService` | Genera PNG su canvas (`buildBlob`, `buildCanvas`, `buildFile`); `buildSvg` statico SSR-safe |
+| `QrCodeService` | QR code PNG/SVG per URL, WhatsApp, email, Wi-Fi, SEPA; cache per payload+colori |
+| `NotificationService` | SweetAlert2 lazy: `success`, `error`, `confirm`, `prompt`, `interact`, `toast`, `validationErrors`, `handleApiError` |
+| `CookieConsentService` | Gestione consenso GDPR; blocca scritture cookie senza consenso |
+| `SpeechService` | Text-to-speech via Web Speech API; voce e lingua seguono `TranslateService` |
+| `VersionCheckService` | Controlla nuova versione ogni 10 min; propone reload via `confirm()` |
+
+---
+
+## Componenti e directive disponibili
+
+| Componente / Directive | Uso |
+|---|---|
+| `<app-loading [loading]="bool">` | Spinner Bootstrap se `true`, `<ng-content>` se `false` |
+| `[appContextMenu]="options"` | Menu contestuale: click destro desktop, long-press mobile |
+| `<app-social-link [type]="..." [value]="...">` | 35+ social con icona Font Awesome e colore brand |
+| `<app-cookie-banner>` | Banner GDPR con testo Markdown e placeholder dinamici |
+| `<app-back-to-top>` | Pulsante scroll-to-top con soglia; colori dal tema |
+| `<app-smoke-effect>` | Effetto particellare su canvas configurabile da `site.ts` |
+| `{{ testo \| markdown }}` | Markdown → HTML con protezione XSS integrata (HTML raw ignorato) |
+
+### ImgBuilderService — dettaglio
+
+```typescript
+// Metodi istanza (browser — leggono i Signal del tema come default)
+buildCanvas(text, opts?) → Promise<HTMLCanvasElement | null>
+buildBlob(text, opts?)   → Promise<Blob | null>
+buildFile(text, name?, opts?) → Promise<File | null>
+
+// Metodo statico (SSR-safe, usato anche da /cdn-cgi/preview)
+ImgBuilderService.buildSvg(text, bgColor, textColor, fontSize, fontFamily, ratio, maxWidth, lineHeight, wordWrap)
+// → { svg: string, width: number, height: number }
+```
+
+`opts` è tutto opzionale: `bgColor`/`textColor` (dal tema), `fontSize` (40px), `ratio` (`'4:3'`), `fontFamily`, `wordWrap` (true), `maxWidth` (1200px), `lineHeight` (1.4). In SSR i metodi istanza restituiscono `null`.
+
+### QrCodeService — dettaglio
+
+Formati supportati: `text`, `whatsapp` (phone), `email` (to, subject, body), `wifi` (ssid, password, encryption), `sepa` (iban, name, amount, remittance).
+
+```typescript
+const result = await this.qrCode.create({ type: 'text', content: url });
+if (result.success) {
+    this.qrUrl = this.asset.getUrlFromBlob(result.blob).angularUrl; // mostra inline
+    this.share.downloadBlob(result.blob, 'qrcode.png');             // scarica
+}
+// Con colori espliciti:
+await this.qrCode.createWithColors(config, '#000000', '#ffffff');
+// SVG (null in SSR):
+const svg = await this.qrCode.toSVG(config);
+```
+
+Validazione integrata per telefono (E.164), email e IBAN. Risultati cachati per payload + colori.
+
+### ShareService — dettaglio
+
+```typescript
+this.share.copyText('testo');              // Clipboard API con notifica
+this.share.shareText('titolo', 'testo');   // Web Share API (fallback: download)
+this.share.shareCanvas(canvas, 'img.png'); // Condivide un HTMLCanvasElement come PNG
+this.share.downloadBlob(blob, 'file.png'); // Download diretto
+```
+
+### Pagine legali
+
+Un solo componente (`PolicyComponent`) gestisce privacy, cookie policy, termini e note legali. `ContentResolver` carica il Markdown corretto da `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Per aggiungere una nuova pagina legale: aggiungere un `case` in `ContentResolver.loadResolved()` e il file `.md` corrispondente.
+
+### Accessibilità integrata
+
+- **Skip-link** (WCAG 2.4.1): visibile solo su focus per navigazione da tastiera
+- **`prefers-reduced-motion`** (WCAG 2.3.3): animazioni disabilitate se la preferenza è attiva
+- **`safe-area-inset`**: navbar e footer si adattano ai dispositivi con notch
+- **Contrasto AA**: `text-body-secondary` forzato a `#595f66`

@@ -1,6 +1,7 @@
-import { Component, Input, ElementRef, ViewChild, AfterViewInit, DestroyRef, PLATFORM_ID, inject } from '@angular/core';
+import { Component, Input, ElementRef, ViewChild, AfterViewInit, DestroyRef, NgZone, PLATFORM_ID, inject, computed } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { SmokeSettings } from '../../site';
+import { ThemeService } from '../../core/services/theme.service';
 
 /**
  * SmokeEffectComponent — Effetto decorativo a particelle di fumo.
@@ -37,13 +38,18 @@ export class SmokeEffectComponent implements AfterViewInit {
     @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
 
     private readonly destroyRef = inject(DestroyRef);
+    private readonly ngZone = inject(NgZone);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    private readonly theme = inject(ThemeService);
+    readonly shouldRender = computed(() =>
+        this.config?.enable && !this.theme.prefersReducedMotion()
+    );
     private animationId = 0;
     private particles: Particle[] = [];
     private rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
 
     ngAfterViewInit(): void {
-        if (!this.isBrowser) return;
+        if (!this.isBrowser || !this.shouldRender()) return;
 
         const canvas = this.canvasRef.nativeElement;
         const ctx = canvas.getContext('2d');
@@ -60,7 +66,9 @@ export class SmokeEffectComponent implements AfterViewInit {
         this.rgb = SmokeEffectComponent.parseHexColor(this.config.color);
 
         this.initParticles(canvas);
-        this.animate(canvas, ctx);
+        // Il loop RAF gira fuori dalla zona Angular: requestAnimationFrame dentro NgZone
+        // mantiene l'app perennemente "instabile", bloccando l'idratazione SSR (NG0506).
+        this.ngZone.runOutsideAngular(() => this.animate(canvas, ctx));
 
         // Cleanup quando il componente viene distrutto
         this.destroyRef.onDestroy(() => {

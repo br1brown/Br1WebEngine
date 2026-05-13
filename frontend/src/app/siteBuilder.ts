@@ -1,8 +1,7 @@
-import type { Type, EnvironmentProviders, Provider } from '@angular/core';
-import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
+    import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
-import { FontConfig } from './core/font-config';
+import { FontConfig } from '../styles/font-config';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -85,6 +84,7 @@ export type SmokeSettingsInput = Partial<SmokeSettings> | null | undefined;
  * - metadati descrittivi
  * - opzioni di UI
  * - configurazione dell'effetto smoke
+ * - metadati SEO e social media globali
  */
 export interface SiteConfig {
     /** Nome applicativo del sito. */
@@ -158,8 +158,8 @@ type BasePageInput = {
     path: string;
     /** Titolo o chiave di traduzione associata alla pagina. */
     title: string;
-    /** Indica se la pagina e figli devono essere inclusa nella build finale. */
-    enabled: boolean;
+    /** Indica se la pagina e figli devono essere inclusa nella build finale. Default: true */
+    enabled?: boolean;
     /** Abilita l'accesso solo ad utenti autenticati. */
     requiresAuth?: boolean;
     /** Dati arbitrari aggiuntivi associati alla pagina. */
@@ -227,7 +227,7 @@ export type LeafPageInput = BasePageInput & {
     pageType: PageType;
 
     /** Loader lazy del componente Angular associato alla pagina */
-    component: () => Promise<Type<PageBaseComponent>>;
+    component: () => Promise<Type<PageBaseComponent<any>>>;
 
     /** Non consentito per una pagina foglia interna */
     children?: never;
@@ -261,12 +261,14 @@ export type LeafPageInput = BasePageInput & {
      */
     ogImage?: string | false;
 
+    /** Tipo Open Graph (og:type). Default automatico: 'website'. */
+    ogType?: string;
+
+    /** Tipo Schema.org per i structured data JSON-LD (@type). Default automatico: 'WebPage'. */
+    structuredDataType?: string;
+
     /** Non consentito per una pagina interna */
     externalUrl?: never;
-
-    /** Resolver dati. Le chiavi corrispondono agli input del componente (withComponentInputBinding). */
-    resolve?: Record<string, ResolveFn<unknown>>;
-
 };
 
 /**
@@ -474,6 +476,7 @@ const normalizeSitePage = (
 
         return {
             ...page,
+            enabled: page.enabled ?? true,
             kind: 'parent',
             children: page.children.map((child, index) =>
                 normalizeSitePage(child, `${context}.children[${index}]`)
@@ -486,6 +489,7 @@ const normalizeSitePage = (
 
         return {
             ...page,
+            enabled: page.enabled ?? true,
             kind: 'external'
         };
     }
@@ -495,6 +499,7 @@ const normalizeSitePage = (
 
         return {
             ...page,
+            enabled: page.enabled ?? true,
             kind: 'leaf'
         };
     }
@@ -591,6 +596,28 @@ export type ServerRenderEntry = {
     renderMode: SiteRenderMode;
 };
 
+/**
+ * Metadati di una singola pagina esposti pubblicamente da ContestoSito.
+ * Usati dal ContentResolver per impostare titolo, descrizione e og:image
+ * restituiti dal ContentResolver e usati da PageBaseComponent per aggiornare i meta tag via effect().
+ */
+export type PageInfo = {
+    /** Chiave i18n (o testo statico) del titolo della pagina. */
+    title: string;
+    /** Path Angular interno o URL esterno. */
+    path: string;
+    /** true se il link punta a una risorsa esterna. */
+    isExternal: boolean;
+    /** Chiave i18n (o testo statico) della descrizione SEO. Undefined se non dichiarata. */
+    description?: string;
+    /** ID asset immagine di anteprima. false = nessuna immagine. Undefined = preview dinamica. */
+    ogImage?: string | false;
+    /** Tipo Open Graph della pagina (og:type). Se assente il default è 'website'. */
+    ogType?: string;
+    /** Tipo Schema.org per i structured data JSON-LD (@type). Se assente il default è 'WebPage'. */
+    structuredDataType?: string;
+};
+
 export interface BuiltSite {
     /** Configurazione finale del sito, gia normalizzata. */
     config: SiteConfig;
@@ -609,6 +636,12 @@ export interface BuiltSite {
      * @param type Tipo pagina da risolvere.
      */
     getPath: (type: PageType) => string | null;
+    /**
+     * Restituisce i metadati completi (title, path, description, ogImage) associati
+     * a un PageType. Usato dal ContentResolver per impostare i meta tag SEO.
+     * Ritorna `null` se la pagina non è registrata o è disabilitata.
+     */
+    getPageInfo: (type: PageType) => PageInfo | null;
     /** Restituisce le voci della sitemap (path + metadati). */
     getSitemapEntries: () => SitemapEntry[];
 }
@@ -835,11 +868,11 @@ export function buildSite(
      * Mappa interna usata per risolvere i riferimenti `PageType`.
      *
      * Esempio:
-     * PageType.Home -> { label: 'Home', path: '/' }
+     * PageType.Home -> { title: 'Home', path: '/' }
      *
      * Questa mappa viene popolata durante l'elaborazione dell'albero pagine.
      */
-    const pageMap = new Map<PageType, { label: string; path: string; isExternal: boolean }>();
+    const pageMap = new Map<PageType, PageInfo>();
 
     /**
      * Traccia i path interni già visti per rilevare duplicati di path.
@@ -887,7 +920,7 @@ export function buildSite(
                     );
                 }
                 pageMap.set(page.pageType, {
-                    label: page.title,
+                    title: page.title,
                     path: page.externalUrl,
                     isExternal: true
                 });
@@ -940,9 +973,13 @@ export function buildSite(
 
             seenInternalPaths.add(fullPath);
             pageMap.set(page.pageType, {
-                label: page.title,
+                title: page.title,
                 path: fullPath,
-                isExternal: false
+                isExternal: false,
+                description: page.description,
+                ogImage: page.ogImage,
+                ogType: page.ogType ?? 'website',
+                structuredDataType: page.structuredDataType ?? 'WebPage',
             });
             // Regola di default sul render mode:
             //   - requiresAuth → forzato 'client': i bot non possono loggarsi, l'SSR è inutile
@@ -991,7 +1028,8 @@ export function buildSite(
                  */
                 if (item.kind === 'page') {
                     const entry = pageMap.get(item.type);
-                    return entry ?? null;
+                    if (!entry) return null;
+                    return { label: entry.title, path: entry.path, isExternal: entry.isExternal };
                 }
 
                 /**
@@ -1068,6 +1106,12 @@ export function buildSite(
          * se presente nella mappa.
          */
         getPath: (type: PageType) => pageMap.get(type)?.path ?? null,
+
+        /**
+         * Restituisce le info  associato a un PageType,
+         * se presente nella mappa.
+         */
+        getPageInfo: (type: PageType) => pageMap.get(type) ?? null,
 
         getSitemapEntries: () => sitemap
     };

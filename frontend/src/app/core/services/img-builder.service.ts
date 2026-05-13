@@ -1,7 +1,7 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from './theme.service';
-import { FontConfig } from '../font-config';
+import { FontConfig } from '../../../styles/font-config';
 
 /**
  * IMG BUILDER SERVICE
@@ -20,7 +20,20 @@ import { FontConfig } from '../font-config';
  * di layout e rendering — un solo posto dove cambiare se si vuole modificare l'aspetto.
  */
 
-// ─── Interfacce pubbliche ──────────────────────────────────────────────────────
+// ─── Tipi pubblici ────────────────────────────────────────────────────────────
+
+/**
+ * Controlla come vengono calcolate le dimensioni dell'immagine in relazione al testo.
+ *
+ *  'exactInLine' → nessun wrap automatico: si rispettano solo i \n espliciti e il canvas
+ *                  si ridimensiona attorno al testo. Utile per titoli brevi e tag.
+ *  'wrap'        → (default) larghezza fissa a maxWidth, wrap automatico, altezza segue il
+ *                  contenuto. Il ratio aggiunge solo spazio verticale minimo.
+ *  'fixedRatio'  → il ratio comanda: la larghezza si espande se necessario, i margini
+ *                  diventano dinamici (5% della larghezza) e il testo viene ri-wrappato.
+ *                  Utile quando il formato dell'immagine è più importante della lunghezza.
+ */
+export type ImgRenderMode = 'exactInLine' | 'wrap' | 'fixedRatio';
 
 /**
  * Opzioni per i metodi istanza: tutti i campi sono facoltativi perché i default
@@ -38,15 +51,12 @@ export interface ImgBuildOptions {
     fontFamily?: keyof typeof FontConfig.WEB_FONTS;
     /** Rapporto d'aspetto dell'immagine finale. Default: '4:3'. */
     ratio?: '4:3' | '16:9' | '1:1' | '9:16';
-    /** Larghezza massima in pixel usata solo in modalità wordWrap:true. Default: 1200. */
+    /** Larghezza massima in pixel. Default: 1200. */
     maxWidth?: number;
     /** Moltiplicatore di interlinea rispetto al fontSize. Default: 1.4. */
     lineHeight?: number;
-    /**
-     * true  → il testo viene spezzato automaticamente a maxWidth (testo breve/medio)
-     * false → si rispettano solo i \n espliciti; la canvas si adatta al testo (titoli, tag)
-     */
-    wordWrap?: boolean;
+    /** Modalità di layout. Default: 'wrap'. */
+    renderMode?: ImgRenderMode;
 }
 
 /**
@@ -63,7 +73,7 @@ export interface ImgBuildResolved {
     ratio: '4:3' | '16:9' | '1:1' | '9:16';
     maxWidth: number;
     lineHeight: number;
-    wordWrap: boolean;
+    renderMode: ImgRenderMode;
 }
 
 // ─── Servizio ──────────────────────────────────────────────────────────────────
@@ -102,7 +112,7 @@ export class ImgBuilderService {
         const r = this.resolveOptions(opts);
         const { svg, width, height } = ImgBuilderService.buildSvg(
             text, r.bgColor, r.textColor, r.fontSize, r.fontFamily,
-            r.ratio, r.maxWidth, r.lineHeight, r.wordWrap,
+            r.ratio, r.maxWidth, r.lineHeight, r.renderMode,
         );
 
         return new Promise((resolve, reject) => {
@@ -152,11 +162,11 @@ export class ImgBuilderService {
             bgColor: opts.bgColor ?? this.theme.colorTema(),
             textColor: opts.textColor ?? this.theme.colorTemaText(),
             fontSize: opts.fontSize ?? 40,
-            fontFamily: FontConfig.WEB_FONTS[opts.fontFamily ?? 'System'],
+            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_WEB_FONT,
             ratio: opts.ratio ?? '4:3',
-            maxWidth: opts.maxWidth ?? 1200,
+            maxWidth: opts.maxWidth ?? 1000,
             lineHeight: opts.lineHeight ?? 1.4,
-            wordWrap: opts.wordWrap ?? true,
+            renderMode: opts.renderMode ?? 'wrap',
         };
     }
 
@@ -167,23 +177,6 @@ export class ImgBuilderService {
     // devono essere passati esplicitamente dal chiamante.
     // ============================================================
 
-    /**
-     * Calcola il layout del testo e produce la stringa SVG XML pronta per il rendering.
-     *
-     * Restituisce anche le dimensioni finali perché il chiamante ne ha bisogno per
-     * impostare canvas.width/height (browser) o il tag <svg width/height> (server).
-     *
-     * ── Modalità wordWrap:false ──
-     *   Il testo comanda: si misura il testo, si calcola il canvas di conseguenza.
-     *   Utile per titoli brevi e tag dove il testo non deve mai andare a capo in modo inatteso.
-     *
-     * ── Modalità wordWrap:true ──
-     *   maxWidth comanda: il testo va a capo entro la larghezza indicata.
-     *   Utile per descrizioni più lunghe con layout prevedibile.
-     *
-     * In entrambe le modalità il rapporto d'aspetto `ratio` viene rispettato:
-     * se il contenuto è più "largo" del ratio si aggiunge altezza, e viceversa.
-     */
     static buildSvg(
         text: string,
         bgColor: string,
@@ -193,8 +186,18 @@ export class ImgBuilderService {
         ratio: '4:3' | '16:9' | '1:1' | '9:16',
         maxWidth: number,
         lineHeight: number,
-        wordWrap: boolean,
+        renderMode: ImgRenderMode,
     ): { svg: string; width: number; height: number } {
+
+        // Nel browser: crea un canvas temporaneo per misurare il testo con le metriche reali del font.
+        // Nel server (SSR/Node): measureFn resta undefined → wrapText userà la stima 0.55.
+        let measureFn: ((t: string) => number) | undefined;
+        if (typeof document !== 'undefined') {
+            const offscreen = document.createElement('canvas');
+            const ctx = offscreen.getContext('2d')!;
+            ctx.font = `700 ${fontSize}px ${fontFamily}`;
+            measureFn = (t: string) => ctx.measureText(t).width;
+        }
 
         // Il padding è proporzionale al font: testi grandi hanno margini grandi.
         const paddingPx = fontSize * 2;
@@ -205,19 +208,16 @@ export class ImgBuilderService {
         let finalHeight: number;
         let lines: string[];
 
-        if (!wordWrap) {
-            // ── Modalità free-size: il contenuto guida le dimensioni ──────────────
-            // Rispetta solo i \n espliciti, nessun word-wrap automatico.
+        const measure = measureFn ?? ((t: string) => ImgBuilderService.approxTextWidth(t, fontSize));
+
+        if (renderMode === 'exactInLine') {
+            // ── Nessun wrap: il contenuto guida le dimensioni ─────────────────────
             lines = normalizedText.split('\n').map(l => l.trim() || ' ');
 
-            // Larghezza del testo più lungo + padding sui due lati
-            const larghezzaMassimaTestoPx = Math.max(...lines.map(l => ImgBuilderService.approxTextWidth(l, fontSize)));
+            const larghezzaMassimaTestoPx = Math.max(...lines.map(l => measure(l)));
             const contentW = larghezzaMassimaTestoPx + paddingPx * 2;
-            // Altezza totale delle righe + padding sopra e sotto
             const contentH = lines.length * (fontSize * lineHeight) + paddingPx * 2;
 
-            // Rispettiamo il ratio espandendo la dimensione "corta":
-            // se il contenuto è più largo del ratio, l'altezza si adegua; altrimenti la larghezza.
             if (contentW / contentH > targetRatio) {
                 finalWidth = contentW;
                 finalHeight = contentW / targetRatio;
@@ -226,24 +226,36 @@ export class ImgBuilderService {
                 finalWidth = contentH * targetRatio;
             }
 
-        } else {
-            // ── Modalità word-wrap: maxWidth guida, il testo si adatta ───────────
+        } else if (renderMode === 'wrap') {
+            // ── Larghezza fissa a maxWidth, altezza segue il contenuto ────────────
             const larghezzaDisponibilePx = maxWidth - paddingPx * 2;
-            lines = ImgBuilderService.wrapText(normalizedText, larghezzaDisponibilePx, fontSize);
+            lines = ImgBuilderService.wrapText(normalizedText, larghezzaDisponibilePx, fontSize, measureFn);
 
-            const larghezzaMassimaTestoPx = Math.max(...lines.map(l => ImgBuilderService.approxTextWidth(l, fontSize)));
             const altezzaTotaleTestoPx = lines.length * (fontSize * lineHeight);
+            finalWidth = maxWidth;
+            finalHeight = Math.max(altezzaTotaleTestoPx + paddingPx * 2, finalWidth / targetRatio);
 
-            // La larghezza del canvas si stringe alla riga più lunga (+ padding)
-            finalWidth = larghezzaMassimaTestoPx + paddingPx * 2;
-            finalHeight = altezzaTotaleTestoPx + paddingPx * 2;
+        } else {
+            // ── fixedRatio: il ratio comanda, margini dinamici, ri-wrapping ───────
+            let larghezza = maxWidth;
+            let padding = larghezza * 0.05;
+            lines = ImgBuilderService.wrapText(normalizedText, larghezza - padding * 2, fontSize, measureFn);
 
-            // Adeguamento al ratio identico alla modalità free-size
-            if (finalWidth / finalHeight > targetRatio) {
-                finalHeight = finalWidth / targetRatio;
+            let altezza = lines.length * (fontSize * lineHeight) + padding * 2;
+            if (larghezza / altezza < targetRatio) {
+                larghezza = altezza * targetRatio;
+                padding = larghezza * 0.05;
+                lines = ImgBuilderService.wrapText(normalizedText, larghezza - padding * 2, fontSize, measureFn);
+                altezza = lines.length * (fontSize * lineHeight) + padding * 2;
+                if (larghezza / altezza > targetRatio) {
+                    altezza = larghezza / targetRatio;
+                }
             } else {
-                finalWidth = finalHeight * targetRatio;
+                altezza = larghezza / targetRatio;
             }
+
+            finalWidth = larghezza;
+            finalHeight = altezza;
         }
 
         // Clamp finale: evita dimensioni fuori controllo per testi molto lunghi o molto corti
@@ -324,17 +336,14 @@ export class ImgBuilderService {
     /**
      * Spezza il testo in righe che stanno entro maxWidthPx.
      *
-     * Non usa canvas.measureText (non disponibile lato server): stima la larghezza
-     * di ogni carattere come `fontSize * 0.55`, un valore conservativo calibrato
-     * per font sans-serif proporzionali. Caratteri più stretti (es. 'i', 'l') sono
-     * sovrastimati, ma è preferibile andare a capo un po' prima che uscire dal bordo.
+     * Se measureFn è fornita (es. ctx.measureText nel browser) misura la larghezza
+     * reale di ogni stringa. Altrimenti usa la stima fontSize * 0.55 (SSR/server).
      *
      * Gestisce anche il caso in cui una singola parola sia più lunga della riga:
-     * in quel caso la parola viene spezzata per carattere.
+     * in quel caso la parola viene spezzata carattere per carattere.
      */
-    static wrapText(text: string, maxWidthPx: number, fontSizePx: number): string[] {
-        const larghezzaMediaCaratterePx = fontSizePx * 0.55;
-        const maxCaratteriPerRiga = Math.max(1, Math.floor(maxWidthPx / larghezzaMediaCaratterePx));
+    static wrapText(text: string, maxWidthPx: number, fontSizePx: number, measureFn?: (t: string) => number): string[] {
+        const measure = measureFn ?? ((t: string) => t.length * fontSizePx * 0.55);
 
         return text.split('\n').flatMap(paragrafo => {
             const p = paragrafo.trim();
@@ -347,21 +356,25 @@ export class ImgBuilderService {
 
             for (const parola of parole) {
                 // Parola più lunga della riga: spezzala carattere per carattere
-                if (parola.length > maxCaratteriPerRiga) {
+                if (measure(parola) > maxWidthPx) {
                     if (rigaCorrente) { righe.push(rigaCorrente); rigaCorrente = ''; }
-                    for (let i = 0; i < parola.length; i += maxCaratteriPerRiga) {
-                        const slice = parola.slice(i, i + maxCaratteriPerRiga);
-                        // L'ultimo pezzo diventa l'inizio della riga corrente (potrebbe continuare)
-                        if (i + maxCaratteriPerRiga >= parola.length) rigaCorrente = slice;
-                        else righe.push(slice);
+                    for (const char of parola) {
+                        const candidato = rigaCorrente ? rigaCorrente + char : char;
+                        if (measure(candidato) > maxWidthPx && rigaCorrente) {
+                            righe.push(rigaCorrente);
+                            rigaCorrente = char;
+                        } else {
+                            rigaCorrente = candidato;
+                        }
                     }
                     continue;
                 }
                 // Prima parola della riga corrente
                 if (!rigaCorrente) { rigaCorrente = parola; continue; }
                 // La parola ci sta: aggiungila alla riga corrente
-                if (rigaCorrente.length + 1 + parola.length <= maxCaratteriPerRiga) {
-                    rigaCorrente += ' ' + parola;
+                const candidato = rigaCorrente + ' ' + parola;
+                if (measure(candidato) <= maxWidthPx) {
+                    rigaCorrente = candidato;
                 } else {
                     // Non ci sta: chiudi la riga corrente e inizia una nuova
                     righe.push(rigaCorrente);

@@ -1,6 +1,5 @@
 import { inject } from '@angular/core';
 import { buildSite } from './siteBuilder';
-import { ApiService } from './core/services/api.service';
 
 export type {
     SiteConfig,
@@ -116,7 +115,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         {
             path: '',
             title: 'home',
-            enabled: true,
             pageType: PageType.Home,
             description: 'homeDesc',
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
@@ -124,26 +122,20 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         {
             path: 'social-feed',
             title: 'social',
-            enabled: true,
             pageType: PageType.Social,
             description: 'socialDesc',
             renderMode: 'server',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
             showPanel: false,
-            resolve: {
-                social: () => inject(ApiService).getSocial(),
-            },
         },
         {
             path: 'legale',
             title: 'policies',
-            enabled: true,
             children: [
                 {
                     path: 'privacy',
                     title: 'privacypolicy',
                     description: 'privacyPolicyDesc',
-                    enabled: true,
                     pageType: PageType.PrivacyPolicy,
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
@@ -151,7 +143,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     path: 'termini',
                     title: 'termsofservice',
                     description: 'termsOfServiceDesc',
-                    enabled: true,
                     pageType: PageType.TermsOfService,
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
@@ -159,7 +150,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     path: 'cookie',
                     title: 'cookiepolicy',
                     description: 'cookiePolicyDesc',
-                    enabled: true,
                     pageType: PageType.CookiePolicy,
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 },
@@ -167,7 +157,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
                     path: 'legal',
                     title: 'legalnotice',
                     description: 'legalNoticeDesc',
-                    enabled: false,
                     pageType: PageType.LegalNotice,
                     component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
                 }

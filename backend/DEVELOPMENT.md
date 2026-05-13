@@ -1,7 +1,9 @@
 # Backend — Guida allo sviluppo
 
-Questo file spiega i pattern stabiliti nel progetto per aggiungere nuove funzionalità.  
-Il README è l'overview del progetto; qui si entra nel dettaglio del "come si fa".
+Questa guida è rivolta a chi usa Br1WebEngine come template base e vuole estenderlo: aggiungere endpoint, servizi, store o logica di sicurezza seguendo i pattern già stabiliti.
+
+Per l'overview del progetto, la configurazione e il deploy → [`README.md`](../README.md).  
+Per i pattern lato frontend → [`frontend/DEVELOPMENT.md`](../frontend/DEVELOPMENT.md).
 
 ---
 
@@ -14,6 +16,9 @@ Il README è l'overview del progetto; qui si entra nel dettaglio del "come si fa
 - [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database)
 - [Endpoint protetti da login JWT](#endpoint-protetti-da-login-jwt)
 - [Configurazione (appsettings.json)](#configurazione-appsettingsjson)
+- [Content store](#content-store)
+- [Login condizionale (JWT)](#login-condizionale-jwt)
+- [Servizi registrati](#servizi-registrati)
 
 ---
 
@@ -36,6 +41,28 @@ Store/                ← Accesso dati (IContentStore / FileContentStore)
 Models/               ← DTO, modelli, eccezioni API
 Security/             ← Autenticazione, autorizzazione, middleware
 ```
+
+### API esposte
+
+| Metodo | Path | Auth | Note |
+|---|---|---|---|
+| `GET` | `/api/profile` | API key | Profilo aziendale localizzato in base ad `Accept-Language` |
+| `GET` | `/api/social` | API key | Lista social; filtro opzionale con query param `nomi` |
+| `GET` | `/api/blob/{slug}` | API key | File dal volume `/app/uploads`; path traversal bloccato; `Content-Type` rilevato dall'estensione |
+| `POST` | `/api/auth/login` | API key | Body `{ "pwd": "..." }`; esposto solo quando `LoginEnabled = true` |
+| `GET` | `/health` | nessuna | Health check del processo |
+
+Gli endpoint in `ProtectedController` richiedono API key + JWT e sono inaccessibili finché `LoginEnabled = false`.
+
+### Controller astratti dell'engine
+
+| Controller astratto | Cosa eredita il concreto |
+|---|---|
+| `EngineApiController` | `[ApiController]`, `[Authorize]` (API key), `ILogger` |
+| `EngineAuthController` | Come sopra + `AuthService` per generare il token JWT |
+| `EngineProtectedController` | Come sopra + policy `RequireLogin` (API key + JWT ruolo `Authenticated`) |
+
+Il controller concreto aggiunge solo `[Route]` e i metodi endpoint. Non ripete `[Authorize]` né il wiring delle dipendenze comuni.
 
 **Flusso di una richiesta:**
 
@@ -473,3 +500,44 @@ public MioService(IOptions<MieOpzioni> opzioni)
   }
 }
 ```
+
+---
+
+## Content store
+
+`IContentStore` definisce il contratto di accesso ai dati (`GetProfileAsync`, `GetSocialAsync`) senza sapere dove risiedano. `SiteService` dipende solo dall'interfaccia: filtra i social, localizza il profilo e non conosce il formato di persistenza.
+
+L'implementazione attiva, `FileContentStore`, legge da `backend/data/`. Internamente usa `LocalizedJsonDeserializer`, che percorre ricorsivamente le strutture `{ "it": ..., "en": ... }` presenti nel JSON, sceglie la lingua richiesta, ricade sul fallback italiano e scarta i nodi vuoti.
+
+Per sostituire la sorgente dati (es. database) basta implementare `IContentStore` e registrarla in `Program.cs` — vedi la sezione [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database).
+
+### Dati inclusi nel template
+
+| File | Contenuto |
+|---|---|
+| `backend/data/social.json` | 32 social network preconfigurati (nome + URL placeholder) |
+| `backend/data/irl.json` | Profilo aziendale con campi localizzati `it`/`en`: ragione sociale, P.IVA, sede legale, contatti, dati societari |
+
+---
+
+## Login condizionale (JWT)
+
+Il sistema JWT si attiva o disattiva in base a una sola condizione: il valore di `Security.Token.SecretKey` in `appsettings.json`.
+
+| Condizione | Effetto |
+|---|---|
+| `SecretKey` vuota | `LoginEnabled = false`: nessun `AuthService`, nessun middleware JWT, nessun overhead. `AuthController` e `ProtectedController` non vengono registrati dal `FeatureProvider` |
+| `SecretKey` valorizzata | `LoginEnabled = true`: `AuthService` singleton registrato, middleware JWT Bearer attivo, policy `RequireLogin` applicabile |
+| `SecretKey` < 32 caratteri | Il server lancia un'eccezione all'avvio (HMAC-SHA256 richiede chiavi sufficientemente lunghe) |
+
+Il token JWT viene generato da `AuthService.GenerateToken()` e restituito al frontend, che lo conserva in `sessionStorage` (sopravvive al refresh, si cancella alla chiusura del tab). Le richieste successive lo inviano nell'header `Authorization: Bearer`.
+
+---
+
+## Servizi registrati
+
+| Servizio | Lifetime | Ruolo |
+|---|---|---|
+| `FileContentStore` | Singleton | Legge contenuti da `backend/data/*.json` |
+| `SiteService` | Scoped | Filtro social, localizzazione profilo |
+| `AuthService` | Singleton (condizionale) | Generazione token JWT; registrato solo se `LoginEnabled = true` |

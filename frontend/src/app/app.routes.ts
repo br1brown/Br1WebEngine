@@ -63,7 +63,6 @@ function buildRoutes(pages: InternalSitePage[]): Routes {
 function toAngularRoute(page: InternalSitePage): Route {
     const route: Route = {
         path: page.path,
-        title: page.title,
         // Applica la guard solo se richiesto esplicitamente nella configurazione.
         canActivate: page.requiresAuth ? [authGuard] : [],
         data: {
@@ -86,11 +85,7 @@ function toAngularRoute(page: InternalSitePage): Route {
             ogImage: page.ogImage ?? null,
         };
 
-        if (page.resolve) {
-            route.resolve = page.resolve;
-        } else {
-            route.resolve = { contentByResolve: contentLoaderResolver(page.pageType) };
-        }
+        route.resolve = { contentByResolve: contentLoaderResolver(page.pageType) };
 
     }
 

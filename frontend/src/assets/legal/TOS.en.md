@@ -1,23 +1,18 @@
 # Terms of Service
 
-## Acceptance of terms
-
-By using this website, you fully accept these Terms of Service. If you do not agree, please do not use the site.
+## Introduction
+Access to and use of this website are governed by these Terms, which aim to define usage rules and protect intellectual property. By remaining on the site, you acknowledge these conditions.
 
 ## Use of the service
-
-The service is provided "as is". Users agree to use it lawfully and in compliance with applicable regulations.
+The service is provided "as is". Users agree to use the site lawfully, refraining from automated scraping or security breach attempts.
 
 ## Intellectual property
-
-All content on this site (text, images, logos, graphics) is protected by intellectual property law and may not be reproduced without authorisation.
+All content (text, images, logos, graphics) is owned by **{{ragioneSociale}}** or its licensors and is protected by law. Unauthorised reproduction is prohibited.
 
 ## Limitation of liability
-
-The site owner is not liable for any direct or indirect damages arising from the use or inability to use the service.
+The owner is not liable for damages arising from the use of the site or technical service interruptions.
 
 ## Changes to terms
+These terms may be updated at any time to reflect technical or legal changes.
 
-These terms may be amended at any time. Changes will be published on this page with the date of the latest update.
-
-**Last revised:** 2024-01-01
+**Last revised:** May 14, 2026

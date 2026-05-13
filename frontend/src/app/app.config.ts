@@ -9,9 +9,8 @@ import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideZon
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
-import { provideRouter, TitleStrategy, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
-import { AppTitleStrategy } from './core/services/app-title.strategy';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
@@ -46,12 +45,6 @@ export const appConfig: ApplicationConfig = {
 
         // HttpClient con supporto fetch: migliore performance, compatibilità e gestione errori
         provideHttpClient(withFetch()),
-
-        // Ogni volta che qualcuno nel codice chiede TitleStrategy
-        //non dargli quello standard dagli invece AppTitleStrategy
-        { provide: TitleStrategy, useClass: AppTitleStrategy },
-        //Se qualcuno chiede specificamente AppTitleStrategy, usa l'istanza che hai già creato per TitleStrategy
-        { provide: AppTitleStrategy, useExisting: TitleStrategy },
 
         /** Inizializzazione app: sessione, traduzioni, tema */
         provideAppInitializer(async () => {

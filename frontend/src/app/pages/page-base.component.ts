@@ -4,17 +4,25 @@ import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
 import { NotificationService } from '../core/services/notification.service';
 import { TranslateService } from '../core/services/translate.service';
+import { PageMetaService } from '../core/services/page-meta.service';
 import { PageType } from '../site';
-import { ContentResolver } from './content.resolver';
+import { ContentResolver, ResolvedPage } from './content.resolver';
 
 /**
- * Base comune per le pagine con resolver: espone pageContent (aggiornato ad ogni cambio lingua),
- * translate, api, asset, notify già pronti. Per nuove sorgenti dati aggiungere un case in ContentResolver.
- * Per titoli dinamici usare PageMetaService; vedi DEVELOPMENT.md → "Meta SEO e SSR".
+ * Base comune per tutte le pagine.
+ *
+ * Il generic T descrive il tipo del contenuto caricato dal resolver:
+ *   class ArticoloComponent extends PageBaseComponent<ArticoloDTO> { ... }
+ *
+ * pageContent() è già tipizzato come T | null — nessun cast nei componenti figli.
+ *
+ * I meta tag SEO (titolo, descrizione, og:image) vengono aggiornati automaticamente
+ * via effect() ogni volta che il contenuto cambia, incluso il cambio lingua.
  */
 @Directive()
-export abstract class PageBaseComponent {
+export abstract class PageBaseComponent<T> {
     private readonly contentResolverService = inject(ContentResolver);
+    private readonly pageMeta = inject(PageMetaService);
     private readonly platformId = inject(PLATFORM_ID);
     readonly translate = inject(TranslateService);
     readonly api = inject(ApiService);
@@ -25,25 +33,36 @@ export abstract class PageBaseComponent {
     protected readonly pageType = input.required<PageType>();
 
     /** Dati grezzi dal resolver al momento della navigazione (SSR + client). */
-    protected readonly contentByResolve = input<any>(null);
+    protected readonly contentByResolve = input<ResolvedPage<T> | null>(null);
 
     /** Aggiornato dal browser ad ogni cambio lingua tramite ContentResolverService. */
-    private readonly _liveContent = signal<any>(null);
+    private readonly _liveResolved = signal<ResolvedPage<unknown> | null>(null);
+
+    private readonly _resolved = computed(() => this._liveResolved() ?? this.contentByResolve());
 
     /**
-     * Contenuto sempre aggiornato della pagina corrente.
+     * Contenuto sempre aggiornato della pagina corrente, tipizzato come T.
      * SSR / primo render → contentByResolve() dal router.
-     * Browser dopo idratazione → _liveContent() aggiornato ad ogni cambio lingua.
-     * Castare al tipo atteso nel componente: computed(() => this.pageContent() as MioTipo).
+     * Browser dopo idratazione aggiornato ad ogni cambio lingua.
      */
-    protected readonly pageContent = computed(() => this._liveContent() ?? this.contentByResolve());
+    protected readonly pageContent = computed<T | null>(() =>
+        (this._resolved()?.content ?? null) as T | null
+    );
 
     constructor() {
+        effect(() => {
+            const info = this._resolved()?.info;
+            if (!info) return;
+            const title = info.title ? this.translate.translate(info.title) : '';
+            const description = info.description ? this.translate.translate(info.description) : null;
+            this.pageMeta.setTitle(title, description, info.ogImage, info.ogType, info.structuredDataType);
+        });
+
         if (isPlatformBrowser(this.platformId)) {
             effect(() => {
                 const lang = this.translate.currentLang();
                 this.contentResolverService.loadResolved(this.pageType(), lang)
-                    .then(data => this._liveContent.set(data));
+                    .then(data => this._liveResolved.set(data));
             });
         }
     }

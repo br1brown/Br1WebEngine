@@ -1,24 +1,32 @@
 # Legal Notice
 
 ## Website owner
+This website is owned and operated by **{{ragioneSociale}}**.
 
-This website is owned and operated by **[Company Name]**, registered at **[Address]**.
+### Registered address
+{{indirizzo}}
 
-- VAT number: **[VAT]**
-- Tax code: **[Tax Code]**
-- Companies register: **[Register]**
-- REA number: **[REA]**
+### Registration details
+- **VAT number:** {{partitaIva}}
+- **Tax identification code:** {{codiceFiscale}}
+- **REA number:** {{numeroRea}}
+- **Company register:** {{registroImprese}}
 
-## Terms of use
+### Contacts
+- **Phone:** {{telefono}}
+- **Email:** {{email}}
+- **PEC:** {{pec}}
 
-Access to and browsing of this website does not require registration. The owner reserves the right to modify the content at any time without prior notice.
+### Legal representative
+{{rappresentanteLegale}}
+
+## Hosting and technical management
+The website is hosted on cloud infrastructure. To report technical issues, contact the owner at the details provided above.
 
 ## Liability
+The owner is not responsible for misuse of the site's content by third parties, damages arising from access or inability to access the site, or intellectual property violations committed by third parties.
 
-The owner is not responsible for any misuse of the site's content by third parties, nor for any damages arising from access to or inability to access the site.
+## Applicable law
+This website and its conditions of use are governed by Italian law.
 
-## Applicable law and jurisdiction
-
-This website and its terms of use are governed by Italian law. Any disputes shall fall under the jurisdiction of the Court of **[City]**.
-
-**Last revised:** 2024-01-01
+**Last revised:** May 14, 2026

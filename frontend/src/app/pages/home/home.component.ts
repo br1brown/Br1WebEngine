@@ -29,7 +29,7 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
     templateUrl: './home.component.html',
     styleUrl: './home.component.css'
 })
-export class HomeComponent extends PageBaseComponent {
+export class HomeComponent extends PageBaseComponent<void> {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
     private readonly imgBuilder = inject(ImgBuilderService);
@@ -53,7 +53,7 @@ export class HomeComponent extends PageBaseComponent {
     imgText = 'Hello World';
     imgBgColor = this.theme.colorPrimary();
     imgTextColor = this.theme.colorPrimaryText();
-    imgFontSize = 25;
+    imgFontSize = 60;
 
     // --- QR Code playground ---
     qrType: QrConfig['type'] = 'text';
@@ -190,7 +190,7 @@ export class HomeComponent extends PageBaseComponent {
     async renderHomeImage(): Promise<void> {
         this._imgCanvas = await this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
             fontSize: this.imgFontSize,
-            wordWrap: false,
+            renderMode: 'wrap',
         });
         if (!this._imgCanvas) return;
         this.imgPreviewUrl.set(this._imgCanvas.toDataURL('image/png'));

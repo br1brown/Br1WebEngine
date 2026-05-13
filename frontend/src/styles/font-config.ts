@@ -41,9 +41,9 @@ export class FontConfig {
         Liberation: '"Liberation Sans", "Apple Color Emoji", "Segoe UI Emoji", sans-serif',
     } as const;
 
-    /** Font di default per il browser e Canvas. Arial è universale e corrisponde metricamente a Liberation (server). */
-    static readonly DEFAULT_WEB_FONT = FontConfig.WEB_FONTS.Arial;
+    /** Font di default per il browser e Canvas.. */
+    static readonly DEFAULT_WEB_FONT = FontConfig.WEB_FONTS.System;
 
-    /** Font di default per le immagini OG. Liberation Sans è metricamente compatibile con Arial (web). */
+    /** Font di default per le immagini OG. */
     static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation;
 }

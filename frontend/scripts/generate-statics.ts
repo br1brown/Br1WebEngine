@@ -2,9 +2,10 @@
  * Sincronizza i file statici con la configurazione centrale del sito.
  *
  * Aggiorna:
- * - src/index.html        → lang, title, theme-color, meta PWA
+ * - src/index.html           → lang, title, theme-color, meta PWA
  * - public/manifest.webmanifest → nome, descrizione, colori
- * - public/sitemap.xml    → tutte le pagine indicizzabili
+ * - public/sitemap.xml       → tutte le pagine indicizzabili
+ * - public/robots.txt        → user-agent, disallow, sitemap URL
  *
  * Eseguire con:
  *   npm run generate:statics
@@ -12,7 +13,7 @@
  * Variabile d'ambiente:
  *   FRONTEND_BASE_URL — URL base del sito (default: https://example.com con warning)
  *
- * Esclusioni sitemap automatiche (gestite dal siteBuilder):
+ * Esclusioni sitemap e robots automatiche (gestite dal siteBuilder):
  *   - Pagine disabilitate (enabled: false)
  *   - Pagine esterne (externalUrl)
  *   - Pagine protette da autenticazione (requiresAuth: true)
@@ -30,6 +31,7 @@ const ROOT = join(__dirname, '..');
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
+const ROBOTS = join(ROOT, 'public', 'robots.txt');
 const BASE_URL = process.env['FRONTEND_BASE_URL'] || 'https://example.com';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -205,12 +207,25 @@ function updateSitemap(): void {
     }
 }
 
+// ── Generazione robots.txt ────────────────────────────────────────────────
+
+function updateRobots(): void {
+    const robotsTxt = `User-agent: *
+Allow: /
+Sitemap: ${BASE_URL}/sitemap.xml
+`;
+
+    writeFileSync(ROBOTS, robotsTxt, 'utf8');
+    console.log(`[statics] robots.txt aggiornato`);
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────
 
 function main(): void {
     updateIndexHtml();
     updateManifest();
     updateSitemap();
+    updateRobots();
 }
 
 main();

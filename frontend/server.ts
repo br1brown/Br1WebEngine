@@ -8,7 +8,7 @@ import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from './src/app/app.config';
 import { ContestoSito } from './src/app/site';
 import { ImgBuilderService } from './src/app/core/services/img-builder.service';
-import { FontConfig } from './src/app/core/font-config';
+import { FontConfig } from './src/styles/font-config';
 import {
     AngularNodeAppEngine,
     createNodeRequestHandler,

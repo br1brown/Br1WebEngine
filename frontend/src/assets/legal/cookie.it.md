@@ -1,23 +1,13 @@
 # Cookie Policy
 
 ## Cosa sono i cookie
-
-I cookie sono piccoli file di testo che vengono memorizzati sul dispositivo dell'utente quando visita un sito web. Vengono utilizzati per migliorare l'esperienza di navigazione.
+I cookie sono piccoli file di testo memorizzati sul dispositivo dell'utente per migliorare l'esperienza di navigazione.
 
 ## Come usiamo i cookie
-
-Utilizziamo cookie tecnici necessari al funzionamento del sito e, se configurati nel progetto, eventuali strumenti analitici per comprendere come gli utenti interagiscono con il sito.
-
-### Cookie tecnici utilizzati
-
-- `lang`: memorizza la lingua selezionata dall'utente (`it` o `en`) per mantenere la preferenza nei successivi caricamenti della pagina.
+Il sito utilizza esclusivamente **cookie tecnici** necessari al funzionamento della piattaforma (memorizzazione lingua, tema, impostazioni).
+Non vengono utilizzati cookie a scopo di tracciamento, profilazione commerciale o pubblicità. Non integriamo servizi di analytics di terze parti.
 
 ## Controllo dei cookie
+È possibile gestire i cookie attraverso le impostazioni del browser (disabilitazione, eliminazione, notifiche).
 
-Puoi controllare e gestire i cookie attraverso le impostazioni del tuo browser. La disabilitazione di alcuni cookie potrebbe influire sulla funzionalità del sito.
-
-## Modifiche all'informativa
-
-Eventuali modifiche a questa Informativa verranno pubblicate su questa pagina con indicazione della data di aggiornamento.
-
-**Ultima revisione:** 2026-03-24
+**Ultima revisione:** 14 maggio 2026

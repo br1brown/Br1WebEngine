@@ -1,10 +1,9 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet, RouterStateSnapshot } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
-import { AppTitleStrategy } from './core/services/app-title.strategy';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
 import { FooterComponent } from './layout/footer/footer.component';
@@ -31,9 +30,8 @@ import { TranslatePipe } from './shared/pipes/translate.pipe';
 })
 export class AppComponent {
     private readonly router = inject(Router);
-    private readonly translate = inject(TranslateService);
-    private readonly titleStrategy = inject(AppTitleStrategy);
     readonly theme = inject(ThemeService);
+    private readonly translate = inject(TranslateService);
 
 
     readonly smoke = ContestoSito.config.smoke;
@@ -62,12 +60,6 @@ export class AppComponent {
 
     constructor() {
         inject(VersionCheckService).init();
-
-        effect(() => {
-            // Traccia il cambio lingua: riesegue title e meta senza navigazione.
-            this.translate.currentLang();
-            this.titleStrategy.refresh(this.router.routerState.snapshot);
-        });
     }
 }
 

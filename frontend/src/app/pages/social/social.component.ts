@@ -18,10 +18,9 @@ import { PageBaseComponent } from '../page-base.component';
     imports: [SocialLinkComponent],
     templateUrl: './social.component.html'
 })
-export class SocialComponent extends PageBaseComponent {
-    readonly social = input<Record<string, string>>();
+export class SocialComponent extends PageBaseComponent<Record<string, string>> {
 
     readonly socialLinks = computed(() =>
-        Object.entries(this.social() ?? {}).map(([type, url]) => ({ type, url }))
+        Object.entries(this.pageContent() ?? {}).map(([type, url]) => ({ type, url }))
     );
 }

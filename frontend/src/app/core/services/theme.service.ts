@@ -1,7 +1,7 @@
 import { Injectable, effect, computed, signal, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ContestoSito } from '../../site';
-import { FontConfig } from '../font-config';
+import { FontConfig } from '../../../styles/font-config';
 
 /**
  * THEME SERVICE
@@ -26,6 +26,12 @@ export class ThemeService {
      * Deroga intenzionale: i pannelli bianchi risultano più leggibili sopra sfondi scenografici.
      */
     readonly panelForcedLight = signal(true);
+
+    /** true se l'utente ha preferenza media query prefers-reduced-motion: reduce */
+    readonly prefersReducedMotion = computed(() => {
+        if (typeof window === 'undefined') return false;
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    });
 
     // ── Computed: si aggiornano automaticamente al cambio di colorTema ────────
 
