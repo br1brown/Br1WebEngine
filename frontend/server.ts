@@ -8,6 +8,7 @@ import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from './src/app/app.config';
 import { ContestoSito } from './src/app/site';
 import { ImgBuilderService } from './src/app/core/services/img-builder.service';
+import { FontConfig } from './src/app/core/font-config';
 import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
@@ -345,7 +346,9 @@ app.get('/cdn-cgi/preview', async (req, res) => {
         const { colorTema, version, appName } = ContestoSito.config;
         const r = PreviewBuilder.resolve({ appName, title, subtitle, bgColor: colorTema });
 
-        // Chiave cache deterministica: stessi input e stessi default => stesso file
+        // Chiave cache deterministica: usa la version dalla config (non dal parametro URL).
+        // Aggiornare la version in site.ts invalida tutti i file cached lato server.
+        // Il parametro `v` nella URL serve solo per busting della cache browser/CDN.
         const keyData = JSON.stringify({ version, ...r });
         const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
         const cacheKey = `preview_${hash}.webp`;
@@ -361,7 +364,7 @@ app.get('/cdn-cgi/preview', async (req, res) => {
                 // Il resize visivo è delegato agli attributi width/height del tag <image> SVG:
                 // non ha senso degradare il sorgente prima, specie se l'icona è ad alta risoluzione.
                 let faviconDataUrl = '';
-                const faviconPath = resolveAssetPath('favicon');
+                const faviconPath = resolveAssetPath('favIcon');
                 if (faviconPath) {
                     faviconDataUrl = `data:image/png;base64,${readFileSync(faviconPath).toString('base64')}`;
                 }
@@ -500,13 +503,13 @@ class PreviewBuilder {
             textColor: opts.textColor ?? ImgBuilderService.getReadableTextColor(opts.bgColor),
             width: Math.max(1, Math.ceil(opts.width ?? 1200)),
             height: Math.max(1, Math.ceil(opts.height ?? 630)),
-            fontFamily: opts.fontFamily ?? `system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif`,
-            appFontSize: opts.appFontSize ?? 26,
-            titleFontSize: opts.titleFontSize ?? 54,
-            subtitleFontSize: opts.subtitleFontSize ?? 26,
-            faviconSize: opts.faviconSize ?? 64,
-            spacing: opts.spacing ?? 24,
-            horizontalPadding: opts.horizontalPadding ?? 80,
+            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_SERVER_FONT,
+            appFontSize: opts.appFontSize ?? 40,
+            titleFontSize: opts.titleFontSize ?? 70,
+            subtitleFontSize: opts.subtitleFontSize ?? 55,
+            faviconSize: opts.faviconSize ?? 200,
+            spacing: opts.spacing ?? 30,
+            horizontalPadding: opts.horizontalPadding ?? 50,
             titleLineHeight: opts.titleLineHeight ?? 1.25,
             subtitleLineHeight: opts.subtitleLineHeight ?? 1.4,
         };

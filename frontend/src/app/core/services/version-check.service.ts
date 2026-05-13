@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
+import { Injectable, NgZone, OnDestroy, PLATFORM_ID, inject } from '@angular/core';
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
@@ -8,7 +8,7 @@ const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * VERSION CHECK SERVICE
- * Monitora periodicamente se è stata rilasciata una nuova versione dell'applicazione.
+ * Monitora periodicamente se ï¿½ stata rilasciata una nuova versione dell'applicazione.
  * Se viene rilevato un aggiornamento, invita l'utente a ricaricare la pagina.
  */
 @Injectable({ providedIn: 'root' })
@@ -16,6 +16,7 @@ export class VersionCheckService implements OnDestroy {
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
     private readonly notify = inject(NotificationService);
+    private readonly ngZone = inject(NgZone);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     private currentVersion: string | null = null;
@@ -42,21 +43,27 @@ export class VersionCheckService implements OnDestroy {
 
         if (!this.currentVersion) return;
 
-        // Avvia il timer di controllo periodico
-        this.intervalId = setInterval(() => void this.check(), CHECK_INTERVAL_MS);
+        // Avvia il timer fuori dalla zona Angular: setInterval dentro NgZone
+        // mantiene l'app perennemente "instabile", bloccando l'idratazione SSR (NG0506).
+        this.ngZone.runOutsideAngular(() => {
+            this.intervalId = setInterval(
+                () => this.ngZone.run(() => void this.check()),
+                CHECK_INTERVAL_MS
+            );
+        });
     }
 
     /**
      * Esegue il controllo confrontando la versione locale con quella sul server.
      */
     private async check(): Promise<void> {
-        // Evita di mostrare più dialog contemporaneamente se l'utente non ha ancora risposto
+        // Evita di mostrare piï¿½ dialog contemporaneamente se l'utente non ha ancora risposto
         if (this.updateShown) return;
 
         try {
             /**
              * Scarica il manifest dell'app (webmanifest o un file JSON dedicato).
-             * 'cache: no-store' è CRITICO: forza il browser a ignorare la cache locale
+             * 'cache: no-store' ï¿½ CRITICO: forza il browser a ignorare la cache locale
              * e chiedere al server l'effettiva ultima versione disponibile.
              */
             const response = await fetch('/manifest.webmanifest', { cache: 'no-store' });
@@ -64,7 +71,7 @@ export class VersionCheckService implements OnDestroy {
 
             const manifest = await response.json() as { version?: string };
 
-            // Se la versione nel manifest è diversa da quella caricata in memoria...
+            // Se la versione nel manifest ï¿½ diversa da quella caricata in memoria...
             if (manifest.version && manifest.version !== this.currentVersion) {
                 this.updateShown = true;
                 this.showUpdateDialog();

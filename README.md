@@ -544,14 +544,14 @@ ImgBuilderService.buildSvg(text, bgColor, textColor, fontSize, fontFamily, ratio
 
 Tutti i campi di `opts` sono opzionali:
 - `bgColor` / `textColor`: colori del tema attivo; contrasto WCAG garantito da `ThemeService`
-- `fontSize`: 40px — `ratio`: `'4:3'` — `fontFamily`: Arial — `wordWrap`: true
+- `fontSize`: 40px — `ratio`: `'4:3'` — `fontFamily`: Arial o altri font web-safe — `wordWrap`: true
 - `maxWidth`: 1200px (usato solo con `wordWrap: true`) — `lineHeight`: 1.4
 
 Funzionalita' del renderer:
 - Word-wrap con stima larghezza carattere (`fontSize × 0.55`), senza accesso a DOM/canvas
 - Centratura verticale automatica del blocco testo
 - Rapporto d'aspetto configurabile: `'4:3'`, `'16:9'`, `'1:1'`, `'9:16'`
-- Font web-safe selezionabili (Arial, Georgia, Courier New, Verdana, Times) con emoji fallback
+- Font web-safe selezionabili da `FontConfig.WEB_FONTS` con emoji fallback automatico
 - In SSR `buildCanvas`, `buildBlob` e `buildFile` restituiscono `null`: il chiamante puo' gestire l'assenza di canvas senza guard di piattaforma
 
 Utile per banner, placeholder e immagini di condivisione social generate al volo.
@@ -792,12 +792,10 @@ Se vuoi, puoi tenere `DOCKER_README.md` come riferimento operativo dettagliato e
 
 ## Guide allo sviluppo
 
-I dettagli su come aggiungere pagine, servizi, componenti ed endpoint sono nelle guide dedicate:
+Questo progetto è strutturato per essere sviluppato in modo autonomo. I dettagli su come aggiungere pagine, servizi, componenti ed endpoint sono nelle guide dedicate:
 
 - **[`frontend/DEVELOPMENT.md`](frontend/DEVELOPMENT.md)** — pattern Angular: pagine, servizi, componenti, direttive, signal, SSR, i18n
 - **[`backend/DEVELOPMENT.md`](backend/DEVELOPMENT.md)** — pattern ASP.NET Core: endpoint, servizi, gestione errori, database, login, configurazione
-
-Il README rimane l'overview di cosa fa l'engine e come deployarlo; le guide coprono il come si estende.
 
 ## Licenza
 Questo progetto e' rilasciato sotto licenza MIT. Vedi [`LICENSE`](LICENSE).

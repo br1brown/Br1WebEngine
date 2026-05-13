@@ -1,20 +1,17 @@
 import { Injectable, effect, computed, signal, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ContestoSito } from '../../site';
+import { FontConfig } from '../font-config';
 
 /**
  * THEME SERVICE
  *
- * Unica fonte di verità per i colori del sito.
+ * Unica fonte di verità per colori e font del sito.
  * Gestisce il colore tema, calcola automaticamente i colori derivati (testo,
  * primario) tramite computed Signal, e sincronizza le variabili CSS sul DOM.
  *
- * I metodi statici (WCAG 2.1, mixing) sono puri e importabili anche da Node/server.ts
- * senza istanziare il servizio Angular, utile per generare immagini server-side.
- *
- * Configurazione iniziale: `colorTema` viene letto da `ContestoSito.config` in site.ts.
- * I colori derivati usano `color-mix()` in base.css per le varianti CSS; i valori
- * calcolati qui servono a chi ha bisogno del valore numerico (canvas, SVG, meta tag).
+ * I metodi e le proprietà statiche (WCAG 2.1, mixing) sono puri
+ * e importabili anche da Node/server.ts senza istanziare il servizio Angular.
  */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -81,8 +78,9 @@ export class ThemeService {
             const root      = this.doc.documentElement;
 
             if (root) {
-                // --colorTema alimenta tutte le variabili derivate definite in base.css
                 root.style?.setProperty('--colorTema', color);
+                root.style?.setProperty('--fontFamily', FontConfig.DEFAULT_WEB_FONT);
+                root.style?.setProperty('--bs-body-font-family', FontConfig.DEFAULT_WEB_FONT);
                 // data-theme-tone usato dai selettori CSS custom del template
                 root.setAttribute('data-theme-tone', themeTone);
                 // data-bs-theme attiva la palette chiara/scura di Bootstrap 5.3+

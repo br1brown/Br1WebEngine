@@ -1,8 +1,10 @@
 /* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
 
-/* §5 — Variabili CSS tema. ThemeService imposta solo --colorTema;
-   il browser calcola tutto il resto via color-mix(). */
+/* §5 — Variabili CSS tema. ThemeService imposta --colorTema e --fontFamily;
+   il browser calcola i colori derivati via color-mix().
+   --fontFamily è derivato da FontConfig.DEFAULT_WEB_FONT e impostato sempre da ThemeService. */
 :root {
+    --fontFamily: inherit;
     --colorTema: #212529;
     --colorBase: color-mix(in srgb, var(--colorTema), white 20%);
     --colorPrimary: color-mix(in srgb, var(--colorTema), black 40%);
@@ -32,6 +34,7 @@ html {
 }
 
 body {
+    font-family: var(--fontFamily);
     background-color: var(--colorBase);
 }
 

@@ -1,6 +1,7 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ThemeService } from './theme.service';
+import { FontConfig } from '../font-config';
 
 /**
  * IMG BUILDER SERVICE
@@ -33,12 +34,8 @@ export interface ImgBuildOptions {
     textColor?: string;
     /** Dimensione del font in pixel. Default: 40. */
     fontSize?: number;
-    /**
-     * Chiave del font nell'elenco interno (es. 'Arial', 'Georgia').
-     * Viene espansa nello stack CSS completo con emoji fallback.
-     * Se non corrisponde a nessuna chiave, il valore viene usato verbatim come font-family.
-     */
-    fontFamily?: string;
+    /** Chiave del font (es. 'Arial', 'Georgia'). Default: FontConfig.DEFAULT_WEB_FONT. */
+    fontFamily?: keyof typeof FontConfig.WEB_FONTS;
     /** Rapporto d'aspetto dell'immagine finale. Default: '4:3'. */
     ratio?: '4:3' | '16:9' | '1:1' | '9:16';
     /** Larghezza massima in pixel usata solo in modalità wordWrap:true. Default: 1200. */
@@ -81,19 +78,6 @@ export class ImgBuilderService {
     /** Dimensioni massime/minime assolute in pixel per evitare immagini aberranti. */
     private static readonly DIMENSIONE_MAX_PX = 8000;
     private static readonly DIMENSIONE_MIN_PX = 125;
-
-    /**
-     * Mappa nome-breve → stack CSS completo.
-     * Il suffisso emoji ('Apple Color Emoji', 'Segoe UI Emoji') fa sì che i caratteri
-     * emoji nel testo vengano renderizzati a colori invece di comparire come tofu.
-     */
-    private readonly fonts: Record<string, string> = {
-        'Arial': 'Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif',
-        'Georgia': 'Georgia, "Apple Color Emoji", "Segoe UI Emoji", serif',
-        'Courier New': '"Courier New", "Apple Color Emoji", "Segoe UI Emoji", monospace',
-        'Verdana': 'Verdana, "Apple Color Emoji", "Segoe UI Emoji", sans-serif',
-        'Times': '"Times New Roman", "Apple Color Emoji", "Segoe UI Emoji", serif',
-    };
 
     // ============================================================
     // ─── Metodi istanza (leggono i Signal del tema come default) ─
@@ -164,16 +148,11 @@ export class ImgBuilderService {
      * riempiendo i buchi con i valori correnti del tema.
      */
     private resolveOptions(opts: ImgBuildOptions): ImgBuildResolved {
-        // Se il chiamante passa 'Arial', cerchiamo lo stack completo nel dizionario;
-        // se non lo troviamo usiamo il valore grezzo (es. un font-family personalizzato).
-        const fontKey = opts.fontFamily ?? Object.keys(this.fonts)[0];
-        const fontStack = this.fonts[fontKey] ?? fontKey;
-
         return {
             bgColor: opts.bgColor ?? this.theme.colorTema(),
             textColor: opts.textColor ?? this.theme.colorTemaText(),
             fontSize: opts.fontSize ?? 40,
-            fontFamily: fontStack,
+            fontFamily: FontConfig.WEB_FONTS[opts.fontFamily ?? 'System'],
             ratio: opts.ratio ?? '4:3',
             maxWidth: opts.maxWidth ?? 1200,
             lineHeight: opts.lineHeight ?? 1.4,

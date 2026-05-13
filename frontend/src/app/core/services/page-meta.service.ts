@@ -39,7 +39,7 @@ export class PageMetaService {
     setTitle(
         pageTitle: string,
         description?: string | null,
-        imgId?: string | null,
+        imgId?: string | null | false,
     ): void {
 
         // Titolo browser: "Pagina | AppName", oppure solo "AppName" se pageTitle è vuoto
@@ -54,7 +54,7 @@ export class PageMetaService {
         this.meta.updateTag({ property: 'og:title', content: browserTitle });
 
         // Se presente, aggiorna la descrizione ovunque
-        if (description) {
+        if (!!description) {
             this.meta.updateTag({ name: 'description', content: description });
             this.meta.updateTag({ property: 'og:description', content: description });
             this.meta.updateTag({ name: 'twitter:description', content: description });
@@ -69,19 +69,23 @@ export class PageMetaService {
             try { return new URL(url).origin; } catch { return ''; }
         })();
 
+        this.meta.updateTag({ property: 'og:url', content: url });
+
         // Cache busting per le immagini tramite versione del sito
         const version = ContestoSito.config.version;
 
-        // Costruzione dell'URL assoluto per l'immagine (richiesto dai crawler social).
-        // pageTitle è già grezzo: nessuno strip necessario, il server lo usa direttamente.
-        const imageUrl = imgId
-            ? `${origin}${AssetService._UrlvirtualPathAsset(imgId, version)}`
-            : `${origin}${PageMetaService.buildDynamicPreviewPath(pageTitle || appName, description, version)}`;
-
-        // Applicazione dei tag per le anteprime grafiche
-        this.meta.updateTag({ property: 'og:url', content: url });
-        this.meta.updateTag({ property: 'og:image', content: imageUrl });
-        this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
+        // imgId === false → pagina senza immagine di anteprima: i tag vengono rimossi.
+        // imgId === string → asset statico. imgId === null/undefined → preview dinamica.
+        if (imgId === false) {
+            this.meta.removeTag('property="og:image"');
+            this.meta.removeTag('name="twitter:image"');
+        } else {
+            const imageUrl = imgId
+                ? `${origin}${AssetService._UrlvirtualPathAsset(imgId, version)}`
+                : `${origin}${PageMetaService.buildDynamicPreviewPath(pageTitle || appName, description, version)}`;
+            this.meta.updateTag({ property: 'og:image', content: imageUrl });
+            this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
+        }
 
         // Gestione del tag rel="canonical"
         this.updateCanonical(url);

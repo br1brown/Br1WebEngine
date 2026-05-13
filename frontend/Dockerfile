@@ -31,7 +31,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist/app ./dist/app
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-RUN chmod +x /docker-entrypoint.sh && \
+RUN apk add --no-cache fontconfig ttf-dejavu font-roboto font-noto-sans font-liberation && fc-cache -f && \
+    chmod +x /docker-entrypoint.sh && \
     addgroup -S app && adduser -S -G app app && chown -R app:app /app
 USER app
 

@@ -17,8 +17,7 @@ export class AppTitleStrategy extends TitleStrategy {
         // non dichiara un titolo o se il titolo tradotto coincide con il nome dell'app
         // (home page) — PageMetaService usa appName come fallback in quel caso.
         const titleKey = this.buildTitle(snapshot);
-        const rawTitle = titleKey ? this.translate.translate(titleKey).trim() : '';
-        const pageTitle = rawTitle === ContestoSito.config.appName ? '' : rawTitle;
+        const pageTitle = titleKey ? this.translate.translate(titleKey).trim() : '';
 
         // Descrizione: chiave i18n della pagina → fallback sulla descrizione globale del sito.
         // Usare la chiave i18n garantisce che la descrizione si aggiorni al cambio lingua.
@@ -26,7 +25,7 @@ export class AppTitleStrategy extends TitleStrategy {
             ? this.translate.translate(leaf.data['pageDescription'] as string)
             : ContestoSito.config.description;
 
-        this.pageMeta.setTitle(pageTitle, description, leaf.data['ogImage'] as string ?? null);
+        this.pageMeta.setTitle(pageTitle, description, leaf.data['ogImage'] as string | false | null);
     }
 
     /** Riesegue title + meta senza navigazione (es. cambio lingua). */

@@ -2,6 +2,7 @@ import type { Type, EnvironmentProviders, Provider } from '@angular/core';
 import type { ResolveFn, CanDeactivateFn, RunGuardsAndResolvers } from '@angular/router';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
+import { FontConfig } from './core/font-config';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -252,10 +253,13 @@ export type LeafPageInput = BasePageInput & {
     description?: string;
 
     /**
-     * ID asset dell'immagine di anteprima per og:image e twitter:image.
-     * Se omesso, viene usata l'icona del sito come fallback.
+     * Immagine di anteprima per og:image e twitter:image.
+     *
+     * - `string`    → ID asset da usare come immagine statica
+     * - `false`     → nessuna immagine (i tag og:image e twitter:image non vengono emessi)
+     * - `undefined` → genera automaticamente la preview dinamica via /cdn-cgi/preview
      */
-    ogImage?: string;
+    ogImage?: string | false;
 
     /** Non consentito per una pagina interna */
     externalUrl?: never;
@@ -368,6 +372,9 @@ export type NavLink = {
  *
  * La logica di discriminazione viene tenuta confinata qui,
  * così il resto del codice non deve spargere controlli strutturali.
+ *
+ * @param page - La pagina da verificare
+ * @returns true se la pagina è un nodo contenitore
  */
 export const isParentPage = (page: SitePage): page is ParentPage =>
     page.kind === 'parent';
@@ -377,6 +384,9 @@ export const isParentPage = (page: SitePage): page is ParentPage =>
  *
  * Il discriminante `kind` rende il controllo esplicito e stabile,
  * senza dover inferire il tipo dalla presenza di altre proprietà.
+ *
+ * @param page - La pagina da verificare
+ * @returns true se la pagina è una pagina esterna
  */
 export const isExternalPage = (page: SitePage): page is ExternalPage =>
     page.kind === 'external';
@@ -387,6 +397,9 @@ export const isExternalPage = (page: SitePage): page is ExternalPage =>
  * È semplicemente il complemento di `isExternalPage`.
  * Questo type guard è utile soprattutto nel return finale,
  * per filtrare solo le pagine valide per Angular Router.
+ *
+ * @param page - La pagina da verificare
+ * @returns true se la pagina è interna (parent o leaf)
  */
 export const isInternalPage = (page: SitePage): page is InternalSitePage =>
     page.kind === 'parent' || page.kind === 'leaf';
@@ -425,6 +438,11 @@ const isLeafPageInput = (page: SitePageInput): page is LeafPageInput =>
 /**
  * Garantisce che un eventuale `kind` scritto manualmente sia coerente
  * con la forma reale dell'oggetto.
+ *
+ * @param page - La pagina da validare
+ * @param inferredKind - Il tipo di pagina dedotto dalla struttura
+ * @param context - Contesto per il messaggio di errore (es. "sitePages[0]")
+ * @throws Se il `kind` esplicito non coincide con il tipo dedotto
  */
 const assertDeclaredKind = (
     page: SitePageInput,
@@ -441,6 +459,11 @@ const assertDeclaredKind = (
 /**
  * Normalizza una pagina dichiarata dall'utente aggiungendo il `kind`
  * interno e ricorsivamente tutti i figli.
+ *
+ * @param page - La pagina grezza da normalizzare
+ * @param context - Contesto per il messaggio di errore (es. "sitePages[0]")
+ * @returns La pagina normalizzata con `kind` esplicito e figli processati
+ * @throws Se la pagina non specifica `children`, `component` o `externalUrl`
  */
 const normalizeSitePage = (
     page: SitePageInput,
@@ -483,6 +506,9 @@ const normalizeSitePage = (
 
 /**
  * Normalizza tutto l'albero pagine dichiarato dall'utente.
+ *
+ * @param pages - L'array di pagine grezze da normalizzare
+ * @returns L'array di pagine normalizzate con `kind` espliciti
  */
 const normalizeSitePages = (pages: SitePageInput[]): SitePage[] =>
     pages.map((page, index) => normalizeSitePage(page, `sitePages[${index}]`));
@@ -629,27 +655,17 @@ type RawNavItem =
 /**
  * Costruisce la struttura completa del sito.
  *
- * Raccoglie config, pagine e navigation tramite builder
- * Normalizza la configurazione
- * Percorre l'albero delle pagine
- * Costruisce:
- * - la mappa PageType -> path
- * - la sitemap
- * Risolve menu e footer in NavLink finali
+ * Raccoglie config, pagine e navigation tramite builder, normalizza la configurazione,
+ * percorre l'albero delle pagine per costruire la mappa PageType → path e la sitemap,
+ * quindi risolve menu e footer in NavLink finali.
  *
- * Il risultato finale contiene:
- * - Config pronta
- * - Pagine interne per Angular Router
- * - Menu header risolto
- * - Footer risolto
- * - Helper per path e sitemap
+ * @param defineSiteStructure - Callback che configura il builder (config, pagine, navigazione)
+ * @returns Struttura completa del sito normalizzata e pronta per Angular Router e SSR
+ * @throws Se la configurazione mancante o se ci sono PageType/path duplicati o incoerenze
  */
 export function buildSite(
     defineSiteStructure: (siteDefinitionBuilder: SiteBuilder) => void
 ): BuiltSite {
-    /**
-     * Configurazione finale del sito.
-     */
     let siteConfig: SiteConfig | null = null;
 
     /**
@@ -788,7 +804,7 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showHeader: siteConfigurationInput.showHeader ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
-                smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) }
+                smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
             };
         },
 
@@ -824,19 +840,31 @@ export function buildSite(
      * Questa mappa viene popolata durante l'elaborazione dell'albero pagine.
      */
     const pageMap = new Map<PageType, { label: string; path: string; isExternal: boolean }>();
+
+    /**
+     * Traccia i path interni già visti per rilevare duplicati di path.
+     */
     const seenInternalPaths = new Set<string>();
+
+    /**
+     * Accumula i path foglia interni con il loro render mode,
+     * da esporre al layer server tramite `serverRouting`.
+     */
     const serverRenderEntries: ServerRenderEntry[] = [];
 
     /**
-     * Percorre ricorsivamente l'albero delle pagine e costruisce:
-     * - la sitemap locale
-     * - la mappa PageType -> path
+     * Percorre ricorsivamente l'albero delle pagine e costruisce la sitemap e la mappa PageType → path.
      *
-     * Regole:
-     * - se la pagina è disabilitata, viene ignorata
-     * - se è esterna, finisce nella `pageMap` ma non nella sitemap locale
-     * - se è padre, si scende ricorsivamente nei figli
-     * - se è foglia interna, si salva il path completo
+     * - Esclude le pagine disabilitate
+     * - Registra pagine esterne nella mappa (non nella sitemap)
+     * - Scende ricorsivamente nei figli dei nodi padre
+     * - Per foglie interne: salva path completo, aggiunge a sitemap e serverRenderEntries
+     * - Esclude dalla sitemap le pagine autenticate (requiresAuth: true)
+     *
+     * @param pages - Array di pagine da elaborare
+     * @param parent - Path del nodo padre (usato per costruire il path completo)
+     * @returns Array di voci sitemap (path + metadati)
+     * @throws Se PageType o path sono duplicati, o se c'è incoerenza nella struttura
      */
     const processPages = (pages: SitePage[], parent = ''): SitemapEntry[] => {
         return pages.flatMap((page) => {
@@ -944,14 +972,15 @@ export function buildSite(
     const sitemap = processPages(sitePages);
 
     /**
-     * Risolve una lista di item raw di navigazione in `NavLink[]`.
+     * Risolve una lista di item raw di navigazione in NavLink[] finali.
      *
-     * Regole:
-     * - `page`  -> cerca il path nella mappa `pageMap`
-     * - `group` -> risolve ricorsivamente i figli
-     * - `link`  -> usa direttamente label/path
+     * - Riferimenti a pagine (PageType): risolve il path dalla mappa pageMap
+     * - Gruppi: risolve ricorsivamente i figli, mantiene il gruppo solo se ha almeno un figlio valido
+     * - Link diretti: usa direttamente label/path dichiarato
+     * - Filtra i gruppi vuoti e i riferimenti non risolti (pagine disabilitate o non trovate)
      *
-     * I gruppi vuoti o i riferimenti non risolti vengono scartati.
+     * @param items - Array di item raw (page, link, group)
+     * @returns Array di NavLink finali pronti per header/footer
      */
     const resolveNavigation = (items: RawNavItem[]): NavLink[] =>
         items

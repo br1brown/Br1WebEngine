@@ -22,8 +22,7 @@
                                           [(ngModel)]="markdownInput"
                                           (ngModelChange)="onMarkdownChange()"
                                           (keydown.control.enter)="renderMarkdown()"
-                                          [placeholder]="translate.translate('markdownPlaceholder')">
-                </textarea>
+                                          [placeholder]="translate.translate('markdownPlaceholder')"></textarea>
 
                                 <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
                                     <button class="btn btn-sm btn-outline-secondary"
@@ -317,8 +316,7 @@
                                      <textarea class="form-control context-textarea"
                                               rows="4"
                                               [(ngModel)]="contextDemoText"
-                                              [placeholder]="translate.translate('contextMenuSampleText')">
-                  </textarea>
+                                              [placeholder]="translate.translate('contextMenuSampleText')"></textarea>
                                 </div>
 
                                 <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
@@ -352,8 +350,7 @@
                                     <textarea class="form-control"
                                               rows="3"
                                               [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
-                                              [placeholder]="translate.translate('speechPlaceholder')">
-                </textarea>
+                                              [placeholder]="translate.translate('speechPlaceholder')"></textarea>
                                 </div>
 
                                 <div class="d-flex align-items-center gap-2">
