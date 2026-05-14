@@ -8,3 +8,4 @@ dist/
 .DS_Store
 Dockerfile
 .dockerignore
+src/assets/files/image-cache/
