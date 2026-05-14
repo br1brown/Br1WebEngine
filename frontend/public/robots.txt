@@ -1,3 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /impostazioni
+
 Sitemap: https://example.com/sitemap.xml

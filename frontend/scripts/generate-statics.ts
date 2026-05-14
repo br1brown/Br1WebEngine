@@ -25,14 +25,16 @@ import '@angular/compiler';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../src/app/site';
-import { SitemapEntry } from '../src/app/siteBuilder';
+import { SitemapEntry, SitePage, isParentPage, isExternalPage } from '../src/app/siteBuilder';
 
 const ROOT = join(__dirname, '..');
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
-const BASE_URL = process.env['FRONTEND_BASE_URL'] || 'https://example.com';
+
+// Rimuove lo slash finale per evitare doppi slash negli URL generati
+const BASE_URL = (process.env['FRONTEND_BASE_URL'] || 'https://example.com').replace(/\/$/, '');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,18 +46,23 @@ function escapeHtml(value: string): string {
         .replaceAll('>', '&gt;');
 }
 
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function replaceMeta(
     html: string,
     attr: 'name' | 'property',
     key: string,
     content: string
 ): string {
-    const selector = `${attr}="${key}"`;
-    const pattern = new RegExp(`<meta ${selector} content="[^"]*">`);
-    const replacement = `<meta ${selector} content="${content}">`;
+    const escapedKey = escapeRegex(key);
+    // Tolera qualsiasi ordine degli attributi nel tag meta
+    const pattern = new RegExp(`<meta\\s[^>]*${attr}="${escapedKey}"[^>]*>`, 'i');
+    const replacement = `<meta ${attr}="${key}" content="${content}">`;
 
     if (!pattern.test(html)) {
-        throw new Error(`[statics] Impossibile trovare meta[${selector}] in index.html.`);
+        throw new Error(`[statics] Impossibile trovare meta[${attr}="${key}"] in index.html.`);
     }
 
     return html.replace(pattern, replacement);
@@ -93,38 +100,31 @@ function updateIndexHtml(): void {
 
     let html = readFileSync(INDEX, 'utf8');
 
-    html = replaceTag(html, /<html lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
+    html = replaceTag(html, /<html\s+lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png?v=${ContestoSito.config.version}`;
 
-    const nameMeta: [string, string][] = [
-        ['app-version', ContestoSito.config.version],
-        ['description', description],
-        ['apple-mobile-web-app-title', appName],
-        ['apple-mobile-web-app-status-bar-style', 'default'],
-        ['application-name', appName],
-        ['theme-color', themeColor],
-        ['twitter:title', appName],
-        ['twitter:description', description],
-        ['twitter:image', defaultImageUrl],
+    const allMeta: ['name' | 'property', string, string][] = [
+        ['name', 'app-version', ContestoSito.config.version],
+        ['name', 'description', description],
+        ['name', 'apple-mobile-web-app-title', appName],
+        ['name', 'apple-mobile-web-app-status-bar-style', 'default'],
+        ['name', 'application-name', appName],
+        ['name', 'theme-color', themeColor],
+        ['name', 'twitter:title', appName],
+        ['name', 'twitter:description', description],
+        ['name', 'twitter:image', defaultImageUrl],
+        ['property', 'og:title', appName],
+        ['property', 'og:description', description],
+        ['property', 'og:site_name', appName],
+        ['property', 'og:locale', lang],
+        ['property', 'og:url', BASE_URL],
+        ['property', 'og:image', defaultImageUrl],
     ];
 
-    const propertyMeta: [string, string][] = [
-        ['og:title', appName],
-        ['og:description', description],
-        ['og:site_name', appName],
-        ['og:locale', lang],
-        ['og:url', BASE_URL],
-        ['og:image', defaultImageUrl],
-    ];
-
-    for (const [key, value] of nameMeta) {
-        html = replaceMeta(html, 'name', key, value);
-    }
-
-    for (const [key, value] of propertyMeta) {
-        html = replaceMeta(html, 'property', key, value);
+    for (const [attr, key, value] of allMeta) {
+        html = replaceMeta(html, attr, key, value);
     }
 
     html = replaceTag(
@@ -209,13 +209,31 @@ function updateSitemap(): void {
 
 // ── Generazione robots.txt ────────────────────────────────────────────────
 
-function updateRobots(): void {
-    const robotsTxt = `User-agent: *
-Allow: /
-Sitemap: ${BASE_URL}/sitemap.xml
-`;
+function collectProtectedPaths(pages: SitePage[], parentPath = ''): string[] {
+    return pages.flatMap(page => {
+        if (!page.enabled) return [];
+        if (isExternalPage(page)) return [];
 
-    writeFileSync(ROBOTS, robotsTxt, 'utf8');
+        const fullPath = `/${[parentPath, page.path].filter(Boolean).join('/')}`.replace(/\/+/g, '/');
+
+        if (isParentPage(page)) {
+            return collectProtectedPaths(page.children, fullPath);
+        }
+
+        return page.requiresAuth ? [fullPath] : [];
+    });
+}
+
+function updateRobots(): void {
+    const protectedPaths = collectProtectedPaths(ContestoSito.pages);
+
+    const lines = ['User-agent: *', 'Allow: /'];
+    for (const path of protectedPaths) {
+        lines.push(`Disallow: ${path}`);
+    }
+    lines.push('', `Sitemap: ${BASE_URL}/sitemap.xml`);
+
+    writeFileSync(ROBOTS, lines.join('\n') + '\n', 'utf8');
     console.log(`[statics] robots.txt aggiornato`);
 }
 
