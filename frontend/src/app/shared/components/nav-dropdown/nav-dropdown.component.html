@@ -1,0 +1,19 @@
+<details class="nav-disclosure"
+         [class.active]="isActive()"
+         (toggle)="toggle.emit($event)">
+    <summary class="nav-link nav-disclosure-summary"
+             [attr.aria-current]="isActive() ? 'location' : null">
+        <span class="nav-disclosure-label">{{ item().label | translate }}</span>
+        <span class="nav-disclosure-caret" aria-hidden="true"></span>
+    </summary>
+    <ul class="nav-disclosure-menu theme-bg">
+        @for (child of item().children; track child.path) {
+            <li>
+                <app-nav-link [link]="child"
+                              cssClass="nav-disclosure-link"
+                              activeCssClass="nav-current-link active"
+                              (linkClick)="linkClick.emit()" />
+            </li>
+        }
+    </ul>
+</details>

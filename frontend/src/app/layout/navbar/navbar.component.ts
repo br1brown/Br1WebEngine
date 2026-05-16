@@ -1,12 +1,15 @@
 import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NgTemplateOutlet, UpperCasePipe } from '@angular/common';
+import { UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { injectCurrentUrl } from '../../app.routes';
 import { ThemeService } from '../../core/services/theme.service';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { NavLinkComponent } from '../../shared/components/nav-link/nav-link.component';
+import { NavDropdownComponent } from '../../shared/components/nav-dropdown/nav-dropdown.component';
+import { PageDirective } from '../../shared/directives/page.directive';
 import { ContestoSito, PageType } from '../../site';
 import { NavLink } from '../../siteBuilder';
 
@@ -17,7 +20,7 @@ import { NavLink } from '../../siteBuilder';
  */
 @Component({
     selector: 'app-navbar',
-    imports: [NgTemplateOutlet, RouterLink, TranslatePipe, UpperCasePipe],
+    imports: [TranslatePipe, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.css'
 })
@@ -30,6 +33,7 @@ export class NavbarComponent {
     readonly appName = ContestoSito.config.appName;
     readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
     readonly menuItems = ContestoSito.menuNav;
+    protected readonly PageType = PageType;
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly languages = this.translate.availableLangs;
     readonly menuOpen = signal(false);
@@ -53,8 +57,8 @@ export class NavbarComponent {
         return this.router.isActive(path, { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     }
 
-    isDropdownActive(item: NavLink): boolean {
-        return item.children?.some(child => !child.isExternal && this.isRouteActive(child.path)) ?? false;
+    isGroup(item: NavLink): item is NavLink & { children: NavLink[] } {
+        return Array.isArray(item.children) && item.children.length > 0;
     }
 
     onNavigationLinkClick(): void {
@@ -62,7 +66,9 @@ export class NavbarComponent {
     }
 
     onDisclosureToggle(event: Event): void {
-        const current = event.currentTarget as HTMLDetailsElement | null;
+        // event.target è stabile anche dopo il re-emit via output.emit()
+        // (currentTarget puo' essere null quando l'evento esce dal componente figlio)
+        const current = event.target as HTMLDetailsElement | null;
         if (!current?.open) {
             return;
         }

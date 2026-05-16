@@ -1,72 +1,10 @@
 ﻿<footer class="container-fluid mt-3 theme-bg site-footer">
     <div class="container py-4">
         <app-loading [loading]="profileLoading()">
-            @if (footerSections().length > 0) {
-            <div class="row mb-4 pb-3">
-                @for (section of footerSections(); track section.titleKey) {
-                <div [class]="'mb-3 col-12 col-lg-' + Math.floor(12 / footerSections().length)">
-                    <h6 class="fw-bold">{{ section.titleKey | translate }}</h6>
-                    <ng-container *ngTemplateOutlet="infoList; context: { items: section.items }"></ng-container>
-                </div>
-                }
-            </div>
-            <hr />
-            }
+            <app-profile-render [profile]="profile()" />
         </app-loading>
 
-        @if (footerNavLinks.length > 0) {
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="row justify-content-center footer-nav-row">
-                    @for (item of footerNavLinks; track item.path) {
-                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3 text-start">
-                        @if (isGroup(item)) {
-                        <div class="footer-group">
-                            <span class="footer-group-title small fw-bold text-uppercase d-block mb-2">
-                                {{ item.label | translate }}
-                            </span>
-                            <ul class="list-unstyled mb-0">
-                                @for (sub of item.children; track sub.path) {
-                                <li>
-                                    @if (sub.isExternal) {
-                                    <a [href]="sub.path" class="footer-link d-block small" target="_blank" rel="noreferrer">
-                                        {{ sub.label | translate }}
-                                    </a>
-                                    } @else {
-                                    <a [routerLink]="sub.path" class="footer-link d-block small">
-                                        {{ sub.label | translate }}
-                                    </a>
-                                    }
-                                </li>
-                                }
-                            </ul>
-                        </div>
-                        } @else {
-                        <div class="footer-single">
-                            @if (item.isExternal) {
-                            <a [href]="item.path" class="footer-link small" target="_blank" rel="noreferrer">
-                                {{ item.label | translate }}
-                            </a>
-                            } @else {
-                            @if (isRouteActive(item.path)) {
-                            <span class="small" aria-current="page">
-                                {{ item.label | translate }}
-                            </span>
-                            } @else {
-                            <a [routerLink]="item.path" class="footer-link small">
-                                {{ item.label | translate }}
-                            </a>
-                            }
-                            }
-                        </div>
-                        }
-                    </div>
-                    }
-                </div>
-            </div>
-        </div>
-        <hr />
-        }
+        <app-footer-nav [links]="footerNavLinks" />
 
         @if (socialLinks().length > 0) {
         <div class="row mb-3 text-center">
@@ -95,22 +33,3 @@
 
     </div>
 </footer>
-
-<ng-template #infoList let-items="items">
-    <ul class="list-unstyled small">
-        @for (item of items; track $index) {
-        <li [class]="item.itemClass ? 'my-1 ' + item.itemClass : 'my-1'">
-            @if (item.label) { <span>{{ item.label }}:</span>&nbsp; }
-                               <strong>
-                                   @switch (item.kind) {
-                                   @case ('link') { <a [href]="item.href">{{ item.value }}</a> }
-                                   @case ('code') { <code>{{ item.value }}</code> }
-                                   @default { <span>{{ item.value }}</span> }
-                                   }
-                               </strong>
-        </li>
-        }
-    </ul>
-</ng-template>
-
-

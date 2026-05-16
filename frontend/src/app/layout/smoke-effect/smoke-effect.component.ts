@@ -1,5 +1,14 @@
-import { Component, Input, ElementRef, ViewChild, AfterViewInit, DestroyRef, NgZone, PLATFORM_ID, inject, computed } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import {
+    Component,
+    DestroyRef,
+    ElementRef,
+    NgZone,
+    afterNextRender,
+    computed,
+    inject,
+    input,
+    viewChild,
+} from '@angular/core';
 import { SmokeSettings } from '../../site';
 import { ThemeService } from '../../core/services/theme.service';
 
@@ -31,49 +40,51 @@ import { ThemeService } from '../../core/services/theme.service';
 @Component({
     selector: 'app-smoke-effect',
     templateUrl: './smoke-effect.component.html',
-    styleUrl: './smoke-effect.component.css'
+    styleUrl: './smoke-effect.component.css',
 })
-export class SmokeEffectComponent implements AfterViewInit {
-    @Input() config!: SmokeSettings;
-    @ViewChild('canvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+export class SmokeEffectComponent {
+    readonly config = input.required<SmokeSettings>();
 
+    private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
     private readonly destroyRef = inject(DestroyRef);
     private readonly ngZone = inject(NgZone);
-    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private readonly theme = inject(ThemeService);
+
     readonly shouldRender = computed(() =>
-        this.config?.enable && !this.theme.prefersReducedMotion()
+        this.config().enable && !this.theme.prefersReducedMotion()
     );
+
     private animationId = 0;
     private particles: Particle[] = [];
     private rgb: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 };
 
-    ngAfterViewInit(): void {
-        if (!this.isBrowser || !this.shouldRender()) return;
+    constructor() {
+        // afterNextRender gira solo nel browser, mai in SSR — isBrowser check non necessario
+        afterNextRender(() => {
+            if (!this.shouldRender()) return;
 
-        const canvas = this.canvasRef.nativeElement;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+            const canvas = this.canvasRef().nativeElement;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
 
-        this.resizeCanvas(canvas);
+            this.resizeCanvas(canvas);
 
-        // Listener di resize con cleanup automatico via DestroyRef
-        const onResize = () => this.resizeCanvas(canvas);
-        window.addEventListener('resize', onResize);
+            const onResize = () => this.resizeCanvas(canvas);
+            window.addEventListener('resize', onResize);
 
-        // rgb calcolato una sola volta: animate() gira a 60fps,
-        // non vogliamo riparsare la stringa hex ad ogni frame
-        this.rgb = SmokeEffectComponent.parseHexColor(this.config.color);
+            // rgb calcolato una sola volta: animate() gira a 60fps,
+            // non vogliamo riparsare la stringa hex ad ogni frame
+            this.rgb = SmokeEffectComponent.parseHexColor(this.config().color);
 
-        this.initParticles(canvas);
-        // Il loop RAF gira fuori dalla zona Angular: requestAnimationFrame dentro NgZone
-        // mantiene l'app perennemente "instabile", bloccando l'idratazione SSR (NG0506).
-        this.ngZone.runOutsideAngular(() => this.animate(canvas, ctx));
+            this.initParticles(canvas);
+            // Il loop RAF gira fuori dalla zona Angular: requestAnimationFrame dentro NgZone
+            // mantiene l'app perennemente "instabile", bloccando l'idratazione SSR (NG0506).
+            this.ngZone.runOutsideAngular(() => this.animate(canvas, ctx));
 
-        // Cleanup quando il componente viene distrutto
-        this.destroyRef.onDestroy(() => {
-            cancelAnimationFrame(this.animationId);
-            window.removeEventListener('resize', onResize);
+            this.destroyRef.onDestroy(() => {
+                cancelAnimationFrame(this.animationId);
+                window.removeEventListener('resize', onResize);
+            });
         });
     }
 
@@ -83,15 +94,15 @@ export class SmokeEffectComponent implements AfterViewInit {
     }
 
     private initParticles(canvas: HTMLCanvasElement): void {
-        const count = this.config.density;
+        const cfg = this.config();
         this.particles = [];
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < cfg.density; i++) {
             this.particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
-                vx: (Math.random() - 0.5) * this.config.maximumVelocity * 0.02,
-                vy: (Math.random() - 0.5) * this.config.maximumVelocity * 0.02,
-                radius: 1 + Math.random() * Math.max(0, this.config.particleRadius - 1)
+                vx: (Math.random() - 0.5) * cfg.maximumVelocity * 0.02,
+                vy: (Math.random() - 0.5) * cfg.maximumVelocity * 0.02,
+                radius: 1 + Math.random() * Math.max(0, cfg.particleRadius - 1),
             });
         }
     }
@@ -100,6 +111,7 @@ export class SmokeEffectComponent implements AfterViewInit {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const { r, g, b } = this.rgb;
+        const opacity = this.config().opacity;
 
         for (const p of this.particles) {
             p.x += p.vx;
@@ -111,7 +123,7 @@ export class SmokeEffectComponent implements AfterViewInit {
             if (p.y > canvas.height + p.radius) p.y = -p.radius;
 
             const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
-            gradient.addColorStop(0, `rgba(${r},${g},${b},${this.config.opacity})`);
+            gradient.addColorStop(0, `rgba(${r},${g},${b},${opacity})`);
             gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
 
             ctx.beginPath();

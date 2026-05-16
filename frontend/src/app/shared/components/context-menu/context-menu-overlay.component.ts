@@ -1,13 +1,11 @@
 import {
     Component,
     ElementRef,
-    EventEmitter,
-    Input,
-    Output,
-    ViewChild,
-    signal
+    input,
+    output,
+    signal,
+    viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { ContextMenuOption } from './context-menu.models';
 
 /**
@@ -17,16 +15,16 @@ import { ContextMenuOption } from './context-menu.models';
 @Component({
     selector: 'app-context-menu-overlay',
     standalone: true,
-    imports: [CommonModule],
+    imports: [],
     templateUrl: './context-menu-overlay.component.html',
     styleUrl: './context-menu.component.css'
 })
 export class ContextMenuOverlayComponent {
-    @Input() options: ContextMenuOption[] = [];
-    @Input() presentation: 'popover' | 'sheet' = 'popover';
-    @Output() optionSelected = new EventEmitter<ContextMenuOption>();
+    readonly options = input<ContextMenuOption[]>([]);
+    readonly presentation = input<'popover' | 'sheet'>('popover');
+    readonly optionSelected = output<ContextMenuOption>();
 
-    @ViewChild('menuEl') menuEl?: ElementRef<HTMLElement>;
+    readonly menuEl = viewChild<ElementRef<HTMLElement>>('menuEl');
 
     readonly menuX = signal(0);
     readonly menuY = signal(0);
@@ -34,8 +32,8 @@ export class ContextMenuOverlayComponent {
     /** Posiziona il menu vicino al cursore, adattandolo ai bordi del viewport */
     adjustPosition(clientX: number, clientY: number): void {
         requestAnimationFrame(() => {
-            const menuWidth = this.menuEl?.nativeElement?.offsetWidth ?? 160;
-            const menuHeight = this.menuEl?.nativeElement?.offsetHeight ?? 200;
+            const menuWidth = this.menuEl()?.nativeElement?.offsetWidth ?? 160;
+            const menuHeight = this.menuEl()?.nativeElement?.offsetHeight ?? 200;
 
             this.menuX.set(Math.max(0, Math.min(clientX, window.innerWidth - menuWidth - 8)));
             this.menuY.set(Math.max(0, Math.min(clientY, window.innerHeight - menuHeight - 8)));

@@ -6,7 +6,7 @@
         <span class="navbar-brand nav-current-link"
               aria-current="page">{{ appName }}</span>
         } @else {
-        <a class="navbar-brand" [routerLink]="homePath">{{ appName }}</a>
+        <a class="navbar-brand" [appPage]="PageType.Home">{{ appName }}</a>
         }
 
         @if (menuItems.length > 0 || languages().length > 1) {
@@ -23,28 +23,18 @@
             @if (menuItems.length > 0) {
             <ul class="navbar-nav">
                 @for (item of menuItems; track item.path) {
-                @if (item.children?.length) {
+                @if (isGroup(item)) {
                 <li class="nav-item nav-dropdown-item">
-                    <details class="nav-disclosure"
-                             [class.active]="isDropdownActive(item)"
-                             (toggle)="onDisclosureToggle($event)">
-                        <summary class="nav-link nav-disclosure-summary"
-                                 [attr.aria-current]="isDropdownActive(item) ? 'location' : null">
-                            <span class="nav-disclosure-label">{{ item.label | translate }}</span>
-                            <span class="nav-disclosure-caret" aria-hidden="true"></span>
-                        </summary>
-                        <ul class="nav-disclosure-menu theme-bg">
-                            @for (child of item.children; track child.path) {
-                            <li>
-                                <ng-container *ngTemplateOutlet="linkItem; context: { item: child, class: 'nav-disclosure-link' }"></ng-container>
-                            </li>
-                            }
-                        </ul>
-                    </details>
+                    <app-nav-dropdown [item]="item"
+                                      (toggle)="onDisclosureToggle($event)"
+                                      (linkClick)="onNavigationLinkClick()" />
                 </li>
                 } @else {
                 <li class="nav-item">
-                    <ng-container *ngTemplateOutlet="linkItem; context: { item: item, class: 'nav-link' }"></ng-container>
+                    <app-nav-link [link]="item"
+                                  cssClass="nav-link"
+                                  activeCssClass="nav-current-link active"
+                                  (linkClick)="onNavigationLinkClick()" />
                 </li>
                 }
                 }
@@ -89,25 +79,3 @@
 @if (fixTop) {
 <div class="mt-5"></div>
 }
-<ng-template #linkItem let-item="item" let-class="class">
-    @if (item.isExternal) {
-    <a [class]="class"
-       [href]="item.path"
-       target="_blank"
-       rel="noopener noreferrer"
-       (click)="onNavigationLinkClick()">
-        {{ item.label | translate }}
-    </a>
-    } @else if (isRouteActive(item.path)) {
-    <span [class]="class + ' nav-current-link active'"
-          aria-current="page">
-        {{ item.label | translate }}
-    </span>
-    } @else {
-    <a [class]="class"
-       [routerLink]="item.path"
-       (click)="onNavigationLinkClick()">
-        {{ item.label | translate }}
-    </a>
-    }
-</ng-template>

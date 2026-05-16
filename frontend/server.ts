@@ -33,6 +33,13 @@ const cacheDir = join(assetFilesDir, 'image-cache');
 /** Crea la cartella di cache se non esiste (recursive evita errori se mancano i padri) */
 mkdirSync(cacheDir, { recursive: true });
 
+/** Endpoint CDN CGI serviti da questo server. Specchio di CdnCgi in asset.service.ts. */
+const CdnCgiPaths = {
+    asset: '/cdn-cgi/asset',
+    preview: '/cdn-cgi/preview',
+    previewImage: '/cdn-cgi/preview-image',
+} as const;
+
 /** Tipo per l'entry del JSON: puÃ² essere solo il nome file o un oggetto complesso */
 type RawEntry = string | { file: string;[key: string]: unknown };
 /** Dizionario ID -> NomeFile reale per nascondere i percorsi fisici agli utenti */
@@ -275,7 +282,7 @@ app.use((_request, response, next) => {
 });
 
 /** Endpoint CDN Asset: gestisce il recupero e l'ottimizzazione delle immagini al volo */
-app.get('/cdn-cgi/asset', async (req, res) => {
+app.get(CdnCgiPaths.asset, async (req, res) => {
     try {
         const id = req.query['id'] as string;
         if (!id) return res.status(400).send('Missing id');
@@ -335,7 +342,7 @@ app.get('/cdn-cgi/asset', async (req, res) => {
 });
 
 /** Endpoint Social Preview: genera al volo l'immagine Open Graph / Twitter Card. */
-app.get('/cdn-cgi/preview', async (req, res) => {
+app.get(CdnCgiPaths.preview, async (req, res) => {
     try {
         // Hard-limit sui parametri per evitare cache poisoning con input giganti
         const title = String(req.query['title'] ?? '').slice(0, 200).trim();
@@ -380,6 +387,72 @@ app.get('/cdn-cgi/preview', async (req, res) => {
     } catch (err) {
         console.error('[Preview Error]:', err);
         if (!res.headersSent) res.status(500).send('Error generating preview');
+    }
+});
+
+/** Endpoint Social Preview con immagine: sovrappone il favicon in basso a sinistra sull'asset. */
+app.get(CdnCgiPaths.previewImage, async (req, res) => {
+    try {
+        const id = String(req.query['id'] ?? '').trim();
+        if (!id) return res.status(400).send('Missing id');
+
+        const absolutePath = resolveAssetPath(id);
+        if (!absolutePath) return res.status(404).send('Asset not found');
+
+        const filename = absolutePath.split(/[\\/]/).pop()!;
+        if (!AssetHandler.isSharpCompatible(filename)) return AssetHandler.serveFile(res, absolutePath);
+
+        const { version } = ContestoSito.config;
+        const hash = createHash('sha1').update(JSON.stringify({ version, id })).digest('hex').slice(0, 16);
+        const cacheKey = `preview_img_${hash}.webp`;
+        const cacheFile = join(cacheDir, cacheKey);
+
+        if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
+
+        let job = inProgress.get(cacheKey);
+        if (!job) {
+            job = (async () => {
+                const OG_W = 1200, OG_H = 630;
+
+                // Sfondo: stessa immagine scalata cover + sfocata
+                const bgBuffer = await sharp(absolutePath)
+                    .resize(OG_W, OG_H, { fit: 'cover' })
+                    .blur(28)
+                    .webp({ quality: 50 })
+                    .toBuffer();
+
+                // Primo piano: immagine proporzionata (contain) con trasparenza attorno
+                const fgBuffer = await sharp(absolutePath)
+                    .resize(OG_W, OG_H, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                    .png()
+                    .toBuffer();
+
+                // Favicon in basso a sinistra
+                const iconSize = Math.round(OG_H * 0.15);
+                const padding = Math.round(iconSize * 0.35);
+                const faviconPath = resolveAssetPath('favIcon');
+                const composites: sharp.OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
+                if (faviconPath) {
+                    const iconBuffer = await sharp(faviconPath)
+                        .resize(iconSize, iconSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                        .png()
+                        .toBuffer();
+                    composites.push({ input: iconBuffer, left: padding, top: OG_H - iconSize - padding });
+                }
+
+                await sharp(bgBuffer)
+                    .composite(composites)
+                    .webp({ quality: 85 })
+                    .toFile(cacheFile);
+            })().finally(() => inProgress.delete(cacheKey));
+            inProgress.set(cacheKey, job);
+        }
+        await job;
+
+        AssetHandler.serveImage(res, cacheFile);
+    } catch (err) {
+        console.error('[Preview Image Error]:', err);
+        if (!res.headersSent) res.status(500).send('Error generating preview image');
     }
 });
 

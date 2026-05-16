@@ -3,7 +3,7 @@ import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { ContestoSito } from '../../site';
-import { AssetService } from './asset.service';
+import { AssetService, CdnCgi } from './asset.service';
 import { TranslateService } from './translate.service';
 
 /**
@@ -88,7 +88,7 @@ export class PageMetaService {
             this.meta.removeTag('name="twitter:image"');
         } else {
             imageUrl = imgId
-                ? `${origin}${AssetService._UrlvirtualPathAsset(imgId, version)}`
+                ? `${origin}${AssetService._UrlPreviewImage(imgId, version)}`
                 : `${origin}${PageMetaService.buildDynamicPreviewPath(pageTitle || appName, description, version)}`;
             this.meta.updateTag({ property: 'og:image', content: imageUrl });
             this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
@@ -187,7 +187,7 @@ export class PageMetaService {
         params.set('title', title);
         if (subtitle) params.set('subtitle', subtitle);
         if (version) params.set('v', version);
-        return `/cdn-cgi/preview?${params.toString()}`;
+        return `${CdnCgi.preview}?${params.toString()}`;
     }
 
     /**

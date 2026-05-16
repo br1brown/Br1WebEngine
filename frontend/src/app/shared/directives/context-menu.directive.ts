@@ -1,15 +1,14 @@
 import {
     ComponentRef,
+    DestroyRef,
     Directive,
     HostListener,
-    Input,
-    OnDestroy,
     PLATFORM_ID,
     ViewContainerRef,
-    inject
+    inject,
+    input,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { take } from 'rxjs/operators';
 import { ContextMenuOption } from '../components/context-menu/context-menu.models';
 import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
 
@@ -18,12 +17,14 @@ import { ContextMenuOverlayComponent } from '../components/context-menu/context-
  */
 @Directive({
     selector: '[appContextMenu]',
-    standalone: true
+    standalone: true,
 })
-export class ContextMenuDirective implements OnDestroy {
-    @Input('appContextMenu') options: ContextMenuOption[] = [];
+export class ContextMenuDirective {
+    readonly options = input<ContextMenuOption[]>([], { alias: 'appContextMenu' });
 
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+    private readonly vcr = inject(ViewContainerRef);
+
     private overlayRef: ComponentRef<ContextMenuOverlayComponent> | null = null;
     private destroyListeners: (() => void)[] = [];
     private longPressTimer: number | null = null;
@@ -32,7 +33,9 @@ export class ContextMenuDirective implements OnDestroy {
     private readonly longPressDelayMs = 450;
     private readonly touchMoveThresholdPx = 12;
 
-    constructor(private vcr: ViewContainerRef) {}
+    constructor() {
+        inject(DestroyRef).onDestroy(() => this.close());
+    }
 
     @HostListener('contextmenu', ['$event'])
     onContextMenu(event: MouseEvent): void {
@@ -53,7 +56,7 @@ export class ContextMenuDirective implements OnDestroy {
 
     @HostListener('touchstart', ['$event'])
     onTouchStart(event: TouchEvent): void {
-        if (!this.isBrowser || event.touches.length !== 1 || this.options.length === 0) {
+        if (!this.isBrowser || event.touches.length !== 1 || this.options().length === 0) {
             return;
         }
 
@@ -99,8 +102,10 @@ export class ContextMenuDirective implements OnDestroy {
         this.close();
 
         this.overlayRef = this.vcr.createComponent(ContextMenuOverlayComponent);
-        this.overlayRef.instance.options = this.options;
-        this.overlayRef.instance.presentation = presentation;
+
+        // setInput() è l'API corretta per impostare signal inputs su componenti creati dinamicamente
+        this.overlayRef.setInput('options', this.options());
+        this.overlayRef.setInput('presentation', presentation);
 
         // Sposta l'overlay su document.body per evitare clipping da overflow/positioning
         const el = this.overlayRef.location.nativeElement;
@@ -110,13 +115,12 @@ export class ContextMenuDirective implements OnDestroy {
 
         this.overlayRef.instance.adjustPosition(clientX, clientY);
 
-        // Sottoscrivi alla selezione di un'opzione
-        this.overlayRef.instance.optionSelected.pipe(take(1)).subscribe((option: ContextMenuOption) => {
+        // OutputRef.subscribe() si auto-completa quando il componente viene distrutto
+        this.overlayRef.instance.optionSelected.subscribe(option => {
             option.action?.();
             this.close();
         });
 
-        // Registra listener per chiusura (click fuori, escape, altro right-click)
         this.addCloseListeners(el);
     }
 
@@ -131,7 +135,6 @@ export class ContextMenuDirective implements OnDestroy {
 
         const onDocContext = (e: MouseEvent) => {
             const target = e.target as Node;
-            // Se il target è l'elemento host, ci pensa @HostListener('contextmenu') — non interferire
             if ((this.vcr.element.nativeElement as HTMLElement).contains(target)) return;
             if (!overlayEl.contains(target)) {
                 this.close();
@@ -151,7 +154,7 @@ export class ContextMenuDirective implements OnDestroy {
         this.destroyListeners.push(
             () => document.removeEventListener('click', onDocClick, true),
             () => document.removeEventListener('contextmenu', onDocContext, true),
-            () => document.removeEventListener('keydown', onEscape)
+            () => document.removeEventListener('keydown', onEscape),
         );
     }
 
@@ -178,9 +181,5 @@ export class ContextMenuDirective implements OnDestroy {
         }
         this.destroyListeners.forEach(fn => fn());
         this.destroyListeners = [];
-    }
-
-    ngOnDestroy(): void {
-        this.close();
     }
 }

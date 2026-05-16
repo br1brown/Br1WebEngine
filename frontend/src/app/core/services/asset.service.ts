@@ -6,6 +6,13 @@ import { filter, Subscription } from 'rxjs';
 import { type AssetWidth } from '../../app.config';
 import { ContestoSito } from '../../site';
 
+/** Endpoint CDN CGI esposti dal server. Aggiungere qui nuovi path, poi il metodo statico sotto. */
+export const CdnCgi = {
+    asset: '/cdn-cgi/asset',
+    preview: '/cdn-cgi/preview',
+    previewImage: '/cdn-cgi/preview-image',
+} as const;
+
 /**
  * ASSET SERVICE
  * Gestisce la generazione e la pulizia degli URL per le risorse multimediali.
@@ -17,14 +24,14 @@ export class AssetService implements OnDestroy {
     private readonly router = inject(Router);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    // Path virtuale mappato solitamente su un worker o proxy (es. Cloudflare)
+    public static _UrlvirtualPathAsset = (id: string, version?: string): string => {
+        const vers = version ? `&v=${version}` : '';
+        return `${CdnCgi.asset}?id=${id}${vers}`;
+    };
 
-    public static _UrlvirtualPathAsset = (id: string, version?: string) => {
-        const virtualPath = '/cdn-cgi/asset';
-        let vers = ''
-        if (!!version) vers = `&v=${version}`;
-
-        return `${virtualPath}?id=${id}${vers}`;
+    public static _UrlPreviewImage = (id: string, version?: string): string => {
+        const vers = version ? `&v=${version}` : '';
+        return `${CdnCgi.previewImage}?id=${id}${vers}`;
     };
 
     // Set per tracciare tutti i Blob URL creati ed evitare perdite di memoria

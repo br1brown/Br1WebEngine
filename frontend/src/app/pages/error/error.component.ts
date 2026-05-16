@@ -1,8 +1,8 @@
-﻿import { Component, computed, inject, input } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, inject, input } from '@angular/core';
 import { TranslateService } from '../../core/services/translate.service';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { ContestoSito, PageType } from '../../site';
+import { PageDirective } from '../../shared/directives/page.directive';
+import { PageType } from '../../site';
 
 /**
  * Pagina di errore generica, usata per qualsiasi codice HTTP (404, 500, ecc.).
@@ -11,8 +11,8 @@ import { ContestoSito, PageType } from '../../site';
  * tramite component input binding, grazie a `withComponentInputBinding()` nel router.
  *
  * Le chiavi di traduzione seguono questo pattern:
- *   - "errore{codice}Info" â†’ titolo breve (es. "errore404Info" â†’ "Pagina non trovata")
- *   - "errore{codice}Desc" â†’ descrizione estesa
+ *   - "errore{codice}Info" → titolo breve (es. "errore404Info" → "Pagina non trovata")
+ *   - "errore{codice}Desc" → descrizione estesa
  *   Se la chiave non esiste nei file di traduzione, vengono usati messaggi di ripiego
  *   generici "errore" e "erroreImprevisto".
  *
@@ -21,15 +21,14 @@ import { ContestoSito, PageType } from '../../site';
  */
 @Component({
     selector: 'app-error',
-    imports: [RouterLink, TranslatePipe],
+    imports: [TranslatePipe, PageDirective],
     templateUrl: './error.component.html',
     styleUrl: './error.component.css'
 })
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);
 
-    /** Path della home, risolto da ContestoSito. */
-    readonly homePath = ContestoSito.getPath(PageType.Home) ?? '/';
+    protected readonly PageType = PageType;
 
     /** Codice errore HTTP, letto dalla route (param o data) tramite input binding. Predefinito: 404 */
     readonly errorCode = input(404, {
@@ -39,11 +38,6 @@ export class ErrorComponent {
         }
     });
 
-    /**
-     * Titolo dell'errore: cerca la traduzione "errore{codice}Info".
-     * Se la chiave non esiste (translate restituisce la chiave stessa),
-     * mostra il messaggio generico di ripiego "Errore {codice}".
-     */
     readonly errorInfo = computed(() => {
         const code = this.errorCode();
         const infoKey = `errore${code}Info`;
@@ -54,10 +48,6 @@ export class ErrorComponent {
         return code + ': ' + info;
     });
 
-    /**
-     * Descrizione dell'errore: cerca la traduzione "errore{codice}Desc".
-     * Se non trovata, mostra il messaggio generico di ripiego "erroreImprevisto".
-     */
     readonly errorMessage = computed(() => {
         const code = this.errorCode();
         const descKey = `errore${code}Desc`;
@@ -68,4 +58,3 @@ export class ErrorComponent {
         return desc;
     });
 }
-

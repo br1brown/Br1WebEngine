@@ -478,7 +478,7 @@ Non serve nessun codice nei componenti per i casi standard.
     path: 'mia-pagina',
     title: 'miaPagina',              // chiave i18n → tradotta automaticamente
     description: 'miaPaginaDesc',   // chiave i18n → meta description
-    ogImage: 'id-asset-immagine',   // ID asset → URL costruito dal server
+    ogImage: 'id-asset-immagine',   // ID asset → og:image 1200×630: immagine centrata su sfondo sfocato + favicon
     // oppure ogImage: false        → nessuna immagine (rimuove i tag og:image)
     // oppure omesso                → preview dinamica generata da /cdn-cgi/preview
     ogType: 'article',              // og:type (default: 'website')
@@ -517,8 +517,8 @@ setTitle(
 ): void
 
 // imgId — tre comportamenti distinti:
-// string  → ID asset: URL costruito tramite server Node (nasconde il filesystem)
-// null/undefined → preview dinamica: /cdn-cgi/preview?title=...&subtitle=...
+// string  → /cdn-cgi/preview-image?id=…  — output 1200×630: immagine centrata su sfondo sfocato, favicon in basso a sinistra
+// null/undefined → /cdn-cgi/preview?title=…  — preview generata (sfondo colorato, icona, titolo)
 // false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
 
@@ -745,9 +745,15 @@ Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti
 
 ## Asset e ottimizzazione immagini
 
-Il server Node SSR espone `/cdn-cgi/asset?id=X` per ogni file in `assets/mapping.json`:
-- **Immagini raster** (PNG, JPG, GIF, AVIF…): resize + WebP tramite Sharp, cache su disco
-- **Altri file** (PDF, SVG, testi…): serviti direttamente con `Content-Type` rilevato dall'estensione
+Il server Node SSR espone tre endpoint CDN CGI (path raccolti in `CdnCgi` in `asset.service.ts`):
+
+| Endpoint | Scopo |
+|---|---|
+| `/cdn-cgi/asset?id=X[&w=N]` | Serve il file raw: resize + WebP per immagini raster, passthrough per PDF/SVG/… |
+| `/cdn-cgi/preview?title=…` | Genera al volo l'og:image testuale (sfondo colorato, favicon centrata, titolo) |
+| `/cdn-cgi/preview-image?id=X` | Output fisso 1200×630: immagine proporzionata al centro, sfondo sfocato (blur-fill), favicon in basso a sinistra |
+
+Tutti e tre usano cache su disco (invalidata aggiornando `version` in `site.ts`) e single-flight per richieste concorrenti alla stessa risorsa.
 
 La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente, solo tramite ID.
 
