@@ -195,6 +195,26 @@ constructor(private http: HttpClient) {}
 I componenti **condivisi** vanno in `src/app/shared/components/`.  
 I componenti **specifici di una pagina** possono stare nella cartella della pagina stessa.
 
+### Component o directive?
+
+Prima di creare un componente, valuta una directive. Un componente ha senso
+quando il template **compone più elementi**, ha **branching condizionale** fra
+varianti di markup, o espone `<ng-content>`. Esempi nel template:
+
+- `<app-nav-dropdown>` — compone `<details>`/`<summary>` + `<ul>` con i figli
+- `<app-nav-link>` — alterna tre rami: `<a>` interno, `<span aria-current>` se attivo, `<a target="_blank">` se esterno
+- `<app-profile-render>` — formato e struttura non banali di label + valore
+
+**Anti-pattern**: un componente che renderizza solo un singolo elemento HTML
+con un attributo calcolato (es. solo `<img [src]>`). Si paga un host element
+in più, si perde la possibilità di applicare classi/attributi standard senza
+API custom (`cssClass`, `imgClass`…), e i selettori CSS scoped del parent
+non raggiungono più il `<img>` reale (vedi *CSS scoping nei componenti
+standalone*). In questi casi una **directive** sul tag esistente è più
+appropriata: `[appAsset]`, `[imgRender]`, `[qrContent]`, `[appAssetHref]`.
+
+### Pattern base
+
 ```typescript
 @Component({
     selector: 'app-mio-widget',
@@ -225,6 +245,8 @@ export class MioWidgetComponent implements AfterViewInit {
 
 ## Aggiungere una direttiva
 
+### Directive con event handler
+
 ```typescript
 // src/app/shared/directives/mia.directive.ts
 import { Directive, HostListener, inject, PLATFORM_ID } from '@angular/core';
@@ -252,6 +274,43 @@ usare `ViewContainerRef`:
 private readonly vcr = inject(ViewContainerRef);
 // vcr.element.nativeElement — elemento host della direttiva
 ```
+
+### Directive che calcola un attributo (src/href)
+
+Pattern dominante nel template per atomi presentazionali: la directive
+reagisce a un input via signal/computed e aggiorna automaticamente un
+attributo dell'host. Niente wrapper, niente classi proprie — l'elemento
+host accetta tutti gli attributi standard.
+
+```typescript
+@Directive({
+    selector: 'img[appMia]',                  // selector vincolato al tag
+    standalone: true,
+    host: { '[src]': 'src()' },               // host binding sull'attributo
+})
+export class MiaDirective {
+    private readonly mio = inject(MioService);
+
+    readonly appMia = input.required<MioConfig>();
+
+    protected readonly src = computed(() => this.mio.compute(this.appMia()));
+}
+```
+
+Per rendering **asincrono** (canvas, blob, API esterne): usare `effect()` +
+un `signal` interno per `src`, con un *render token* monotono per evitare
+race condition quando build sovrapposte si "sorpassano". Se il consumer ha
+bisogno di accedere a stati derivati (blob originale, canvas raw, errore
+tradotto), esporli via `output()` invece che con un signal pubblico — gli
+output funzionano anche cross-template, i template reference no.
+
+Vedi `AssetDirective` (sync), `ImgRenderDirective` e `QrRenderDirective`
+(async con output) come esempi completi.
+
+> ⚠️ `output().emit()` durante `DestroyRef.onDestroy()` viene swallow-ed:
+> se il consumer mantiene stato locale dagli output (blob, canvas) e poi
+> rimuove l'host via `@if`, deve resettare i propri signal esplicitamente.
+> La directive non può pulirli al momento della distruzione.
 
 ---
 
@@ -730,6 +789,44 @@ I metodi statici (`ThemeService.prefersDarkText`, `getReadableTextColor`, `mixHe
 
 Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti forzabili con `.panel-light` e `.panel-dark`.
 
+### CSS scoping nei componenti standalone
+
+Angular usa `ViewEncapsulation.Emulated` di default: appone un attributo
+`_ngcontent-xxx` agli elementi del template, e riscrive i selettori del
+`.component.css` perché matchino solo quelli. Gli elementi resi da un
+**child component standalone** ricevono un attributo diverso
+(`_ngcontent-yyy`), quindi i selettori del padre **non li raggiungono**.
+
+Regola pratica:
+
+| Selettore mira… | Dove va lo stile |
+|---|---|
+| Elementi resi direttamente nel template del componente | `*.component.css` (scoped) |
+| Classi rese da child component (es. `<app-nav-link>` → `<a class="nav-link">`) | `styles/*.css` (globale) |
+
+Esempio reale del template: tutto il sistema di navigazione vive in
+`styles/nav.css` globale — `.nav-link`, `.nav-disclosure-*`, `footer a` —
+perché i `<a>` e i `<details>` concreti sono renderizzati da
+`<app-nav-link>` / `<app-nav-dropdown>` / `<app-footer-nav>`. Mantenere
+quegli stili in `navbar.component.css` / `footer.component.css` causa
+breakage non ovvio: dropdown senza `position: absolute` (appare come
+lista), link footer col colore Bootstrap blu invece di ereditare il
+colore del contenitore, ecc.
+
+Per gli **override contestuali** (es. "quando il link è dentro una
+`.navbar` usa il colore X"), regola:
+
+- Se il selettore parte dal container che vive nel padre (es.
+  `.navbar .nav-link`), va in globale insieme alle definizioni base.
+- Per personalizzazioni di progetto figlio, valutare **CSS custom
+  properties** invece dei selettori di discendenza: il container espone
+  `--app-nav-link-color`, il child legge `color: var(--app-nav-link-color, …)`.
+  Più robusto, niente reach-through nel DOM del figlio.
+
+Il template-engine fornisce i baseline globali in `styles/base.css`,
+`styles/nav.css`, `styles/social.css`. I progetti figli aggiungono o
+sovrascrivono in `styles.css` o in nuovi file importati da lì.
+
 ### FontConfig
 
 `src/styles/font-config.ts` — nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
@@ -757,7 +854,30 @@ Tutti e tre usano cache su disco (invalidata aggiornando `version` in `site.ts`)
 
 La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente, solo tramite ID.
 
-Nei componenti:
+### Uso in template — directive
+
+Il modo preferito nei template è tramite directive: niente signal intermedi,
+`src` / `href` si aggiornano reattivamente al cambio degli input.
+
+```html
+<!-- src: img, video, audio, source, iframe, embed -->
+<img appAsset="hero" [appAssetWidth]="1080" alt="..." class="img-fluid">
+<video appAsset="intro" controls></video>
+<iframe appAsset="manuale" title="Manuale PDF"></iframe>
+
+<!-- href: a, link (download, preload) -->
+<a [appAssetHref]="'manuale'" download="manuale.pdf">Scarica manuale</a>
+<link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
+```
+
+`appAssetWidth` ha effetto solo per immagini raster: il server ignora il
+parametro per video / PDF / SVG e restituisce lo stream originale. È quindi
+sicuro lasciarlo non valorizzato anche su tag non-immagine.
+
+### Uso programmatico
+
+Per casi non template (canvas dinamici, popup, costruzione URL da codice):
+
 ```typescript
 this.asset.getUrl('hero', 1080)      // → URL ottimizzato via /cdn-cgi/asset
 ```
@@ -821,14 +941,36 @@ Tutti `providedIn: 'root'`.
 
 ## Componenti e directive disponibili
 
-| Componente / Directive | Uso |
+### Directive
+
+| Directive | Uso |
+|---|---|
+| `<a [appPage]="PageType.X">` | RouterLink ai `PageType` dichiarati in `site.ts`: risolve il path automaticamente, no stringhe hard-coded |
+| `<img appAsset="id" [appAssetWidth]="?">` | Setta `src` dal mapping asset (anche `video`/`audio`/`source`/`iframe`/`embed`); ottimizzazione server per immagini raster |
+| `<a [appAssetHref]="'id'">` | Variante href per `a` / `link`: download di file, preload |
+| `<img [imgRender]="config" (canvasChange)="…">` | Genera l'immagine via `ImgBuilderService` su `<img>`; emette il canvas raw per download/share |
+| `<img [qrContent]="config" (blobChange)="…" (errorChange)="…">` | Genera il QR via `QrCodeService` su `<img>`; emette blob ed errore tradotto |
+| `[appContextMenu]="options"` | Menu contestuale: click destro desktop, long-press mobile |
+
+### Componenti
+
+| Componente | Uso |
 |---|---|
 | `<app-loading [loading]="bool">` | Spinner Bootstrap se `true`, `<ng-content>` se `false` |
-| `[appContextMenu]="options"` | Menu contestuale: click destro desktop, long-press mobile |
-| `<app-social-link [type]="..." [value]="...">` | 35+ social con icona Font Awesome e colore brand |
+| `<app-nav-link [link]="…" [cssClass]="…" [activeCssClass]="…">` | Atomo link: `<a>` interno via routerLink, `<span aria-current>` se rotta attiva, `<a target="_blank">` se esterno |
+| `<app-nav-dropdown [item]="…" (toggle)="…" (linkClick)="…">` | `<details>`/`<summary>` + lista figli renderizzati come `<app-nav-link>`; usato dalla navbar |
+| `<app-footer-nav [links]="…">` | Griglia di gruppi/link del footer |
+| `<app-profile-render [profile]="…">` | Render strutturato del profilo aziendale (contatti + dati societari) |
+| `<app-social-link [type]="…" [value]="…">` | 35+ social con icona Font Awesome e colore brand |
 | `<app-cookie-banner>` | Banner GDPR con testo Markdown e placeholder dinamici |
 | `<app-back-to-top>` | Pulsante scroll-to-top con soglia; colori dal tema |
 | `<app-smoke-effect>` | Effetto particellare su canvas configurabile da `site.ts` |
+
+### Pipe
+
+| Pipe | Uso |
+|---|---|
+| `{{ chiave \| translate }}` | i18n reattivo: si aggiorna al cambio lingua |
 | `{{ testo \| markdown }}` | Markdown → HTML con protezione XSS integrata (HTML raw ignorato) |
 
 ### ImgBuilderService — dettaglio
