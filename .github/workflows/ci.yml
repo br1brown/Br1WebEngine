@@ -21,6 +21,15 @@ jobs:
       - name: Build
         run: dotnet build backend/backend.csproj --configuration Release
 
+      - name: Check vulnerable packages
+        run: |
+          OUTPUT=$(dotnet list backend/backend.csproj package --vulnerable --include-transitive 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable NuGet packages found. Run 'dotnet list package --vulnerable' locally for details."
+            exit 1
+          fi
+
   frontend:
     name: Build frontend
     runs-on: ubuntu-latest
@@ -37,6 +46,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Security audit
+        working-directory: frontend
+        run: npm audit --audit-level=high --omit=dev
 
       - name: Generate Statics
         working-directory: frontend
