@@ -3,5 +3,6 @@
    processing del CSS di terze parti. */
 @import './styles/base.css';
 @import './styles/social.css';
+@import './styles/nav.css';
 
 /* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */

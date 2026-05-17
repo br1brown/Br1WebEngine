@@ -4,20 +4,20 @@ import {
     signal,
     effect,
     computed,
-    afterNextRender,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { SafeUrl } from '@angular/platform-browser';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { ShareService } from '../../core/services/share.service';
 import { ThemeService } from '../../core/services/theme.service';
-import { ImgBuilderService } from '../../core/services/img-builder.service';
-import { QrCodeService, QrConfig } from '../../core/services/qr-code.service';
+import { QrConfig } from '../../core/services/qr-code.service';
 
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
 import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
+import { QrRenderDirective } from '../../shared/directives/qr-render.directive';
+import { ImgRenderDirective, ImgRenderConfig } from '../../shared/directives/img-render.directive';
+import { AssetDirective } from '../../shared/directives/asset.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
 import { SpeechService } from '../../core/services/speech.service';
@@ -25,20 +25,26 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
 
 @Component({
     selector: 'app-home',
-    imports: [TranslatePipe, FormsModule, CommonModule, ContextMenuDirective],
+    imports: [
+        TranslatePipe,
+        FormsModule,
+        CommonModule,
+        ContextMenuDirective,
+        QrRenderDirective,
+        ImgRenderDirective,
+        AssetDirective,
+    ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent<void> {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
-    private readonly imgBuilder = inject(ImgBuilderService);
-    private readonly qrCode = inject(QrCodeService);
     readonly appName = ContestoSito.config.appName;
     readonly speech = inject(SpeechService);
 
-    private _imgCanvas: HTMLCanvasElement | null = null;
-    readonly imgPreviewUrl = signal<string | null>(null);
+    /** Canvas raw emesso dalla [imgRender] directive: serve a download/share. */
+    readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
 
     // --- Signal scrivibile: aggiornato al cambio lingua, modificabile dall'utente ---
     readonly speechDemoText = signal(this.translate.translate('speechPlaceholder'));
@@ -55,6 +61,10 @@ export class HomeComponent extends PageBaseComponent<void> {
     imgTextColor = this.theme.colorPrimaryText();
     imgFontSize = 60;
 
+    /** Config corrente del builder: aggiornata da ngModelChange e letta dalla
+     *  directive [imgRender] sull'<img> di anteprima. */
+    readonly imgConfig = signal<ImgRenderConfig>(this.buildImgConfig());
+
     // --- QR Code playground ---
     qrType: QrConfig['type'] = 'text';
     qrText = 'https://example.com';
@@ -70,10 +80,12 @@ export class HomeComponent extends PageBaseComponent<void> {
     qrBeneficiaryName = '';
     qrAmount = 10;
     qrRemittance = '';
-    readonly qrImageUrl = signal<SafeUrl | null>(null);
+
+    /** Config corrente del QR: settata da `generateQr()`. La directive
+     *  [qrContent] sull'<img> reagisce a questa signal e emette blob/error. */
+    readonly qrConfig = signal<QrConfig | null>(null);
+    readonly qrBlob = signal<Blob | null>(null);
     readonly qrError = signal<string | null>(null);
-    readonly qrReady = signal(false);
-    private qrBlob: Blob | null = null;
 
     // --- Sistema & API ---
     socialFilter = '';
@@ -81,8 +93,10 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     // --- Risoluzione asset + playground resize ---
     assetId = 'img4k';
-    readonly assetUrl = signal('');
-    readonly assetResizeWidth = signal<number | null>(null);
+    /** Asset effettivamente applicato dopo click su Originale/Resize. La directive
+     *  [appAsset] sull'<img> si attiva solo quando questa signal e' valorizzata. */
+    readonly appliedAssetId = signal<string | null>(null);
+    readonly assetResizeWidth = signal<AssetWidth | null>(null);
     readonly assetWidths = ALLOWED_WIDTHS;
 
     // --- Demo menu contestuale ---
@@ -152,12 +166,6 @@ export class HomeComponent extends PageBaseComponent<void> {
         effect(() => {
             this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
         });
-
-        // afterNextRender viene eseguito solo nel browser, mai in prerender/SSR:
-        // il rendering del canvas è quindi sicuro senza guard di piattaforma.
-        afterNextRender(() => {
-            void this.renderHomeImage();
-        });
     }
 
     // ==================== Laboratorio Markdown ====================
@@ -187,56 +195,44 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     // ==================== Demo immagini ====================
 
-    async renderHomeImage(): Promise<void> {
-        this._imgCanvas = await this.imgBuilder.buildCanvas(this.imgText || 'Hello World', {
-            fontSize: this.imgFontSize,
-            renderMode: 'wrap',
-        });
-        if (!this._imgCanvas) return;
-        this.imgPreviewUrl.set(this._imgCanvas.toDataURL('image/png'));
+    /** Riemette `imgConfig`: la directive [imgRender] vede il signal cambiare
+     *  e rigenera il canvas. Chiamato da ngModelChange / range input. */
+    onImageInputChange(): void {
+        this.imgConfig.set(this.buildImgConfig());
     }
 
     resetHomeImage(): void {
         this.imgText = 'Hello World';
-        this.applyThemeImageDefaults();
-        this.imgFontSize = 48;
-        void this.renderHomeImage();
-    }
-
-    private applyThemeImageDefaults(): void {
         this.imgBgColor = this.theme.colorPrimary();
         this.imgTextColor = this.theme.colorPrimaryText();
+        this.imgFontSize = 48;
+        this.onImageInputChange();
+    }
+
+    private buildImgConfig(): ImgRenderConfig {
+        return {
+            text: this.imgText || 'Hello World',
+            fontSize: this.imgFontSize,
+            renderMode: 'wrap',
+        };
     }
 
     downloadHomeImage(): void {
-        if (!this._imgCanvas) return;
-        void this.share.downloadCanvas(this._imgCanvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
+        const canvas = this.imgCanvas();
+        if (!canvas) return;
+        void this.share.downloadCanvas(canvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
     }
 
     shareHomeImage(): void {
-        if (!this._imgCanvas) return;
-        const filename = `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`;
-        void this.share.shareCanvas(this._imgCanvas, this.appName, filename);
+        const canvas = this.imgCanvas();
+        if (!canvas) return;
+        void this.share.shareCanvas(canvas, this.appName, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
     }
 
     // ==================== QR Code ====================
 
-    async generateQr(): Promise<void> {
-        const config = this.buildQrConfig();
-        if (!config) return;
-
-        const result = await this.qrCode.create(config);
-        if (!result.success) {
-            this.qrError.set(result.message ?? result.error);
-            this.qrImageUrl.set(null);
-            this.qrBlob = null;
-            return;
-        }
-
-        this.qrBlob = result.blob;
-        this.qrReady.set(true);
-        this.qrError.set(null);
-        this.qrImageUrl.set(this.asset.getUrlFromBlob(result.blob).angularUrl);
+    generateQr(): void {
+        this.qrConfig.set(this.buildQrConfig());
     }
 
     private buildQrConfig(): QrConfig | null {
@@ -255,18 +251,9 @@ export class HomeComponent extends PageBaseComponent<void> {
     }
 
     onQrTypeChange(): void {
-        this.qrImageUrl.set(null);
+        this.qrConfig.set(null);
+        this.qrBlob.set(null);
         this.qrError.set(null);
-        this.qrReady.set(false);
-        this.qrBlob = null;
-    }
-
-    downloadQr(): void {
-        if (this.qrBlob) this.share.downloadBlob(this.qrBlob, 'qrcode.png');
-    }
-
-    async shareQrCode(): Promise<void> {
-        if (this.qrBlob) await this.share.shareBlob(this.qrBlob, 'qrcode.png', 'QR Code');
     }
 
     // ==================== Demo modali ====================
@@ -317,12 +304,12 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     resolveAsset(): void {
         this.assetResizeWidth.set(null);
-        this.assetUrl.set(this.asset.getUrl(this.assetId));
+        this.appliedAssetId.set(this.assetId);
     }
 
     resolveAssetResized(width: AssetWidth): void {
         this.assetResizeWidth.set(width);
-        this.assetUrl.set(this.asset.getUrl(this.assetId, width));
+        this.appliedAssetId.set(this.assetId);
     }
 
     copyToClipboard(text: string): void {
