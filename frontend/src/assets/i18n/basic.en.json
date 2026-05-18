@@ -91,7 +91,7 @@
   "si": "Yes",
   "no": "No",
   "annulla": "Cancel",
-  "erroreAPINonDisponibile": "APIs are unreachable. Check if the backend is running.",
+  "erroreAPINonDisponibile": "APIs are unreachable.",
   "apiStatus": "API: {0}",
   "online": "online",
   "skipToContent": "Skip to main content",

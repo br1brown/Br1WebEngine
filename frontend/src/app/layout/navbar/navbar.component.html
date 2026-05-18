@@ -46,12 +46,12 @@
                 <span class="language-picker-label">{{ 'selezionaLingua' | translate }}</span>
                 <details class="nav-disclosure language-disclosure"
                          (toggle)="onDisclosureToggle($event)">
-                    <summary class="nav-link nav-disclosure-summary language-disclosure-summary"
+                    <summary class="nav-link nav-disclosure-summary language-disclosure-summary d-flex align-items-center justify-content-between gap-1 user-select-none border-0 bg-transparent text-decoration-none"
                              [attr.aria-label]="'selezionaLingua' | translate">
                         <span class="nav-disclosure-label">{{ translate.currentLang() | uppercase }}</span>
                         <span class="nav-disclosure-caret" aria-hidden="true"></span>
                     </summary>
-                    <ul class="nav-disclosure-menu language-disclosure-menu theme-bg"
+                    <ul class="nav-disclosure-menu language-disclosure-menu theme-bg list-unstyled overflow-hidden"
                         [attr.aria-label]="'selezionaLingua' | translate">
                         @for (lingua of languages(); track lingua) {
                         <li>

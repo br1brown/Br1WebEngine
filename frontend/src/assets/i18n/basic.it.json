@@ -91,7 +91,7 @@
   "si": "Sì",
   "no": "No",
   "annulla": "Annulla",
-  "erroreAPINonDisponibile": "Le API non sono raggiungibili. Verifica che il backend sia in esecuzione.",
+  "erroreAPINonDisponibile": "Le API non sono raggiungibili",
   "apiStatus": "API: {0}",
   "online": "online",
   "skipToContent": "Vai al contenuto principale",

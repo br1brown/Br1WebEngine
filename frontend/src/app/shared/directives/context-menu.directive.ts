@@ -21,6 +21,7 @@ import { ContextMenuOverlayComponent } from '../components/context-menu/context-
 })
 export class ContextMenuDirective {
     readonly options = input<ContextMenuOption[]>([], { alias: 'appContextMenu' });
+    readonly content = input<HTMLCanvasElement | Blob | null>(null, { alias: 'appContextMenuContent' });
 
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
     private readonly vcr = inject(ViewContainerRef);

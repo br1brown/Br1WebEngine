@@ -1,5 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { ThemeService } from './theme.service';
 import { TranslateService } from './translate.service';
 
 type SwalType = typeof import('sweetalert2').default;
@@ -34,6 +35,7 @@ export interface InteractConfig<T> {
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
     private translate = inject(TranslateService);
+    private theme = inject(ThemeService);
     private platformId = inject(PLATFORM_ID);
     private swalPromise?: Promise<SwalType>;
 
@@ -42,10 +44,38 @@ export class NotificationService {
         return this.swalPromise ??= import('sweetalert2').then(module => module.default);
     }
 
+    /**
+     * SwAl pre-configurato col tema del template:
+     *  - theme 'bootstrap-5-light' o '-dark' a seconda di themeTone, così che il
+     *    popup segua sempre lo schema chiaro/scuro corrente (richiede l'import di
+     *    'sweetalert2/themes/bootstrap-5.css' in styles.css);
+     *  - bottoni Bootstrap (.btn-primary / .btn-outline-secondary / .btn-danger)
+     *    per la coerenza tematica delle CTA.
+     * `buttonsStyling: false` disabilita lo styling default di SwAl così che le
+     * classi Bootstrap prevalgano. Il mixin viene ricreato ad ogni call per
+     * essere reattivo a cambi di themeTone a runtime.
+     */
+    private loadThemedSwal(): Promise<SwalType> | null {
+        const base = this.loadSwal();
+        if (!base) return null;
+        const themeVariant = this.theme.themeTone() === 'dark'
+            ? 'bootstrap-5-dark'
+            : 'bootstrap-5-light';
+        return base.then(Swal => Swal.mixin({
+            theme: themeVariant,
+            buttonsStyling: false,
+            customClass: {
+                confirmButton: 'btn btn-primary',
+                cancelButton:  'btn btn-outline-secondary ms-2',
+                denyButton:    'btn btn-danger ms-2',
+            },
+        }));
+    }
+
     // --- FEEDBACK STANDARD ---
 
     success(message: string, onClose?: () => void): void {
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (swal) {
             void swal.then(Swal =>
                 Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
@@ -57,7 +87,7 @@ export class NotificationService {
     }
 
     error(title: string, message: string): void {
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (swal) {
             void swal.then(Swal => {
                 Swal.close();
@@ -71,7 +101,7 @@ export class NotificationService {
     // --- LOADING ---
 
     openLoading(message?: string): void {
-        void this.loadSwal()?.then(Swal =>
+        void this.loadThemedSwal()?.then(Swal =>
             Swal.fire({
                 title: message ?? this.translate.translate('caricamento'),
                 allowOutsideClick: false,
@@ -81,7 +111,7 @@ export class NotificationService {
     }
 
     closeLoading(): void {
-        void this.loadSwal()?.then(Swal => Swal.close());
+        void this.loadThemedSwal()?.then(Swal => Swal.close());
     }
 
     // --- INTERAZIONE ---
@@ -92,7 +122,7 @@ export class NotificationService {
         icon?: 'question' | 'info' | 'warning';
         allowOutsideClick?: boolean;
     }): Promise<boolean> {
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (!swal) return false;
 
         const Swal = await swal;
@@ -114,7 +144,7 @@ export class NotificationService {
         defaultValue?: string,
         validator?: (value: string) => ValidationResult
     ): Promise<string | null> {
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (!swal) {
             if (isPlatformBrowser(this.platformId)) {
                 return window.prompt(`${title}\n${inputLabel}`, defaultValue ?? '') ?? null;
@@ -147,7 +177,7 @@ export class NotificationService {
     }
 
     async interact<T = unknown>(config: InteractConfig<T>): Promise<T | null> {
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (!swal) return null;
 
         const Swal = await swal;
@@ -217,7 +247,7 @@ export class NotificationService {
     // --- TOAST ---
 
     toast(message: string, icon: 'success' | 'error' | 'info' | 'warning' = 'success'): void {
-        void this.loadSwal()?.then(Swal => {
+        void this.loadThemedSwal()?.then(Swal => {
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -240,7 +270,7 @@ export class NotificationService {
             ? errors
             : Object.values(errors).flat();
 
-        const swal = this.loadSwal();
+        const swal = this.loadThemedSwal();
         if (swal) {
             void swal.then(Swal => {
                 const ul = document.createElement('ul');

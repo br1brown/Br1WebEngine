@@ -1,14 +1,18 @@
 /* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
 
-/* §5 — Variabili CSS tema. ThemeService imposta --colorTema e --fontFamily;
-   il browser calcola i colori derivati via color-mix().
-   --fontFamily è derivato da FontConfig.DEFAULT_WEB_FONT e impostato sempre da ThemeService. */
+/* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
+   ThemeService imposta a runtime: --colorTema, --fontFamily, --colorPrimary,
+   --colorPrimaryRgb, --colorPrimaryText. I valori qui in :root sono i default
+   usati prima dell'hydration / in SSR. L'algoritmo adattivo lato TS può
+   restituire un --colorPrimary più scuro del default su temi chiari, per
+   garantire contrasto WCAG ≥4.5:1 col testo bianco dei bottoni primary. */
 :root {
     --fontFamily: inherit;
     --colorTema: #212529;
     --colorBase: color-mix(in srgb, var(--colorTema), white 20%);
-    --colorPrimary: color-mix(in srgb, var(--colorTema), black 40%);
-    --colorPrimaryScuro: color-mix(in srgb, var(--colorPrimary), black 20%);
+    /* Default match con --colorTema #212529: 40% black mix = ~#141619 */
+    --colorPrimary: #141619;
+    --colorPrimaryRgb: 20, 22, 25;
     --colorLink: currentColor;
     --colorSurface: color-mix(in srgb, var(--colorTema), white 24%);
     --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
@@ -49,26 +53,53 @@ body {
     text-decoration-color: currentColor;
 }
 
-/* Bottone primario - usa i colori del tema */
+/* Mappatura --bs-primary → tema corrente.
+   ThemeService imposta solo --colorPrimary / --colorPrimaryRgb su :root: sono
+   variabili "nostre" che Bootstrap non ridefinisce mai. Qui le inoltriamo a
+   --bs-primary in tutti gli scope dove Bootstrap rigenera i suoi default —
+   :root, [data-bs-theme=light] e [data-bs-theme=dark]: senza ripetere il
+   mapping nei sotto-temi, i discendenti di un <div data-bs-theme="light">
+   ricadrebbero sul blu Bootstrap di default. */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+    --bs-primary: var(--colorPrimary);
+    --bs-primary-rgb: var(--colorPrimaryRgb);
+}
+
+/* I bottoni .btn-primary / .btn-outline-primary hanno --bs-btn-* hardcoded al
+   colore default Bootstrap (#0d6efd): vanno ridiretti a --bs-primary. */
 .btn-primary {
-    background-color: var(--colorPrimary);
-    border-color: var(--colorPrimary);
+    --bs-btn-bg:               var(--bs-primary);
+    --bs-btn-border-color:     var(--bs-primary);
+    --bs-btn-color:            var(--colorPrimaryText, #fff);
+    --bs-btn-hover-bg:         color-mix(in srgb, var(--bs-primary), #000 12%);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--bs-primary), #000 16%);
+    --bs-btn-hover-color:      var(--colorPrimaryText, #fff);
+    --bs-btn-active-bg:        color-mix(in srgb, var(--bs-primary), #000 18%);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--bs-primary), #000 22%);
+    --bs-btn-active-color:     var(--colorPrimaryText, #fff);
+    --bs-btn-disabled-bg:      var(--bs-primary);
+    --bs-btn-disabled-border-color: var(--bs-primary);
+    --bs-btn-disabled-color:   var(--colorPrimaryText, #fff);
 }
 
-.btn-primary:active,
-.btn-primary:hover,
-.btn-primary:focus {
-    background-color: var(--colorPrimaryScuro);
-    border-color: var(--colorPrimaryScuro);
+.btn-outline-primary {
+    --bs-btn-color:            var(--bs-primary);
+    --bs-btn-border-color:     var(--bs-primary);
+    --bs-btn-hover-bg:         var(--bs-primary);
+    --bs-btn-hover-border-color: var(--bs-primary);
+    --bs-btn-hover-color:      var(--colorPrimaryText, #fff);
+    --bs-btn-active-bg:        var(--bs-primary);
+    --bs-btn-active-border-color: var(--bs-primary);
+    --bs-btn-active-color:     var(--colorPrimaryText, #fff);
+    --bs-btn-disabled-color:   var(--bs-primary);
+    --bs-btn-disabled-border-color: var(--bs-primary);
 }
 
-.btn-primary:checked,
-.btn-primary:focus-visible,
-.btn-primary:disabled {
-    background-color: var(--colorBase);
-    border-color: var(--colorPrimary);
-    color: var(--colorPrimary);
-}
+/* I form controls (checkbox/toggle/range/input focus) restano coi default
+   Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.
+   Sovrascriverli ogni volta complicherebbe la cascata senza guadagno utente. */
 
 /* Riempimento dello sfondo tema */
 .theme-bg {
@@ -184,6 +215,20 @@ code {
 /* WCAG 2.1 AA - contrasto migliorato per text-body-secondary */
 .text-body-secondary {
     color: #595f66 !important;
+}
+
+/* Surface elevata — utility per overlay che galleggiano sopra la pagina
+   (cookie banner, context menu, FAB, modali custom future). Volutamente
+   NEUTRA: usa --bs-body-bg invece del colore tema, così gli overlay non
+   raddoppiano il "weight" del colore principale, e il primary resta
+   percepito come accento riservato alle CTA. L'inner ring + ombra danno
+   la sensazione di elevazione contro il body. Si adatta light/dark grazie
+   alle variabili Bootstrap. */
+.surface-elevated {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+                0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
 }
 
 /* FAB — Floating Action Button condiviso (back-to-top, cookie-reopen, ecc.).

@@ -56,9 +56,9 @@ export class CookieConsentService {
         this.injector.get(TranslateService).availableLangs().length > 1
     );
 
-    readonly isAnalyticsNeeded = computed(() => true);
+    readonly isAnalyticsNeeded = computed(() => false);
 
-    readonly isProfilingNeeded = computed(() => true);
+    readonly isProfilingNeeded = computed(() => false);
 
     /** True se almeno una categoria richiede il consenso.
      *  Falso lato server: il banner non va nell'HTML SSR, compare solo dopo l'idratazione. */

@@ -3,9 +3,6 @@
     bottom: 2rem;
     right: 2rem;
     z-index: 1000;
-    /* border-color è applicato inline via [style.border-color] dal componente */
-    border: 1px solid;
-    padding: 0;
 }
 
 @supports (bottom: env(safe-area-inset-bottom)) {

@@ -1,6 +1,5 @@
-import { Component, computed, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
+import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ThemeService } from '../../../core/services/theme.service';
 
 /**
  * BackToTopComponent — Bottone "torna su" che appare durante lo scroll.
@@ -8,8 +7,9 @@ import { ThemeService } from '../../../core/services/theme.service';
  * Il bottone diventa visibile quando l'utente scorre la pagina oltre 300px.
  * Al click, la pagina torna all'inizio con un'animazione fluida (smooth scroll).
  *
- * L'aspetto del bottone puo' essere personalizzato passando una classe Bootstrap
- * tramite l'input [btnClass]. Se omesso, usa il colore del tema con contrasto automatico.
+ * Aspetto: utility .fab + .surface-elevated dal layer globale — fondo neutro
+ * (body-bg), ombra elevata, inner ring theme-aware. Si adatta light/dark senza
+ * variabili componente.
  */
 @Component({
   selector: 'app-back-to-top',
@@ -17,7 +17,6 @@ import { ThemeService } from '../../../core/services/theme.service';
   styleUrl: './back-to-top.component.css'
 })
 export class BackToTopComponent {
-  readonly theme = inject(ThemeService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly isVisible = signal(false);
@@ -32,8 +31,4 @@ export class BackToTopComponent {
     if (this.isBrowser)
       window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
-  readonly backgroundColor = computed(() => this.theme.colorPrimary());
-  readonly borderColor = computed(() => ThemeService.mixHexColors(this.backgroundColor(), '#000000', 0.2));
-  readonly textColor = computed(() => this.theme.colorPrimaryText());
 }

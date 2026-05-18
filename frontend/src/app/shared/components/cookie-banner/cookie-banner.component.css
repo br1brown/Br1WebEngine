@@ -33,26 +33,19 @@ app-cookie-banner .cookie-banner a:hover {
 }
 
 app-cookie-banner .cookie-banner-modern {
-    background: transparent;
-    border-top: 0;
-    box-shadow: none;
     padding: 0 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
     pointer-events: none;
 }
 
+/* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML */
 app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     pointer-events: auto;
     width: min(100%, 1080px);
-    margin: 0 auto;
     padding: 1.25rem 1.4rem;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 1rem 1.25rem;
-    align-items: center;
-    border: none;
     border-radius: 1.5rem;
-    background: var(--colorTema);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.38);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {
@@ -92,12 +85,11 @@ app-cookie-banner .cookie-category > *:not(summary) {
     overflow: hidden;
 }
 
-/* Solo proprietà che Bootstrap non copre — layout/gap sono gestiti
-   dalle utility d-flex/align-items-center/gap-2 nell'HTML. */
+/* Solo proprietà che Bootstrap non copre — list-style/cursor sull'elemento
+   <summary>; layout/gap/user-select sono utility nell'HTML. */
 app-cookie-banner .cookie-category summary {
     list-style: none;
     cursor: pointer;
-    user-select: none;
 }
 
 app-cookie-banner .cookie-category summary::-webkit-details-marker {
@@ -123,27 +115,18 @@ app-cookie-banner .cookie-category[open] summary::after {
     opacity: 1;
 }
 
-app-cookie-banner .cookie-category p {
-    padding-left: 0;
-}
-
 @media (prefers-reduced-motion: reduce) {
     app-cookie-banner .cookie-category { transition: none; }
     app-cookie-banner .cookie-category summary::after { transition: none; }
 }
 
-app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.75rem;
-}
-
+/* Tipografia dei bottoni — min-height + padding + font-size custom non hanno
+   utility Bootstrap di pari valore; layout/forma (d-flex, rounded-pill) sono
+   nell'HTML. */
 app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
     min-height: 3rem;
     padding: 0.75rem 1.25rem;
     border-width: 1px;
-    border-radius: 999px;
     font-size: 0.95rem;
 }
 
@@ -159,10 +142,6 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
         padding: 1rem;
         gap: 1rem;
         border-radius: 1.25rem;
-    }
-
-    app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
-        flex-direction: column-reverse;
     }
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
