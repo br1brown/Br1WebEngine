@@ -84,24 +84,6 @@
                                                   [(ngModel)]="imgText"
                                                   (ngModelChange)="onImageInputChange()"></textarea>
 
-                                        <div class="row g-2 mb-3">
-                                            <div class="col-6">
-                                                <label class="form-label">{{ 'imageBg' | translate }}</label>
-                                                <input type="color"
-                                                       class="form-control form-control-color w-100"
-                                                       [(ngModel)]="imgBgColor"
-                                                       (change)="onImageInputChange()">
-                                            </div>
-
-                                            <div class="col-6">
-                                                <label class="form-label">{{ 'imageColorText' | translate }}</label>
-                                                <input type="color"
-                                                       class="form-control form-control-color w-100"
-                                                       [(ngModel)]="imgTextColor"
-                                                       (change)="onImageInputChange()">
-                                            </div>
-                                        </div>
-
                                         <div class="mb-3">
                                             <label class="form-label">
                                                 {{ 'imageSize' | translate }}: {{ imgFontSize }}px
@@ -115,31 +97,19 @@
                                                    (input)="onImageInputChange()">
                                         </div>
 
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <button class="btn btn-primary btn-sm"
-                                                    (click)="downloadHomeImage()">
-                                                <i class="fas fa-download me-1" aria-hidden="true"></i>
-                                                {{ 'scarica' | translate }}
-                                            </button>
-
-                                            <button class="btn btn-outline-primary btn-sm"
-                                                    (click)="shareHomeImage()">
-                                                <i class="fas fa-share-nodes me-1" aria-hidden="true"></i>
-                                                {{ 'condividi' | translate }}
-                                            </button>
-
-                                            <button class="btn btn-outline-secondary btn-sm"
-                                                    (click)="resetHomeImage()">
-                                                Reset
-                                            </button>
-                                        </div>
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                (click)="resetHomeImage()">
+                                            Reset
+                                        </button>
                                     </div>
 
                                     <div class="col-md-7">
-                                        <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface">
+                                        <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface"
+                                             [appContextMenu]="imgContextMenuOptions()"
+                                             [appContextMenuContent]="imgCanvas()">
                                             <img [imgRender]="imgConfig()"
                                                  (canvasChange)="imgCanvas.set($event)"
-                                                 class="img-fluid rounded border image-preview-canvas"
+                                                 class="img-fluid rounded border image-preview-canvas cursor-context-menu"
                                                  [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
                                         </div>
                                     </div>
@@ -250,22 +220,9 @@
                                             }
                                         }
 
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <button class="btn btn-primary btn-sm" (click)="generateQr()">
-                                                <i class="fa-solid fa-qrcode me-1"></i>Genera
-                                            </button>
-
-                                            @if (qrBlob(); as blob) {
-                                                <button class="btn btn-outline-primary btn-sm"
-                                                        (click)="share.downloadBlob(blob, 'qrcode.png')">
-                                                    <i class="fas fa-download me-1"></i>{{ 'scarica' | translate }}
-                                                </button>
-                                                <button class="btn btn-outline-secondary btn-sm"
-                                                        (click)="share.shareBlob(blob, 'qrcode.png', 'QR Code')">
-                                                    <i class="fas fa-share-nodes me-1"></i>{{ 'condividi' | translate }}
-                                                </button>
-                                            }
-                                        </div>
+                                        <button class="btn btn-primary btn-sm" (click)="generateQr()">
+                                            <i class="fa-solid fa-qrcode me-1"></i>Genera
+                                        </button>
 
                                         @if (qrError(); as err) {
                                             <div class="alert alert-warning mt-3 mb-0 py-2 small">
@@ -276,13 +233,15 @@
 
                                     <!-- Anteprima -->
                                     <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
-                                        <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100">
+                                        <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100"
+                                             [appContextMenu]="qrContextMenuOptions()"
+                                             [appContextMenuContent]="qrBlob()">
                                             @if (qrConfig()) {
                                                 <img [qrContent]="qrConfig()"
                                                      (blobChange)="qrBlob.set($event)"
                                                      (errorChange)="qrError.set($event)"
                                                      alt="QR Code generato"
-                                                     class="img-fluid rounded"
+                                                     class="img-fluid rounded cursor-context-menu"
                                                      style="max-width: 280px;">
                                             } @else {
                                                 <span class="text-muted small">
@@ -303,43 +262,6 @@
             <!-- COMPONENTI UX -->
             <section class="mb-4">
                 <div class="row g-3">
-
-                    <!-- Menu contestuale -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">{{ 'contextMenuTitle' | translate }}</h2>
-                                <p class="text-muted small mb-3">{{ 'contextMenuDesc' | translate }}</p>
-
-                                <p class="text-muted mb-3">{{ 'contextMenuHint' | translate }}</p>
-
-                                <div [appContextMenu]="contextMenuOptions()"
-
-                                     class="demo-context-area border rounded p-3">
-                                     <textarea class="form-control context-textarea"
-                                              rows="4"
-                                              [(ngModel)]="contextDemoText"
-                                              [placeholder]="translate.translate('contextMenuSampleText')"></textarea>
-                                </div>
-
-                                <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-                                    @if (contextMenuLastAction()) {
-                                    <span class="badge text-bg-secondary">
-                                        {{ 'contextMenuLastAction' | translate }}:
-                                        <code>{{ contextMenuLastAction() }}</code>
-                                    </span>
-                                    }
-
-                                    @if (clipboardContent()) {
-                                    <span class="badge text-bg-info">
-                                        <i class="fa-solid fa-clipboard me-1"></i>
-                                        "{{ clipboardContent().length > 40 ? clipboardContent().substring(0, 40) + '...' : clipboardContent() }}"
-                                    </span>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Sintesi Vocale (TTS) -->
                     <div class="col-12 col-xl-6">

@@ -57,8 +57,6 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     // --- Demo immagini integrata nella home ---
     imgText = 'Hello World';
-    imgBgColor = this.theme.colorPrimary();
-    imgTextColor = this.theme.colorPrimaryText();
     imgFontSize = 60;
 
     /** Config corrente del builder: aggiornata da ngModelChange e letta dalla
@@ -99,69 +97,41 @@ export class HomeComponent extends PageBaseComponent<void> {
     readonly assetResizeWidth = signal<AssetWidth | null>(null);
     readonly assetWidths = ALLOWED_WIDTHS;
 
-    // --- Demo menu contestuale ---
-    readonly contextMenuLastAction = signal('');
-    readonly clipboardContent = signal('');
-    contextDemoText = '';
-
-    readonly contextMenuOptions = computed<ContextMenuOption[]>(() => [
+    // --- Context menu per immagini generate ---
+    readonly imgContextMenuOptions = computed<ContextMenuOption[]>(() => [
         {
-            label: this.translate.translate('contextMenuCopy'),
-            icon: 'fa-solid fa-copy',
-            action: async () => {
-                this.contextMenuLastAction.set('copy');
-                const selected = window.getSelection()?.toString() || this.contextDemoText;
-                if (selected) {
-                    await this.share.copyText(selected);
-                    this.clipboardContent.set(selected);
-                }
-            }
+            label: this.translate.translate('scarica'),
+            icon: 'fa-solid fa-download',
+            action: () => this.downloadHomeImage()
         },
         {
-            label: this.translate.translate('contextMenuCut'),
-            icon: 'fa-solid fa-scissors',
-            action: async () => {
-                this.contextMenuLastAction.set('cut');
-                const selected = window.getSelection()?.toString() || '';
-                if (selected) {
-                    await this.share.copyText(selected);
-                    this.clipboardContent.set(selected);
-                    this.contextDemoText = this.contextDemoText.replace(selected, '');
-                    this.notify.toast(this.translate.translate('clipboardCut'), 'info');
-                }
-            }
-        },
-        {
-            label: this.translate.translate('contextMenuPaste'),
-            icon: 'fa-solid fa-paste',
-            action: async () => {
-                this.contextMenuLastAction.set('paste');
-                const text = await this.share.readText() || this.clipboardContent();
-                if (text) {
-                    this.contextDemoText += text;
-                    this.notify.toast(this.translate.translate('clipboardPasted'), 'success');
-                } else {
-                    this.notify.toast(this.translate.translate('clipboardEmpty'), 'warning');
-                }
-            }
-        },
-        { separator: true, label: '' },
-        {
-            label: this.translate.translate('contextMenuInfo'),
-            icon: 'fa-solid fa-circle-info',
-            action: () => {
-                this.contextMenuLastAction.set('info');
-                this.notify.success(this.translate.translate('contextMenuTitle'));
-            }
+            label: this.translate.translate('condividi'),
+            icon: 'fa-solid fa-share-nodes',
+            action: () => this.shareHomeImage()
         }
     ]);
+
+    readonly qrContextMenuOptions = computed<ContextMenuOption[]>(() => {
+        const blob = this.qrBlob();
+        return blob ? [
+            {
+                label: this.translate.translate('scarica'),
+                icon: 'fa-solid fa-download',
+                action: () => void this.share.downloadBlob(blob, 'qrcode.png')
+            },
+            {
+                label: this.translate.translate('condividi'),
+                icon: 'fa-solid fa-share-nodes',
+                action: () => void this.share.shareBlob(blob, 'qrcode.png', 'QR Code')
+            }
+        ] : [];
+    });
 
     // --- Demo modali ---
     readonly modalResult = signal('');
 
     constructor() {
         super();
-        this.contextDemoText = '';
 
         effect(() => {
             this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
@@ -203,9 +173,7 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     resetHomeImage(): void {
         this.imgText = 'Hello World';
-        this.imgBgColor = this.theme.colorPrimary();
-        this.imgTextColor = this.theme.colorPrimaryText();
-        this.imgFontSize = 48;
+        this.imgFontSize = 60;
         this.onImageInputChange();
     }
 
@@ -226,7 +194,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     shareHomeImage(): void {
         const canvas = this.imgCanvas();
         if (!canvas) return;
-        void this.share.shareCanvas(canvas, this.appName, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
+        void this.share.shareCanvas(canvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`, this.appName);
     }
 
     // ==================== QR Code ====================
