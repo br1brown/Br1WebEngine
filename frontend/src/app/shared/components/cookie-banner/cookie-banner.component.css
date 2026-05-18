@@ -4,31 +4,13 @@ app-cookie-banner .cookie-reopen-btn {
     left: 0.75rem;
     z-index: 1050;
     border: none;
-    border-radius: 999px;
-    width: 2.75rem;
-    height: 2.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
+    padding: 0;
     opacity: 0.55;
-    transition: opacity 0.2s, transform 0.2s;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-    cursor: pointer;
-}
-
-app-cookie-banner .cookie-reopen-btn:hover {
-    opacity: 1;
-    transform: scale(1.1);
 }
 
 @media (max-width: 767.98px) {
     app-cookie-banner .cookie-reopen-btn {
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem);
-        width: 3rem;
-        height: 3rem;
-        font-size: 1.2rem;
-        opacity: 1;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
     }
 }
 
@@ -39,10 +21,6 @@ app-cookie-banner .cookie-banner {
     left: 0;
     right: 0;
     z-index: 1050;
-    background-color: var(--colorTema, #212529);
-    border-top: 3px solid color-mix(in srgb, var(--colorTema) 72%, currentColor);
-    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.18);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 app-cookie-banner .cookie-banner a {
@@ -52,10 +30,6 @@ app-cookie-banner .cookie-banner a {
 
 app-cookie-banner .cookie-banner a:hover {
     opacity: 0.85;
-}
-
-app-cookie-banner .cookie-banner .btn {
-    border-width: 1px;
 }
 
 app-cookie-banner .cookie-banner-modern {
@@ -75,10 +49,10 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 1rem 1.25rem;
     align-items: center;
-    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border: none;
     border-radius: 1.5rem;
     background: var(--colorTema);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.38);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {
@@ -99,7 +73,64 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__shell--detailed .cookie-
     max-width: none;
 }
 
+/* Accordion categorie cookie.
+   Trick CSS-only per animare apertura E chiusura: il <details> è un grid con
+   due righe (summary + content), il content row passa da 0fr a 1fr. I browser
+   antichi (no CSS Grid animabile) cadono in apertura/chiusura istantanea, ok. */
+app-cookie-banner .cookie-category {
+    display: grid;
+    grid-template-rows: auto 0fr;
+    transition: grid-template-rows 0.2s ease-out;
+    padding: 0.6rem 0;
+}
 
+app-cookie-banner .cookie-category[open] {
+    grid-template-rows: auto 1fr;
+}
+
+app-cookie-banner .cookie-category > *:not(summary) {
+    overflow: hidden;
+}
+
+/* Solo proprietà che Bootstrap non copre — layout/gap sono gestiti
+   dalle utility d-flex/align-items-center/gap-2 nell'HTML. */
+app-cookie-banner .cookie-category summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+app-cookie-banner .cookie-category summary::-webkit-details-marker {
+    display: none;
+}
+
+app-cookie-banner .cookie-category summary::after {
+    content: '';
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    opacity: 0.6;
+    transition: transform 0.2s, opacity 0.2s;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+app-cookie-banner .cookie-category[open] summary::after {
+    transform: rotate(45deg);
+    opacity: 1;
+}
+
+app-cookie-banner .cookie-category p {
+    padding-left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    app-cookie-banner .cookie-category { transition: none; }
+    app-cookie-banner .cookie-category summary::after { transition: none; }
+}
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
     display: flex;

@@ -1,4 +1,4 @@
-import { Component, ViewEncapsulation, computed, inject, input, signal } from '@angular/core';
+import { Component, ViewEncapsulation, computed, inject, signal } from '@angular/core';
 import { CookieConsentService } from '../../../core/services/cookie-consent.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { TranslateService } from '../../../core/services/translate.service';
@@ -14,7 +14,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     encapsulation: ViewEncapsulation.None
 })
 export class CookieBannerComponent {
-    readonly tiny = input(false);
     readonly cookieConsent = inject(CookieConsentService);
     readonly theme = inject(ThemeService);
     private readonly translate = inject(TranslateService);

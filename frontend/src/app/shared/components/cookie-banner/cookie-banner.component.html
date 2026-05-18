@@ -1,108 +1,94 @@
 @if (cookieConsent.isNeeded()) {
 @if (!cookieConsent.responded()) {
-    <div class="cookie-banner theme-bg"
-         [class.cookie-banner-modern]="!tiny()"
+    <div class="cookie-banner cookie-banner-modern theme-bg"
          role="alert"
          aria-live="polite">
-        @if (!tiny()) {
-            <div class="cookie-banner__shell" [class.cookie-banner__shell--detailed]="hasDetailedCategories()">
-                <div class="cookie-banner__content">
-                    <div class="cookie-banner__text" [innerHTML]="bannerText() | markdown"></div>
-                    @if (hasDetailedCategories()) {
-                        <div class="mt-3">
-                            @if (cookieConsent.isTechnicalNeeded()) {
-                                <hr class="mt-0 mb-2">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                                    <div>
-                                        <p class="fw-semibold mb-1">{{ 'cookieCategoryTechnical' | translate }}</p>
-                                        <p class="small opacity-75 mb-0">{{ 'cookieCategoryTechnicalDesc' | translate }}</p>
-                                    </div>
+        <div class="cookie-banner__shell" [class.cookie-banner__shell--detailed]="hasDetailedCategories()">
+            <div class="cookie-banner__content">
+                <div class="cookie-banner__text" [innerHTML]="bannerText() | markdown"></div>
+                @if (hasDetailedCategories()) {
+                    <div class="mt-3">
+                        @if (cookieConsent.isTechnicalNeeded()) {
+                            <hr class="mt-0 mb-0">
+                            <details class="cookie-category">
+                                <summary class="fw-semibold d-flex align-items-center gap-2">
+                                    {{ 'cookieCategoryTechnical' | translate }}
                                     <span class="small border rounded-pill px-2 py-1 opacity-75 text-nowrap flex-shrink-0">{{ 'cookieBannerRequired' | translate }}</span>
+                                </summary>
+                                <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryTechnicalDesc' | translate }}</p>
+                            </details>
+                        }
+                        @if (cookieConsent.isAnalyticsNeeded()) {
+                            <hr class="mt-0 mb-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <details class="cookie-category flex-grow-1">
+                                    <summary class="fw-semibold d-flex align-items-center gap-2">{{ 'cookieCategoryAnalytics' | translate }}</summary>
+                                    <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryAnalyticsDesc' | translate }}</p>
+                                </details>
+                                <div class="form-check form-switch mb-0 flex-shrink-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           [attr.aria-label]="'cookieCategoryAnalytics' | translate"
+                                           [checked]="pendingAnalytics()"
+                                           (change)="pendingAnalytics.set($any($event.target).checked)">
                                 </div>
-                            }
-                            @if (cookieConsent.isAnalyticsNeeded()) {
-                                <hr class="mt-0 mb-2">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                                    <div>
-                                        <label for="cookie-analytics-toggle" class="fw-semibold mb-1 d-block">{{ 'cookieCategoryAnalytics' | translate }}</label>
-                                        <p class="small opacity-75 mb-0">{{ 'cookieCategoryAnalyticsDesc' | translate }}</p>
-                                    </div>
-                                    <div class="form-check form-switch mb-0 flex-shrink-0">
-                                        <input class="form-check-input" type="checkbox" id="cookie-analytics-toggle" role="switch"
-                                               [checked]="pendingAnalytics()"
-                                               (change)="pendingAnalytics.set($any($event.target).checked)">
-                                    </div>
+                            </div>
+                        }
+                        @if (cookieConsent.isProfilingNeeded()) {
+                            <hr class="mt-0 mb-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <details class="cookie-category flex-grow-1">
+                                    <summary class="fw-semibold d-flex align-items-center gap-2">{{ 'cookieCategoryProfiling' | translate }}</summary>
+                                    <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryProfilingDesc' | translate }}</p>
+                                </details>
+                                <div class="form-check form-switch mb-0 flex-shrink-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           [attr.aria-label]="'cookieCategoryProfiling' | translate"
+                                           [checked]="pendingProfiling()"
+                                           (change)="pendingProfiling.set($any($event.target).checked)">
                                 </div>
-                            }
-                            @if (cookieConsent.isProfilingNeeded()) {
-                                <hr class="mt-0 mb-2">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                                    <div>
-                                        <label for="cookie-profiling-toggle" class="fw-semibold mb-1 d-block">{{ 'cookieCategoryProfiling' | translate }}</label>
-                                        <p class="small opacity-75 mb-0">{{ 'cookieCategoryProfilingDesc' | translate }}</p>
-                                    </div>
-                                    <div class="form-check form-switch mb-0 flex-shrink-0">
-                                        <input class="form-check-input" type="checkbox" id="cookie-profiling-toggle" role="switch"
-                                               [checked]="pendingProfiling()"
-                                               (change)="pendingProfiling.set($any($event.target).checked)">
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-                <div class="cookie-banner__actions">
-                    <button class="btn fw-semibold text-nowrap"
-                            [class.btn-outline-dark]="theme.isDarkTextPreferred()"
-                            [class.btn-outline-light]="!theme.isDarkTextPreferred()"
-                            [class.flex-fill]="hasMixedCategories()"
-                            type="button"
-                            (click)="reject()">
-                        {{ 'cookieBannerReject' | translate }}
-                    </button>
-                    <button class="btn fw-semibold text-nowrap"
-                            [class.btn-outline-dark]="theme.isDarkTextPreferred()"
-                            [class.btn-outline-light]="!theme.isDarkTextPreferred()"
-                            [class.flex-fill]="hasMixedCategories()"
-                            [hidden]="!hasMixedCategories()"
-                            type="button"
-                            (click)="saveSelected()">
-                        {{ 'cookieBannerSave' | translate }}
-                    </button>
-                    <button class="btn fw-semibold text-nowrap"
-                            [class.btn-dark]="theme.isDarkTextPreferred()"
-                            [class.btn-light]="!theme.isDarkTextPreferred()"
-                            [class.flex-fill]="hasMixedCategories()"
-                            type="button"
-                            (click)="accept()">
-                        {{ 'cookieBannerAccept' | translate }}
-                    </button>
-                </div>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
-        } @else {
-            <div class="container d-flex flex-column flex-sm-row align-items-center gap-2 py-2">
-                <div class="mb-0 flex-grow-1 small" [innerHTML]="bannerText() | markdown"></div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm fw-semibold text-nowrap"
-                            [class.btn-outline-dark]="theme.isDarkTextPreferred()"
-                            [class.btn-outline-light]="!theme.isDarkTextPreferred()"
-                            type="button"
-                            (click)="reject()">
-                        {{ 'cookieBannerReject' | translate }}
-                    </button>
-                    <button class="btn btn-sm fw-semibold text-nowrap"
-                            [class.btn-dark]="theme.isDarkTextPreferred()"
-                            [class.btn-light]="!theme.isDarkTextPreferred()"
-                            type="button"
-                            (click)="accept()">
-                        {{ 'cookieBannerAccept' | translate }}
-                    </button>
-                </div>
+            <!-- GDPR/ePrivacy: "Salva scelte" è la CTA primaria (solid) per non
+                 spingere l'utente verso "Accetta tutto". Quando solo una categoria
+                 opzionale è attiva non c'è ambiguità → "Salva scelte" è nascosto e
+                 la primary diventa "Accetta tutto". Su mobile (column-reverse) la
+                 primary è ultima nel DOM così appare in alto, sotto il pollice. -->
+            <div class="cookie-banner__actions">
+                <button class="btn fw-semibold text-nowrap"
+                        [class.btn-outline-dark]="theme.isDarkTextPreferred()"
+                        [class.btn-outline-light]="!theme.isDarkTextPreferred()"
+                        [class.flex-fill]="hasMixedCategories()"
+                        type="button"
+                        (click)="reject()">
+                    {{ 'cookieBannerReject' | translate }}
+                </button>
+                <button class="btn fw-semibold text-nowrap"
+                        [class.btn-outline-dark]="theme.isDarkTextPreferred() && hasMixedCategories()"
+                        [class.btn-outline-light]="!theme.isDarkTextPreferred() && hasMixedCategories()"
+                        [class.btn-dark]="theme.isDarkTextPreferred() && !hasMixedCategories()"
+                        [class.btn-light]="!theme.isDarkTextPreferred() && !hasMixedCategories()"
+                        [class.flex-fill]="hasMixedCategories()"
+                        type="button"
+                        (click)="accept()">
+                    {{ 'cookieBannerAccept' | translate }}
+                </button>
+                <button class="btn fw-semibold text-nowrap"
+                        [class.btn-dark]="theme.isDarkTextPreferred()"
+                        [class.btn-light]="!theme.isDarkTextPreferred()"
+                        [class.flex-fill]="hasMixedCategories()"
+                        [hidden]="!hasMixedCategories()"
+                        type="button"
+                        (click)="saveSelected()">
+                    {{ 'cookieBannerSave' | translate }}
+                </button>
             </div>
-        }
+        </div>
     </div>
 } @else {
-    <button class="cookie-reopen-btn theme-bg" type="button"
+    <button class="cookie-reopen-btn theme-bg fab rounded-circle d-flex align-items-center justify-content-center fs-5" type="button"
             (click)="reopen()"
             [attr.aria-label]="'cookieSettingsLabel' | translate">
         <i class="fa-solid fa-cookie-bite"></i>

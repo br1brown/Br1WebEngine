@@ -186,8 +186,51 @@ code {
     color: #595f66 !important;
 }
 
+/* FAB — Floating Action Button condiviso (back-to-top, cookie-reopen, ecc.).
+   Layout/shape sono delegati alle utility Bootstrap nell'HTML:
+     rounded-circle d-flex align-items-center justify-content-center fs-5
+   Qui restano solo proprietà che Bootstrap non copre: dimensione fissa,
+   ombra con inner ring theme-aware, opacità di riposo, hover/focus state.
+   L'inner ring usa currentColor così funziona su sfondi scuri o chiari:
+   chi monta il .fab garantisce un `color` con buon contrasto rispetto al
+   `background-color` (es. .theme-bg lo fa via --bs-body-color). */
+.fab {
+    width: 3rem;
+    height: 3rem;
+    opacity: 0.85;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+                0 0 0 1px color-mix(in srgb, currentColor 38%, transparent);
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.fab:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24),
+                0 0 0 1px color-mix(in srgb, currentColor 48%, transparent);
+}
+
+/* Focus-ring marcato per navigazione tastiera (WCAG 2.4.7) */
+.fab:focus-visible {
+    opacity: 1;
+    transform: translateY(-2px);
+    outline: none;
+    box-shadow: 0 0 0 0.25rem color-mix(in srgb, currentColor 22%, transparent), 0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 767.98px) {
+    .fab {
+        width: 3.25rem;
+        height: 3.25rem;
+        opacity: 1;
+    }
+}
+
 /* WCAG 2.2 - rispetta la preferenza di movimento ridotto */
 @media (prefers-reduced-motion: reduce) {
+    .fab { transition: none; }
+    .fab:hover, .fab:focus-visible { transform: none; }
     .shake-on-hover:hover { animation: none; }
     .zoom-on-hover { transition: none; }
     .zoom-on-hover:hover { transform: none; }

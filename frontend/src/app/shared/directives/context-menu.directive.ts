@@ -28,10 +28,15 @@ export class ContextMenuDirective {
     private overlayRef: ComponentRef<ContextMenuOverlayComponent> | null = null;
     private destroyListeners: (() => void)[] = [];
     private longPressTimer: number | null = null;
-    private touchOrigin: { x: number; y: number } | null = null;
+    private suppressNextClickTimer: number | null = null;
+    private pointerOrigin: { x: number; y: number } | null = null;
     private suppressNextContextMenu = false;
+    private suppressNextClick = false;
     private readonly longPressDelayMs = 450;
     private readonly touchMoveThresholdPx = 12;
+    /** Finestra di sicurezza per il click sintetico post-pointerup. Oltre questa, il
+     *  flag viene azzerato in modo che un click reale successivo non venga ignorato. */
+    private readonly suppressClickWindowMs = 600;
 
     constructor() {
         inject(DestroyRef).onDestroy(() => this.close());
@@ -51,50 +56,59 @@ export class ContextMenuDirective {
         event.preventDefault();
         event.stopPropagation();
 
-        this.openMenu(event.clientX, event.clientY, 'popover');
+        // Su dispositivi touch primari (mobile reale, Chrome DevTools device mode)
+        // il contextmenu arriva tipicamente da un long-press: presentiamo come bottom
+        // sheet a tutta larghezza, più adatto al pollice e ai testi lunghi.
+        const isCoarse = window.matchMedia('(pointer: coarse)').matches;
+        this.openMenu(event.clientX, event.clientY, isCoarse ? 'sheet' : 'popover');
     }
 
-    @HostListener('touchstart', ['$event'])
-    onTouchStart(event: TouchEvent): void {
-        if (!this.isBrowser || event.touches.length !== 1 || this.options().length === 0) {
-            return;
-        }
+    /**
+     * Pointer Events unificati: gestiscono touch reale, penna e l'emulazione
+     * touch di Chrome DevTools (mobile mode) in modo coerente. Il mouse "vero"
+     * (pointerType === 'mouse') viene ignorato qui — usa @HostListener('contextmenu').
+     */
+    @HostListener('pointerdown', ['$event'])
+    onPointerDown(event: PointerEvent): void {
+        if (!this.isBrowser || this.options().length === 0) return;
+        if (event.pointerType === 'mouse') return;
 
-        const touch = event.touches[0];
-        this.touchOrigin = { x: touch.clientX, y: touch.clientY };
+        this.pointerOrigin = { x: event.clientX, y: event.clientY };
         this.clearLongPressTimer();
         this.longPressTimer = window.setTimeout(() => {
-            if (!this.touchOrigin) {
-                return;
-            }
+            if (!this.pointerOrigin) return;
 
             this.suppressNextContextMenu = true;
-            this.openMenu(this.touchOrigin.x, this.touchOrigin.y, 'sheet');
+            // Dopo pointerup su touch, il browser emette un click sintetico
+            // sull'elemento originale che chiuderebbe subito il menu via
+            // onDocClick — lo ignoriamo una volta. Se il click sintetico non
+            // arriva (es. utente si stacca fuori), il timer di sicurezza
+            // resetta il flag così non blocca click successivi.
+            this.armSuppressNextClick();
+            this.openMenu(this.pointerOrigin.x, this.pointerOrigin.y, 'sheet');
         }, this.longPressDelayMs);
     }
 
-    @HostListener('touchmove', ['$event'])
-    onTouchMove(event: TouchEvent): void {
-        if (!this.touchOrigin || event.touches.length !== 1) {
-            this.clearLongPressState();
-            return;
-        }
+    @HostListener('pointermove', ['$event'])
+    onPointerMove(event: PointerEvent): void {
+        if (!this.pointerOrigin || event.pointerType === 'mouse') return;
 
-        const touch = event.touches[0];
-        const movedX = Math.abs(touch.clientX - this.touchOrigin.x);
-        const movedY = Math.abs(touch.clientY - this.touchOrigin.y);
+        const movedX = Math.abs(event.clientX - this.pointerOrigin.x);
+        const movedY = Math.abs(event.clientY - this.pointerOrigin.y);
         if (movedX > this.touchMoveThresholdPx || movedY > this.touchMoveThresholdPx) {
             this.clearLongPressState();
         }
     }
 
-    @HostListener('touchend')
-    onTouchEnd(): void {
+    @HostListener('pointerup', ['$event'])
+    onPointerUp(event: PointerEvent): void {
+        if (event.pointerType === 'mouse') return;
         this.clearLongPressState();
     }
 
-    @HostListener('touchcancel')
-    onTouchCancel(): void {
+    @HostListener('pointercancel', ['$event'])
+    onPointerCancel(event: PointerEvent): void {
+        if (event.pointerType === 'mouse') return;
         this.clearLongPressState();
     }
 
@@ -128,6 +142,10 @@ export class ContextMenuDirective {
         if (!this.isBrowser) return;
 
         const onDocClick = (e: MouseEvent) => {
+            if (this.suppressNextClick) {
+                this.clearSuppressNextClick();
+                return;
+            }
             if (!overlayEl.contains(e.target as Node)) {
                 this.close();
             }
@@ -165,14 +183,38 @@ export class ContextMenuDirective {
         }
     }
 
+    private armSuppressNextClick(): void {
+        this.suppressNextClick = true;
+        if (this.suppressNextClickTimer !== null) {
+            window.clearTimeout(this.suppressNextClickTimer);
+        }
+        this.suppressNextClickTimer = window.setTimeout(
+            () => this.clearSuppressNextClick(),
+            this.suppressClickWindowMs,
+        );
+    }
+
+    private clearSuppressNextClick(): void {
+        this.suppressNextClick = false;
+        if (this.suppressNextClickTimer !== null) {
+            window.clearTimeout(this.suppressNextClickTimer);
+            this.suppressNextClickTimer = null;
+        }
+    }
+
     private clearLongPressState(): void {
         this.clearLongPressTimer();
-        this.touchOrigin = null;
+        this.pointerOrigin = null;
     }
 
     private close(): void {
         this.clearLongPressState();
         if (this.overlayRef) {
+            // Reset dei flag di soppressione qui (non in cima a close()): se openMenu
+            // sta facendo cleanup precauzionale prima di aprire, i flag appena
+            // armati dal timer non devono essere cancellati.
+            this.suppressNextContextMenu = false;
+            this.clearSuppressNextClick();
             if (this.isBrowser) {
                 this.overlayRef.location.nativeElement.remove();
             }
