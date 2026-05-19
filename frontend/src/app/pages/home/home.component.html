@@ -105,8 +105,7 @@
 
                                     <div class="col-md-7">
                                         <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface"
-                                             [appContextMenu]="imgContextMenuOptions()"
-                                             [appContextMenuContent]="imgCanvas()">
+                                             [appContextMenu]="imgContextMenuOptions()">
                                             <img [imgRender]="imgConfig()"
                                                  (canvasChange)="imgCanvas.set($event)"
                                                  class="img-fluid rounded border image-preview-canvas cursor-context-menu"
@@ -234,8 +233,7 @@
                                     <!-- Anteprima -->
                                     <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
                                         <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100"
-                                             [appContextMenu]="qrContextMenuOptions()"
-                                             [appContextMenuContent]="qrBlob()">
+                                             [appContextMenu]="qrContextMenuOptions()">
                                             @if (qrConfig()) {
                                                 <img [qrContent]="qrConfig()"
                                                      (blobChange)="qrBlob.set($event)"

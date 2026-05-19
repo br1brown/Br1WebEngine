@@ -2,6 +2,8 @@
 
 Questa guida è rivolta a chi usa Br1WebEngine come template base e vuole estenderlo: aggiungere pagine, servizi, componenti o endpoint seguendo i pattern già stabiliti.
 
+**Se non conosci Angular**, questa guida spiega ogni passo nel dettaglio: il perché di ogni scelta, dove si trovano i file, cosa fa ogni classe o metodo citato. Se lo conosci già, i pattern ti sembreranno familiari ma più compatti del solito grazie a `PageBaseComponent`, che elimina il boilerplate ripetitivo da ogni pagina.
+
 Per l'overview del progetto, la configurazione e il deploy → [`README.md`](../README.md).  
 Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT.md).
 
@@ -10,11 +12,14 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
 ## Sommario
 
 **Guide operative**
+- [Mappa del progetto](#mappa-del-progetto)
 - [Aggiungere una pagina](#aggiungere-una-pagina)
 - [Aggiungere un servizio](#aggiungere-un-servizio)
 - [Aggiungere un componente](#aggiungere-un-componente)
 - [Aggiungere una direttiva](#aggiungere-una-direttiva)
 - [Aggiungere un endpoint API](#aggiungere-un-endpoint-api)
+- [Autenticazione JWT (login)](#autenticazione-jwt-login)
+- [Gestione errori HTTP](#gestione-errori-http)
 - [Resolver automatico dei contenuti](#resolver-automatico-dei-contenuti)
 - [Regole SSR](#regole-ssr)
 - [Meta SEO e SSR](#meta-seo-e-ssr)
@@ -31,12 +36,102 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
 
 ---
 
+## Mappa del progetto
+
+```
+src/
+├── app/
+│   ├── app.component.*         ← shell: router-outlet, cookie banner, smoke effect
+│   ├── app.config.ts           ← bootstrap: providers, HttpClient, session restore
+│   ├── app.config.server.ts    ← override SSR: URL backend assoluto, API key server-side
+│   ├── app.routes.ts           ← routing generato da site.ts + authGuard (non toccare)
+│   ├── site.ts                 ← ★ configurazione dichiarativa: pagine, menu, PageType
+│   ├── siteBuilder.ts          ← logica interna del builder (non toccare)
+│   │
+│   ├── core/
+│   │   ├── dto/                ← tipi TypeScript delle risposte API
+│   │   │   ├── api.dto.ts      ← LoginResult e tipi globali
+│   │   │   └── profile.dto.ts  ← Profile (esempio: aggiungi qui i tuoi DTO)
+│   │   └── services/
+│   │       ├── api.service.ts          ← ★ unico client HTTP: un metodo per endpoint
+│   │       ├── base-api.service.ts     ← infrastruttura HTTP (header, errori, SSR URL)
+│   │       ├── auth.service.ts         ← TokenService + AuthService (login/logout/token)
+│   │       ├── asset.service.ts        ← URL verso CDN, gestione Blob con revoca
+│   │       ├── img-builder.service.ts  ← generazione PNG su canvas
+│   │       ├── notification.service.ts ← SweetAlert2: toast, error, confirm, prompt
+│   │       ├── page-meta.service.ts    ← titolo/description/og tag per SSR
+│   │       ├── qr-code.service.ts      ← QR code PNG/SVG con cache
+│   │       ├── share.service.ts        ← clipboard, Web Share API, download
+│   │       ├── speech.service.ts       ← Text-to-speech (Web Speech API)
+│   │       ├── theme.service.ts        ← tema dinamico, CSS custom properties
+│   │       ├── translate.service.ts    ← i18n, lingua corrente (signal)
+│   │       └── version-check.service.ts← polling nuova versione ogni 10 min
+│   │
+│   ├── layout/                 ← componenti sempre visibili (non sono pagine)
+│   │   ├── navbar/             ← navbar responsiva con dropdown e menu mobile
+│   │   ├── footer/             ← footer con nav e profilo
+│   │   └── smoke-effect/       ← effetto decorativo canvas
+│   │
+│   ├── pages/                  ← una cartella per ogni pagina
+│   │   ├── page-base.component.ts ← ★ classe base per tutte le pagine
+│   │   ├── content.resolver.ts    ← resolver automatico contenuti (non toccare)
+│   │   ├── home/               ← pagina home (esempio completo con API call)
+│   │   ├── policy/             ← pagine legali (privacy, cookie, TOS, legal)
+│   │   ├── social/             ← pagina link social
+│   │   └── error/              ← pagina errore (404, 401, 500 ecc.)
+│   │
+│   └── shared/                 ← componenti e directive riutilizzabili tra pagine
+│       ├── components/         ← aggiungi qui i tuoi componenti condivisi
+│       │   ├── back-to-top/
+│       │   ├── context-menu/   ← overlay + directive
+│       │   ├── cookie-banner/
+│       │   ├── footer-nav/
+│       │   ├── loading/
+│       │   ├── nav-dropdown/
+│       │   ├── nav-link/
+│       │   ├── profile-render/
+│       │   └── social-link/
+│       ├── directives/         ← aggiungi qui le tue directive
+│       │   ├── asset.directive.ts
+│       │   ├── context-menu.directive.ts
+│       │   ├── img-render.directive.ts
+│       │   ├── page.directive.ts
+│       │   └── qr-render.directive.ts
+│       └── pipes/
+│           ├── markdown.pipe.ts
+│           └── translate.pipe.ts
+│
+└── assets/
+    ├── i18n/
+    │   ├── basic.it.json       ← traduzioni engine (errori, UI comuni) — non toccare
+    │   ├── basic.en.json
+    │   ├── addon.it.json       ← ★ traduzioni di progetto — aggiungi qui le tue chiavi
+    │   └── addon.en.json
+    ├── legal/                  ← testi legali in Markdown, una coppia per lingua
+    └── files/                  ← immagini statiche e favicon
+```
+
+**I file contrassegnati con ★ sono i punti di ingresso principali del progetto:**
+- `site.ts` — per aggiungere pagine, voci di menu, route protette
+- `core/dto/` — per i tipi delle risposte API
+- `core/services/api.service.ts` — per i metodi HTTP verso il backend
+- `pages/page-base.component.ts` — da estendere per ogni nuova pagina
+- `shared/components/` e `shared/directives/` — per i componenti riutilizzabili
+- `assets/i18n/addon.*.json` — per le traduzioni di progetto
+
+---
+
 ## Aggiungere una pagina
 
-Ci sono esattamente **tre passi**: enum → `site.ts` → componente.  
-Il router, il menu, il footer e la sitemap si aggiornano da soli.
+Il sistema di routing è interamente dichiarativo: non si modifica `app.routes.ts` a mano. Si descrive la pagina in `site.ts` e il router, il menu, il footer e la sitemap si aggiornano da soli.
+
+Ci sono esattamente **tre passi obbligatori**: enum → `site.ts` → componente, più un passo opzionale per il menu.
 
 ### 1. Aggiungere il valore all'enum `PageType`
+
+**Perché questo passo?** Ogni pagina è identificata da un valore dell'enum `PageType`, non da una stringa libera. Questo significa che se in futuro cambi il path URL (`'mia-pagina'` → `'la-mia-pagina'`), cambi una riga sola in `defineSitePages` e tutti i link interni costruiti con `ContestoSito.getPath(PageType.MiaNuovaPagina)` restano validi automaticamente. Con le stringhe libere dovresti cercare e sostituire in tutto il progetto.
+
+**Dove si trova il file:** `src/app/site.ts` — è il file di configurazione centrale del sito. Trovi l'enum `PageType` in cima.
 
 ```typescript
 // src/app/site.ts
@@ -48,66 +143,87 @@ export enum PageType {
 }
 ```
 
-Usando un enum invece di stringhe, se in futuro rinomini il path URL cambi
-**una riga** in `defineSitePages` e tutti i link interni restano validi.
-
 ### 2. Registrare la pagina in `defineSitePages`
+
+**Perché questo passo?** La registrazione in `defineSitePages` è ciò che trasforma un valore dell'enum in una pagina vera: associa il path URL, le chiavi i18n per titolo e descrizione, il componente da caricare, e tutti i metadati opzionali (auth, SEO, render mode). Il builder legge questo array e genera automaticamente le rotte Angular, le voci del menu, la sitemap.
+
+**Dove si trova il file:** Sempre `src/app/site.ts`, dentro la chiamata `defineSitePages([...])`.
 
 ```typescript
 // src/app/site.ts — dentro defineSitePages([...])
 {
     path: 'mia-pagina',
-    title: 'miaPagina',          // chiave i18n
-    description: 'miaPaginaDesc', // chiave i18n per meta description
-    enabled: true,
+    title: 'miaPagina',          // chiave i18n — tradotta automaticamente nei meta tag
+    description: 'miaPaginaDesc', // chiave i18n — usata come meta description
+    enabled: true,               // false = pagina ignorata: no rotta, no menu, no sitemap
     pageType: PageType.MiaNuovaPagina,
     component: () => import('./pages/mia-pagina/mia-pagina.component')
                          .then(m => m.MiaPaginaComponent),
+    // Il lazy import divide il bundle: il codice della pagina viene scaricato
+    // solo quando l'utente naviga verso di essa, non all'avvio dell'app.
 }
 ```
 
 Campi opzionali utili:
 
-| Campo | Default | Quando usarlo |
-|-------|---------|---------------|
-| `requiresAuth: true` | — | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza `renderMode: 'client'` |
-| `showPanel: false` | `true` | Pagina a tutto schermo (es. landing, social feed) |
-| `renderMode: 'server'` | `'server'`* | Rendering a runtime lato server (default); HTML completo per i crawler |
-| `renderMode: 'client'` | `'server'`* | Solo browser; usare per pagine interattive incompatibili con SSR |
-| `data: { chiave: valore }` | — | Dati statici passati via `route.data` |
-
-> *Regole di default: senza `renderMode` dichiarato il builder usa `server`;
-> con `requiresAuth: true` usa `client` (i bot non possono effettuare login).
+| Campo | Default | Obbligatorio | Quando usarlo |
+|-------|---------|---|---------------|
+| `requiresAuth: true` | — | no | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza automaticamente `renderMode: 'client'` (i bot non possono fare login) |
+| `showPanel: false` | `true` | no | Pagina a tutto schermo senza il pannello centrale (es. landing, social feed) |
+| `renderMode: 'server'` | `'server'` | no | Rendering a runtime lato server (default); l'HTML è completo per i crawler |
+| `renderMode: 'client'` | — | no | Solo browser; da usare per pagine interattive incompatibili con SSR (canvas, WebRTC, ecc.) |
+| `data: { chiave: valore }` | — | no | Dati statici aggiuntivi accessibili via `route.data` nel componente |
+| `ogImage` | — | no | ID asset → og:image 1200×630 (immagine centrata + sfondo sfocato + favicon). `false` rimuove i tag og:image. Se omesso → preview dinamica |
+| `ogType` | `'website'` | no | Valore di `og:type` (es. `'article'` per post di blog) |
+| `structuredDataType` | `'WebPage'` | no | `@type` del JSON-LD inserito nella pagina (es. `'Article'`) |
 
 ### 3. Creare il componente pagina
 
-Il componente **deve** estendere `PageBaseComponent<T>`, dove `T` è il tipo del
-contenuto caricato dal resolver. Il generic è obbligatorio:
+**Perché estendere `PageBaseComponent`?** `PageBaseComponent<T>` è la classe base che ogni componente pagina deve estendere. Fa tre cose per te:
+- Inietta e rende disponibili `this.api`, `this.translate`, `this.asset`, `this.notify` — non devi iniettarli di nuovo nel componente figlio.
+- Gestisce i meta tag SEO (`<title>`, `og:title`, `og:description`, `og:image`, JSON-LD, canonical) in modo automatico e SSR-safe via `effect()`.
+- Espone `this.pageContent()` — il segnale reattivo con il contenuto caricato dal resolver, già tipizzato con il generic `T`.
+
+Il generic `T` descrive il tipo del contenuto che la pagina si aspetta dal resolver. È **obbligatorio** dichiararlo: se la pagina non ha contenuto dal resolver, usare `<void>`.
+
+**Dove creare il file:** `src/app/pages/mia-pagina/mia-pagina.component.ts`. Ogni pagina ha la propria cartella dentro `src/app/pages/`.
 
 ```typescript
 // src/app/pages/mia-pagina/mia-pagina.component.ts
-import { Component } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { PageBaseComponent } from '../page-base.component';
+
+// Interfaccia che descrive i dati che il resolver caricherà per questa pagina.
+// Se la pagina non ha contenuto dal resolver, usa: PageBaseComponent<void>
+interface MeteoData {
+    temperatura: number;
+    citta: string;
+}
 
 @Component({
     selector: 'app-mia-pagina',
-    standalone: true,
+    standalone: true,   // sempre standalone — niente NgModule nel progetto
     imports: [],
     templateUrl: './mia-pagina.component.html',
 })
 export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
-    // pageContent() è già MeteoData | null — nessun cast necessario
+    // pageContent() è già MeteoData | null — nessun cast necessario.
+    // computed() deriva un nuovo signal da pageContent(): si ricalcola automaticamente
+    // quando pageContent() cambia (es. al cambio lingua).
     readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
+    readonly citta = computed(() => this.pageContent()?.citta ?? '');
 }
 ```
 
-Usare `<void>` per le pagine che non hanno contenuto dal resolver:
+Per le pagine senza contenuto dal resolver (es. una home page statica):
 
 ```typescript
+// Il generic <void> indica esplicitamente che non c'è contenuto dal resolver.
+// pageContent() varrà sempre null — non serve usarla.
 export class HomeComponent extends PageBaseComponent<void> { }
 ```
 
-Già disponibile da `PageBaseComponent`:
+Già disponibile da `PageBaseComponent` senza nessun `inject()` aggiuntivo:
 
 | Proprietà | Tipo | Note |
 |-----------|------|------|
@@ -117,13 +233,14 @@ Già disponibile da `PageBaseComponent`:
 | `this.notify` | `NotificationService` | Toast, dialog, conferme |
 | `this.pageContent()` | `T \| null` | Contenuto dal resolver, già tipizzato |
 
-`pageContent()` è un `computed` che vale `null` per le pagine senza contenuto
-e si aggiorna automaticamente ad ogni cambio lingua nel browser.
+`pageContent()` è un `computed` signal che vale `null` per le pagine senza contenuto, e si aggiorna automaticamente a ogni cambio lingua nel browser (il resolver viene rieseguito dal `PageBaseComponent` tramite un `effect()` che reagisce a `translate.currentLang()`).
 
 ### 4. Aggiungere al menu (opzionale)
 
+**Dove si trova il file:** Ancora `src/app/site.ts`, nelle funzioni `configureHeaderNavigation` e `configureFooterNavigation`.
+
 ```typescript
-// site.ts — dentro configureHeaderNavigation o configureFooterNavigation
+// site.ts — dentro configureHeaderNavigation
 h.addPage(PageType.MiaNuovaPagina);
 
 // Oppure in un gruppo dropdown:
@@ -132,59 +249,65 @@ h.addGroup('labelGruppo', g => {
 });
 ```
 
-Le pagine con `enabled: false` vengono escluse in automatico, anche dai gruppi.
+Le pagine con `enabled: false` vengono escluse in automatico, anche dai gruppi. Non serve rimuoverle dalla navigazione manualmente.
 
 ---
 
 ## Aggiungere un servizio
 
+I servizi contengono la logica condivisa tra più componenti: comunicazione con API esterne, gestione di stato, calcoli riutilizzabili. In Angular, un servizio è una classe con `@Injectable` che il sistema di Dependency Injection (DI) istanzia e condivide tra tutti i componenti che la richiedono.
+
 ### Pattern base
+
+**Dove creare il file:** `src/app/core/services/mio.service.ts`. La cartella `core/services/` contiene tutti i servizi dell'applicazione.
 
 ```typescript
 // src/app/core/services/mio.service.ts
 import { inject, Injectable, signal, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
+// providedIn: 'root' registra il servizio nell'iniettore radice:
+// esiste una sola istanza per tutta l'app, condivisa da tutti i componenti.
+// Non serve aggiungerlo ad alcun array providers[].
 @Injectable({ providedIn: 'root' })
 export class MioService {
+    // PLATFORM_ID è un token che Angular inietta automaticamente.
+    // isPlatformBrowser() restituisce true nel browser, false in SSR.
+    // Questo pattern è necessario in tutti i servizi che accedono ad API browser.
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    // Stato reattivo — usare signal(), non proprietà plain
+    // Lo stato reattivo usa signal(), non proprietà plain.
+    // I componenti possono leggere questo signal direttamente nel template
+    // senza async pipe né ChangeDetectorRef.
     readonly statoCorrente = signal<string>('iniziale');
 
     doSomething(): void {
-        if (!this.isBrowser) return;  // Guard SSR obbligatorio per API browser
+        // Guard SSR: ogni accesso a window, document, localStorage, navigator,
+        // matchMedia o qualsiasi API browser deve essere protetto da questo controllo.
+        if (!this.isBrowser) return;
 
-        // Logica che usa window/document/localStorage/ecc.
+        // Logica che usa API browser in modo sicuro.
     }
 }
 ```
 
 ### Regole per i servizi
 
-**Guard SSR**: qualsiasi accesso a `window`, `document`, `localStorage`,
-`navigator`, `matchMedia` o qualsiasi API browser **deve** essere protetto da
-`isPlatformBrowser`. Non usare `typeof window !== 'undefined'`: è error-prone
-e non sfrutta il sistema di injection Angular.
+**Guard SSR**: qualsiasi accesso a `window`, `document`, `localStorage`, `navigator`, `matchMedia` o qualsiasi API browser **deve** essere protetto da `isPlatformBrowser(inject(PLATFORM_ID))`. Non usare `typeof window !== 'undefined'`: non sfrutta il sistema di injection Angular e può causare problemi con il prerendering.
 
-**Stato reattivo**: usare `signal<T>()` per lo stato mutabile del servizio,
-non proprietà plain. I componenti possono usare i signal direttamente nei template
-senza `async pipe` né `ChangeDetectorRef`.
+**Stato reattivo**: usare `signal<T>()` per lo stato mutabile del servizio, non proprietà plain. I componenti possono usare i signal direttamente nei template senza `async pipe` né `ChangeDetectorRef`.
 
-**Non usare `effect()` per sincronizzare stato**: se un valore dipende da un
-altro signal, usare `computed()`. Usare `effect()` solo per effetti collaterali
-genuini (logging, chiamate esterne, scrittura DOM).
+**Non usare `effect()` per sincronizzare stato**: se un valore dipende da un altro signal, usare `computed()`. Usare `effect()` solo per effetti collaterali genuini (logging, chiamate esterne, scrittura DOM).
 
 ### Inject vs costruttore
 
-Il progetto usa `inject()` (functional injection), non il costruttore con parametri.
-È più compatto ed evita boilerplate:
+Il progetto usa `inject()` (functional injection), non il costruttore con parametri. È più compatto e permette di usare le dipendenze direttamente come inizializzatori di proprietà (senza dover aspettare il costruttore):
 
 ```typescript
-// ✅ Pattern del progetto
+// ✅ Pattern del progetto — le dipendenze sono disponibili immediatamente come proprietà
 private readonly http = inject(HttpClient);
 
-// ❌ Non usare
+// ❌ Non usare — richiede boilerplate e non si integra bene con inject() a livello di classe
 constructor(private http: HttpClient) {}
 ```
 
@@ -192,38 +315,39 @@ constructor(private http: HttpClient) {}
 
 ## Aggiungere un componente
 
-I componenti **condivisi** vanno in `src/app/shared/components/`.  
-I componenti **specifici di una pagina** possono stare nella cartella della pagina stessa.
+I componenti **condivisi** (usabili in più pagine) vanno in `src/app/shared/components/`.  
+I componenti **specifici di una pagina** (usati solo lì) possono stare nella cartella della pagina stessa.
 
 ### Component o directive?
 
-Prima di creare un componente, valuta una directive. Un componente ha senso
-quando il template **compone più elementi**, ha **branching condizionale** fra
-varianti di markup, o espone `<ng-content>`. Esempi nel template:
+**Questo è un punto critico**: prima di creare un componente, valuta se una directive è più appropriata.
 
+Un **componente** ha senso quando il template **compone più elementi HTML**, ha **branching condizionale** fra varianti di markup, o espone `<ng-content>` per proiettare contenuto esterno. Esempi reali nel template:
 - `<app-nav-dropdown>` — compone `<details>`/`<summary>` + `<ul>` con i figli
-- `<app-nav-link>` — alterna tre rami: `<a>` interno, `<span aria-current>` se attivo, `<a target="_blank">` se esterno
-- `<app-profile-render>` — formato e struttura non banali di label + valore
+- `<app-nav-link>` — alterna tre rami: `<a>` interno, `<span aria-current>` se la rotta è attiva, `<a target="_blank">` se è un link esterno
+- `<app-profile-render>` — struttura complessa di label + valori con layout proprio
 
-**Anti-pattern**: un componente che renderizza solo un singolo elemento HTML
-con un attributo calcolato (es. solo `<img [src]>`). Si paga un host element
-in più, si perde la possibilità di applicare classi/attributi standard senza
-API custom (`cssClass`, `imgClass`…), e i selettori CSS scoped del parent
-non raggiungono più il `<img>` reale (vedi *CSS scoping nei componenti
-standalone*). In questi casi una **directive** sul tag esistente è più
-appropriata: `[appAsset]`, `[imgRender]`, `[qrContent]`, `[appAssetHref]`.
+Una **directive** ha senso quando si vuole aggiungere comportamento o calcolare un attributo su un tag HTML già esistente.
+
+**Anti-pattern da evitare**: un componente che renderizza solo un singolo elemento HTML con un attributo calcolato (es. solo `<img [src]>`). Questo causa tre problemi:
+1. Si aggiunge un host element superfluo nel DOM.
+2. Si perde la possibilità di applicare attributi standard (`class`, `alt`, `loading`, …) direttamente senza API custom.
+3. I selettori CSS del componente padre non raggiungono più l'`<img>` reale perché Angular applica encapsulation view (vedi *CSS scoping nei componenti standalone*).
+
+In questi casi una **directive** sul tag esistente è la soluzione corretta: `[appAsset]` su `<img>`, `[imgRender]` su `<img>`, `[qrContent]` su `<img>`.
 
 ### Pattern base
 
 ```typescript
+// src/app/shared/components/mio-widget/mio-widget.component.ts
 @Component({
     selector: 'app-mio-widget',
     standalone: true,    // sempre standalone — niente NgModule
-    imports: [],
+    imports: [],         // qui si importano pipe, directive e altri componenti usati nel template
     templateUrl: './mio-widget.component.html',
 })
 export class MioWidgetComponent {
-    // inject() per le dipendenze
+    // Le dipendenze si iniettano con inject(), non nel costruttore
     private readonly translate = inject(TranslateService);
 }
 ```
@@ -235,23 +359,120 @@ export class MioWidgetComponent implements AfterViewInit {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     ngAfterViewInit(): void {
+        // ngAfterViewInit non viene chiamato in SSR, quindi è sicuro per accesso al DOM.
+        // Il guard isPlatformBrowser aggiunge un livello extra di sicurezza.
         if (!this.isBrowser) return;
-        // Accesso sicuro al DOM — ngAfterViewInit non gira in SSR
+        // Accesso sicuro al DOM
     }
 }
+```
+
+### Passi completi per creare un componente condiviso
+
+#### 1. Creare il file TypeScript
+
+**Dove si trova il file:** `src/app/shared/components/mio-widget/mio-widget.component.ts`. Ogni componente ha la propria cartella con lo stesso nome del componente.
+
+`input.required<string>()` è un input obbligatorio: Angular dà errore a compile time se il padre non lo passa. `input<boolean>(true)` è un input opzionale con valore di default `true`.
+
+```typescript
+// src/app/shared/components/mio-widget/mio-widget.component.ts
+import { Component, inject, input } from '@angular/core';
+import { TranslateService } from '../../../core/services/translate.service';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+
+@Component({
+    selector: 'app-mio-widget',
+    standalone: true,
+    imports: [TranslatePipe],   // TranslatePipe serve per usare | translate nel template
+    templateUrl: './mio-widget.component.html',
+})
+export class MioWidgetComponent {
+    private readonly translate = inject(TranslateService);
+
+    /** Titolo da mostrare nel widget. Obbligatorio: il padre deve passarlo. */
+    readonly titolo = input.required<string>();
+
+    /** Mostra o nasconde il contenuto opzionale. Opzionale: default true. */
+    readonly visibile = input<boolean>(true);
+}
+```
+
+#### 2. Creare il template HTML
+
+**Dove si trova il file:** `src/app/shared/components/mio-widget/mio-widget.component.html`.
+
+Gli input signal si leggono con la sintassi `input()` (con le parentesi) — sono funzioni che restituiscono il valore corrente. `@if` e `@for` sono la nuova sintassi di controllo del flusso di Angular 17+ (più leggibile della vecchia `*ngIf`/`*ngFor`).
+
+```html
+<!-- src/app/shared/components/mio-widget/mio-widget.component.html -->
+<div class="card">
+    <div class="card-header">
+        <!-- titolo() legge il valore dell'input signal -->
+        <h3>{{ titolo() }}</h3>
+    </div>
+
+    @if (visibile()) {
+        <div class="card-body">
+            <!-- | translate: pipe reattiva — si aggiorna al cambio lingua senza refresh -->
+            <p>{{ 'widgetContenuto' | translate }}</p>
+        </div>
+    }
+</div>
+```
+
+#### 3. Importarlo nel componente o pagina che lo usa
+
+**Perché questo passo?** Con i componenti standalone, ogni componente dichiara esplicitamente le proprie dipendenze nell'array `imports`. Angular usa questa lista per il tree-shaking (rimuovere dal bundle il codice non usato) e per la verifica a compile time dei template.
+
+Nel file `.ts` del componente/pagina che deve includere `<app-mio-widget>`:
+
+```typescript
+// src/app/pages/home/home.component.ts
+import { Component, computed } from '@angular/core';
+import { PageBaseComponent } from '../page-base.component';
+import { MioWidgetComponent } from '../../shared/components/mio-widget/mio-widget.component';
+
+@Component({
+    selector: 'app-home',
+    standalone: true,
+    imports: [MioWidgetComponent],   // ← aggiunto qui
+    templateUrl: './home.component.html',
+})
+export class HomeComponent extends PageBaseComponent<void> {
+    // this.translate è già disponibile da PageBaseComponent — nessun inject aggiuntivo.
+    // computed() crea un signal derivato: si ricalcola automaticamente al cambio lingua.
+    readonly titoloWidget = computed(() =>
+        this.translate.translate('widgetTitolo')
+    );
+}
+```
+
+Nel template del componente che lo usa:
+
+```html
+<!-- home.component.html -->
+<app-mio-widget [titolo]="titoloWidget()" [visibile]="true" />
 ```
 
 ---
 
 ## Aggiungere una direttiva
 
+Le directive aggiungono comportamento a elementi HTML esistenti senza introdurre elementi wrapper. Sono ideali per modificare attributi, reagire a eventi, o calcolare proprietà su tag HTML standard.
+
 ### Directive con event handler
+
+**Dove creare il file:** `src/app/shared/directives/mia.directive.ts`.
+
+`@HostListener` intercetta un evento sull'elemento host della direttiva. Non viene scatenato lato server, quindi è naturalmente SSR-safe — il guard `isPlatformBrowser` è un ulteriore livello di sicurezza per codice browser-only esplicito.
 
 ```typescript
 // src/app/shared/directives/mia.directive.ts
 import { Directive, HostListener, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
+// [appMia] è l'attributo selector: si usa come <div appMia> o <button appMia>
 @Directive({
     selector: '[appMia]',
     standalone: true,
@@ -259,128 +480,406 @@ import { isPlatformBrowser } from '@angular/common';
 export class MiaDirective {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
+    // '$event' nell'array passa l'oggetto evento al parametro del metodo.
     @HostListener('click', ['$event'])
     onClick(event: MouseEvent): void {
         if (!this.isBrowser) return;
-        // logica
+        // logica eseguita solo nel browser
     }
 }
 ```
 
-Se la direttiva deve accedere all'elemento host o al suo parent nel DOM,
-usare `ViewContainerRef`:
+Se la direttiva deve accedere all'elemento host o al suo parent nel DOM, usare `ViewContainerRef`:
 
 ```typescript
 private readonly vcr = inject(ViewContainerRef);
-// vcr.element.nativeElement — elemento host della direttiva
+// vcr.element.nativeElement — elemento HTML su cui è applicata la direttiva
 ```
 
 ### Directive che calcola un attributo (src/href)
 
-Pattern dominante nel template per atomi presentazionali: la directive
-reagisce a un input via signal/computed e aggiorna automaticamente un
-attributo dell'host. Niente wrapper, niente classi proprie — l'elemento
-host accetta tutti gli attributi standard.
+Questo è il pattern dominante nel template per gli "atomi presentazionali": la direttiva reagisce a un input via signal/computed e aggiorna automaticamente un attributo dell'host. Il vantaggio è che l'elemento host (es. `<img>`) conserva tutti i suoi attributi standard (`alt`, `class`, `loading`, `width`) senza bisogno di una API custom.
 
 ```typescript
+// src/app/shared/directives/mia.directive.ts
 @Directive({
-    selector: 'img[appMia]',                  // selector vincolato al tag
+    selector: 'img[appMia]',                  // selector vincolato al tag img
     standalone: true,
-    host: { '[src]': 'src()' },               // host binding sull'attributo
+    host: { '[src]': 'src()' },               // host binding: aggiorna [src] quando src() cambia
 })
 export class MiaDirective {
     private readonly mio = inject(MioService);
 
+    // input.required(): il padre deve passare questo valore
     readonly appMia = input.required<MioConfig>();
 
+    // computed() calcola src() ogni volta che appMia() o lo stato del servizio cambiano
     protected readonly src = computed(() => this.mio.compute(this.appMia()));
 }
 ```
 
-Per rendering **asincrono** (canvas, blob, API esterne): usare `effect()` +
-un `signal` interno per `src`, con un *render token* monotono per evitare
-race condition quando build sovrapposte si "sorpassano". Se il consumer ha
-bisogno di accedere a stati derivati (blob originale, canvas raw, errore
-tradotto), esporli via `output()` invece che con un signal pubblico — gli
-output funzionano anche cross-template, i template reference no.
+Per rendering **asincrono** (canvas, blob, API esterne): usare `effect()` + un `signal` interno per `src`, con un *render token* monotono per evitare race condition quando build sovrapposte si "sorpassano". Se il consumer ha bisogno di accedere a stati derivati (blob originale, canvas raw, errore tradotto), esporli via `output()` invece che con un signal pubblico — gli output funzionano anche cross-template, i template reference no.
 
-Vedi `AssetDirective` (sync), `ImgRenderDirective` e `QrRenderDirective`
-(async con output) come esempi completi.
+Vedi `AssetDirective` (sync), `ImgRenderDirective` e `QrRenderDirective` (async con output) come esempi completi.
 
-> ⚠️ `output().emit()` durante `DestroyRef.onDestroy()` viene swallow-ed:
-> se il consumer mantiene stato locale dagli output (blob, canvas) e poi
-> rimuove l'host via `@if`, deve resettare i propri signal esplicitamente.
-> La directive non può pulirli al momento della distruzione.
+> ⚠️ `output().emit()` durante `DestroyRef.onDestroy()` viene swallowed: se il consumer mantiene stato locale dagli output (blob, canvas) e poi rimuove l'host via `@if`, deve resettare i propri signal esplicitamente. La directive non può pulirli al momento della distruzione.
 
 ---
 
 ## Aggiungere un endpoint API
 
-Ogni endpoint del backend ha un metodo pubblico dedicato in `ApiService`.  
-**Non** chiamare `HttpClient` direttamente nei componenti.
+Ogni endpoint del backend ha un metodo pubblico dedicato in `ApiService`. La regola è: **non chiamare mai `HttpClient` direttamente nei componenti**. Centralizzare le chiamate in `ApiService` significa che header di autenticazione, API key, gestione degli errori e URL resolution sono gestiti automaticamente da `BaseApiService`.
 
-### 1. Aggiungere il path alla costante `API`
+### Passo 1 — Definire il tipo di risposta
+
+**Perché questo passo?** Definire un'interfaccia per la risposta dell'endpoint rende il tipo di ritorno esplicito, abilita l'autocompletamento nell'IDE, e permette a TypeScript di verificare che stai usando i dati correttamente nel componente.
+
+**Dove creare il file:** `src/app/core/dto/prodotto.dto.ts`. La cartella `core/dto/` raccoglie tutti i Data Transfer Object. Un file per DTO rende chiaro a quale endpoint corrisponde ogni tipo.
 
 ```typescript
-// src/app/core/services/api.service.ts
+// src/app/core/dto/prodotto.dto.ts
+export interface Prodotto {
+    id: string;
+    nome: string;
+    prezzo: number;
+}
+```
+
+### Passo 2 — Aggiungere il path alla costante `API`
+
+**Perché questa costante?** La costante `API` in cima ad `api.service.ts` raccoglie tutti i path degli endpoint in un unico posto. Questo evita che lo stesso path stringa sia scritto in più posti (con possibili errori di battitura), e permette di vedere immediatamente tutti gli endpoint disponibili.
+
+**Dove si trova il file:** `src/app/core/services/api.service.ts`, le prime righe del file.
+
+Le funzioni freccia nella costante (es. `prodotto: (id) => \`prodotti/${id}\``) costruiscono URL con path parameter in modo che ogni chiamante non debba conoscere il formato del path.
+
+```typescript
+// src/app/core/services/api.service.ts — costante API in cima al file
 const API = {
-    // ...
-    mioEndpoint: 'mio-endpoint',
-    mioEndpointConId: (id: string) => `mio-endpoint/${encodeURIComponent(id)}`,
+    social:   'social',
+    profile:  'profile',
+    login:    'auth/login',
+    blob:     (slug: string) => `blob/${encodeURIComponent(slug)}`,
+    // ↓ aggiunto
+    prodotti: 'prodotti',
+    prodotto: (id: string) => `prodotti/${encodeURIComponent(id)}`,
 } as const;
 ```
 
-### 2. Aggiungere il metodo pubblico in `ApiService`
+### Passo 3 — Aggiungere il metodo pubblico in `ApiService`
+
+**Perché questo passo?** Il metodo pubblico è l'interfaccia che i componenti usano. Nasconde i dettagli di `HttpParams`, `firstValueFrom`, `catchError` — il componente chiama semplicemente `this.api.getProdotti()`.
+
+**Dove si trova il file:** `src/app/core/services/api.service.ts`, dentro la classe `ApiService`. `ApiService` estende `BaseApiService`, che espone i metodi protetti `api_get`, `api_post` e `api_resource`.
+
+- `api_get<T>(path)` — esegue una GET e restituisce una `Promise<T>`
+- `api_post<T>(path, body)` — esegue una POST e restituisce una `Promise<T>`
+- `api_resource<T>(path)` — restituisce un `HttpResourceRef<T | undefined>` con signal `.value()` e `.isLoading()` che si aggiornano automaticamente
+
+**Gestione errori**: `api_get`, `api_post` e `api_resource` gestiscono gli errori automaticamente tramite `handleError` del servizio base: mostrano la notifica all'utente via `NotificationService` e rilanciano l'errore per eventuali handler upstream. Non servono `try/catch` nei componenti salvo casi specifici.
 
 ```typescript
-// GET base
-getMioOggetto(): Promise<MioTipo> {
-    return this.api_get<MioTipo>(API.mioEndpoint);
+// src/app/core/services/api.service.ts — dentro la classe ApiService
+import { HttpParams } from '@angular/common/http';
+import { Prodotto } from '../dto/prodotto.dto';
+
+// --- variante 1: GET semplice ---
+getProdotti(): Promise<Prodotto[]> {
+    return this.api_get<Prodotto[]>(API.prodotti);
 }
 
-// GET con parametri query
-getMioOggettoFiltrato(filtro: string): Promise<MioTipo[]> {
-    const params = new HttpParams().set('filtro', filtro);
-    return this.api_get<MioTipo[]>(API.mioEndpoint, params);
+// --- variante 2: GET con query params (HttpParams) ---
+// Costruisce ?categoria=elettronica&disponibile=true
+getProdottiFiltrati(categoria: string, disponibile: boolean): Promise<Prodotto[]> {
+    const params = new HttpParams()
+        .set('categoria', categoria)
+        .set('disponibile', String(disponibile));
+    return this.api_get<Prodotto[]>(API.prodotti, params);
 }
 
-// POST con body
-creaMioOggetto(payload: MioPayload): Promise<MioTipo> {
-    return this.api_post<MioTipo>(API.mioEndpoint, payload);
+// --- variante 3: GET con path param (funzione nella costante API) ---
+// API.prodotto(id) costruisce 'prodotti/abc-123'
+getProdottoById(id: string): Promise<Prodotto> {
+    return this.api_get<Prodotto>(API.prodotto(id));
 }
 
-// Versione reattiva GET-only (httpResource) — per componenti persistenti come footer/header.
-// Restituisce HttpResourceRef<T|undefined> con i signal .value() e .isLoading.
-// Si aggiorna automaticamente quando cambiano i segnali reattivi (lingua, token).
-getMioOggettoResource() {
-    return this.api_resource<MioTipo>(API.mioEndpoint);
+// --- variante 4: POST con body ---
+creaProdotto(payload: { nome: string; prezzo: number }): Promise<Prodotto> {
+    return this.api_post<Prodotto>(API.prodotti, payload);
+}
+
+// --- variante 5: api_resource reattivo ---
+// Restituisce HttpResourceRef<Prodotto[] | undefined> con i signal .value() e .isLoading().
+// Si aggiorna automaticamente al cambio lingua (Accept-Language) e token JWT.
+// Usare nei componenti persistenti (header, footer, sidebar) che devono restare aggiornati
+// senza che il componente gestisca il ciclo di vita della chiamata.
+// Non usare nelle pagine dove Promise + afterNextRender è sufficiente.
+getProdottiResource() {
+    return this.api_resource<Prodotto[]>(API.prodotti);
 }
 ```
 
-**Gestione errori**: `api_get`, `api_post` e `api_resource` gestiscono gli errori
-automaticamente tramite `handleError` del servizio base: mostrano la notifica
-all'utente e rilanciano l'errore per eventuali handler upstream.  
-Non servono `try/catch` nei componenti salvo casi specifici.
+### Passo 4 — Usarlo nel componente pagina
+
+`this.api` è disponibile in tutti i componenti che estendono `PageBaseComponent`. Due pattern in base al caso d'uso:
+
+**Pattern a — Promise in `afterNextRender` con signal locale**
+
+Adatto per dati caricati una sola volta al montaggio del componente (es. lista prodotti, dettaglio articolo).
+
+`afterNextRender` è la funzione Angular che garantisce l'esecuzione del codice solo nel browser, mai in SSR. Non è un hook del ciclo di vita dell'istanza: è una funzione che registra un callback che verrà eseguito dopo che Angular ha completato il primo render del componente nel browser. Questo la rende il posto ideale per le chiamate API che non devono girare in SSR.
+
+```typescript
+// src/app/pages/catalogo/catalogo.component.ts
+import { Component, signal, afterNextRender } from '@angular/core';
+import { PageBaseComponent } from '../page-base.component';
+import { Prodotto } from '../../core/dto/prodotto.dto';
+
+@Component({
+    selector: 'app-catalogo',
+    standalone: true,
+    imports: [],
+    templateUrl: './catalogo.component.html',
+})
+export class CatalogoComponent extends PageBaseComponent<void> {
+    readonly prodotti = signal<Prodotto[]>([]);
+    readonly loading  = signal(true);
+
+    constructor() {
+        super();   // necessario perché PageBaseComponent ha logica nel costruttore
+        afterNextRender(() => {
+            // this.api è ereditato da PageBaseComponent — già iniettato, pronto all'uso.
+            this.api.getProdottiFiltrati('elettronica', true)
+                .then(lista => this.prodotti.set(lista))
+                .finally(() => this.loading.set(false));
+                // .catch() non è necessario: api_get gestisce già gli errori con NotificationService
+        });
+    }
+}
+```
+
+Nel template:
+
+```html
+<!-- catalogo.component.html -->
+@if (loading()) {
+    <app-loading [loading]="true" />
+} @else {
+    @for (p of prodotti(); track p.id) {
+        <div class="card">{{ p.nome }} — {{ p.prezzo | currency }}</div>
+    }
+}
+```
+
+**Pattern b — `api_resource` come proprietà readonly**
+
+Adatto per componenti persistenti (header, footer, widget) che devono restare aggiornati al cambio lingua o token senza logica aggiuntiva nel componente. Il resource si aggiorna da solo ogni volta che cambia un signal letto nella sua factory (lingua, token JWT).
+
+```typescript
+// src/app/shared/components/lista-prodotti/lista-prodotti.component.ts
+import { Component } from '@angular/core';
+import { PageBaseComponent } from '../../../pages/page-base.component';
+
+@Component({
+    selector: 'app-lista-prodotti',
+    standalone: true,
+    imports: [],
+    templateUrl: './lista-prodotti.component.html',
+})
+export class ListaProdottiComponent extends PageBaseComponent<void> {
+    // Il resource si inizializza immediatamente e si aggiorna automaticamente.
+    // Non serve afterNextRender, non serve un signal loading separato.
+    readonly prodottiResource = this.api.getProdottiResource();
+}
+```
+
+Nel template:
+
+```html
+<!-- lista-prodotti.component.html -->
+@if (prodottiResource.isLoading()) {
+    <app-loading [loading]="true" />
+} @else {
+    @for (p of prodottiResource.value() ?? []; track p.id) {
+        <div class="card">{{ p.nome }}</div>
+    }
+}
+```
+
+---
+
+## Autenticazione JWT (login)
+
+> Per il lato backend (generazione token, endpoint protetti, configurazione JWT) → [`backend/DEVELOPMENT.md — Endpoint protetti da login JWT`](../backend/DEVELOPMENT.md#endpoint-protetti-da-login-jwt).
+
+Il template gestisce l'autenticazione con due servizi separati per evitare dipendenze circolari (`ApiService` usa `TokenService`; `AuthService` usa `ApiService`).
+
+```
+TokenService   ←  unica sorgente di verità sul token (signal + sessionStorage)
+AuthService    ←  facciata di alto livello: login(), logout(), restoreSession()
+BaseApiService ←  legge TokenService e aggiunge Authorization: Bearer <token> su ogni richiesta
+```
+
+### Flusso completo di login
+
+**1. Chiamare il login dal componente**
+
+```typescript
+// In qualsiasi componente (es. una pagina di login)
+import { inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
+
+@Component({ ... })
+export class LoginComponent {
+    private readonly auth = inject(AuthService);
+
+    async onSubmit(password: string) {
+        const result = await this.auth.login(password);
+        if (result.valid) {
+            // Reindirizzare alla pagina protetta
+        } else {
+            // result.error contiene il messaggio dal backend
+        }
+    }
+}
+```
+
+`AuthService.login()` chiama `ApiService.login()`, che invia `POST /api/auth/login` con body `{ pwd: "..." }`. Se il backend risponde con `{ valid: true, token: "..." }`, il token viene salvato in memoria (signal) e in `sessionStorage`. Se il token ricevuto fosse già scaduto o malformato, `login()` restituisce `{ valid: false }` senza salvarlo.
+
+**2. Il token viene attaccato automaticamente**
+
+`BaseApiService.build_api_Headers()` legge `tokenService.isLoggedIn()` prima di ogni richiesta. Se vero, aggiunge `Authorization: Bearer <token>` senza che il componente debba fare nulla. Funziona per `api_get`, `api_post` e `api_resource`.
+
+**3. Il logout**
+
+```typescript
+this.auth.logout(); // rimuove token da memoria e sessionStorage
+```
+
+**4. La sessione sopravvive al refresh della pagina**
+
+`app.config.ts` chiama `authService.restoreSession()` all'avvio dell'app. `TokenService.restore()` legge il token da `sessionStorage`, ne verifica la scadenza e, se ancora valido, lo rimette in memoria. Se il token è scaduto viene ignorato.
+
+**5. Scadenza automatica**
+
+`TokenService` decodifica il campo `exp` del JWT (Base64url, senza librerie esterne) e pianifica un `setTimeout` che chiama `clear()` all'ora esatta di scadenza. Non serve un interceptor per il 401: il token viene rimosso prima ancora che scada lato server.
+
+### Proteggere una pagina (route guard)
+
+Per rendere una pagina accessibile solo agli utenti autenticati, aggiungere `requiresAuth: true` nella sua definizione in `site.ts`:
+
+```typescript
+// frontend/src/app/site.ts
+defineSitePages([
+    // ...
+    {
+        pageType: PageType.Dashboard,
+        path: 'dashboard',
+        component: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
+        requiresAuth: true,   // ← questa riga attiva la guard
+    }
+]);
+```
+
+`app.routes.ts` applica automaticamente `authGuard` a tutte le rotte con questo flag. Se l'utente non è autenticato, viene mostrata una notifica di errore e viene reindirizzato a `/error/401`. Non serve toccare `app.routes.ts`.
+
+### Leggere lo stato di login in un componente
+
+```typescript
+import { inject } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
+
+@Component({ ... })
+export class NavbarComponent {
+    readonly auth = inject(AuthService);
+    // auth.isLoggedIn() è un computed signal: true/false
+}
+```
+
+```html
+@if (auth.isLoggedIn()) {
+    <button (click)="auth.logout()">Esci</button>
+} @else {
+    <a [appPage]="PageType.Login">Accedi</a>
+}
+```
+
+---
+
+## Gestione errori HTTP
+
+Tutti gli errori HTTP sono gestiti automaticamente da `BaseApiService.handleError()`, che delega a `NotificationService.handleApiError()`. Il componente non deve implementare nessun try-catch per gli errori standard.
+
+### Cosa succede per ogni codice
+
+| Codice | Comportamento |
+|---|---|
+| `400` con campo `errors` | Dialog SweetAlert2 con lista di errori di validazione (ProblemDetails RFC 9457) |
+| `400` senza `errors` | Dialog con `detail` e `title` letti dal body, o testo i18n generico |
+| `401` | Dialog con messaggio i18n `errore401Info` / `errore401Desc` |
+| `403` | Dialog con messaggio i18n `errore403Info` / `errore403Desc` |
+| `404` | Dialog con messaggio i18n; se il body non è JSON usa `erroreAPINonDisponibile` |
+| `500` | Dialog con messaggio i18n; se il body non è JSON usa `erroreAPINonDisponibile` |
+| Altro | Dialog con "Errore {status}" come titolo e `erroreImprevisto` come testo |
+
+Se il backend usa `ApiException` (vedi backend DEVELOPMENT.md), il body è sempre un ProblemDetails con `title` e `detail` valorizzati: questi valori sovrascrivono i testi i18n generici e vengono mostrati direttamente all'utente.
+
+### L'errore si propaga comunque
+
+Dopo aver mostrato la notifica, `handleError` rilancia l'errore con `throwError(() => error)`. Questo significa che la Promise restituita da `api_get` / `api_post` **viene rigettata**. Se il componente non cattura questo reject, Angular la tratta come un'eccezione non gestita (visibile in console).
+
+Per ignorare il reject in modo esplicito:
+
+```typescript
+const data = await this.api.getProfile().catch(() => null);
+if (!data) return; // la notifica è già stata mostrata
+```
+
+Per gestire il reject con logica specifica (es. ripristinare uno stato):
+
+```typescript
+try {
+    await this.api.saveData(payload);
+    this.success.set(true);
+} catch {
+    // La notifica è già stata mostrata da handleError.
+    // Qui gestisci solo lo stato locale del componente.
+    this.isSubmitting.set(false);
+}
+```
+
+### Aggiungere testi i18n per un nuovo codice
+
+I testi degli errori sono in `frontend/src/assets/i18n/<lingua>.json`. Il pattern delle chiavi è:
+
+```json
+"errore422Info": "Dati non processabili",
+"errore422Desc": "Il server non ha potuto elaborare la richiesta."
+```
+
+Se le chiavi per un codice non esistono, `handleApiError` usa `errore{status}` come titolo e `erroreImprevisto` come descrizione.
 
 ---
 
 ## Resolver automatico dei contenuti
 
-`app.routes.ts` applica automaticamente `ContentResolver` come resolver
-su ogni pagina. Il resolver restituisce un oggetto `ResolvedPage<T>` con due campi:
-`content` (i dati della pagina) e `info` (i metadati SEO da `site.ts`).
-`PageBaseComponent` li riceve, aggiorna i meta tag via `effect()` e
-espone `pageContent()` già tipizzato come `T | null`.
+Ogni pagina registrata in `site.ts` ottiene automaticamente un resolver che carica il contenuto prima della navigazione. Il resolver è configurato in `app.routes.ts` — che costruisce automaticamente le rotte da `site.ts` — e applica `contentLoaderResolver` come resolver su ogni leaf page.
+
+Il resolver restituisce un oggetto `ResolvedPage<T>` con due campi:
+- `content` — i dati della pagina (es. il testo Markdown di una policy, o i dati di un articolo)
+- `info` — i metadati SEO da `site.ts` (titolo, descrizione, ogImage, ogType)
+
+`PageBaseComponent` riceve questo oggetto, aggiorna i meta tag via `effect()` e espone `pageContent()` già tipizzato come `T | null`.
 
 ### Come funziona
 
 ```
-Navigazione → ContentResolver.loadResolved(pageType, lang)
+Navigazione → contentLoaderResolver(pageType) chiama inject(ContentResolver).loadResolved(pageType, lang)
                         ↓
              switch(pageType) → content da file, API, o null
              ContestoSito.getPageInfo(pageType) → info SEO da site.ts
                         ↓
-             ResolvedPage { content, info } → input contentByResolve
+             ResolvedPage { content, info } → input contentByResolve di PageBaseComponent
                         ↓
              PageBaseComponent:
                effect(info)    → PageMetaService.setTitle()   [SSR + browser]
@@ -388,46 +887,48 @@ Navigazione → ContentResolver.loadResolved(pageType, lang)
                pageContent()   → content tipizzato come T
 ```
 
-Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né render mode.
+Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né reload al cambio lingua. Tutto è automatico.
 
 ### Aggiungere contenuto a una nuova pagina
+
+**Dove si trova il file:** `src/app/pages/content.resolver.ts`. Questo è il file centrale che determina cosa viene caricato per ogni pagina.
 
 **1. Aggiungere il case in `ContentResolver.loadResolved()`**
 
 ```typescript
-// pages/content.resolver.ts
+// src/app/pages/content.resolver.ts — dentro il switch(pageType)
 case PageType.MiaPagina:
-    content = await this.chiamataApi(lang);          // API esterna
-    // oppure
-    content = await this.tryLoadPolicy('slug', lang); // file MD da /assets/legal/
+    content = await this.apiService.getMiaPaginaData(language); // chiamata API
+    // oppure:
+    content = await this.tryLoadPolicy('slug', language);       // file Markdown da /assets/legal/
     break;
 ```
 
-I metadati SEO statici (titolo, descrizione, ogImage) vengono letti automaticamente
-da `ContestoSito.getPageInfo(pageType)` — dichiarati una sola volta in `site.ts`.
+I metadati SEO statici (titolo, descrizione, ogImage) vengono letti automaticamente da `ContestoSito.getPageInfo(pageType)` — dichiarati una sola volta in `site.ts`, usati automaticamente dal resolver.
 
 **2. Estendere `PageBaseComponent<T>` nel componente**
 
 ```typescript
+// Il generic MeteoData deve corrispondere al tipo restituito dal case nel resolver.
 export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
+    // pageContent() è già MeteoData | null — nessun cast necessario.
     readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
 }
 ```
 
-Nessun cast, nessun effect aggiuntivo. `pageContent()` è già `MeteoData | null`.
-
 ### Meta SEO dinamici (titolo/descrizione da API)
 
-Per pagine con titolo che dipende dall'API (es. articolo con ID variabile),
-aggiungere il case nel resolver e sovrascrivere `info` con i dati dell'API:
+Per pagine con titolo che dipende dall'API (es. articolo con ID variabile nel path), il resolver può sovrascrivere `info` con i dati caricati dall'API:
 
 ```typescript
+// src/app/pages/content.resolver.ts — dentro il switch(pageType)
 case PageType.Articolo: {
-    const articolo = await this.loadArticolo(route!.params['id'], language);
+    const articolo = await this.apiService.getArticolo(route!.params['id'], language);
     return {
         content: articolo,
+        // info personalizzato: titolo e descrizione dall'API invece che da site.ts
         info: {
-            title: articolo.titolo,
+            title: articolo.titolo,          // stringa diretta, non chiave i18n
             description: articolo.descrizione,
             path: ContestoSito.getPageInfo(pageType)?.path ?? '',
             isExternal: false,
@@ -437,20 +938,21 @@ case PageType.Articolo: {
 }
 ```
 
-`PageBaseComponent` chiama `setTitle()` automaticamente con questi dati — nessuna
-logica SEO nel componente.
+`PageBaseComponent` chiama `setTitle()` automaticamente con questi dati — nessuna logica SEO nel componente.
 
 ### Estendere in un progetto figlio
 
-Il progetto figlio registra la propria versione del servizio nel DI:
+Il progetto figlio registra la propria versione del servizio nel DI. Grazie al pattern DI, `contentLoaderResolver` usa automaticamente la versione del figlio senza toccare nulla nell'engine.
 
 ```typescript
-// app.config.ts del figlio
+// app.config.ts del progetto figlio
 { provide: ContentResolver, useClass: ChildContentResolverService }
 ```
 
 ```typescript
 // ChildContentResolverService
+// override: sovrascrive loadResolved() aggiungendo i propri case.
+// super.loadResolved(): delega i case non gestiti all'implementazione base dell'engine.
 override async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
     switch (pageType) {
         case PageType.GeneratoreMeteo: {
@@ -463,20 +965,16 @@ override async loadResolved(pageType: PageType, lang?: string): Promise<Resolved
 }
 ```
 
-`contentLoaderResolver` chiama `inject(ContentResolver)`, quindi usa automaticamente
-la versione del figlio senza toccare nulla nell'engine.
-
 ---
 
 ## Regole SSR
 
-Il frontend usa SSR con hydration (`provideClientHydration(withEventReplay())`).
-Alcune API esistono solo nel browser — accedervi lato server genera errori.
+Il frontend usa SSR con hydration (`provideClientHydration(withEventReplay())`). Il server Node genera l'HTML completo per ogni richiesta — questo è ciò che i crawler di Google ricevono. Alcune API esistono solo nel browser (DOM, localStorage, canvas, ecc.) — accedervi lato server genera errori a runtime.
 
 ### Cosa NON fare
 
 ```typescript
-// ❌ window non esiste in SSR
+// ❌ window non esiste in SSR — genera ReferenceError lato server
 if (typeof window !== 'undefined') { ... }
 
 // ❌ document non esiste in SSR
@@ -488,51 +986,56 @@ localStorage.getItem('chiave');
 
 ### Cosa fare nei componenti pagina
 
+`afterNextRender` è garantito non essere mai eseguito in SSR. Usarlo per qualsiasi codice che richiede il browser: canvas, analytics, scroll, chiamate API che non devono girare in SSR.
+
 ```typescript
 // ✅ afterNextRender — garantisce esecuzione solo nel browser, mai in SSR
 constructor() {
+    super();
     afterNextRender(() => {
-        // codice browser-only: canvas, scroll, analytics, ecc.
+        // codice browser-only: canvas, scroll, analytics, chiamate API, ecc.
     });
 }
 ```
 
 ### Cosa fare nei servizi
 
+I servizi non hanno accesso ad `afterNextRender`, quindi usano `isPlatformBrowser`:
+
 ```typescript
-// ✅ isPlatformBrowser — necessario nei servizi che non hanno accesso ad afterNextRender
+// ✅ isPlatformBrowser — necessario nei servizi per proteggere le API browser
 @Injectable({ providedIn: 'root' })
 export class MioService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     metodo(): void {
-        if (!this.isBrowser) return;
-        // codice browser-only
+        if (!this.isBrowser) return;   // early return: non fa nulla in SSR
+        // codice browser-only sicuro
     }
 }
 ```
 
 ### Dove mettere il codice DOM
 
-- **`afterNextRender()`**: opzione consigliata nei componenti pagina — eseguito solo nel browser, mai in SSR/prerender
-- **`ngAfterViewInit`**: non viene chiamato in SSR → sicuro per accesso DOM, ma non garantisce il browser in tutti i contesti Angular
-- **Event handler / `@HostListener`**: non vengono scatenati lato server → sicuri
-- **`constructor` / `ngOnInit`**: vengono eseguiti lato server → richiedono guard `isPlatformBrowser` per codice browser-only
+| Dove | Quando usarlo |
+|---|---|
+| **`afterNextRender()`** | Opzione consigliata nei componenti pagina — non viene mai eseguito in SSR/prerender |
+| **`ngAfterViewInit`** | Non viene chiamato in SSR → sicuro per accesso DOM, ma non garantisce il browser in tutti i contesti Angular |
+| **Event handler / `@HostListener`** | Non vengono scatenati lato server → sicuri per natura |
+| **`constructor` / `ngOnInit`** | Vengono eseguiti lato server → richiedono `isPlatformBrowser` per codice browser-only |
 
 ---
 
 ## Meta SEO e SSR
 
-I meta tag (`<title>`, `og:title`, `og:description`, `og:image`, canonical)
-vengono gestiti interamente da `ContentResolver` + `PageBaseComponent`.
-Non serve nessun codice nei componenti per i casi standard.
+I meta tag (`<title>`, `og:title`, `og:description`, `og:image`, canonical, JSON-LD) vengono gestiti interamente da `ContentResolver` + `PageBaseComponent`. Non serve nessun codice nei componenti per i casi standard.
 
 ### Come funziona
 
 **Per pagine statiche** (titolo e descrizione dichiarati in `site.ts`):
 
 ```typescript
-// site.ts
+// src/app/site.ts — dentro defineSitePages([...])
 {
     path: 'mia-pagina',
     title: 'miaPagina',              // chiave i18n → tradotta automaticamente
@@ -553,26 +1056,20 @@ I tag aggiornati da `PageMetaService.setTitle()` in un'unica chiamata:
 `<link rel="canonical">` e il blocco `<script type="application/ld+json">`.
 Le immagini social includono `?v={version}` di cache busting automatico.
 
-`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)`
-e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`.
-`PageBaseComponent` chiama `PageMetaService.setTitle()` via `effect()` — SSR-safe,
-i meta tag sono nell'HTML prima che il crawler lo riceva.
+`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)` e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`. `PageBaseComponent` chiama `PageMetaService.setTitle()` via `effect()` — SSR-safe: i meta tag sono nell'HTML prima che il crawler lo riceva.
 
-**Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID):
-
-Aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato
-con i dati dall'API — vedi sezione *Resolver automatico dei contenuti*.
+**Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID): aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato con i dati dall'API — vedi sezione *Resolver automatico dei contenuti*.
 
 ### `PageMetaService.setTitle()`
 
 ```typescript
-// Firma
+// Firma del metodo
 setTitle(
-    pageTitle: string,
-    description?: string | null,
-    imgId?: string | null | false,
-    ogType?: string | null,          // og:type (default: 'website')
-    structuredDataType?: string | null, // JSON-LD @type (default: 'WebPage')
+    pageTitle: string,           // obbligatorio — valore già tradotto (non chiave i18n)
+    description?: string | null, // opzionale — meta description
+    imgId?: string | null | false, // opzionale — vedi comportamenti sotto
+    ogType?: string | null,        // opzionale — og:type (default: 'website')
+    structuredDataType?: string | null, // opzionale — JSON-LD @type (default: 'WebPage')
 ): void
 
 // imgId — tre comportamenti distinti:
@@ -581,53 +1078,59 @@ setTitle(
 // false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
 
-Può essere chiamato direttamente dal componente nei rari casi in cui serve
-sovrascrivere i meta a runtime (es. dopo un'interazione utente).
+Può essere chiamato direttamente dal componente nei rari casi in cui serve sovrascrivere i meta a runtime (es. dopo un'interazione utente che cambia il contenuto della pagina).
 
 ---
 
 ## Pattern dei Signal
+
+Angular 16+ introduce i Signal come sistema di reattività. I signal sostituiscono i vecchi `BehaviorSubject`/`Observable` per lo stato locale e derivato — sono più leggibili, non richiedono `async pipe`, e permettono ad Angular di sapere esattamente quali parti del DOM aggiornare.
 
 ### Riepilogo dei tipi
 
 | Tipo | Quando usarlo |
 |------|--------------|
 | `signal<T>(valore)` | Stato mutabile — può essere `set()` o `update()` |
-| `computed(() => ...)` | Valore derivato da altri signal — **readonly**, calcolato lazy |
-| `effect(() => ...)` | Effetto collaterale reale (log, scrittura DOM, API esterne) |
-| `input<T>()` / `input.required<T>()` | Input di componente/direttiva — readonly, iniettato dal padre |
+| `computed(() => ...)` | Valore derivato da altri signal — **readonly**, calcolato lazy, si ricalcola solo quando i signal da cui dipende cambiano |
+| `effect(() => ...)` | Effetto collaterale reale: logging, scrittura DOM, chiamate a API esterne quando un signal cambia |
+| `input<T>()` / `input.required<T>()` | Input di componente/direttiva — readonly, il valore viene iniettato dal padre tramite binding |
 
 ### `computed()` invece di `effect()` per i dati derivati
 
+La regola è: se il risultato è un valore (anche una stringa, un numero, un array), usa `computed()`. Se il risultato è un'azione (scrivere nel DOM, chiamare un'API, loggare), usa `effect()`.
+
 ```typescript
-// ✅ Corretto
+// ✅ Corretto — computed() per derivare stato
 readonly nomePulito = computed(() => this.nome().trim().toUpperCase());
 
-// ❌ Errato — effect() serve per effetti collaterali, non per derivare stato
+// ❌ Errato — effect() non deve essere usato per derivare stato
 effect(() => { this.nomePulito = this.nome().trim().toUpperCase(); });
 ```
 
 ### Signal + ngModel (binding bidirezionale)
 
-I `signal` non sono direttamente compatibili con `[(ngModel)]`:
+I `signal` non sono direttamente compatibili con `[(ngModel)]` (two-way binding). Il motivo è che `[(ngModel)]` si aspetta una proprietà scrivibile, mentre un signal è una funzione. Il pattern corretto è separare il binding di lettura (`[ngModel]`) da quello di scrittura (`(ngModelChange)`):
 
 ```html
-<!-- ✅ Corretto -->
+<!-- ✅ Corretto — lettura e scrittura separati -->
 <input [ngModel]="mioSignal()" (ngModelChange)="mioSignal.set($event)">
 
-<!-- ❌ Non funziona — signal non è un riferimento plain -->
+<!-- ❌ Non funziona — signal non è una proprietà plain scrivibile -->
 <input [(ngModel)]="mioSignal">
 ```
 
 ### Signal + `effect()` con reattività a un altro signal
 
+`effect()` si riesegue automaticamente ogni volta che uno dei signal letti al suo interno cambia. Questo è il pattern per reagire ai cambi di lingua senza dover gestire Subscription né unsubscribe:
+
 ```typescript
-// Segue la lingua corrente e aggiorna il testo quando cambia
+// Segue la lingua corrente e aggiorna il testo quando cambia.
+// translate.currentLang() è un signal → questo effect si ri-esegue a ogni cambio lingua.
 readonly testoLocalizzato = signal('');
 
 constructor() {
+    super();
     effect(() => {
-        // translate.currentLang() è un signal → questo effect si ri-esegue a ogni cambio lingua
         this.testoLocalizzato.set(this.translate.translate('chiave'));
     });
 }
@@ -640,7 +1143,7 @@ constructor() {
 Le lingue disponibili si dichiarano in `setSiteConfiguration` con `availableLanguages`:
 
 ```typescript
-// site.ts
+// src/app/site.ts — dentro setSiteConfiguration({...})
 setSiteConfiguration({
     defaultLang: 'it',
     availableLanguages: ['it', 'en'], // validati BCP 47 a build time
@@ -648,37 +1151,36 @@ setSiteConfiguration({
 });
 ```
 
-Per aggiungere una lingua: aggiungerla ad `availableLanguages` e creare i file
-`basic.{lang}.json` e `addon.{lang}.json` corrispondenti.
+Per aggiungere una lingua: aggiungerla ad `availableLanguages` e creare i file `basic.{lang}.json` e `addon.{lang}.json` corrispondenti nella cartella `src/assets/i18n/`.
 
-Le traduzioni stanno in `src/assets/i18n/<lang>.json`.  
-Le chiavi sono camelCase senza spazi, in inglese.
+Le chiavi di traduzione sono camelCase senza spazi, solitamente in italiano o inglese. Una chiave per ogni testo distinto — non riusare la stessa chiave per testi simili ma distinti.
 
 ```json
-// it.json
+// src/assets/i18n/it.json (esempio)
 {
     "miaPagina": "La mia pagina",
     "miaPaginaDesc": "Descrizione per SEO della mia pagina"
 }
 ```
 
-Nel componente:
+Nel componente, due modi di usare le traduzioni:
 
 ```typescript
-// Traduzione one-shot (non reattiva)
+// Traduzione one-shot (non reattiva): utile fuori dai template, es. in una chiamata API
 const testo = this.translate.translate('miaPagina');
 
-// Traduzione reattiva (signal — si aggiorna al cambio lingua)
+// Traduzione reattiva (si aggiorna automaticamente al cambio lingua):
+// computed() crea un signal derivato — si ricalcola ogni volta che currentLang() cambia
 readonly testo = computed(() => this.translate.translate('miaPagina'));
 ```
 
-Nel template:
+Nel template, due modi equivalenti:
 
 ```html
-<!-- Pipe translate (reattiva) -->
+<!-- Pipe translate — la scelta consigliata nel template: dichiarativa e reattiva -->
 <h1>{{ 'miaPagina' | translate }}</h1>
 
-<!-- oppure diretta da signal -->
+<!-- Oppure da signal computed nel componente -->
 <h1>{{ testo() }}</h1>
 ```
 
@@ -688,9 +1190,10 @@ Nel template:
 
 ### Come funziona il builder
 
-`site.ts` è l'unico file da toccare per configurare il sito. Usa quattro chiamate sul builder:
+`src/app/site.ts` è **l'unico file da toccare** per configurare il sito. Usa quattro chiamate sul builder:
 
 ```typescript
+// src/app/site.ts
 siteFondamentaBuilder.setSiteConfiguration({ appName, colorTema, defaultLang, ... });
 siteFondamentaBuilder.defineSitePages([ /* array di pagine */ ]);
 siteFondamentaBuilder.configureHeaderNavigation(h => { h.addPage(...); h.addGroup(...); });
@@ -722,17 +1225,17 @@ Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script
 
 ### Campi opzionali di una LeafPage
 
-| Campo | Effetto |
-|---|---|
-| `requiresAuth: true` | Aggiunge guard JWT; forza `renderMode: 'client'` |
-| `showPanel: false` | Pagina a schermo intero (no pannello centrale) |
-| `renderMode: 'client'` | Solo browser — usare per pagine interattive incompatibili con SSR |
-| `renderMode: 'server'` | HTML generato a ogni richiesta lato server (default se non dichiarato) |
-| `description` | Chiave i18n o stringa per meta description e sitemap |
-| `ogImage` | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
-| `ogType` | `og:type` (es. `'article'`). Default: `'website'` |
-| `structuredDataType` | `@type` del JSON-LD (es. `'Article'`). Default: `'WebPage'` |
-| `data` | Dati arbitrari passati al componente via `route.data` |
+| Campo | Obbligatorio | Effetto |
+|---|---|---|
+| `requiresAuth: true` | no | Aggiunge guard JWT; forza `renderMode: 'client'` |
+| `showPanel: false` | no | Pagina a schermo intero (no pannello centrale) |
+| `renderMode: 'client'` | no | Solo browser — usare per pagine interattive incompatibili con SSR |
+| `renderMode: 'server'` | no | HTML generato a ogni richiesta lato server (default se non dichiarato) |
+| `description` | no | Chiave i18n o stringa per meta description e sitemap |
+| `ogImage` | no | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
+| `ogType` | no | `og:type` (es. `'article'`). Default: `'website'` |
+| `structuredDataType` | no | `@type` del JSON-LD (es. `'Article'`). Default: `'WebPage'` |
+| `data` | no | Dati arbitrari passati al componente via `route.data` |
 
 ### Navigazione
 
@@ -748,7 +1251,7 @@ Pagine con `enabled: false` escluse automaticamente. I path non si scrivono mai 
 
 ### PageType e getPath
 
-`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni. Restituisce `null` se la pagina è disabilitata o non registrata — non finisce mai silenziosamente in un `href`. Usa sempre il fallback:
+`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni. Restituisce `null` se la pagina è disabilitata o non registrata — non finisce mai silenziosamente in un `href` sbagliato. Usa sempre il fallback:
 
 ```typescript
 const path = ContestoSito.getPath(PageType.X) ?? '/';
@@ -791,45 +1294,29 @@ Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti
 
 ### CSS scoping nei componenti standalone
 
-Angular usa `ViewEncapsulation.Emulated` di default: appone un attributo
-`_ngcontent-xxx` agli elementi del template, e riscrive i selettori del
-`.component.css` perché matchino solo quelli. Gli elementi resi da un
-**child component standalone** ricevono un attributo diverso
-(`_ngcontent-yyy`), quindi i selettori del padre **non li raggiungono**.
+Angular usa `ViewEncapsulation.Emulated` di default: aggiunge automaticamente un attributo univoco (`_ngcontent-xxx`) a ogni elemento del template, e riscrive i selettori del `.component.css` per matchare solo quegli elementi. Questo significa che i tuoi stili nel `.component.css` non escono accidentalmente fuori dal componente.
+
+Il problema nasce con i **child component standalone**: gli elementi renderizzati da un child component ricevono un attributo diverso (`_ngcontent-yyy`), quindi i selettori del padre **non li raggiungono**. Questo causa un bug non ovvio: lo stile sembra corretto nel `.css` ma non si applica.
 
 Regola pratica:
 
-| Selettore mira… | Dove va lo stile |
+| Il selettore mira a... | Dove va lo stile |
 |---|---|
-| Elementi resi direttamente nel template del componente | `*.component.css` (scoped) |
-| Classi rese da child component (es. `<app-nav-link>` → `<a class="nav-link">`) | `styles/*.css` (globale) |
+| Elementi renderizzati direttamente nel template del componente | `*.component.css` (scoped) — funziona correttamente |
+| Classi renderizzate da un child component (es. `<app-nav-link>` → `<a class="nav-link">`) | `styles/*.css` (globale) — necessario perché i selettori scoped non attraversano i boundary dei componenti |
 
-Esempio reale del template: tutto il sistema di navigazione vive in
-`styles/nav.css` globale — `.nav-link`, `.nav-disclosure-*`, `footer a` —
-perché i `<a>` e i `<details>` concreti sono renderizzati da
-`<app-nav-link>` / `<app-nav-dropdown>` / `<app-footer-nav>`. Mantenere
-quegli stili in `navbar.component.css` / `footer.component.css` causa
-breakage non ovvio: dropdown senza `position: absolute` (appare come
-lista), link footer col colore Bootstrap blu invece di ereditare il
-colore del contenitore, ecc.
+Esempio reale nel template: tutto il sistema di navigazione vive in `styles/nav.css` globale — `.nav-link`, `.nav-disclosure-*`, `footer a` — perché i `<a>` e i `<details>` concreti sono renderizzati da `<app-nav-link>` / `<app-nav-dropdown>` / `<app-footer-nav>`. Mantenere quegli stili in `navbar.component.css` o `footer.component.css` causa breakage non ovvio: dropdown senza `position: absolute`, link footer col colore Bootstrap blu invece di ereditare il colore del contenitore, ecc.
 
-Per gli **override contestuali** (es. "quando il link è dentro una
-`.navbar` usa il colore X"), regola:
+Per gli **override contestuali** (es. "quando il link è dentro una `.navbar` usa il colore X"), regola:
 
-- Se il selettore parte dal container che vive nel padre (es.
-  `.navbar .nav-link`), va in globale insieme alle definizioni base.
-- Per personalizzazioni di progetto figlio, valutare **CSS custom
-  properties** invece dei selettori di discendenza: il container espone
-  `--app-nav-link-color`, il child legge `color: var(--app-nav-link-color, …)`.
-  Più robusto, niente reach-through nel DOM del figlio.
+- Se il selettore parte dal container che vive nel padre (es. `.navbar .nav-link`), va in globale insieme alle definizioni base.
+- Per personalizzazioni di progetto figlio, valutare **CSS custom properties** invece dei selettori di discendenza: il container espone `--app-nav-link-color`, il child legge `color: var(--app-nav-link-color, …)`. Più robusto, niente reach-through nel DOM del figlio.
 
-Il template-engine fornisce i baseline globali in `styles/base.css`,
-`styles/nav.css`, `styles/social.css`. I progetti figli aggiungono o
-sovrascrivono in `styles.css` o in nuovi file importati da lì.
+Il template-engine fornisce i baseline globali in `styles/base.css`, `styles/nav.css`, `styles/social.css`. I progetti figli aggiungono o sovrascrivono in `styles.css` o in nuovi file importati da lì.
 
 ### FontConfig
 
-`src/styles/font-config.ts` — nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
+**Dove si trova il file:** `src/styles/font-config.ts` — nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
 
 | Dizionario | Contesto |
 |---|---|
@@ -842,7 +1329,35 @@ sovrascrivono in `styles.css` o in nuovi file importati da lì.
 
 ## Asset e ottimizzazione immagini
 
-Il server Node SSR espone tre endpoint CDN CGI (path raccolti in `CdnCgi` in `asset.service.ts`):
+### Aggiungere un nuovo file (immagine, PDF, video…)
+
+Tutti i file statici serviti tramite CDN vivono in `src/assets/files/` e sono **sempre referenziati tramite ID**, mai per nome file diretto. Questo permette di rinominare o sostituire un file senza toccare i template.
+
+**Passo 1 — Copia il file** in `frontend/src/assets/files/`:
+
+```
+frontend/src/assets/files/
+  favicon.png
+  hero.jpg          ← nuovo file
+```
+
+**Passo 2 — Registra l'ID** in `frontend/src/assets/mapping.json`:
+
+```json
+{
+  "favIcon": "favicon.png",
+  "img4k": "pexels-kienvirak-36928649.jpg",
+  "hero": "hero.jpg"
+}
+```
+
+La chiave (es. `"hero"`) è l'ID che userai nei template e nel codice. Il valore è il nome file fisico. Da questo momento `appAsset="hero"` e `this.asset.getUrl('hero')` funzionano.
+
+**Perché questo livello di indirezione?** La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente via URL. Passano sempre attraverso il layer `/cdn-cgi/asset`, che per le immagini raster fa resize + conversione WebP on-demand e mette in cache il risultato. Per PDF, SVG e video fa passthrough diretto. L'ID disaccoppia il riferimento dal nome fisico: se domani sostituisci `hero.jpg` con `hero-v2.webp`, aggiorni solo il mapping, non tutti i template.
+
+---
+
+ (path raccolti in `CdnCgi` in `asset.service.ts`):
 
 | Endpoint | Scopo |
 |---|---|
@@ -856,8 +1371,7 @@ La directory `assets/files/` è bloccata — i file non sono mai raggiungibili d
 
 ### Uso in template — directive
 
-Il modo preferito nei template è tramite directive: niente signal intermedi,
-`src` / `href` si aggiornano reattivamente al cambio degli input.
+Il modo preferito nei template è tramite directive: niente signal intermedi, `src` / `href` si aggiornano reattivamente al cambio degli input.
 
 ```html
 <!-- src: img, video, audio, source, iframe, embed -->
@@ -870,24 +1384,23 @@ Il modo preferito nei template è tramite directive: niente signal intermedi,
 <link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
 ```
 
-`appAssetWidth` ha effetto solo per immagini raster: il server ignora il
-parametro per video / PDF / SVG e restituisce lo stream originale. È quindi
-sicuro lasciarlo non valorizzato anche su tag non-immagine.
+`appAssetWidth` ha effetto solo per immagini raster: il server ignora il parametro per video / PDF / SVG e restituisce lo stream originale. È quindi sicuro lasciarlo non valorizzato anche su tag non-immagine.
 
 ### Uso programmatico
 
 Per casi non template (canvas dinamici, popup, costruzione URL da codice):
 
 ```typescript
+// this.asset è disponibile da PageBaseComponent — nessun inject aggiuntivo nei componenti pagina.
 this.asset.getUrl('hero', 1080)      // → URL ottimizzato via /cdn-cgi/asset
 ```
 
 Per Blob locali (canvas, API esterne):
 ```typescript
 const { rawUrl, angularUrl } = this.asset.getUrlFromBlob(blob);
-// rawUrl → usabile in JS puro
-// angularUrl → sanitizzato per i template Angular
-// Revocati automaticamente ad ogni NavigationEnd
+// rawUrl → usabile in JS puro (es. assegnare a un canvas)
+// angularUrl → sanitizzato per i template Angular (es. [src]="angularUrl")
+// Entrambi gli URL vengono revocati automaticamente ad ogni NavigationEnd
 ```
 
 ---
@@ -917,7 +1430,7 @@ Cache: asset con hash nel nome → 1 anno `immutable`; asset non hashati (i18n, 
 
 ## Servizi disponibili
 
-Tutti `providedIn: 'root'`.
+Tutti `providedIn: 'root'` — istanziati una sola volta per tutta l'app. Disponibili tramite `inject()` in qualsiasi componente o servizio.
 
 | Servizio | Ruolo |
 |---|---|
@@ -943,25 +1456,286 @@ Tutti `providedIn: 'root'`.
 
 ### Directive
 
-| Directive | Uso |
+Tutte le directive sono `standalone: true` e devono essere aggiunte all'array `imports` del componente che le usa. Non vengono importate automaticamente.
+
+| Directive | Selector | Import da |
+|---|---|---|
+| `[appPage]` | qualsiasi elemento con `href` | `shared/directives/page.directive` → `PageDirective` |
+| `[appAsset]` | `img, video, audio, source, iframe, embed` | `shared/directives/asset.directive` → `AssetDirective` |
+| `[appAssetHref]` | `a, link` | `shared/directives/asset.directive` → `AssetHrefDirective` |
+| `[imgRender]` | `img` | `shared/directives/img-render.directive` → `ImgRenderDirective` |
+| `[qrContent]` | `img` | `shared/directives/qr-render.directive` → `QrRenderDirective` |
+| `[appContextMenu]` | qualsiasi elemento | `shared/directives/context-menu.directive` → `ContextMenuDirective` |
+
+I percorsi sono relativi a `src/app/`.
+
+---
+
+#### `[appPage]`
+
+**Cosa fa:** traduce un `PageType` nel path corrispondente (letto da `ContestoSito`) e lo applica come `RouterLink`. Genera anche l'attributo `href` statico per SSR e per il right-click "Apri in nuova scheda". Se il `PageType` non è registrato in `site.ts` o la pagina ha `enabled: false`, naviga verso `/` come fallback sicuro.
+
+```typescript
+// Nel componente o pagina che usa la directive:
+import { PageDirective } from '../../shared/directives/page.directive';
+import { PageType } from '../../site';
+
+@Component({
+    imports: [PageDirective],
+})
+```
+
+```html
+<a [appPage]="PageType.Home" class="navbar-brand">Home</a>
+<a [appPage]="PageType.PrivacyPolicy" class="footer-link">Privacy</a>
+<button [appPage]="PageType.Contatti">Contattaci</button>
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `appPage` | `PageType` | sì | Valore dell'enum `PageType` dichiarato in `site.ts` |
+
+---
+
+#### `[appAsset]`
+
+**Cosa fa:** imposta l'attributo `src` costruendo l'URL verso `/cdn-cgi/asset?id=ID[&w=WIDTH]`. Il resize è applicato lato server solo per immagini raster (JPEG, PNG, WebP); per video, PDF e SVG il parametro width viene ignorato e viene restituito lo stream originale. Il selector è vincolato ai tag che supportano `src`: errore a compile time se si prova ad applicarla a un `<div>`.
+
+```typescript
+import { AssetDirective } from '../../shared/directives/asset.directive';
+
+@Component({
+    imports: [AssetDirective],
+})
+```
+
+```html
+<img appAsset="hero" [appAssetWidth]="1080" alt="Banner" class="img-fluid">
+<img appAsset="logo" alt="Logo">
+<video appAsset="intro" controls></video>
+<audio appAsset="podcast" controls></audio>
+<iframe appAsset="manuale" title="Manuale PDF"></iframe>
+<source appAsset="video-webm" type="video/webm">
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `appAsset` | `string` | sì | ID dell'asset nel file di mapping |
+| `appAssetWidth` | `125 \| 320 \| 480 \| 512 \| 640 \| 768 \| 1024 \| 1080 \| 1366 \| 1600 \| 1920` | no | Larghezza resize in pixel; ignorato per video/PDF/SVG |
+
+---
+
+#### `[appAssetHref]`
+
+**Cosa fa:** variante di `[appAsset]` per elementi che usano `href` invece di `src`. Stesse logiche di URL construction e resize. Utile per link di download e `<link rel="preload">`.
+
+```typescript
+import { AssetHrefDirective } from '../../shared/directives/asset.directive';
+
+@Component({
+    imports: [AssetHrefDirective],
+})
+```
+
+```html
+<a [appAssetHref]="'manuale'" download="manuale.pdf">Scarica manuale</a>
+<a [appAssetHref]="'report'" [appAssetWidth]="1920" download>Download HD</a>
+<link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `appAssetHref` | `string` | sì | ID dell'asset nel file di mapping |
+| `appAssetWidth` | `125 \| 320 \| 480 \| 512 \| 640 \| 768 \| 1024 \| 1080 \| 1366 \| 1600 \| 1920` | no | Larghezza resize in pixel; ignorato per PDF/SVG |
+
+---
+
+#### `[imgRender]`
+
+**Cosa fa:** genera un'immagine PNG su canvas tramite `ImgBuilderService` e la imposta come `src` dell'`<img>`. Non opera in SSR — il browser mostra il testo `alt` come fallback finché il canvas non è pronto. Emette il canvas grezzo via `(canvasChange)` così il componente padre può usarlo per download o condivisione senza accedere al DOM direttamente. Un token monotono garantisce che build asincrone sovrapposte non producano risultati fuori ordine.
+
+```typescript
+import { ImgRenderDirective, ImgRenderConfig } from '../../shared/directives/img-render.directive';
+import { computed, signal } from '@angular/core';
+
+@Component({
+    imports: [ImgRenderDirective],
+})
+export class MioComponent {
+    // imgConfig è un computed signal: si ricalcola automaticamente quando i signal
+    // da cui dipende (es. this.testo()) cambiano, aggiornando di conseguenza l'immagine.
+    readonly imgConfig = computed<ImgRenderConfig>(() => ({
+        text: this.testo(),
+        bgColor: '#3a86ff',
+        ratio: '16:9',
+        renderMode: 'wrap',
+    }));
+    readonly canvas = signal<HTMLCanvasElement | null>(null);
+}
+```
+
+```html
+<img [imgRender]="imgConfig()"
+     (canvasChange)="canvas.set($event)"
+     alt="Anteprima immagine generata"
+     class="img-fluid rounded">
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `imgRender` | `ImgRenderConfig \| null` | no (default `null`) | `null` rimuove `src` ed emette `canvasChange(null)` |
+
+| Output | Tipo | Note |
+|---|---|---|
+| `canvasChange` | `HTMLCanvasElement \| null` | Canvas raw aggiornato ad ogni render; `null` se config è `null` o la generazione fallisce |
+
+**`ImgRenderConfig`** — tutti i campi eccetto `text` sono opzionali:
+
+| Campo | Tipo | Obbligatorio | Default | Note |
+|---|---|---|---|---|
+| `text` | `string` | sì | — | Testo da disegnare sull'immagine |
+| `bgColor` | `string` | no | colore tema dal `ThemeService` | Esadecimale, es. `'#3a86ff'` |
+| `textColor` | `string` | no | contrasto WCAG automatico su `bgColor` | Esadecimale |
+| `fontSize` | `number` | no | `40` | Pixel |
+| `fontFamily` | `'System' \| 'Arial' \| 'Verdana' \| 'Georgia' \| 'Times' \| 'CourierNew'` | no | `'System'` | Font di sistema, nessuna dipendenza esterna |
+| `ratio` | `'4:3' \| '16:9' \| '1:1' \| '9:16'` | no | `'4:3'` | Rapporto d'aspetto del canvas |
+| `maxWidth` | `number` | no | `1200` | Larghezza massima in pixel |
+| `lineHeight` | `number` | no | `1.4` | Moltiplicatore di interlinea rispetto a `fontSize` |
+| `renderMode` | `'wrap' \| 'exactInLine' \| 'fixedRatio'` | no | `'wrap'` | Vedi sotto |
+
+**Valori di `renderMode`**:
+
+| Valore | Comportamento |
 |---|---|
-| `<a [appPage]="PageType.X">` | RouterLink ai `PageType` dichiarati in `site.ts`: risolve il path automaticamente, no stringhe hard-coded |
-| `<img appAsset="id" [appAssetWidth]="?">` | Setta `src` dal mapping asset (anche `video`/`audio`/`source`/`iframe`/`embed`); ottimizzazione server per immagini raster |
-| `<a [appAssetHref]="'id'">` | Variante href per `a` / `link`: download di file, preload |
-| `<img [imgRender]="config" (canvasChange)="…">` | Genera l'immagine via `ImgBuilderService` su `<img>`; emette il canvas raw per download/share |
-| `<img [qrContent]="config" (blobChange)="…" (errorChange)="…">` | Genera il QR via `QrCodeService` su `<img>`; emette blob ed errore tradotto |
-| `[appContextMenu]="options"` | Menu contestuale: click destro desktop, long-press mobile |
+| `'wrap'` | Il testo va a capo per rispettare `maxWidth`; l'altezza del canvas cresce con le righe |
+| `'exactInLine'` | Il testo sta su una sola riga; il font viene ridimensionato finché entra in `maxWidth` |
+| `'fixedRatio'` | Canvas con dimensioni fisse determinate da `ratio` e `maxWidth`; il testo va a capo ma non altera le dimensioni |
+
+> ⚠️ Se il componente rimuove l'`<img>` via `@if` mentre un render è in corso, `canvasChange` non viene emesso al momento della distruzione. Resettare `canvas` esplicitamente prima di rimuovere l'elemento (es. `canvas.set(null)`).
+
+---
+
+#### `[qrContent]`
+
+**Cosa fa:** genera un QR code PNG tramite `QrCodeService` e lo imposta come `src` dell'`<img>`. Non opera in SSR. Emette il Blob originale via `(blobChange)` (per download/share) e il messaggio di errore tradotto via `(errorChange)`. Un token monotono previene race condition.
+
+```typescript
+import { QrRenderDirective } from '../../shared/directives/qr-render.directive';
+import { QrConfig } from '../../core/services/qr-code.service';
+import { computed, signal } from '@angular/core';
+
+@Component({
+    imports: [QrRenderDirective],
+})
+export class MioComponent {
+    readonly qrConfig = computed<QrConfig>(() => ({
+        type: 'text',
+        content: this.url(),
+    }));
+    readonly qrBlob  = signal<Blob | null>(null);
+    readonly qrError = signal<string | null>(null);
+}
+```
+
+```html
+<img [qrContent]="qrConfig()"
+     (blobChange)="qrBlob.set($event)"
+     (errorChange)="qrError.set($event)"
+     alt="QR Code"
+     class="img-fluid">
+@if (qrError()) {
+    <p class="text-danger">{{ qrError() }}</p>
+}
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `qrContent` | `QrConfig \| null` | no (default `null`) | `null` rimuove `src` ed emette `blobChange(null)` e `errorChange(null)` |
+
+| Output | Tipo | Note |
+|---|---|---|
+| `blobChange` | `Blob \| null` | Blob PNG del QR; `null` su errore o quando `qrContent` è `null` |
+| `errorChange` | `string \| null` | Messaggio d'errore tradotto nella lingua corrente; `null` se la generazione ha avuto successo |
+
+**`QrConfig`** — discriminated union su `type`. Il campo `type` è sempre obbligatorio; gli altri campi dipendono dal tipo scelto:
+
+```typescript
+| { type: 'text';      content: string }
+| { type: 'whatsapp';  phone: string;  text?: string }
+| { type: 'email';     to: string;     subject?: string; body?: string }
+| { type: 'wifi';      ssid: string;   password?: string; encryption?: 'WPA' | 'WEP' | 'nopass' }
+| { type: 'sepa';      iban: string;   name: string; amount: number; remittance?: string }
+```
+
+`phone` per `whatsapp` deve essere in formato E.164 (es. `'+39331234567'`).
+`iban` per `sepa` viene validato; se non valido `errorChange` emette il messaggio d'errore tradotto.
+
+> ⚠️ Stessa limitazione di `[imgRender]` sui signal al destroy: resettare `qrBlob` e `qrError` a `null` prima di rimuovere l'`<img>` via `@if`.
+
+---
+
+#### `[appContextMenu]`
+
+**Cosa fa:** aggiunge un menu contestuale a qualsiasi elemento HTML. Su desktop si apre con click destro come popover posizionato vicino al cursore. Su touch (mobile, penna) si apre con long-press (450 ms) come bottom sheet a tutta larghezza. Si chiude su click fuori dall'overlay, tasto `Escape`, o selezione di un'opzione. Se `appContextMenu` è un array vuoto il long-press non viene attivato (il click destro rimane comunque intercettato).
+
+```typescript
+import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
+import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
+import { computed } from '@angular/core';
+
+@Component({
+    imports: [ContextMenuDirective],
+})
+export class MioComponent {
+    // Le opzioni sono un computed signal: si aggiornano automaticamente
+    // quando cambiano le dipendenze (es. this.puòEliminare()).
+    readonly opzioni = computed<ContextMenuOption[]>(() => [
+        {
+            label: 'Scarica',
+            icon: 'fa-solid fa-download',   // classe Font Awesome completa
+            action: () => this.scarica(),
+        },
+        { separator: true },   // divisore visuale — gli altri campi vengono ignorati
+        {
+            label: 'Elimina',
+            icon: 'fa-solid fa-trash',
+            disabled: !this.puòEliminare(),   // voce visibile ma non cliccabile
+            action: () => this.elimina(),
+        },
+    ]);
+}
+```
+
+```html
+<div [appContextMenu]="opzioni()">
+    <!-- qualsiasi contenuto — click destro o long-press attiva il menu -->
+</div>
+```
+
+| Input | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `appContextMenu` | `ContextMenuOption[]` | no (default `[]`) | Array vuoto: long-press disabilitato, click destro ancora intercettato |
+
+**`ContextMenuOption`**:
+
+| Campo | Tipo | Obbligatorio | Note |
+|---|---|---|---|
+| `label` | `string` | sì | Testo dell'opzione (ignorato se `separator: true`) |
+| `action` | `() => void` | no | Callback eseguita al click sull'opzione |
+| `icon` | `string` | no | Classe Font Awesome completa, es. `'fa-solid fa-download'` |
+| `disabled` | `boolean` | no | Se `true`: voce visibile ma non cliccabile |
+| `separator` | `boolean` | no | Se `true`: renderizza un `<hr>` divisore; gli altri campi vengono ignorati |
 
 ### Componenti
 
 | Componente | Uso |
 |---|---|
 | `<app-loading [loading]="bool">` | Spinner Bootstrap se `true`, `<ng-content>` se `false` |
-| `<app-nav-link [link]="…" [cssClass]="…" [activeCssClass]="…">` | Atomo link: `<a>` interno via routerLink, `<span aria-current>` se rotta attiva, `<a target="_blank">` se esterno |
+| `<app-nav-link [link]="…" [cssClass]="…" [activeCssClass]="…" (linkClick)="…">` | Atomo link: `<a>` interno via routerLink, `<span aria-current>` se rotta attiva, `<a target="_blank">` se esterno |
 | `<app-nav-dropdown [item]="…" (toggle)="…" (linkClick)="…">` | `<details>`/`<summary>` + lista figli renderizzati come `<app-nav-link>`; usato dalla navbar |
 | `<app-footer-nav [links]="…">` | Griglia di gruppi/link del footer |
 | `<app-profile-render [profile]="…">` | Render strutturato del profilo aziendale (contatti + dati societari) |
-| `<app-social-link [type]="…" [value]="…">` | 35+ social con icona Font Awesome e colore brand |
+| `<app-social-link [type]="…" [value]="…" [label]="…" [showLabel]="bool">` | 35+ social con icona Font Awesome e colore brand; `label` sovrascrive il testo mostrato, `showLabel` (default `false`) lo rende visibile |
 | `<app-cookie-banner>` | Banner GDPR con testo Markdown e placeholder dinamici |
 | `<app-back-to-top>` | Pulsante scroll-to-top con soglia; colori dal tema |
 | `<app-smoke-effect>` | Effetto particellare su canvas configurabile da `site.ts` |
@@ -970,7 +1744,7 @@ Tutti `providedIn: 'root'`.
 
 | Pipe | Uso |
 |---|---|
-| `{{ chiave \| translate }}` | i18n reattivo: si aggiorna al cambio lingua |
+| `{{ chiave \| translate }}` | i18n reattivo: si aggiorna al cambio lingua senza refresh della pagina |
 | `{{ testo \| markdown }}` | Markdown → HTML con protezione XSS integrata (HTML raw ignorato) |
 
 ### ImgBuilderService — dettaglio
@@ -1009,10 +1783,11 @@ Validazione integrata per telefono (E.164), email e IBAN. Risultati cachati per 
 ### ShareService — dettaglio
 
 ```typescript
-this.share.copyText('testo');              // Clipboard API con notifica
-this.share.shareText('titolo', 'testo');   // Web Share API (fallback: download)
-this.share.shareCanvas(canvas, 'img.png'); // Condivide un HTMLCanvasElement come PNG
-this.share.downloadBlob(blob, 'file.png'); // Download diretto
+this.share.copyText('testo');                           // Clipboard API con notifica
+this.share.shareText('titolo', 'testo o URL');          // Web Share API su testo (fallback: copia in clipboard)
+this.share.shareBlob(blob, 'file.png', 'titolo');       // Web Share API su Blob (fallback: download)
+this.share.shareCanvas(canvas, 'img.png', 'titolo');    // Condivide un HTMLCanvasElement come PNG
+this.share.downloadBlob(blob, 'file.png');              // Download diretto
 ```
 
 ### Pagine legali

@@ -70,6 +70,23 @@ export class ShareService {
     // ─── SHARE CHAIN ───────────────────────────────────────────────
 
     /**
+     * Condivide testo/URL via Web Share API.
+     * Fallback: copia negli appunti se la Web Share API non è disponibile.
+     */
+    async shareText(title: string, text: string): Promise<void> {
+        if (this.isBrowser && navigator.share) {
+            try {
+                await navigator.share({ title, text });
+                return;
+            } catch (err) {
+                if ((err as Error).name === 'AbortError') return;
+                this.notify.toast(this.translate.translate('shareError'), 'error');
+            }
+        }
+        await this.copyText(text);
+    }
+
+    /**
      * Condivide un canvas convertendolo prima in Blob.
      */
     async shareCanvas(canvas: HTMLCanvasElement, filename = 'immagine.png', title?: string): Promise<void> {
