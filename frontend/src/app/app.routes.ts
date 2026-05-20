@@ -80,7 +80,9 @@ function toAngularRoute(page: InternalSitePage): Route {
         route.data = {
             ...route.data,
             pageType: page.pageType,
-            showPanel: page.showPanel !== undefined ? page.showPanel : true,
+            showPanel: page.showPanel ?? true,
+            showNav: page.showNav,
+            showFooter: page.showFooter,
             pageDescription: page.description ?? null,
             ogImage: page.ogImage ?? null,
         };

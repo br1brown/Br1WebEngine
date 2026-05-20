@@ -55,7 +55,7 @@ export abstract class PageBaseComponent<T> {
             if (!info) return;
             const title = info.title ? this.translate.translate(info.title) : '';
             const description = info.description ? this.translate.translate(info.description) : null;
-            this.pageMeta.setTitle(title, description, info.ogImage, info.ogType, info.structuredDataType);
+            this.pageMeta.setPageMeta(title, description, info.ogImage, info.ogType, info.structuredDataType);
         });
 
         if (isPlatformBrowser(this.platformId)) {

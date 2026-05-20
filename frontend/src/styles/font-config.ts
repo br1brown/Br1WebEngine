@@ -46,4 +46,7 @@ export class FontConfig {
 
     /** Font di default per le immagini OG. */
     static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation;
+
+    /** Line-height di default per il testo SVG lato server (PreviewBuilder, badge OG). */
+    static readonly DEFAULT_SERVER_FONT_LINE_HEIGHT = 1.25;
 }

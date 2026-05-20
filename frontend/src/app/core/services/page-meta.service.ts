@@ -39,13 +39,16 @@ export class PageMetaService {
      *               l'URL dell'endpoint /cdn-cgi/preview con titolo e descrizione.
      * @param ogType - Tipo Open Graph per og:type (es. 'website', 'article'). Default: 'website'.
      * @param structuredDataType - Tipo Schema.org per il JSON-LD @type (es. 'WebPage', 'Article'). Default: 'WebPage'.
+     * @param updatedTime - Timestamp ISO 8601 dell'ultima modifica della pagina (es. data pubblicazione articolo).
+     *                     Se nullo, non tocca il tag: resta il valore globale di build emesso da `generate-statics.ts`.
      */
-    setTitle(
+    setPageMeta(
         pageTitle: string,
         description?: string | null,
         imgId?: string | null | false,
         ogType?: string | null,
         structuredDataType?: string | null,
+        updatedTime?: string | null,
     ): void {
 
         // Titolo browser: "Pagina | AppName", oppure solo "AppName" se pageTitle è vuoto
@@ -77,9 +80,6 @@ export class PageMetaService {
 
         this.meta.updateTag({ property: 'og:url', content: url });
 
-        // Cache busting per le immagini tramite versione del sito
-        const version = ContestoSito.config.version;
-
         // imgId === false → pagina senza immagine di anteprima: i tag vengono rimossi.
         // imgId === string → asset statico. imgId === null/undefined → preview dinamica.
         let imageUrl: string | null = null;
@@ -88,8 +88,8 @@ export class PageMetaService {
             this.meta.removeTag('name="twitter:image"');
         } else {
             imageUrl = imgId
-                ? `${origin}${AssetService._UrlPreviewImage(imgId, version)}`
-                : `${origin}${PageMetaService.buildDynamicPreviewPath(pageTitle || appName, description, version)}`;
+                ? `${origin}${AssetService._UrlPreviewImage(imgId, pageTitle || undefined)}`
+                : `${origin}${PageMetaService.buildDynamicPreviewPath(pageTitle || appName, description)}`;
             this.meta.updateTag({ property: 'og:image', content: imageUrl });
             this.meta.updateTag({ name: 'twitter:image', content: imageUrl });
         }
@@ -99,6 +99,12 @@ export class PageMetaService {
 
         // Aggiorna og:type (default: website)
         this.meta.updateTag({ property: 'og:type', content: ogType || 'website' });
+
+        // Override per-pagina di og:updated_time. Se assente resta il valore
+        // globale di build (segnale di refresh per gli scraper social a ogni deploy).
+        if (updatedTime) {
+            this.meta.updateTag({ property: 'og:updated_time', content: updatedTime });
+        }
 
         // Aggiorna og:locale e og:locale:alternate per i18n
         this.updateLocaleMetaTags();
@@ -173,7 +179,7 @@ export class PageMetaService {
 
     /**
      * Costruisce il path relativo dell'endpoint server `/cdn-cgi/preview`
-     * a partire da titolo, descrizione e versione del sito.
+     * a partire da titolo e descrizione.
      *
      * Statico per essere chiamato anche dal layer server (es. in eventuali
      * generatori di sitemap o pipeline di prerender) senza dipendere da DI.
@@ -181,12 +187,10 @@ export class PageMetaService {
     static buildDynamicPreviewPath(
         title: string,
         subtitle?: string | null,
-        version?: string,
     ): string {
         const params = new URLSearchParams();
         params.set('title', title);
         if (subtitle) params.set('subtitle', subtitle);
-        if (version) params.set('v', version);
         return `${CdnCgi.preview}?${params.toString()}`;
     }
 

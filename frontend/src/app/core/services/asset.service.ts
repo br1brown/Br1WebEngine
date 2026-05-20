@@ -4,7 +4,6 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 import { type AssetWidth } from '../../app.config';
-import { ContestoSito } from '../../site';
 
 /** Endpoint CDN CGI esposti dal server. Aggiungere qui nuovi path, poi il metodo statico sotto. */
 export const CdnCgi = {
@@ -24,14 +23,13 @@ export class AssetService implements OnDestroy {
     private readonly router = inject(Router);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-    public static _UrlvirtualPathAsset = (id: string, version?: string): string => {
-        const vers = version ? `&v=${version}` : '';
-        return `${CdnCgi.asset}?id=${id}${vers}`;
+    public static _UrlvirtualPathAsset = (id: string): string => {
+        return `${CdnCgi.asset}?id=${id}`;
     };
 
-    public static _UrlPreviewImage = (id: string, version?: string): string => {
-        const vers = version ? `&v=${version}` : '';
-        return `${CdnCgi.previewImage}?id=${id}${vers}`;
+    public static _UrlPreviewImage = (id: string, title?: string): string => {
+        const t = title ? `&title=${encodeURIComponent(title)}` : '';
+        return `${CdnCgi.previewImage}?id=${id}${t}`;
     };
 
     // Set per tracciare tutti i Blob URL creati ed evitare perdite di memoria
@@ -58,7 +56,7 @@ export class AssetService implements OnDestroy {
      */
     getUrl(id: string, width?: AssetWidth): string {
 
-        let url = AssetService._UrlvirtualPathAsset(id, ContestoSito.config.version);
+        let url = AssetService._UrlvirtualPathAsset(id);
 
         // Aggiunge la larghezza per il ridimensionamento dinamico lato server (Image Resizing)
         if (width) url += `&w=${width}`;

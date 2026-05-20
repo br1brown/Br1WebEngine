@@ -5,7 +5,6 @@ import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
 import { ThemeService } from './core/services/theme.service';
-import { TranslateService } from './core/services/translate.service';
 import { FooterComponent } from './layout/footer/footer.component';
 import { NavbarComponent } from './layout/navbar/navbar.component';
 import { SmokeEffectComponent } from './layout/smoke-effect/smoke-effect.component';
@@ -19,8 +18,8 @@ import { TranslatePipe } from './shared/pipes/translate.pipe';
  * Shell principale dell'app.
  *
  * Qui non si decide quali pagine esistono: il componente consuma la
- * configurazione gia' trasformata in route Angular e reagisce ai metadati
- * delle pagine custom (showPanel, menu disponibili, ecc.).
+ * configurazione gia' trasformata in route Angular e reagisce ai flag
+ * di shell della pagina attiva (showPanel, showNav, showFooter).
  */
 @Component({
     selector: 'app-root',
@@ -31,15 +30,8 @@ import { TranslatePipe } from './shared/pipes/translate.pipe';
 export class AppComponent {
     private readonly router = inject(Router);
     readonly theme = inject(ThemeService);
-    private readonly translate = inject(TranslateService);
-
 
     readonly smoke = ContestoSito.config.smoke;
-    readonly showFooter = ContestoSito.config.showFooter;
-    readonly menuItems = ContestoSito.menuNav;
-    readonly showNavbar = computed(() => ContestoSito.config.showHeader ||
-        this.menuItems.length > 0 || this.translate.availableLangs().length > 1
-    );
 
     // Espone la route foglia corrente come signal, cosi' il layout globale
     // puo' reagire ai flag custom e ai meta della pagina attiva.
@@ -51,11 +43,19 @@ export class AppComponent {
         { initialValue: PageMetaService.getLeaf(this.router.routerState.snapshot) }
     );
 
-    // Ogni pagina puo' decidere se mostrare il pannello globale passando `showPanel`
-    // dentro `route.data` quando la route viene costruita.
     readonly showPanel = computed(() => {
         const value: boolean = this.currentRoute().data['showPanel'] ?? true;
         return value;
+    });
+
+    readonly showNavbar = computed(() => {
+        if (!ContestoSito.config.showNav) return false;
+        return this.currentRoute().data['showNav'] ?? true;
+    });
+
+    readonly showFooter = computed(() => {
+        if (!ContestoSito.config.showFooter) return false;
+        return this.currentRoute().data['showFooter'] ?? true;
     });
 
     constructor() {

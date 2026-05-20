@@ -67,7 +67,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // description → meta description per SEO
     // colorTema          → colore principale del sito (hex). Determina automaticamente
     //                       il tono del testo (chiaro/scuro) e la CSS var --colorTema
-    // showFooter         → mostra/nascondi il footer
+    // showNav            → mostra/nascondi la navbar (default true)
+    // showFooter         → mostra/nascondi il footer (default true)
     // smoke              → effetto particellare di sfondo (omettilo per disabilitarlo)
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
@@ -104,7 +105,12 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     //
     // Campi opzionali:
     //   requiresAuth → true = richiede login (JWT), altrimenti redirect
-    //   showPanel    → false = pagina a tutto schermo (utile per landing)
+    //   layout       → { showPanel, showNav, showFooter } override per-pagina
+    //                  della shell (subordinati ai flag globali del sito)
+    //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
+    //                  per-pagina (vedi DEVELOPMENT.md "Meta SEO e SSR")
+    //   description  → chiave i18n o stringa per meta description + sitemap
+    //   renderMode   → 'server' (default) | 'client' (no SSR)
     //   data         → dati custom passati al componente via route.data
     //
     // Il componente DEVE estendere PageBaseComponent (fornisce translate,
@@ -117,6 +123,9 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             title: 'home',
             pageType: PageType.Home,
             description: 'homeDesc',
+            otherSEO: {
+                ogImage: 'img4k',
+            },
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
         {
@@ -124,9 +133,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             title: 'social',
             pageType: PageType.Social,
             description: 'socialDesc',
-            renderMode: 'server',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-            showPanel: false,
+            layout: { showPanel: false },
         },
         {
             path: 'legale',
@@ -164,14 +172,12 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         },
         {
             title: 'projectSources',
-            enabled: true,
             pageType: PageType.GitHub,
             externalUrl: 'https://github.com/br1brown/Br1WebEngine'
         },
         {
             path: 'impostazioni',
             title: 'settings',
-            enabled: true,
             requiresAuth: true,
             pageType: PageType.Impostazioni,
             description: 'settingsDesc',

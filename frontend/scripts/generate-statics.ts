@@ -23,6 +23,7 @@
 // funzionano quando Node.js importa site.ts e il suo grafo di dipendenze.
 import '@angular/compiler';
 import { readFileSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
 import { join } from 'path';
 import { ContestoSito } from '../src/app/site';
 import { SitemapEntry, SitePage, isParentPage, isExternalPage } from '../src/app/siteBuilder';
@@ -35,6 +36,20 @@ const ROBOTS = join(ROOT, 'public', 'robots.txt');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
 const BASE_URL = (process.env['FRONTEND_BASE_URL'] || 'https://example.com').replace(/\/$/, '');
+
+/**
+ * Timestamp ISO 8601 dell'ultimo commit, usato come `og:updated_time` globale.
+ * Più stabile di `Date.now()` (build deterministiche) e semanticamente corretto:
+ * marca la data dell'ultima modifica al codice, non del momento di build.
+ * Fallback su now() se git non è disponibile (es. build da tarball).
+ */
+function getLastCommitIso(): string {
+    try {
+        return execSync('git log -1 --format=%cI', { cwd: ROOT, encoding: 'utf8' }).trim();
+    } catch {
+        return new Date().toISOString();
+    }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,10 +118,12 @@ function updateIndexHtml(): void {
     html = replaceTag(html, /<html\s+lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
-    const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png?v=${ContestoSito.config.version}`;
+    const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
+    const updatedTime = getLastCommitIso();
 
     const allMeta: ['name' | 'property', string, string][] = [
         ['name', 'app-version', ContestoSito.config.version],
+        ['property', 'og:updated_time', updatedTime],
         ['name', 'description', description],
         ['name', 'apple-mobile-web-app-title', appName],
         ['name', 'apple-mobile-web-app-status-bar-style', 'default'],

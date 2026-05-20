@@ -89,7 +89,13 @@ export type SmokeSettingsInput = Partial<SmokeSettings> | null | undefined;
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
-    /** Versione dell'applicazione (es. "1.2.0"). Usata per rilevare aggiornamenti. */
+    /**
+     * Versione canonica dell'applicazione (es. "1.2.0").
+     * Sorgente di verità per il rilevamento aggiornamenti: a build time
+     * `generate-statics.ts` la propaga nel meta `app-version`, nel
+     * `manifest.webmanifest` e nei file generati da NGSW. A runtime viene
+     * confrontata da `VersionCheckService` (polling + SwUpdate per la PWA).
+     */
     version: string;
     /** Lingua predefinita del sito. */
     defaultLang: string;
@@ -102,7 +108,7 @@ export interface SiteConfig {
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
     /** Indica se il Header deve essere visibile. */
-    showHeader: boolean;
+    showNav: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
@@ -134,7 +140,7 @@ export interface SiteConfigInput {
     /** Visibilita del footer. */
     showFooter?: boolean;
     /** Visibilita del header. */
-    showHeader?: boolean;
+    showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
@@ -204,7 +210,7 @@ export type ParentPageInput = BasePageInput & {
     /** Non consentito per una pagina contenitore. */
     externalUrl?: never;
     /** Non consentito per una pagina contenitore. */
-    showPanel?: never;
+    layout?: never;
     /** Non consentito per una pagina contenitore. */
     renderMode?: never;
 };
@@ -216,7 +222,7 @@ export type ParentPageInput = BasePageInput & {
  * - ha un `pageType`
  * - ha un componente lazy da caricare
  * - non può avere figli
- * - può opzionalmente nascondere il pannello
+ * - può sovrascrivere i flag di shell (`layout`)
  * - non può essere un link esterno
  */
 export type LeafPageInput = BasePageInput & {
@@ -232,8 +238,19 @@ export type LeafPageInput = BasePageInput & {
     /** Non consentito per una pagina foglia interna */
     children?: never;
 
-    /** Consente di mostrare o nascondere il pannello  */
-    showPanel?: boolean;
+    /**
+     * Override per-pagina dei flag di layout/shell.
+     * Tutti subordinati al globale in `setSiteConfiguration`: se globalmente
+     * disabilitato, il flag di pagina non può riattivarlo.
+     */
+    layout?: {
+        /** Mostra o nasconde il pannello contenuto. Default: true. */
+        showPanel?: boolean;
+        /** Nasconde la navbar su questa pagina. */
+        showNav?: boolean;
+        /** Nasconde il footer su questa pagina. */
+        showFooter?: boolean;
+    };
 
     /**
      * Strategia di rendering della pagina.
@@ -253,19 +270,24 @@ export type LeafPageInput = BasePageInput & {
     description?: string;
 
     /**
-     * Immagine di anteprima per og:image e twitter:image.
-     *
-     * - `string`    → ID asset da usare come immagine statica
-     * - `false`     → nessuna immagine (i tag og:image e twitter:image non vengono emessi)
-     * - `undefined` → genera automaticamente la preview dinamica via /cdn-cgi/preview
+     * Metadati SEO/social per la pagina. Tutti i campi sono opzionali e hanno
+     * default sensati nel builder; raggrupparli evita di appiattire i tag OG
+     * e Schema.org al top-level della dichiarazione.
      */
-    ogImage?: string | false;
-
-    /** Tipo Open Graph (og:type). Default automatico: 'website'. */
-    ogType?: string;
-
-    /** Tipo Schema.org per i structured data JSON-LD (@type). Default automatico: 'WebPage'. */
-    structuredDataType?: string;
+    otherSEO?: {
+        /**
+         * Immagine di anteprima per og:image e twitter:image.
+         *
+         * - `string`    → ID asset da usare come immagine statica
+         * - `false`     → nessuna immagine (i tag og:image e twitter:image non vengono emessi)
+         * - `undefined` → genera automaticamente la preview dinamica via /cdn-cgi/preview
+         */
+        ogImage?: string | false;
+        /** Tipo Open Graph (og:type). Default automatico: 'website'. */
+        ogType?: string;
+        /** Tipo Schema.org per i structured data JSON-LD (@type). Default automatico: 'WebPage'. */
+        structuredDataType?: string;
+    };
 
     /** Non consentito per una pagina interna */
     externalUrl?: never;
@@ -303,7 +325,7 @@ export type ExternalPageInput = Omit<BasePageInput, 'path'> & {
     /** Non consentito per una pagina esterna. */
     children?: never;
     /** Non consentito per una pagina esterna. */
-    showPanel?: never;
+    layout?: never;
     /** Non consentito per una pagina esterna. */
     renderMode?: never;
 };
@@ -327,9 +349,21 @@ export type ParentPage = Omit<ParentPageInput, 'children' | 'kind'> & {
     children: SitePage[];
 };
 
-/** Versione interna normalizzata della pagina foglia. */
-export type LeafPage = Omit<LeafPageInput, 'kind'> & {
+/**
+ * Versione interna normalizzata della pagina foglia.
+ *
+ * I sotto-oggetti `layout` e `otherSEO` vengono appiattiti al top-level:
+ * il resto del motore (router, app shell, ContentResolver) li consuma
+ * direttamente senza dover navigare i sotto-oggetti.
+ */
+export type LeafPage = Omit<LeafPageInput, 'kind' | 'layout' | 'otherSEO'> & {
     kind: 'leaf';
+    showPanel?: boolean;
+    showNav?: boolean;
+    showFooter?: boolean;
+    ogImage?: string | false;
+    ogType?: string;
+    structuredDataType?: string;
 };
 
 /** Versione interna normalizzata della pagina esterna. */
@@ -497,10 +531,17 @@ const normalizeSitePage = (
     if (isLeafPageInput(page)) {
         assertDeclaredKind(page, 'leaf', context);
 
+        const { layout, otherSEO, ...rest } = page;
         return {
-            ...page,
+            ...rest,
             enabled: page.enabled ?? true,
-            kind: 'leaf'
+            kind: 'leaf',
+            showPanel: layout?.showPanel,
+            showNav: layout?.showNav,
+            showFooter: layout?.showFooter,
+            ogImage: otherSEO?.ogImage,
+            ogType: otherSEO?.ogType,
+            structuredDataType: otherSEO?.structuredDataType,
         };
     }
 
@@ -835,7 +876,7 @@ export function buildSite(
                 description: siteConfigurationInput.description,
                 colorTema: siteConfigurationInput.colorTema,
                 showFooter: siteConfigurationInput.showFooter ?? true,
-                showHeader: siteConfigurationInput.showHeader ?? true,
+                showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
                 smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
             };

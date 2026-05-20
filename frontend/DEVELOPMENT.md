@@ -65,7 +65,7 @@ src/
 │   │       ├── speech.service.ts       ← Text-to-speech (Web Speech API)
 │   │       ├── theme.service.ts        ← tema dinamico, CSS custom properties
 │   │       ├── translate.service.ts    ← i18n, lingua corrente (signal)
-│   │       └── version-check.service.ts← polling nuova versione ogni 10 min
+│   │       └── version-check.service.ts← rileva aggiornamenti (polling manifest + SwUpdate per PWA)
 │   │
 │   ├── layout/                 ← componenti sempre visibili (non sono pagine)
 │   │   ├── navbar/             ← navbar responsiva con dropdown e menu mobile
@@ -169,13 +169,15 @@ Campi opzionali utili:
 | Campo | Default | Obbligatorio | Quando usarlo |
 |-------|---------|---|---------------|
 | `requiresAuth: true` | — | no | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza automaticamente `renderMode: 'client'` (i bot non possono fare login) |
-| `showPanel: false` | `true` | no | Pagina a tutto schermo senza il pannello centrale (es. landing, social feed) |
+| `layout: { showPanel: false }` | `true` | no | Pagina a tutto schermo senza il pannello centrale (es. landing, social feed) |
+| `layout: { showNav: false }` | — | no | Nasconde la navbar solo su questa pagina. Subordinato al globale: se `showNav` è `false` in `setSiteConfiguration`, questo flag non può riattivarla |
+| `layout: { showFooter: false }` | — | no | Nasconde il footer solo su questa pagina. Subordinato al globale: se `showFooter` è `false` in `setSiteConfiguration`, questo flag non può riattivarlo |
 | `renderMode: 'server'` | `'server'` | no | Rendering a runtime lato server (default); l'HTML è completo per i crawler |
 | `renderMode: 'client'` | — | no | Solo browser; da usare per pagine interattive incompatibili con SSR (canvas, WebRTC, ecc.) |
 | `data: { chiave: valore }` | — | no | Dati statici aggiuntivi accessibili via `route.data` nel componente |
-| `ogImage` | — | no | ID asset → og:image 1200×630 (immagine centrata + sfondo sfocato + favicon). `false` rimuove i tag og:image. Se omesso → preview dinamica |
-| `ogType` | `'website'` | no | Valore di `og:type` (es. `'article'` per post di blog) |
-| `structuredDataType` | `'WebPage'` | no | `@type` del JSON-LD inserito nella pagina (es. `'Article'`) |
+| `otherSEO: { ogImage }` | — | no | ID asset → og:image 1200×630 (immagine centrata + sfondo sfocato + favicon). `false` rimuove i tag og:image. Se omesso → preview dinamica |
+| `otherSEO: { ogType }` | `'website'` | no | Valore di `og:type` (es. `'article'` per post di blog) |
+| `otherSEO: { structuredDataType }` | `'WebPage'` | no | `@type` del JSON-LD inserito nella pagina (es. `'Article'`) |
 
 ### 3. Creare il componente pagina
 
@@ -882,7 +884,7 @@ Navigazione → contentLoaderResolver(pageType) chiama inject(ContentResolver).l
              ResolvedPage { content, info } → input contentByResolve di PageBaseComponent
                         ↓
              PageBaseComponent:
-               effect(info)    → PageMetaService.setTitle()   [SSR + browser]
+               effect(info)    → PageMetaService.setPageMeta()   [SSR + browser]
                effect(lang)    → ricarica al cambio lingua     [solo browser]
                pageContent()   → content tipizzato come T
 ```
@@ -938,7 +940,7 @@ case PageType.Articolo: {
 }
 ```
 
-`PageBaseComponent` chiama `setTitle()` automaticamente con questi dati — nessuna logica SEO nel componente.
+`PageBaseComponent` chiama `setPageMeta()` automaticamente con questi dati — nessuna logica SEO nel componente.
 
 ### Estendere in un progetto figlio
 
@@ -1040,40 +1042,44 @@ I meta tag (`<title>`, `og:title`, `og:description`, `og:image`, canonical, JSON
     path: 'mia-pagina',
     title: 'miaPagina',              // chiave i18n → tradotta automaticamente
     description: 'miaPaginaDesc',   // chiave i18n → meta description
-    ogImage: 'id-asset-immagine',   // ID asset → og:image 1200×630: immagine centrata su sfondo sfocato + favicon
-    // oppure ogImage: false        → nessuna immagine (rimuove i tag og:image)
-    // oppure omesso                → preview dinamica generata da /cdn-cgi/preview
-    ogType: 'article',              // og:type (default: 'website')
-    structuredDataType: 'Article',  // JSON-LD @type (default: 'WebPage')
+    otherSEO: {
+        ogImage: 'id-asset-immagine',   // ID asset → og:image 1200×630: immagine centrata su sfondo sfocato + favicon
+        // oppure ogImage: false        → nessuna immagine (rimuove i tag og:image)
+        // oppure omesso                → preview dinamica generata da /cdn-cgi/preview
+        ogType: 'article',              // og:type (default: 'website')
+        structuredDataType: 'Article',  // JSON-LD @type (default: 'WebPage')
+    },
     ...
 }
 ```
 
-I tag aggiornati da `PageMetaService.setTitle()` in un'unica chiamata:
+I tag aggiornati da `PageMetaService.setPageMeta()` in un'unica chiamata:
 `<title>`, `og:title`, `og:description`, `og:url`, `og:image`, `og:type`,
 `og:locale` / `og:locale:alternate` (da `availableLanguages`),
 `twitter:title`, `twitter:description`, `twitter:image`,
 `<link rel="canonical">` e il blocco `<script type="application/ld+json">`.
-Le immagini social includono `?v={version}` di cache busting automatico.
 
-`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)` e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`. `PageBaseComponent` chiama `PageMetaService.setTitle()` via `effect()` — SSR-safe: i meta tag sono nell'HTML prima che il crawler lo riceva.
+`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)` e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`. `PageBaseComponent` chiama `PageMetaService.setPageMeta()` via `effect()` — SSR-safe: i meta tag sono nell'HTML prima che il crawler lo riceva.
 
 **Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID): aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato con i dati dall'API — vedi sezione *Resolver automatico dei contenuti*.
 
-### `PageMetaService.setTitle()`
+### `PageMetaService.setPageMeta()`
 
 ```typescript
 // Firma del metodo
-setTitle(
+setPageMeta(
     pageTitle: string,           // obbligatorio — valore già tradotto (non chiave i18n)
     description?: string | null, // opzionale — meta description
     imgId?: string | null | false, // opzionale — vedi comportamenti sotto
     ogType?: string | null,        // opzionale — og:type (default: 'website')
     structuredDataType?: string | null, // opzionale — JSON-LD @type (default: 'WebPage')
+    updatedTime?: string | null,   // opzionale — ISO 8601 per og:updated_time per-pagina;
+                                   // se nullo resta il valore globale di build
 ): void
 
 // imgId — tre comportamenti distinti:
-// string  → /cdn-cgi/preview-image?id=…  — output 1200×630: immagine centrata su sfondo sfocato, favicon in basso a sinistra
+// string  → /cdn-cgi/preview-image?id=…&title=…  — output 1200×630: immagine centrata su sfondo sfocato,
+//           favicon in basso a sinistra e badge a pillola col titolo accanto (colorTema + contrasto WCAG)
 // null/undefined → /cdn-cgi/preview?title=…  — preview generata (sfondo colorato, icona, titolo)
 // false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
@@ -1213,13 +1219,13 @@ Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script
 | Campo | Obbligatorio | Effetto |
 |---|---|---|
 | `appName` | sì | Nome in navbar, titoli e PWA manifest |
-| `version` | no | Versione app; usata per rilevare aggiornamenti e come cache busting sulle immagini social (default: `"1.0.0"`) |
+| `version` | no | Versione canonica dell'app (default: `"1.0.0"`). A build time `generate-statics.ts` la scrive nel meta `app-version`, nel `manifest.webmanifest` e indirettamente negli hash di NGSW. A runtime `VersionCheckService` la confronta via polling sul manifest (tab browser) + `SwUpdate.versionUpdates` (PWA installata). Concorre anche alla cache key server-side delle preview OG |
 | `defaultLang` | sì | Lingua di fallback |
 | `availableLanguages` | no | Tag BCP 47 validati a build time (es. `['it', 'en']`); se omesso il sito è monolingua |
 | `description` | sì | Meta description globale (fallback per pagine senza `description` propria) |
 | `colorTema` | sì | Colore hex principale; genera contrasto WCAG, tono e CSS var |
 | `showFooter` | no | Mostra/nasconde footer (default: `true`) |
-| `showHeader` | no | Mostra/nasconde navbar (default: `true`) |
+| `showNav` | no | Mostra/nasconde navbar (default: `true`) |
 | `fixedTopHeader` | no | Navbar fissa in cima allo scroll (default: `false`) |
 | `smoke` | no | Effetto particellare su canvas. Campi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` — tutti opzionali |
 
@@ -1228,13 +1234,15 @@ Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script
 | Campo | Obbligatorio | Effetto |
 |---|---|---|
 | `requiresAuth: true` | no | Aggiunge guard JWT; forza `renderMode: 'client'` |
-| `showPanel: false` | no | Pagina a schermo intero (no pannello centrale) |
+| `layout: { showPanel: false }` | no | Pagina a schermo intero (no pannello centrale) |
+| `layout: { showNav: false }` | no | Nasconde la navbar solo su questa pagina (subordinato al globale `showNav`) |
+| `layout: { showFooter: false }` | no | Nasconde il footer solo su questa pagina (subordinato al globale `showFooter`) |
 | `renderMode: 'client'` | no | Solo browser — usare per pagine interattive incompatibili con SSR |
 | `renderMode: 'server'` | no | HTML generato a ogni richiesta lato server (default se non dichiarato) |
 | `description` | no | Chiave i18n o stringa per meta description e sitemap |
-| `ogImage` | no | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
-| `ogType` | no | `og:type` (es. `'article'`). Default: `'website'` |
-| `structuredDataType` | no | `@type` del JSON-LD (es. `'Article'`). Default: `'WebPage'` |
+| `otherSEO: { ogImage }` | no | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
+| `otherSEO: { ogType }` | no | `og:type` (es. `'article'`). Default: `'website'` |
+| `otherSEO: { structuredDataType }` | no | `@type` del JSON-LD (es. `'Article'`). Default: `'WebPage'` |
 | `data` | no | Dati arbitrari passati al componente via `route.data` |
 
 ### Navigazione
@@ -1448,7 +1456,7 @@ Tutti `providedIn: 'root'` — istanziati una sola volta per tutta l'app. Dispon
 | `NotificationService` | SweetAlert2 lazy: `success`, `error`, `confirm`, `prompt`, `interact`, `toast`, `validationErrors`, `handleApiError` |
 | `CookieConsentService` | Gestione consenso GDPR; blocca scritture cookie senza consenso |
 | `SpeechService` | Text-to-speech via Web Speech API; voce e lingua seguono `TranslateService` |
-| `VersionCheckService` | Controlla nuova versione ogni 10 min; propone reload via `confirm()` |
+| `VersionCheckService` | Rileva nuove versioni con due strategie parallele: polling del `manifest.webmanifest` ogni 10 min (tab browser) e sottoscrizione a `SwUpdate.versionUpdates` (PWA installata). Su conferma utente: `SwUpdate.activateUpdate()` + `location.reload()` |
 
 ---
 

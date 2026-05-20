@@ -402,8 +402,10 @@ app.get(CdnCgiPaths.previewImage, async (req, res) => {
         const filename = absolutePath.split(/[\\/]/).pop()!;
         if (!AssetHandler.isSharpCompatible(filename)) return AssetHandler.serveFile(res, absolutePath);
 
+        const title = ImgBuilderService.normalizeWhitespace(String(req.query['title'] ?? '')).slice(0, 100).trim();
+
         const { version } = ContestoSito.config;
-        const hash = createHash('sha1').update(JSON.stringify({ version, id })).digest('hex').slice(0, 16);
+        const hash = createHash('sha1').update(JSON.stringify({ version, id, title })).digest('hex').slice(0, 16);
         const cacheKey = `preview_img_${hash}.webp`;
         const cacheFile = join(cacheDir, cacheKey);
 
@@ -428,8 +430,10 @@ app.get(CdnCgiPaths.previewImage, async (req, res) => {
                     .toBuffer();
 
                 // Favicon in basso a sinistra
-                const iconSize = Math.round(OG_H * 0.15);
-                const padding = Math.round(iconSize * 0.35);
+                const iconSize = Math.round(OG_H * 0.20);
+                const padding = Math.round(iconSize * 0.30);
+                const iconLeft = padding;
+                const iconTop = OG_H - iconSize - padding;
                 const faviconPath = resolveAssetPath('favIcon');
                 const composites: sharp.OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
                 if (faviconPath) {
@@ -437,7 +441,19 @@ app.get(CdnCgiPaths.previewImage, async (req, res) => {
                         .resize(iconSize, iconSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
                         .png()
                         .toBuffer();
-                    composites.push({ input: iconBuffer, left: padding, top: OG_H - iconSize - padding });
+                    composites.push({ input: iconBuffer, left: iconLeft, top: iconTop });
+                }
+                if (title) {
+                    const badgeSvg = TitleBadgeBuilder.build({
+                        canvasW: OG_W,
+                        canvasH: OG_H,
+                        anchorLeft: iconLeft + iconSize + Math.round(iconSize * 0.20),
+                        anchorCenterY: iconTop + iconSize / 2,
+                        maxRight: OG_W - padding,
+                        title,
+                        bgColor: ContestoSito.config.colorTema,
+                    });
+                    composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
                 }
 
                 await sharp(bgBuffer)
@@ -583,7 +599,7 @@ class PreviewBuilder {
             faviconSize: opts.faviconSize ?? 200,
             spacing: opts.spacing ?? 30,
             horizontalPadding: opts.horizontalPadding ?? 50,
-            titleLineHeight: opts.titleLineHeight ?? 1.25,
+            titleLineHeight: opts.titleLineHeight ?? FontConfig.DEFAULT_SERVER_FONT_LINE_HEIGHT,
             subtitleLineHeight: opts.subtitleLineHeight ?? 1.4,
         };
     }
@@ -645,5 +661,97 @@ class PreviewBuilder {
             `</svg>`;
 
         return { svg, width: r.width, height: r.height };
+    }
+}
+
+// ─── Title Badge Builder ──────────────────────────────────────────────────────
+// Costruisce un pill-badge sovrapposto a un'immagine OG già renderizzata da Sharp.
+// Vive accanto a PreviewBuilder: stesso pattern (resolve + build), stessa fonte
+// per font, line-height, fattore di stima testo e contrasto WCAG.
+
+interface TitleBadgeOptions {
+    /** Larghezza del canvas SVG di output (deve combaciare con la cover OG). */
+    canvasW: number;
+    /** Altezza del canvas SVG di output. */
+    canvasH: number;
+    /** X del bordo sinistro del badge (di solito a destra dell'icona favicon). */
+    anchorLeft: number;
+    /** Y del centro verticale a cui ancorare il badge (di solito il centro dell'icona). */
+    anchorCenterY: number;
+    /** Limite destro entro cui il badge non può sconfinare. */
+    maxRight: number;
+    /** Testo del badge (già normalizzato). */
+    title: string;
+    /** Colore di sfondo del pill; il testo riceve automaticamente il contrasto WCAG. */
+    bgColor: string;
+    /** Override del font-size (default: 38). */
+    fontSize?: number;
+    /** Padding orizzontale sinistro (default: 28). Asimmetrico per equilibrio ottico. */
+    hPadL?: number;
+    /** Padding orizzontale destro (default: 40). */
+    hPadR?: number;
+    /** Padding verticale sopra/sotto il testo (default: 16). */
+    vPad?: number;
+    /** Opacità del pill (default: 0.92). */
+    fillOpacity?: number;
+}
+
+class TitleBadgeBuilder {
+    private static resolve(opts: TitleBadgeOptions) {
+        const fontSize = opts.fontSize ?? 38;
+        const hPadL = opts.hPadL ?? 28;
+        const hPadR = opts.hPadR ?? 40;
+        const vPad = opts.vPad ?? 16;
+        return {
+            ...opts,
+            fontSize,
+            hPadL,
+            hPadR,
+            vPad,
+            fillOpacity: opts.fillOpacity ?? 0.92,
+            fontFamily: FontConfig.DEFAULT_SERVER_FONT,
+            lineStep: fontSize * FontConfig.DEFAULT_SERVER_FONT_LINE_HEIGHT,
+            textColor: ImgBuilderService.getReadableTextColor(opts.bgColor),
+        };
+    }
+
+    /** Restituisce l'SVG completo (canvas opts.canvasW × opts.canvasH) con il solo pill disegnato. */
+    static build(opts: TitleBadgeOptions): string {
+        const r = TitleBadgeBuilder.resolve(opts);
+        const esc = ImgBuilderService.escapeXml;
+
+        // Spazio disponibile per il testo (al netto dei padding e del limite destro).
+        const maxTextW = r.maxRight - r.anchorLeft - r.hPadL - r.hPadR;
+        const lines = ImgBuilderService.wrapText(r.title, maxTextW, r.fontSize);
+        const longestLen = Math.max(...lines.map(l => l.length));
+
+        const blockHeight = r.fontSize + (lines.length - 1) * r.lineStep;
+        const badgeH = Math.round(blockHeight + r.vPad * 2);
+        // 0.55 px/char è la stessa stima usata da wrapText (vedi ImgBuilderService).
+        const badgeW = Math.round(Math.min(
+            longestLen * r.fontSize * 0.55 + r.hPadL + r.hPadR,
+            r.maxRight - r.anchorLeft
+        ));
+        const badgeY = Math.round(r.anchorCenterY - badgeH / 2);
+        // Pillola con una riga; raggio limitato con più righe per non arrotondare troppo.
+        const radius = Math.round(Math.min(badgeH / 2, r.fontSize / 2 + r.vPad));
+
+        const textX = r.anchorLeft + r.hPadL;
+        // Baseline della prima riga: centra verticalmente il blocco nel pill.
+        // Il fattore 0.8 sposta dalla cima del cap-box alla baseline tipografica.
+        const firstBaselineY = badgeY + (badgeH - blockHeight) / 2 + r.fontSize * 0.8;
+
+        const tspans = lines
+            .map((line, i) => `<tspan x="${textX}" dy="${i === 0 ? 0 : r.lineStep}">${esc(line)}</tspan>`)
+            .join('');
+
+        return `<?xml version="1.0" encoding="UTF-8"?>` +
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${r.canvasW}" height="${r.canvasH}">` +
+            `<rect x="${r.anchorLeft}" y="${badgeY}" width="${badgeW}" height="${badgeH}" rx="${radius}" fill="${esc(r.bgColor)}" fill-opacity="${r.fillOpacity}"/>` +
+            `<text x="${textX}" y="${firstBaselineY}" ` +
+            `font-family="${esc(r.fontFamily)}" ` +
+            `font-size="${r.fontSize}" font-weight="700" fill="${esc(r.textColor)}" ` +
+            `text-anchor="start">${tspans}</text>` +
+            `</svg>`;
     }
 }
