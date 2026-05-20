@@ -9,6 +9,7 @@ import { ALLOWED_WIDTHS } from './src/app/app.config';
 import { ContestoSito } from './src/app/site';
 import { ImgBuilderService } from './src/app/core/services/img-builder.service';
 import { FontConfig } from './src/styles/font-config';
+import { PreviewCrypto } from './src/preview-crypto.server';
 import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
@@ -26,7 +27,9 @@ const serverDistFolder = dirname(fileURLToPath(import.meta.url));
 const browserDistFolder = resolve(serverDistFolder, '../browser');
 
 /** Definisce la sorgente dei file: usa ASSETS_DIR se impostata, altrimenti la cartella di build */
-const assetFilesDir = serverEnv.assetsDir || join(browserDistFolder, 'assets/files');
+const assetFilesDir = serverEnv.assetsDir
+    ? resolve(serverEnv.assetsDir)
+    : join(browserDistFolder, 'assets/files');
 
 /** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
@@ -37,7 +40,6 @@ mkdirSync(cacheDir, { recursive: true });
 const CdnCgiPaths = {
     asset: '/cdn-cgi/asset',
     preview: '/cdn-cgi/preview',
-    previewImage: '/cdn-cgi/preview-image',
 } as const;
 
 /** Tipo per l'entry del JSON: puÃ² essere solo il nome file o un oggetto complesso */
@@ -341,101 +343,112 @@ app.get(CdnCgiPaths.asset, async (req, res) => {
     }
 });
 
-/** Endpoint Social Preview: genera al volo l'immagine Open Graph / Twitter Card. */
+/**
+ * Endpoint Social Preview unico: genera al volo l'immagine Open Graph / Twitter Card.
+ *
+ * Parametri:
+ *   - p: blob AES-GCM (base64url) prodotto da `PreviewCrypto.encrypt()` in
+ *        preview-crypto.server.ts. Decifra a `{ title, subtitle?, id? }`.
+ *        Manomissione → decifrazione fallisce → 403.
+ *
+ * Dispatch variante: `id` presente nel payload → sovrapposizione asset; assente → SVG testo.
+ */
 app.get(CdnCgiPaths.preview, async (req, res) => {
     try {
-        // Hard-limit sui parametri per evitare cache poisoning con input giganti
-        const title = String(req.query['title'] ?? '').slice(0, 200).trim();
-        const subtitle = String(req.query['subtitle'] ?? '').slice(0, 300).trim();
+        const blob = String(req.query['p'] ?? '').trim();
+        if (!blob) return res.status(400).send('Missing p');
+
+        let payload: Record<string, string>;
+        try {
+            payload = PreviewCrypto.decrypt(blob);
+        } catch {
+            return res.status(403).send('Invalid payload');
+        }
+
+        const title = String(payload['title'] ?? '').slice(0, 200).trim();
+        const subtitle = String(payload['subtitle'] ?? '').slice(0, 300).trim();
+        const id = String(payload['id'] ?? '').trim();
+        const onlyImage = payload['onlyImage'] === 'true';
 
         if (!title) return res.status(400).send('Missing title');
 
-        const { colorTema, version, appName } = ContestoSito.config;
-        const r = PreviewBuilder.resolve({ appName, title, subtitle, bgColor: colorTema });
-
-        // Chiave cache deterministica: usa la version dalla config (non dal parametro URL).
-        // Aggiornare la version in site.ts invalida tutti i file cached lato server.
-        // Il parametro `v` nella URL serve solo per busting della cache browser/CDN.
-        const keyData = JSON.stringify({ version, ...r });
-        const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
-        const cacheKey = `preview_${hash}.webp`;
-        const cacheFile = join(cacheDir, cacheKey);
-
-        if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
-
-        // Single-flight: richieste concorrenti per la stessa preview riusano lo stesso job
-        let job = inProgress.get(cacheKey);
-        if (!job) {
-            job = (async () => {
-                // Favicon: recuperata tramite mapping (stessa logica degli altri asset).
-                // Il resize visivo è delegato agli attributi width/height del tag <image> SVG:
-                // non ha senso degradare il sorgente prima, specie se l'icona è ad alta risoluzione.
-                let faviconDataUrl = '';
-                const faviconPath = resolveAssetPath('favIcon');
-                if (faviconPath) {
-                    faviconDataUrl = `data:image/png;base64,${readFileSync(faviconPath).toString('base64')}`;
-                }
-
-                const { svg } = PreviewBuilder.build({ ...r, faviconDataUrl });
-                await sharp(Buffer.from(svg, 'utf-8')).webp({ quality: 85 }).toFile(cacheFile);
-            })().finally(() => inProgress.delete(cacheKey));
-            inProgress.set(cacheKey, job);
-        }
-        await job;
-
-        AssetHandler.serveImage(res, cacheFile);
+        if (id) return renderPreviewWithImage(res, id, title, onlyImage);
+        return renderPreviewText(res, title, subtitle);
     } catch (err) {
         console.error('[Preview Error]:', err);
         if (!res.headersSent) res.status(500).send('Error generating preview');
     }
 });
 
-/** Endpoint Social Preview con immagine: sovrappone il favicon in basso a sinistra sull'asset. */
-app.get(CdnCgiPaths.previewImage, async (req, res) => {
-    try {
-        const id = String(req.query['id'] ?? '').trim();
-        if (!id) return res.status(400).send('Missing id');
+/** Variante testuale: SVG con app name + favicon + titolo + sottotitolo. */
+async function renderPreviewText(res: Response, title: string, subtitle: string): Promise<void> {
+    const { colorTema, version, appName } = ContestoSito.config;
+    const r = PreviewBuilder.resolvePreviewBuilder({ appName, title, subtitle, bgColor: colorTema });
 
-        const absolutePath = resolveAssetPath(id);
-        if (!absolutePath) return res.status(404).send('Asset not found');
+    const keyData = JSON.stringify({ version, ...r });
+    const hash = createHash('sha1').update(keyData).digest('hex').slice(0, 16);
+    const cacheKey = `preview_${hash}.webp`;
+    const cacheFile = join(cacheDir, cacheKey);
 
-        const filename = absolutePath.split(/[\\/]/).pop()!;
-        if (!AssetHandler.isSharpCompatible(filename)) return AssetHandler.serveFile(res, absolutePath);
+    if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
 
-        const title = ImgBuilderService.normalizeWhitespace(String(req.query['title'] ?? '')).slice(0, 100).trim();
+    let job = inProgress.get(cacheKey);
+    if (!job) {
+        job = (async () => {
+            let faviconDataUrl = '';
+            const faviconPath = resolveAssetPath('favIcon');
+            if (faviconPath) {
+                faviconDataUrl = `data:image/png;base64,${readFileSync(faviconPath).toString('base64')}`;
+            }
+            const { svg } = PreviewBuilder.buildPreview({ ...r, faviconDataUrl });
+            await sharp(Buffer.from(svg, 'utf-8')).webp({ quality: 85 }).toFile(cacheFile);
+        })().finally(() => inProgress.delete(cacheKey));
+        inProgress.set(cacheKey, job);
+    }
+    await job;
+    AssetHandler.serveImage(res, cacheFile);
+}
 
-        const { version } = ContestoSito.config;
-        const hash = createHash('sha1').update(JSON.stringify({ version, id, title })).digest('hex').slice(0, 16);
-        const cacheKey = `preview_img_${hash}.webp`;
-        const cacheFile = join(cacheDir, cacheKey);
+/** Variante con immagine: sfondo + immagine + favicon + badge titolo. */
+async function renderPreviewWithImage(res: Response, ogImageId: string, title: string, onlyImage?: boolean): Promise<void> {
+    const absolutePath = resolveAssetPath(ogImageId);
+    if (!absolutePath) return void res.status(404).send('Asset not found');
 
-        if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
+    const filename = absolutePath.split(/[\\/]/).pop()!;
+    if (!AssetHandler.isSharpCompatible(filename)) return AssetHandler.serveFile(res, absolutePath);
 
-        let job = inProgress.get(cacheKey);
-        if (!job) {
-            job = (async () => {
-                const OG_W = 1200, OG_H = 630;
+    const normalizedTitle = ImgBuilderService.normalizeWhitespace(title).slice(0, 100).trim();
+    const { version } = ContestoSito.config;
+    const hash = createHash('sha1').update(JSON.stringify({ version, id: ogImageId, title: normalizedTitle, onlyImage: !!onlyImage })).digest('hex').slice(0, 16);
+    const cacheKey = `preview_img_${hash}.webp`;
+    const cacheFile = join(cacheDir, cacheKey);
 
-                // Sfondo: stessa immagine scalata cover + sfocata
-                const bgBuffer = await sharp(absolutePath)
-                    .resize(OG_W, OG_H, { fit: 'cover' })
-                    .blur(28)
-                    .webp({ quality: 50 })
-                    .toBuffer();
+    if (existsSync(cacheFile)) return AssetHandler.serveImage(res, cacheFile);
 
-                // Primo piano: immagine proporzionata (contain) con trasparenza attorno
-                const fgBuffer = await sharp(absolutePath)
-                    .resize(OG_W, OG_H, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-                    .png()
-                    .toBuffer();
+    let job = inProgress.get(cacheKey);
+    if (!job) {
+        job = (async () => {
+            const OG_W = 1200, OG_H = 630;
 
-                // Favicon in basso a sinistra
-                const iconSize = Math.round(OG_H * 0.20);
+            const bgBuffer = await sharp(absolutePath)
+                .resize(OG_W, OG_H, { fit: 'cover' })
+                .blur(28)
+                .webp({ quality: 50 })
+                .toBuffer();
+
+            const fgBuffer = await sharp(absolutePath)
+                .resize(OG_W, OG_H, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .png()
+                .toBuffer();
+
+            const composites: sharp.OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
+
+            if (!onlyImage) {
+                const iconSize = Math.round(OG_H * 0.26);
                 const padding = Math.round(iconSize * 0.30);
                 const iconLeft = padding;
                 const iconTop = OG_H - iconSize - padding;
                 const faviconPath = resolveAssetPath('favIcon');
-                const composites: sharp.OverlayOptions[] = [{ input: fgBuffer, left: 0, top: 0 }];
                 if (faviconPath) {
                     const iconBuffer = await sharp(faviconPath)
                         .resize(iconSize, iconSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -443,34 +456,31 @@ app.get(CdnCgiPaths.previewImage, async (req, res) => {
                         .toBuffer();
                     composites.push({ input: iconBuffer, left: iconLeft, top: iconTop });
                 }
-                if (title) {
-                    const badgeSvg = TitleBadgeBuilder.build({
+                if (normalizedTitle) {
+                    const badgeSvg = PreviewBuilder.buildTitleBadge({
                         canvasW: OG_W,
                         canvasH: OG_H,
                         anchorLeft: iconLeft + iconSize + Math.round(iconSize * 0.20),
                         anchorCenterY: iconTop + iconSize / 2,
                         maxRight: OG_W - padding,
-                        title,
+                        title: normalizedTitle,
                         bgColor: ContestoSito.config.colorTema,
+                        fontSize: 40,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
                 }
+            }
 
-                await sharp(bgBuffer)
-                    .composite(composites)
-                    .webp({ quality: 85 })
-                    .toFile(cacheFile);
-            })().finally(() => inProgress.delete(cacheKey));
-            inProgress.set(cacheKey, job);
-        }
-        await job;
-
-        AssetHandler.serveImage(res, cacheFile);
-    } catch (err) {
-        console.error('[Preview Image Error]:', err);
-        if (!res.headersSent) res.status(500).send('Error generating preview image');
+            await sharp(bgBuffer)
+                .composite(composites)
+                .webp({ quality: 85 })
+                .toFile(cacheFile);
+        })().finally(() => inProgress.delete(cacheKey));
+        inProgress.set(cacheKey, job);
     }
-});
+    await job;
+    AssetHandler.serveImage(res, cacheFile);
+}
 
 /** Sicurezza: nega l'accesso diretto alla cartella file per forzare l'uso della CDN via ID */
 app.use('/assets/files', (_req, res) => { res.status(404).end(); });
@@ -554,120 +564,42 @@ if (isMainModule(import.meta.url)) {
 
 /** Esporta l'handler per l'integrazione nativa di Angular SSR (usato da main.server.ts) */
 export const reqHandler = createNodeRequestHandler(app);
-
-// ─── Preview Builder ──────────────────────────────────────────────────────────
-// Genera l'SVG strutturato per le immagini Open Graph / Twitter Card.
-// Vive solo in server.ts: non è un servizio Angular, non tocca il DOM.
-// Riusa wrapText / escapeXml / normalizeWhitespace di ImgBuilderService
-// (statici puri, zero Angular) per evitare duplicazione della logica di layout.
-
 interface PreviewSvgOptions {
+    /** Nome applicazione mostrato nella preview SVG. */
     appName: string;
+    /** Titolo principale della preview. */
     title: string;
+    /** Sottotitolo opzionale mostrato sotto il titolo. */
     subtitle?: string | null;
+    /** Colore di sfondo dell'intera immagine SVG. */
     bgColor: string;
+    /** Favicon/logo codificato come data URL SVG/PNG. */
     faviconDataUrl?: string;
+    /** Colore principale del testo. */
     textColor?: string;
+    /** Larghezza canvas SVG finale. */
     width?: number;
+    /** Altezza canvas SVG finale. */
     height?: number;
+    /** Font-family globale usato nei text node SVG. */
     fontFamily?: string;
+    /** Font-size del nome applicazione. */
     appFontSize?: number;
+    /** Font-size del titolo principale. */
     titleFontSize?: number;
+    /** Font-size del sottotitolo. */
     subtitleFontSize?: number;
+    /** Dimensione quadrata favicon/logo. */
     faviconSize?: number;
+    /** Spaziatura verticale tra i blocchi. */
     spacing?: number;
+    /** Padding orizzontale interno. */
     horizontalPadding?: number;
+    /** Moltiplicatore line-height del titolo. */
     titleLineHeight?: number;
+    /** Moltiplicatore line-height del sottotitolo. */
     subtitleLineHeight?: number;
 }
-
-class PreviewBuilder {
-    static resolve(opts: PreviewSvgOptions) {
-        return {
-            appName: ImgBuilderService.normalizeWhitespace(opts.appName),
-            title: ImgBuilderService.normalizeWhitespace(opts.title),
-            subtitle: ImgBuilderService.normalizeWhitespace(opts.subtitle ?? ''),
-            bgColor: opts.bgColor,
-            faviconDataUrl: opts.faviconDataUrl ?? '',
-            textColor: opts.textColor ?? ImgBuilderService.getReadableTextColor(opts.bgColor),
-            width: Math.max(1, Math.ceil(opts.width ?? 1200)),
-            height: Math.max(1, Math.ceil(opts.height ?? 630)),
-            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_SERVER_FONT,
-            appFontSize: opts.appFontSize ?? 25,
-            titleFontSize: opts.titleFontSize ?? 40,
-            subtitleFontSize: opts.subtitleFontSize ?? 30,
-            faviconSize: opts.faviconSize ?? 200,
-            spacing: opts.spacing ?? 30,
-            horizontalPadding: opts.horizontalPadding ?? 50,
-            titleLineHeight: opts.titleLineHeight ?? FontConfig.DEFAULT_SERVER_FONT_LINE_HEIGHT,
-            subtitleLineHeight: opts.subtitleLineHeight ?? 1.4,
-        };
-    }
-
-    static build(opts: PreviewSvgOptions): { svg: string; width: number; height: number } {
-        const r = PreviewBuilder.resolve(opts);
-        const cx = r.width / 2;
-        const maxWidthPx = r.width - r.horizontalPadding * 2;
-        const titleLineStep = r.titleFontSize * r.titleLineHeight;
-        const subtitleLineStep = r.subtitleFontSize * r.subtitleLineHeight;
-        const esc = ImgBuilderService.escapeXml;
-
-        const titleLines = ImgBuilderService.wrapText(r.title, maxWidthPx, r.titleFontSize);
-        const subtitleLines = r.subtitle
-            ? ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize)
-            : [];
-
-        const titleBlockHeight = r.titleFontSize + (titleLines.length - 1) * titleLineStep;
-        const subtitleBlockHeight = subtitleLines.length > 0
-            ? r.subtitleFontSize + (subtitleLines.length - 1) * subtitleLineStep
-            : 0;
-
-        const totalHeight = r.appFontSize
-            + r.spacing + r.faviconSize
-            + r.spacing + titleBlockHeight
-            + (subtitleBlockHeight > 0 ? r.spacing + subtitleBlockHeight : 0);
-        let topY = (r.height - totalHeight) / 2;
-
-        const appNameEl =
-            `<text x="${cx}" y="${topY + r.appFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.appFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="0.65">${esc(r.appName)}</text>`;
-        topY += r.appFontSize + r.spacing;
-
-        const faviconEl = r.faviconDataUrl
-            ? `<image href="${r.faviconDataUrl}" x="${cx - r.faviconSize / 2}" y="${topY}" width="${r.faviconSize}" height="${r.faviconSize}"/>`
-            : '';
-        topY += r.faviconSize + r.spacing;
-
-        const titleTspans = titleLines
-            .map((line, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : titleLineStep}">${esc(line)}</tspan>`)
-            .join('');
-        const titleEl =
-            `<text x="${cx}" y="${topY + r.titleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.titleFontSize}" font-weight="700" fill="${esc(r.textColor)}" text-anchor="middle">${titleTspans}</text>`;
-        topY += titleBlockHeight + r.spacing;
-
-        let subtitleEl = '';
-        if (subtitleLines.length > 0) {
-            const subtitleTspans = subtitleLines
-                .map((line, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : subtitleLineStep}">${esc(line)}</tspan>`)
-                .join('');
-            subtitleEl =
-                `<text x="${cx}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="0.80">${subtitleTspans}</text>`;
-        }
-
-        const svg =
-            `<?xml version="1.0" encoding="UTF-8"?>` +
-            `<svg xmlns="http://www.w3.org/2000/svg" width="${r.width}" height="${r.height}" viewBox="0 0 ${r.width} ${r.height}">` +
-            `<rect width="${r.width}" height="${r.height}" fill="${esc(r.bgColor)}"/>` +
-            appNameEl + faviconEl + titleEl + subtitleEl +
-            `</svg>`;
-
-        return { svg, width: r.width, height: r.height };
-    }
-}
-
-// ─── Title Badge Builder ──────────────────────────────────────────────────────
-// Costruisce un pill-badge sovrapposto a un'immagine OG già renderizzata da Sharp.
-// Vive accanto a PreviewBuilder: stesso pattern (resolve + build), stessa fonte
-// per font, line-height, fattore di stima testo e contrasto WCAG.
 
 interface TitleBadgeOptions {
     /** Larghezza del canvas SVG di output (deve combaciare con la cover OG). */
@@ -684,63 +616,237 @@ interface TitleBadgeOptions {
     title: string;
     /** Colore di sfondo del pill; il testo riceve automaticamente il contrasto WCAG. */
     bgColor: string;
-    /** Override del font-size (default: 38). */
+    /** Override del font-size (default: FONT_PRIMARY). */
     fontSize?: number;
-    /** Padding orizzontale sinistro (default: 28). Asimmetrico per equilibrio ottico. */
+    /** Padding orizzontale sinistro (default: SPACING_MD). */
     hPadL?: number;
-    /** Padding orizzontale destro (default: 40). */
+    /** Padding orizzontale destro (default: SPACING_MD). */
     hPadR?: number;
-    /** Padding verticale sopra/sotto il testo (default: 16). */
+    /** Padding verticale sopra/sotto il testo (default: SPACING_SM). */
     vPad?: number;
-    /** Opacità del pill (default: 0.92). */
+    /** Opacità del pill (default: OPACITY_OVERLAY). */
     fillOpacity?: number;
 }
 
-class TitleBadgeBuilder {
-    private static resolve(opts: TitleBadgeOptions) {
-        const fontSize = opts.fontSize ?? 38;
-        const hPadL = opts.hPadL ?? 28;
-        const hPadR = opts.hPadR ?? 40;
-        const vPad = opts.vPad ?? 16;
+class PreviewBuilder {
+    // =========================================================
+    // DESIGN SYSTEM & TOKENS CONDIVISI
+    // =========================================================
+
+    // --- Tipografia ---
+    /** Font size per elementi primari (Titolo preview, Testo badge) */
+    static readonly FONT_PRIMARY = 40;
+    /** Font size per elementi secondari (Sottotitolo, Nome App) */
+    static readonly FONT_SECONDARY = 30;
+    /** Moltiplicatore line-height universale per tutti i testi multilinea */
+    static readonly LINE_HEIGHT = 1.3;
+
+    /** Stima px/char per i calcoli della larghezza dei font SVG (usata in wrapText e calcolo box). */
+    static readonly CHAR_WIDTH_RATIO = 0.55;
+    /** Offset per spostarsi dalla cima del cap-box alla baseline tipografica nei nodi <text>. */
+    static readonly BASELINE_OFFSET_RATIO = 0.8;
+
+    // --- Spaziature (Padding & Margini) ---
+    /** Padding verticale ridotto (es. interno verticale del badge) */
+    static readonly SPACING_SM = 16;
+    /** Spaziatura standard tra i blocchi della preview e padding orizzontale del badge */
+    static readonly SPACING_MD = 32;
+    /** Padding orizzontale globale del canvas della preview (per evitare bordi troppo vicini) */
+    static readonly SPACING_LG = 48;
+
+    // --- Opacità ---
+    /** Opacità unificata per testi non principali (Nome App, Sottotitolo) per gerarchia visiva. */
+    static readonly OPACITY_TEXT_SECONDARY = 0.75;
+    /** Opacità per lo sfondo di elementi in overlay (es. sfondo del badge OG). */
+    static readonly OPACITY_OVERLAY = 0.9;
+
+    // --- Dimensioni Specifiche Preview ---
+    static readonly CANVAS_WIDTH = 1200;
+    static readonly CANVAS_HEIGHT = 630;
+    static readonly FAVICON_SIZE = 200;
+
+    // =========================================================
+    // LOGICA PREVIEW SVG
+    // =========================================================
+
+    /** Risolve tutte le opzioni della preview applicando normalizzazione e fallback ai token del Design System. */
+    static resolvePreviewBuilder(opts: PreviewSvgOptions) {
+        return {
+            appName: ImgBuilderService.normalizeWhitespace(opts.appName),
+            title: ImgBuilderService.normalizeWhitespace(opts.title),
+            subtitle: ImgBuilderService.normalizeWhitespace(opts.subtitle ?? ''),
+            bgColor: opts.bgColor,
+            faviconDataUrl: opts.faviconDataUrl ?? '',
+            textColor: opts.textColor ?? ImgBuilderService.getReadableTextColor(opts.bgColor),
+            width: Math.max(1, Math.ceil(opts.width ?? this.CANVAS_WIDTH)),
+            height: Math.max(1, Math.ceil(opts.height ?? this.CANVAS_HEIGHT)),
+            fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_SERVER_FONT,
+            appFontSize: opts.appFontSize ?? this.FONT_SECONDARY,
+            titleFontSize: opts.titleFontSize ?? this.FONT_PRIMARY,
+            subtitleFontSize: opts.subtitleFontSize ?? this.FONT_SECONDARY,
+            faviconSize: opts.faviconSize ?? this.FAVICON_SIZE,
+            spacing: opts.spacing ?? this.SPACING_MD,
+            horizontalPadding: opts.horizontalPadding ?? this.SPACING_LG,
+            titleLineHeight: opts.titleLineHeight ?? this.LINE_HEIGHT,
+            subtitleLineHeight: opts.subtitleLineHeight ?? this.LINE_HEIGHT,
+        };
+    }
+
+    /** Costruisce una preview SVG completa centrata verticalmente con nome app, favicon, titolo e sottotitolo. */
+    static buildPreview(opts: PreviewSvgOptions): { svg: string; width: number; height: number } {
+        const r = this.resolvePreviewBuilder(opts);
+
+        // Centro asse X
+        const cx = r.width / 2;
+        // Spazio massimo in larghezza a disposizione del testo
+        const maxWidthPx = r.width - r.horizontalPadding * 2;
+
+        // Calcolo dello step (in pixel) tra una riga e l'altra basato sul line-height
+        const titleLineStep = r.titleFontSize * r.titleLineHeight;
+        const subtitleLineStep = r.subtitleFontSize * r.subtitleLineHeight;
+
+        const esc = ImgBuilderService.escapeXml;
+
+        // Suddivisione in righe basata sullo spazio orizzontale
+        const titleLines = ImgBuilderService.wrapText(r.title, maxWidthPx, r.titleFontSize);
+        const subtitleLines = r.subtitle
+            ? ImgBuilderService.wrapText(r.subtitle, maxWidthPx, r.subtitleFontSize)
+            : [];
+
+        // Calcolo dell'altezza totale del blocco titolo (Font base + N righe aggiuntive)
+        const titleBlockHeight = r.titleFontSize + (titleLines.length - 1) * titleLineStep;
+
+        // Calcolo dell'altezza totale del blocco sottotitolo (se presente)
+        const subtitleBlockHeight = subtitleLines.length > 0
+            ? r.subtitleFontSize + (subtitleLines.length - 1) * subtitleLineStep
+            : 0;
+
+        // Altezza cumulativa di tutti gli elementi per poterli centrare verticalmente nel canvas
+        const totalHeight = r.appFontSize
+            + r.spacing + r.faviconSize
+            + r.spacing + titleBlockHeight
+            + (subtitleBlockHeight > 0 ? r.spacing + subtitleBlockHeight : 0);
+
+        // Coordinata Y di partenza per centrare in blocco il contenuto
+        let topY = (r.height - totalHeight) / 2;
+
+        /** Nodo SVG del nome applicazione (in alto). */
+        const appNameEl =
+            `<text x="${cx}" y="${topY + r.appFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.appFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${esc(r.appName)}</text>`;
+
+        topY += r.appFontSize + r.spacing;
+
+        /** Nodo SVG favicon/logo centrale. Centrato rispetto a X = cx. */
+        const faviconEl = r.faviconDataUrl
+            ? `<image href="${r.faviconDataUrl}" x="${cx - r.faviconSize / 2}" y="${topY}" width="${r.faviconSize}" height="${r.faviconSize}"/>`
+            : '';
+
+        topY += r.faviconSize + r.spacing;
+
+        /** Tspan multilinea del titolo principale. La prima riga ha dy=0, le successive scendono di titleLineStep. */
+        const titleTspans = titleLines
+            .map((line, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : titleLineStep}">${esc(line)}</tspan>`)
+            .join('');
+
+        /** Nodo SVG del titolo principale. */
+        const titleEl =
+            `<text x="${cx}" y="${topY + r.titleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.titleFontSize}" font-weight="700" fill="${esc(r.textColor)}" text-anchor="middle">${titleTspans}</text>`;
+
+        topY += titleBlockHeight + r.spacing;
+
+        let subtitleEl = '';
+
+        if (subtitleLines.length > 0) {
+            /** Tspan multilinea del sottotitolo. */
+            const subtitleTspans = subtitleLines
+                .map((line, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : subtitleLineStep}">${esc(line)}</tspan>`)
+                .join('');
+
+            /** Nodo SVG del sottotitolo. */
+            subtitleEl =
+                `<text x="${cx}" y="${topY + r.subtitleFontSize}" font-family="${esc(r.fontFamily)}" font-size="${r.subtitleFontSize}" font-weight="400" fill="${esc(r.textColor)}" text-anchor="middle" opacity="${this.OPACITY_TEXT_SECONDARY}">${subtitleTspans}</text>`;
+        }
+
+        /** SVG finale completo di background e raggruppamento nodi. */
+        const svg =
+            `<?xml version="1.0" encoding="UTF-8"?>` +
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${r.width}" height="${r.height}" viewBox="0 0 ${r.width} ${r.height}">` +
+            `<rect width="${r.width}" height="${r.height}" fill="${esc(r.bgColor)}"/>` +
+            appNameEl + faviconEl + titleEl + subtitleEl +
+            `</svg>`;
+
+        return { svg, width: r.width, height: r.height };
+    }
+
+    // =========================================================
+    // LOGICA BADGE SVG
+    // =========================================================
+
+    /** Risolve configurazione finale del badge applicando fallback ai token del Design System. */
+    private static resolveTitleBadgeBuilder(opts: TitleBadgeOptions) {
+        const fontSize = opts.fontSize ?? this.FONT_PRIMARY;
+        // Unificato il padding orizzontale destro/sinistro usando la spaziatura media condivisa
+        const hPadL = opts.hPadL ?? this.SPACING_MD;
+        const hPadR = opts.hPadR ?? this.SPACING_MD;
+        const vPad = opts.vPad ?? this.SPACING_SM;
+
         return {
             ...opts,
             fontSize,
             hPadL,
             hPadR,
             vPad,
-            fillOpacity: opts.fillOpacity ?? 0.92,
+            fillOpacity: opts.fillOpacity ?? this.OPACITY_OVERLAY,
             fontFamily: FontConfig.DEFAULT_SERVER_FONT,
-            lineStep: fontSize * FontConfig.DEFAULT_SERVER_FONT_LINE_HEIGHT,
+            lineStep: fontSize * this.LINE_HEIGHT,
             textColor: ImgBuilderService.getReadableTextColor(opts.bgColor),
         };
     }
 
-    /** Restituisce l'SVG completo (canvas opts.canvasW × opts.canvasH) con il solo pill disegnato. */
-    static build(opts: TitleBadgeOptions): string {
-        const r = TitleBadgeBuilder.resolve(opts);
+    /** Restituisce l'SVG completo (canvas canvasW × canvasH) con il solo pill/badge disegnato. */
+    static buildTitleBadge(opts: TitleBadgeOptions): string {
+        const r = this.resolveTitleBadgeBuilder(opts);
         const esc = ImgBuilderService.escapeXml;
 
-        // Spazio disponibile per il testo (al netto dei padding e del limite destro).
+        // Spazio disponibile per il testo (al netto dei padding orizzontali e del limite destro del canvas).
         const maxTextW = r.maxRight - r.anchorLeft - r.hPadL - r.hPadR;
+
+        /** Righe wrappate del titolo badge. */
         const lines = ImgBuilderService.wrapText(r.title, maxTextW, r.fontSize);
+
+        /** Lunghezza in caratteri della riga più lunga (serve per calcolare la larghezza del rettangolo di sfondo). */
         const longestLen = Math.max(...lines.map(l => l.length));
 
+        /** Altezza del blocco multilinea del testo badge (senza padding). */
         const blockHeight = r.fontSize + (lines.length - 1) * r.lineStep;
+
+        /** Altezza finale del rettangolo del badge/pill (includendo i padding verticali). */
         const badgeH = Math.round(blockHeight + r.vPad * 2);
-        // 0.55 px/char è la stessa stima usata da wrapText (vedi ImgBuilderService).
+
+        /** Larghezza finale del badge, che non deve superare il margine destro impostato (maxRight). 
+         *  Si basa sulla costante CHAR_WIDTH_RATIO per stimare la larghezza del testo. */
         const badgeW = Math.round(Math.min(
-            longestLen * r.fontSize * 0.55 + r.hPadL + r.hPadR,
+            longestLen * r.fontSize * this.CHAR_WIDTH_RATIO + r.hPadL + r.hPadR,
             r.maxRight - r.anchorLeft
         ));
+
+        /** Coordinata Y superiore del rettangolo del badge (centrato verticalmente su anchorCenterY). */
         const badgeY = Math.round(r.anchorCenterY - badgeH / 2);
-        // Pillola con una riga; raggio limitato con più righe per non arrotondare troppo.
+
+        /** Border radius finale del pill. 
+         *  Se è una riga singola forma un semicerchio perfetto sui bordi, 
+         *  se è multilinea si limita il raggio per non arrotondare eccessivamente i lati. */
         const radius = Math.round(Math.min(badgeH / 2, r.fontSize / 2 + r.vPad));
 
+        /** Coordinata X iniziale di partenza per scrivere il testo all'interno del badge. */
         const textX = r.anchorLeft + r.hPadL;
-        // Baseline della prima riga: centra verticalmente il blocco nel pill.
-        // Il fattore 0.8 sposta dalla cima del cap-box alla baseline tipografica.
-        const firstBaselineY = badgeY + (badgeH - blockHeight) / 2 + r.fontSize * 0.8;
 
+        /** Baseline Y della prima riga del testo badge.
+         *  Centra verticalmente il blocco testuale nel pill.
+         *  Il fattore BASELINE_OFFSET_RATIO (0.8) sposta la Y dalla cima del font-box alla sua baseline tipografica. */
+        const firstBaselineY = badgeY + (badgeH - blockHeight) / 2 + r.fontSize * this.BASELINE_OFFSET_RATIO;
+
+        /** Tspan multilinea del testo badge. */
         const tspans = lines
             .map((line, i) => `<tspan x="${textX}" dy="${i === 0 ? 0 : r.lineStep}">${esc(line)}</tspan>`)
             .join('');

@@ -89,6 +89,8 @@ export type SmokeSettingsInput = Partial<SmokeSettings> | null | undefined;
 export interface SiteConfig {
     /** Nome applicativo del sito. */
     appName: string;
+    /** Forza l'uso esclusivo dell'immagine per le anteprime social (Open Graph) senza aggiungere scritte o favicon. */
+    onlyPlainImage: boolean;
     /**
      * Versione canonica dell'applicazione (es. "1.2.0").
      * Sorgente di verità per il rilevamento aggiornamenti: a build time
@@ -143,6 +145,8 @@ export interface SiteConfigInput {
     showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Forza l'uso esclusivo dell'immagine per le anteprime social (Open Graph) senza aggiungere scritte o favicon. */
+    onlyPlainImage?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
     smoke?: SmokeSettingsInput;
 }
@@ -878,6 +882,7 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+                onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
                 smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
             };
         },

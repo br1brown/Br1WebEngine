@@ -1068,21 +1068,29 @@ I tag aggiornati da `PageMetaService.setPageMeta()` in un'unica chiamata:
 ```typescript
 // Firma del metodo
 setPageMeta(
-    pageTitle: string,           // obbligatorio — valore già tradotto (non chiave i18n)
-    description?: string | null, // opzionale — meta description
-    imgId?: string | null | false, // opzionale — vedi comportamenti sotto
-    ogType?: string | null,        // opzionale — og:type (default: 'website')
+    pageTitle: string,                  // obbligatorio — valore già tradotto (non chiave i18n)
+    description?: string | null,        // opzionale — meta description
+    imgId?: string | null | false,      // opzionale — vedi comportamenti sotto
+    ogType?: string | null,             // opzionale — og:type (default: 'website')
     structuredDataType?: string | null, // opzionale — JSON-LD @type (default: 'WebPage')
-    updatedTime?: string | null,   // opzionale — ISO 8601 per og:updated_time per-pagina;
-                                   // se nullo resta il valore globale di build
+    updatedTime?: string | null,        // opzionale — ISO 8601 per og:updated_time per-pagina;
+                                        // se nullo resta il valore globale di build
 ): void
 
 // imgId — tre comportamenti distinti:
-// string  → /cdn-cgi/preview-image?id=…&title=…  — output 1200×630: immagine centrata su sfondo sfocato,
-//           favicon in basso a sinistra e badge a pillola col titolo accanto (colorTema + contrasto WCAG)
-// null/undefined → /cdn-cgi/preview?title=…  — preview generata (sfondo colorato, icona, titolo)
+// string  → /cdn-cgi/preview?p=<blob>  — payload cifrato: immagine in primo piano (contain) su sfondo sfocato.
+//           Se onlyPlainImage = false, include anche favicon in basso a sinistra e badge a pillola col titolo (colorTema + contrasto WCAG).
+// null/undefined → /cdn-cgi/preview?p=<blob>  — payload cifrato: preview testuale (sfondo colorato, favicon, titolo)
 // false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
+
+**Opzione `onlyPlainImage`** — Per forzare la rimozione di favicon e badge di testo (scritte) da tutte le anteprime social, si imposta la proprietà `onlyPlainImage: true` all'interno di `setSiteConfiguration` in `src/app/site.ts`. Questa impostazione si applica globalmente a livello di sito e non è configurabile dinamicamente pagina per pagina. Il default se omesso è `false`.
+
+**Sicurezza og:image** — `og:image` punta a `/cdn-cgi/preview?p=<blob>` dove `<blob>` è un payload AES-GCM (titolo, sottotitolo opzionale, ID asset opzionale, ed eventuale flag onlyImage) cifrato. 
+La cifratura avviene in SSR in modo **sincrono** tramite la classe statica `PreviewCrypto` (descritta in `src/preview-crypto.server.ts`), la quale viene iniettata nel servizio tramite l'InjectionToken `SSR_PREVIEW_ENCRYPT_FN` (configurato in `app.config.server.ts`). Nel browser l'InjectionToken non è fornito, per cui non vengono sprecate risorse e non si espongono algoritmi di cifratura lato client.
+Il server backend Express in `server.ts` decifra e valida in modo sincrono tramite `PreviewCrypto.decrypt(blob)`; qualsiasi payload alterato o manomesso fallisce la decifrazione AES-GCM restituendo un errore **`403 Forbidden`**. 
+
+La chiave di cifratura simmetrica può essere configurata in produzione tramite la variabile d'ambiente **`PREVIEW_CRYPTO_SECRET`**; se assente, ricade sul fallback automatico basato su `appName:version` definita in `ContestoSito`. Bumpare `version` in `site.ts` invalida automaticamente tutte le anteprime in cache su disco.
 
 Può essere chiamato direttamente dal componente nei rari casi in cui serve sovrascrivere i meta a runtime (es. dopo un'interazione utente che cambia il contenuto della pagina).
 
@@ -1370,10 +1378,9 @@ La chiave (es. `"hero"`) è l'ID che userai nei template e nel codice. Il valore
 | Endpoint | Scopo |
 |---|---|
 | `/cdn-cgi/asset?id=X[&w=N]` | Serve il file raw: resize + WebP per immagini raster, passthrough per PDF/SVG/… |
-| `/cdn-cgi/preview?title=…` | Genera al volo l'og:image testuale (sfondo colorato, favicon centrata, titolo) |
-| `/cdn-cgi/preview-image?id=X` | Output fisso 1200×630: immagine proporzionata al centro, sfondo sfocato (blur-fill), favicon in basso a sinistra |
+| `/cdn-cgi/preview?p=<blob>` | Genera al volo l'og:image (1200×630). Il blob è un payload AES-GCM prodotto in SSR tramite `SSR_PREVIEW_ENCRYPT_FN` (delegato a `PreviewCrypto.encrypt`) — titolo, sottotitolo opzionale, ID asset opzionale, flag onlyImage opzionale. Variante dispatch: presenza di `id` nel payload → immagine in primo piano con sfondo sfocato (e badge + favicon se `onlyImage` non è `'true'`); assenza → SVG testuale (sfondo colorato, favicon, titolo). Blob manomesso → 403. |
 
-Tutti e tre usano cache su disco (invalidata aggiornando `version` in `site.ts`) e single-flight per richieste concorrenti alla stessa risorsa.
+Entrambi usano cache su disco (invalidata aggiornando `version` in `site.ts`) e single-flight per richieste concorrenti alla stessa risorsa.
 
 La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente, solo tramite ID.
 

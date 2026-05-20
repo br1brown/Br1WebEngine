@@ -24,6 +24,9 @@ export const serverEnv = {
     /** Chiave segreta per le chiamate dal server al backend */
     backendApiKey: process.env['BACKEND_API_KEY'] ?? 'frontend',
 
+    /** Chiave segreta personalizzata per cifrare i payload di preview social. Se assente, usa il fallback pubblico appName:version */
+    previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
+
     /** Tempo massimo di attesa per le risposte del proxy prima di andare in timeout */
     proxyTimeout: parsePositiveInt(process.env['PROXY_TIMEOUT_MS'], 30_000),
 

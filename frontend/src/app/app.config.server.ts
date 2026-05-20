@@ -5,7 +5,9 @@ import { appConfig } from './app.config';
 import { ContestoSito } from './site';
 import type { SiteRenderMode } from './siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/services/base-api.service';
+import { SSR_PREVIEW_ENCRYPT_FN } from './core/services/page-meta.service';
 import { serverEnv } from '../server-env';
+import { PreviewCrypto } from '../preview-crypto.server';
 
 /** Funzione utility: pulisce i percorsi delle rotte per Angular (es: trasforma "/home" in "home") */
 const toAngularServerPath = (path: string): string =>
@@ -26,7 +28,7 @@ const serverRoutes: ServerRoute[] = [
     ...ContestoSito.serverRenderEntries.map(({ path, renderMode }) =>
         toServerRoute(path, renderMode)
     ),
-    /** Wildcard: tutto ci� che non � mappato esplicitamente viene gestito solo dal browser (Client Side) */
+    /** Wildcard: tutto ci che non  mappato esplicitamente viene gestito solo dal browser (Client Side) */
     {
         path: '**',
         renderMode: RenderMode.Client
@@ -49,6 +51,11 @@ const serverConfig: ApplicationConfig = {
         {
             provide: SSR_API_KEY,
             useValue: serverEnv.backendApiKey,
+        },
+        /** Cifratura sincrona del payload preview (Node.js crypto) — solo SSR */
+        {
+            provide: SSR_PREVIEW_ENCRYPT_FN,
+            useValue: (p: Record<string, string>) => PreviewCrypto.encrypt(p),
         },
     ]
 };

@@ -9,7 +9,6 @@ import { type AssetWidth } from '../../app.config';
 export const CdnCgi = {
     asset: '/cdn-cgi/asset',
     preview: '/cdn-cgi/preview',
-    previewImage: '/cdn-cgi/preview-image',
 } as const;
 
 /**
@@ -25,11 +24,6 @@ export class AssetService implements OnDestroy {
 
     public static _UrlvirtualPathAsset = (id: string): string => {
         return `${CdnCgi.asset}?id=${id}`;
-    };
-
-    public static _UrlPreviewImage = (id: string, title?: string): string => {
-        const t = title ? `&title=${encodeURIComponent(title)}` : '';
-        return `${CdnCgi.previewImage}?id=${id}${t}`;
     };
 
     // Set per tracciare tutti i Blob URL creati ed evitare perdite di memoria
