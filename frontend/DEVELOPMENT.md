@@ -235,7 +235,6 @@ Già disponibile da `PageBaseComponent` senza nessun `inject()` aggiuntivo:
 | `this.asset` | `AssetService` | URL degli asset statici |
 | `this.notify` | `NotificationService` | Toast, dialog, conferme |
 | `this.pageContent()` | `T \| null` | Contenuto dal resolver, già tipizzato |
-| `this.loadData(loader)` | `Promise<T \| null>` | Wrapper per chiamate API aggiuntive nel componente; restituisce `null` su errore (la notifica è già gestita da `BaseApiService`) |
 
 `pageContent()` è un `computed` signal che vale `null` per le pagine senza contenuto, e si aggiorna automaticamente a ogni cambio lingua nel browser (il resolver viene rieseguito dal `PageBaseComponent` tramite un `effect()` che reagisce a `translate.currentLang()`).
 
@@ -658,7 +657,10 @@ export class CatalogoComponent extends PageBaseComponent<void> {
             this.api.getProdottiFiltrati('elettronica', true)
                 .then(lista => this.prodotti.set(lista))
                 .finally(() => this.loading.set(false));
-                // .catch() non è necessario: api_get gestisce già gli errori con NotificationService
+                // .catch() non necessario per la notifica: api_get la gestisce già.
+                // Se serve azzerare lo stato locale in caso di errore, usare .catch(() => null)
+                // o un try-catch — ma NON chiamare notify.handleApiError() nel catch:
+                // BaseApiService l'ha già invocato prima di rilanciare l'errore.
         });
     }
 }
@@ -721,28 +723,6 @@ Nel template:
     @for (p of prodottiResource.value() ?? []; track p.id) {
         <div class="card">{{ p.nome }}</div>
     }
-}
-```
-
-**Pattern c — `loadData()` per chiamate aggiuntive nel componente**
-
-Per chiamate API che avvengono in risposta a un'interazione utente, o per dati che non passano dal resolver. `loadData()` è ereditato da `PageBaseComponent` e racchiude il try-catch: restituisce `null` se l'API fallisce, senza ri-notificare (la notifica è già gestita da `BaseApiService`).
-
-```typescript
-// src/app/pages/catalogo/catalogo.component.ts
-export class CatalogoComponent extends PageBaseComponent<void> {
-    readonly dettaglio = signal<Prodotto | null>(null);
-
-    async mostraDettaglio(id: string): Promise<void> {
-        this.dettaglio.set(await this.loadData(() => this.api.getProdottoById(id)));
-    }
-}
-```
-
-```html
-<button (click)="mostraDettaglio(p.id)">Dettaglio</button>
-@if (dettaglio()) {
-    <p>{{ dettaglio()!.nome }}</p>
 }
 ```
 
@@ -1575,6 +1555,12 @@ Token disponibili (definiti in `src/styles/base.css`):
 | `--colorSurface` | Sfondo pannelli/card |
 | `--colorSurfaceText` | Testo su `--colorSurface` |
 | `--colorSurfaceBorder` | Bordo pannelli |
+| `--colorSecondary` | Colore secondario adattivo (chiaro su dark, scuro su light) — WCAG AA |
+| `--colorSecondaryText` | Testo su sfondo `--colorSecondary` |
+| `--colorInfo` | Colore info adattivo — WCAG AA |
+| `--colorInfoText` | Testo su sfondo `--colorInfo` |
+| `--colorWarning` | Colore warning adattivo — WCAG AA |
+| `--colorWarningText` | Testo su sfondo `--colorWarning` |
 | `--colorLink` | Colore link |
 | `--focusRingColor` | Colore anello di focus |
 | `--focusRingWidth` | Spessore anello di focus |

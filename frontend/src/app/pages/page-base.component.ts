@@ -49,19 +49,6 @@ export abstract class PageBaseComponent<T> {
         (this._resolved()?.content ?? null) as T | null
     );
 
-    /**
-     * Wrapper per chiamate API aggiuntive nel componente.
-     * Esegue il loader e restituisce null se fallisce.
-     * La notifica all'utente è già gestita da BaseApiService.handleError().
-     */
-    protected async loadData<T>(loader: () => Promise<T>): Promise<T | null> {
-        try {
-            return await loader();
-        } catch {
-            return null;
-        }
-    }
-
     constructor() {
         effect(() => {
             const info = this._resolved()?.info;

@@ -142,66 +142,72 @@ body {
     --bs-btn-disabled-border-color: var(--bs-primary);
 }
 
-/* WCAG 4.5:1 — fix globale per btn-outline-* con colori Bootstrap statici.
-   I CSS vars --bs-btn-* nelle outline variant sono compilati come hex fissi nel
-   foglio Bootstrap; qui li sovrascriviamo con valori che garantiscono il
-   contrasto minimo contro lo sfondo corrente, separati per tema.
-   Strategia: stesso approccio usato sopra per .btn-primary / .btn-outline-primary.
-   La regola cookie-banner.component.css rimane: ha specificità maggiore e usa
-   --colorSurfaceText (completamente adattivo) per quel pannello specifico. */
+/* ── Token colori semantici accessibili ──────────────────────────────────────
+   secondary, info e warning di Bootstrap hanno colori statici (hex fissi nel
+   CSS compilato) che falliscono WCAG 4.5:1 in almeno uno dei due temi.
+   Definiamo token propri — come già fatto per --colorPrimary — e mappiamo i
+   --bs-btn-* su di essi una volta sola. I valori variano per tema (dark/light).
+   La regola in cookie-banner.component.css ha specificità maggiore e usa
+   --colorSurfaceText per quel pannello specifico: rimane invariata. */
 
-/* Light mode — secondary (#6c757d 3.3:1), info (#0dcaf0 1.96:1),
-                warning (#ffc107 1.63:1) falliscono su sfondi bianchi/chiari. */
-:root[data-theme-tone='light'] .btn-outline-secondary {
-    --bs-btn-color:              #495057;
-    --bs-btn-border-color:       #495057;
-    --bs-btn-hover-bg:           #495057;
-    --bs-btn-hover-color:        #fff;
-    --bs-btn-hover-border-color: #495057;
-    --bs-btn-active-bg:          #343a40;
-    --bs-btn-active-color:       #fff;
-    --bs-btn-active-border-color:#343a40;
-    --bs-btn-disabled-color:     #495057;
-    --bs-btn-disabled-border-color: #495057;
-}
-:root[data-theme-tone='light'] .btn-outline-info {
-    --bs-btn-color:              #00819b;
-    --bs-btn-border-color:       #00819b;
-    --bs-btn-hover-bg:           #00819b;
-    --bs-btn-hover-color:        #fff;
-    --bs-btn-hover-border-color: #00819b;
-    --bs-btn-active-bg:          #006a7e;
-    --bs-btn-active-color:       #fff;
-    --bs-btn-active-border-color:#006a7e;
-    --bs-btn-disabled-color:     #00819b;
-    --bs-btn-disabled-border-color: #00819b;
-}
-:root[data-theme-tone='light'] .btn-outline-warning {
-    --bs-btn-color:              #967100;
-    --bs-btn-border-color:       #967100;
-    --bs-btn-hover-bg:           #967100;
-    --bs-btn-hover-color:        #fff;
-    --bs-btn-hover-border-color: #967100;
-    --bs-btn-active-bg:          #7a5b00;
-    --bs-btn-active-color:       #fff;
-    --bs-btn-active-border-color:#7a5b00;
-    --bs-btn-disabled-color:     #967100;
-    --bs-btn-disabled-border-color: #967100;
+/* Dark (default): colori Bootstrap originali, già accessibili su sfondo scuro.
+   secondary (#6c757d) fallisce → #adb5bd (6.1:1 su #212529). */
+:root {
+    --colorSecondary:     #adb5bd;
+    --colorSecondaryText: #212529;
+    --colorInfo:          #0dcaf0;   /* 6.4:1 su sfondo scuro */
+    --colorInfoText:      #212529;
+    --colorWarning:       #ffc107;   /* 7.7:1 su sfondo scuro */
+    --colorWarningText:   #212529;
 }
 
-/* Dark mode — secondary (#6c757d ≈ 2.7:1 su body scuro) fallisce.
-   Info e warning sono già accessibili su sfondo scuro (6.4:1 e 7.7:1). */
-:root[data-theme-tone='dark'] .btn-outline-secondary {
-    --bs-btn-color:              #adb5bd;
-    --bs-btn-border-color:       #adb5bd;
-    --bs-btn-hover-bg:           #adb5bd;
-    --bs-btn-hover-color:        #212529;
-    --bs-btn-hover-border-color: #adb5bd;
-    --bs-btn-active-bg:          #c0c5ca;
-    --bs-btn-active-color:       #212529;
-    --bs-btn-active-border-color:#c0c5ca;
-    --bs-btn-disabled-color:     #adb5bd;
-    --bs-btn-disabled-border-color: #adb5bd;
+/* Light: varianti più scure per garantire ≥ 4.5:1 su sfondi bianchi/chiari. */
+:root[data-theme-tone='light'] {
+    --colorSecondary:     #495057;   /* 8.1:1 su bianco */
+    --colorSecondaryText: #fff;
+    --colorInfo:          #00819b;   /* 4.6:1 su bianco */
+    --colorInfoText:      #fff;
+    --colorWarning:       #967100;   /* 4.6:1 su bianco */
+    --colorWarningText:   #fff;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color:               var(--colorSecondary);
+    --bs-btn-border-color:        var(--colorSecondary);
+    --bs-btn-hover-bg:            var(--colorSecondary);
+    --bs-btn-hover-color:         var(--colorSecondaryText);
+    --bs-btn-hover-border-color:  var(--colorSecondary);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorSecondary), #000 12%);
+    --bs-btn-active-color:        var(--colorSecondaryText);
+    --bs-btn-active-border-color: var(--colorSecondary);
+    --bs-btn-disabled-color:      var(--colorSecondary);
+    --bs-btn-disabled-border-color: var(--colorSecondary);
+}
+
+.btn-outline-info {
+    --bs-btn-color:               var(--colorInfo);
+    --bs-btn-border-color:        var(--colorInfo);
+    --bs-btn-hover-bg:            var(--colorInfo);
+    --bs-btn-hover-color:         var(--colorInfoText);
+    --bs-btn-hover-border-color:  var(--colorInfo);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorInfo), #000 12%);
+    --bs-btn-active-color:        var(--colorInfoText);
+    --bs-btn-active-border-color: var(--colorInfo);
+    --bs-btn-disabled-color:      var(--colorInfo);
+    --bs-btn-disabled-border-color: var(--colorInfo);
+}
+
+.btn-outline-warning {
+    --bs-btn-color:               var(--colorWarning);
+    --bs-btn-border-color:        var(--colorWarning);
+    --bs-btn-hover-bg:            var(--colorWarning);
+    --bs-btn-hover-color:         var(--colorWarningText);
+    --bs-btn-hover-border-color:  var(--colorWarning);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorWarning), #000 12%);
+    --bs-btn-active-color:        var(--colorWarningText);
+    --bs-btn-active-border-color: var(--colorWarning);
+    --bs-btn-disabled-color:      var(--colorWarning);
+    --bs-btn-disabled-border-color: var(--colorWarning);
 }
 
 /* I form controls (checkbox/toggle/range/input focus) restano coi default

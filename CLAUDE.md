@@ -234,6 +234,12 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
 | `--colorSurface` | Sfondo pannelli/card |
 | `--colorSurfaceText` | Testo su `--colorSurface` |
 | `--colorSurfaceBorder` | Bordo pannelli |
+| `--colorSecondary` | Colore secondario adattivo (chiaro su dark, scuro su light) — WCAG AA |
+| `--colorSecondaryText` | Testo su sfondo `--colorSecondary` |
+| `--colorInfo` | Colore info adattivo — WCAG AA |
+| `--colorInfoText` | Testo su sfondo `--colorInfo` |
+| `--colorWarning` | Colore warning adattivo — WCAG AA |
+| `--colorWarningText` | Testo su sfondo `--colorWarning` |
 | `--colorLink` | Colore link |
 | `--focusRingColor` | Colore anello di focus |
 | `--focusRingWidth` | Spessore anello di focus |
