@@ -42,6 +42,7 @@ run_test() {
     fi
 }
 
+run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"
 run_test "i18n completeness"    "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
 run_test "Accessibility (WCAG)" "${SCRIPT_DIR}/a11y-test.sh"       "${BASE_URL}"

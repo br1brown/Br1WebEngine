@@ -52,8 +52,7 @@ jobs:
         run: npm audit --audit-level=high --omit=dev
 
       - name: Lint
-        working-directory: frontend
-        run: npm run lint
+        run: bash scripts/test/lint-check.sh
 
       - name: Type check
         run: bash scripts/test/tsc-check.sh
