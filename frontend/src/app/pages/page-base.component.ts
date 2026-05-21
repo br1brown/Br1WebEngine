@@ -1,6 +1,5 @@
 import { computed, Directive, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
 import { ApiService } from '../core/services/api.service';
 import { AssetService } from '../core/services/asset.service';
 import { NotificationService } from '../core/services/notification.service';
@@ -49,22 +48,6 @@ export abstract class PageBaseComponent<T> {
     protected readonly pageContent = computed<T | null>(() =>
         (this._resolved()?.content ?? null) as T | null
     );
-
-    /**
-     * Gestione centralizzata degli errori per le pagine figlie.
-     * HttpErrorResponse → notify.handleApiError() con status + body.
-     * Qualsiasi altro errore → dialog generico.
-     */
-    protected handleError(err: unknown): void {
-        if (err instanceof HttpErrorResponse) {
-            this.notify.handleApiError(err.status, err.error);
-        } else {
-            this.notify.error(
-                this.translate.translate('errore'),
-                this.translate.translate('erroreImprevisto')
-            );
-        }
-    }
 
     constructor() {
         effect(() => {
