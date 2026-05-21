@@ -580,7 +580,9 @@ const API = {
 - `api_post<T>(path, body)` — esegue una POST e restituisce una `Promise<T>`
 - `api_resource<T>(path)` — restituisce un `HttpResourceRef<T | undefined>` con signal `.value()` e `.isLoading()` che si aggiornano automaticamente
 
-**Gestione errori**: `api_get`, `api_post` e `api_resource` gestiscono gli errori automaticamente tramite `handleError` del servizio base: mostrano la notifica all'utente via `NotificationService` e rilanciano l'errore per eventuali handler upstream. Non servono `try/catch` nei componenti salvo casi specifici.
+**Gestione errori**:
+- `api_get` e `api_post` — quando la richiesta fallisce, `BaseApiService.handleError()` mostra automaticamente la notifica all'utente via `NotificationService` e rilancia l'errore (la Promise viene rigettata). Non serve `try/catch` per la notifica; serve solo per gestire lo stato locale dopo il fallimento.
+- `api_resource` — Angular's `httpResource` **non** passa per `handleError`. L'errore viene memorizzato nel signal `.error()` del resource. Nessuna notifica automatica: se si vuole avvisare l'utente, il componente deve osservare `.error()` esplicitamente (vedi Pattern b).
 
 ```typescript
 // src/app/core/services/api.service.ts — dentro la classe ApiService
@@ -681,7 +683,7 @@ Adatto per componenti persistenti (header, footer, widget) che devono restare ag
 
 ```typescript
 // src/app/shared/components/lista-prodotti/lista-prodotti.component.ts
-import { Component } from '@angular/core';
+import { Component, effect } from '@angular/core';
 import { PageBaseComponent } from '../../../pages/page-base.component';
 
 @Component({
@@ -694,6 +696,16 @@ export class ListaProdottiComponent extends PageBaseComponent<void> {
     // Il resource si inizializza immediatamente e si aggiorna automaticamente.
     // Non serve afterNextRender, non serve un signal loading separato.
     readonly prodottiResource = this.api.getProdottiResource();
+
+    constructor() {
+        super();
+        // api_resource NON chiama handleError automaticamente: l'errore va in .error().
+        // Questo effect lo osserva e notifica l'utente quando il resource fallisce.
+        effect(() => {
+            const err = this.prodottiResource.error();
+            if (err) this.notify.handleApiError((err as any).status, (err as any).error);
+        });
+    }
 }
 ```
 
@@ -703,6 +715,8 @@ Nel template:
 <!-- lista-prodotti.component.html -->
 @if (prodottiResource.isLoading()) {
     <app-loading [loading]="true" />
+} @else if (prodottiResource.error()) {
+    <!-- stato di errore: la notifica è già mostrata dall'effect nel componente -->
 } @else {
     @for (p of prodottiResource.value() ?? []; track p.id) {
         <div class="card">{{ p.nome }}</div>
@@ -914,6 +928,8 @@ Navigazione → contentLoaderResolver(pageType) chiama inject(ContentResolver).l
 ```
 
 Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né reload al cambio lingua. Tutto è automatico.
+
+**Protezione del router**: lo `switch` in `ContentResolver.loadResolved()` è avvolto da un try-catch. Se l'API fallisce, `BaseApiService.handleError()` mostra già la notifica all'utente e rilancia l'errore — ma il try-catch lo intercetta e restituisce `{ content: null, info }` invece di rigettare. Senza questo guard, il resolver rigettato cancellerebbe la navigazione e l'utente vedrebbe una pagina vuota anziché la pagina con `pageContent() === null`.
 
 ### Aggiungere contenuto a una nuova pagina
 
