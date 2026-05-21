@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# =============================================================================
+# tsc-check.sh  —  Type-check del frontend senza emettere file
+#
+# Esegue tsc --noEmit sul progetto Angular. Cattura errori di tipo che il
+# build production potrebbe ignorare o che emergono solo a runtime.
+#
+# Utilizzo:
+#   ./tsc-check.sh
+#
+# Exit code:
+#   0  Nessun errore di tipo
+#   1  Uno o più errori TypeScript
+# =============================================================================
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+    GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'
+else
+    GREEN=''; RED=''; RESET=''
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+
+if ! command -v node >/dev/null 2>&1; then
+    echo "  WARN Node.js non trovato — tsc check saltato"
+    exit 0
+fi
+
+cd "$FRONTEND_DIR"
+
+if npx tsc --noEmit; then
+    echo -e "  ${GREEN}OK${RESET} TypeScript type check superato"
+else
+    echo -e "  ${RED}ERR${RESET} TypeScript type check fallito" >&2
+    exit 1
+fi

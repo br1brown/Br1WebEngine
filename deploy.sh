@@ -7,15 +7,15 @@
 #   ./deploy.sh --skip-post-deploy   Skip health checks after deployment
 #   ./deploy.sh --dev                Development mode
 #   ./deploy.sh --no-cache           Force clean Docker rebuild
-#   ./deploy.sh --test-public        Run isolated public tests (e.g., in CI)
+#   ./deploy.sh --test-public        Run isolated smoke test in CI (infra only)
 #   ./deploy.sh --help               Show this message
 #
 # Options for --test-public:
 #   --down-after                     Stop the test stack at the end
+#   --run-tests                      Call scripts/test/run-all.sh after health check
 #   --public-host HOST               Public host header (default: br1gaming.localhost)
 #   --public-port PORT               Public reverse proxy port (default: 8088)
 #   --skip-invalid-host-check        Skip the negative host authorization check
-#   --skip-a11y                      Skip the accessibility audit (a11y-test.sh)
 # =============================================================================
 
 set -euo pipefail
@@ -34,7 +34,7 @@ TEST_POST_DEPLOY=true
 # Variabili specifiche per i test pubblici
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
-SKIP_A11Y=false
+RUN_TESTS=false
 PUBLIC_HOST="br1gaming.localhost"
 PUBLIC_PORT="8088"
 
@@ -46,10 +46,10 @@ while [[ $# -gt 0 ]]; do
         --test-public) TEST_PUBLIC=true; shift ;;
         --skip-post-deploy) TEST_POST_DEPLOY=false; shift ;;
         --down-after) DOWN_AFTER=true; shift ;;
+        --run-tests) RUN_TESTS=true; shift ;;
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
-        --skip-a11y) SKIP_A11Y=true; shift ;;
         *)
             echo "  WARN unknown option ignored: $1" >&2
             shift
@@ -396,17 +396,13 @@ if [[ "$TEST_PUBLIC" == true ]]; then
         ok "Exposed backend /health returned HTTP 200"
     fi
 
-    # ── Accessibility audit ────────────────────────────────────────────────
-    echo
-    echo -e "${BOLD}Accessibility Test${RESET}"
-
-    if [[ "$SKIP_A11Y" == true ]]; then
-        warn "Accessibility test saltato (--skip-a11y)"
-    else
+    if [[ "$RUN_TESTS" == true ]]; then
+        echo
+        echo -e "${BOLD}Test Suite${RESET}"
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        bash "${SCRIPT_DIR}/a11y-test.sh" "$browser_url" / || {
+        bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "$browser_url" || {
             echo
-            fail "Accessibility audit fallito — correggere le violazioni WCAG prima del merge"
+            fail "Test suite fallita — correggere le violazioni prima del merge"
             exit 1
         }
     fi
