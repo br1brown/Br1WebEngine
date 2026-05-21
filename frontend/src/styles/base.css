@@ -142,6 +142,68 @@ body {
     --bs-btn-disabled-border-color: var(--bs-primary);
 }
 
+/* WCAG 4.5:1 — fix globale per btn-outline-* con colori Bootstrap statici.
+   I CSS vars --bs-btn-* nelle outline variant sono compilati come hex fissi nel
+   foglio Bootstrap; qui li sovrascriviamo con valori che garantiscono il
+   contrasto minimo contro lo sfondo corrente, separati per tema.
+   Strategia: stesso approccio usato sopra per .btn-primary / .btn-outline-primary.
+   La regola cookie-banner.component.css rimane: ha specificità maggiore e usa
+   --colorSurfaceText (completamente adattivo) per quel pannello specifico. */
+
+/* Light mode — secondary (#6c757d 3.3:1), info (#0dcaf0 1.96:1),
+                warning (#ffc107 1.63:1) falliscono su sfondi bianchi/chiari. */
+:root[data-theme-tone='light'] .btn-outline-secondary {
+    --bs-btn-color:              #495057;
+    --bs-btn-border-color:       #495057;
+    --bs-btn-hover-bg:           #495057;
+    --bs-btn-hover-color:        #fff;
+    --bs-btn-hover-border-color: #495057;
+    --bs-btn-active-bg:          #343a40;
+    --bs-btn-active-color:       #fff;
+    --bs-btn-active-border-color:#343a40;
+    --bs-btn-disabled-color:     #495057;
+    --bs-btn-disabled-border-color: #495057;
+}
+:root[data-theme-tone='light'] .btn-outline-info {
+    --bs-btn-color:              #00819b;
+    --bs-btn-border-color:       #00819b;
+    --bs-btn-hover-bg:           #00819b;
+    --bs-btn-hover-color:        #fff;
+    --bs-btn-hover-border-color: #00819b;
+    --bs-btn-active-bg:          #006a7e;
+    --bs-btn-active-color:       #fff;
+    --bs-btn-active-border-color:#006a7e;
+    --bs-btn-disabled-color:     #00819b;
+    --bs-btn-disabled-border-color: #00819b;
+}
+:root[data-theme-tone='light'] .btn-outline-warning {
+    --bs-btn-color:              #967100;
+    --bs-btn-border-color:       #967100;
+    --bs-btn-hover-bg:           #967100;
+    --bs-btn-hover-color:        #fff;
+    --bs-btn-hover-border-color: #967100;
+    --bs-btn-active-bg:          #7a5b00;
+    --bs-btn-active-color:       #fff;
+    --bs-btn-active-border-color:#7a5b00;
+    --bs-btn-disabled-color:     #967100;
+    --bs-btn-disabled-border-color: #967100;
+}
+
+/* Dark mode — secondary (#6c757d ≈ 2.7:1 su body scuro) fallisce.
+   Info e warning sono già accessibili su sfondo scuro (6.4:1 e 7.7:1). */
+:root[data-theme-tone='dark'] .btn-outline-secondary {
+    --bs-btn-color:              #adb5bd;
+    --bs-btn-border-color:       #adb5bd;
+    --bs-btn-hover-bg:           #adb5bd;
+    --bs-btn-hover-color:        #212529;
+    --bs-btn-hover-border-color: #adb5bd;
+    --bs-btn-active-bg:          #c0c5ca;
+    --bs-btn-active-color:       #212529;
+    --bs-btn-active-border-color:#c0c5ca;
+    --bs-btn-disabled-color:     #adb5bd;
+    --bs-btn-disabled-border-color: #adb5bd;
+}
+
 /* I form controls (checkbox/toggle/range/input focus) restano coi default
    Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.
    Sovrascriverli ogni volta complicherebbe la cascata senza guadagno utente. */
