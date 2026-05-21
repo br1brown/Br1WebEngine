@@ -43,25 +43,31 @@ export class ContentResolver {
             language = ContestoSito.config.defaultLang;
 
         let content: unknown = null;
-        //Pronto per essere modificato da eventuali api future - vedi apiService
         const info = ContestoSito.getPageInfo(pageType);
 
-        switch (pageType) {
-            case PageType.Social:
-                content = await this.apiService.getSocial();
-                break;
-            case PageType.PrivacyPolicy:
-                content = await this.tryLoadPolicy('privacy', language);
-                break;
-            case PageType.CookiePolicy:
-                content = await this.tryLoadPolicy('cookie', language);
-                break;
-            case PageType.TermsOfService:
-                content = await this.tryLoadPolicy('TOS', language);
-                break;
-            case PageType.LegalNotice:
-                content = await this.tryLoadPolicy('legal', language);
-                break;
+        try {
+            switch (pageType) {
+                case PageType.Social:
+                    content = await this.apiService.getSocial();
+                    break;
+                case PageType.PrivacyPolicy:
+                    content = await this.tryLoadPolicy('privacy', language);
+                    break;
+                case PageType.CookiePolicy:
+                    content = await this.tryLoadPolicy('cookie', language);
+                    break;
+                case PageType.TermsOfService:
+                    content = await this.tryLoadPolicy('TOS', language);
+                    break;
+                case PageType.LegalNotice:
+                    content = await this.tryLoadPolicy('legal', language);
+                    break;
+            }
+        } catch {
+            // BaseApiService.handleError() ha già notificato l'utente via Swal.
+            // Restituiamo null content affinché il resolver si risolva sempre
+            // e il router completi la navigazione invece di cancellarla.
+            content = null;
         }
 
         return { content, info: info };
