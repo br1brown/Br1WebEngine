@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
-# i18n-check.sh  —  Verifica simmetria chiavi EN↔IT nei file i18n
+# i18n-check.sh  —  Verifica completezza file i18n per tutte le lingue
 #
-# Controlla che ogni chiave presente nel file EN esista anche in IT e
-# viceversa, per ciascuna coppia (basic, addon).
+# Legge le lingue disponibili da ContestoSito.config.availableLanguages
+# (frontend/src/app/site.ts) e per ogni catalogo (basic, addon) verifica
+# che tutte le lingue abbiano esattamente gli stessi tasti.
+#
+# Se domani viene aggiunta o rimossa una lingua da site.ts, il test si
+# adatta automaticamente senza modifiche allo script.
 #
 # Utilizzo:
 #   ./i18n-check.sh
 #
 # Exit code:
-#   0  Tutte le chiavi presenti in entrambe le lingue
-#   1  Una o più chiavi mancanti
+#   0  Tutti i file presenti e chiavi sincronizzate
+#   1  File mancanti o chiavi non allineate
 # =============================================================================
 
 set -euo pipefail
@@ -23,56 +27,105 @@ fi
 
 info() { echo -e "  ${BOLD}[info]${RESET} $*"; }
 ok()   { echo -e "  ${GREEN}OK${RESET} $*"; }
+warn() { echo -e "  ${YELLOW}WARN${RESET} $*"; }
 fail() { echo -e "  ${RED}ERR${RESET} $*" >&2; }
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
     exit 0
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-    echo "  WARN Node.js non trovato — i18n check saltato"
+    warn "Node.js non trovato — i18n check saltato"
     exit 0
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SITE_TS="${SCRIPT_DIR}/../../frontend/src/app/site.ts"
 I18N_DIR="${SCRIPT_DIR}/../../frontend/src/assets/i18n"
 
-check_pair() {
-    local name="$1" file_en="$2" file_it="$3"
-    info "Checking ${name}: $(basename "$file_en") ↔ $(basename "$file_it")"
-
-    node_exit=0
+# ─── Leggi le lingue da site.ts ──────────────────────────────────────────────
+mapfile -t LANGS < <(
     node -e "
 const fs = require('fs');
-const en = Object.keys(JSON.parse(fs.readFileSync('${file_en}', 'utf8')));
-const it = Object.keys(JSON.parse(fs.readFileSync('${file_it}', 'utf8')));
-const enSet = new Set(en);
-const itSet = new Set(it);
-const missingInIt = en.filter(k => !itSet.has(k));
-const missingInEn = it.filter(k => !enSet.has(k));
-missingInIt.forEach(k => console.error('    missing in IT: ' + k));
-missingInEn.forEach(k => console.error('    missing in EN: ' + k));
-process.exit(missingInIt.length + missingInEn.length > 0 ? 1 : 0);
-" || node_exit=$?
+const content = fs.readFileSync('${SITE_TS}', 'utf8');
+const match = content.match(/availableLanguages\s*:\s*\[([^\]]+)\]/);
+if (!match) { process.stderr.write('availableLanguages non trovato in site.ts\n'); process.exit(1); }
+const langs = [...match[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+if (!langs.length) { process.stderr.write('Nessuna lingua trovata\n'); process.exit(1); }
+langs.forEach(l => console.log(l));
+"
+)
 
-    if [[ $node_exit -eq 0 ]]; then
-        ok "${name}"
-    else
-        fail "${name} — chiavi non sincronizzate (vedi sopra)"
-        return 1
-    fi
+if [[ ${#LANGS[@]} -lt 1 ]]; then
+    fail "Nessuna lingua trovata in site.ts — impossibile proseguire"
+    exit 1
+fi
+
+info "Lingue rilevate da site.ts: ${LANGS[*]}"
+
+# Costruisce un array JSON bash-side: ["it","en"] → passato inline a Node
+langs_json=$(printf '"%s",' "${LANGS[@]}"); langs_json="[${langs_json%,}]"
+
+# ─── Verifica catalogo ───────────────────────────────────────────────────────
+check_catalog() {
+    local catalog="$1"
+
+    # Verifica che tutti i file esistano prima di controllare le chiavi
+    local missing_files=0
+    for lang in "${LANGS[@]}"; do
+        local file="${I18N_DIR}/${catalog}.${lang}.json"
+        if [[ ! -f "$file" ]]; then
+            fail "File mancante: ${catalog}.${lang}.json"
+            missing_files=$((missing_files + 1))
+        fi
+    done
+    [[ $missing_files -gt 0 ]] && return 1
+
+    # Calcola l'unione di tutte le chiavi e segnala quelle mancanti per lingua
+    node -e "
+const fs   = require('fs');
+const langs = ${langs_json};
+const dir   = '${I18N_DIR}';
+const cat   = '${catalog}';
+
+const keysets = new Map(langs.map(l => [
+    l,
+    new Set(Object.keys(JSON.parse(fs.readFileSync(dir + '/' + cat + '.' + l + '.json', 'utf8'))))
+]));
+
+const union = new Set([...keysets.values()].flatMap(s => [...s]));
+let failures = 0;
+
+for (const lang of langs) {
+    for (const key of union) {
+        if (!keysets.get(lang).has(key)) {
+            process.stderr.write('    ' + cat + '.' + lang + '.json — chiave mancante: ' + key + '\n');
+            failures++;
+        }
+    }
 }
 
+process.exit(failures > 0 ? 1 : 0);
+" || return 1
+}
+
+# ─── Esecuzione ──────────────────────────────────────────────────────────────
 FAILURES=0
 
-check_pair "basic" "${I18N_DIR}/basic.en.json" "${I18N_DIR}/basic.it.json" || FAILURES=$((FAILURES + 1))
-echo
-check_pair "addon" "${I18N_DIR}/addon.en.json" "${I18N_DIR}/addon.it.json" || FAILURES=$((FAILURES + 1))
-echo
+for catalog in basic addon; do
+    info "Checking catalogo: ${catalog}"
+    if check_catalog "$catalog"; then
+        ok "${catalog} — tutte le lingue allineate"
+    else
+        fail "${catalog} — chiavi non sincronizzate (vedi sopra)"
+        FAILURES=$((FAILURES + 1))
+    fi
+    echo
+done
 
 if [[ $FAILURES -gt 0 ]]; then
-    fail "${FAILURES} coppia/e con chiavi non sincronizzate"
+    fail "${FAILURES} catalogo/i con chiavi non sincronizzate"
     exit 1
 fi
 
