@@ -200,7 +200,8 @@ app.set('trust proxy', serverEnv.trustProxy);
 app.get('/health', (_request, response) => {
     response.json({
         status: 'ok',
-        mode: 'ssr'
+        mode: 'ssr',
+        a11yPaths: ContestoSito.getSitemapEntries().map(e => e.path),
     });
 });
 

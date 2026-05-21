@@ -10,8 +10,8 @@
 #   ./a11y-test.sh BASE_URL [PATH ...]
 #
 # Esempi:
-#   ./a11y-test.sh http://localhost:3000
-#   ./a11y-test.sh http://app.localhost:8088 / /404
+#   ./a11y-test.sh http://localhost:3000               # scoperta automatica via /health
+#   ./a11y-test.sh http://app.localhost:8088 / /social # solo i path indicati
 #
 # Variabili d'ambiente:
 #   PUPPETEER_EXECUTABLE_PATH   Override Chrome/Chromium (auto-rilevato se assente)
@@ -50,7 +50,36 @@ fi
 
 BASE_URL="${1%/}"    # rimuove trailing slash
 shift
-PATHS=("${@:-/}")   # default: homepage
+
+if [[ $# -gt 0 ]]; then
+    PATHS=("$@")
+else
+    # Nessun path specificato: scoperta automatica dal server.
+    # /health restituisce a11yPaths — l'elenco delle pagine interne pubbliche
+    # derivato da ContestoSito.getSitemapEntries() (no externalUrl, no requiresAuth).
+    mapfile -t PATHS < <(
+        node -e "
+const http  = require('http');
+const https = require('https');
+const mod   = '${BASE_URL}'.startsWith('https') ? https : http;
+mod.get('${BASE_URL}/health', res => {
+    let raw = '';
+    res.on('data', c => raw += c);
+    res.on('end', () => {
+        try {
+            const paths = JSON.parse(raw).a11yPaths;
+            if (Array.isArray(paths) && paths.length) {
+                paths.forEach(p => console.log(p));
+            } else {
+                console.log('/');
+            }
+        } catch { console.log('/'); }
+    });
+}).on('error', () => console.log('/'));
+" 2>/dev/null
+    )
+    info "Path auto-scoperti da ${BASE_URL}/health: ${PATHS[*]}"
+fi
 
 TIMEOUT="${A11Y_TIMEOUT:-30000}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
