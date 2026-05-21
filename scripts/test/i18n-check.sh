@@ -45,6 +45,9 @@ SITE_TS="${SCRIPT_DIR}/../../frontend/src/app/site.ts"
 I18N_DIR="${SCRIPT_DIR}/../../frontend/src/assets/i18n"
 
 # ─── Leggi le lingue da site.ts ──────────────────────────────────────────────
+# Fonte: ContestoSito.config.availableLanguages — non hardcoded.
+# Aggiungere o rimuovere una lingua da site.ts cambia automaticamente
+# quali file vengono verificati, senza toccare questo script.
 mapfile -t LANGS < <(
     node -e "
 const fs = require('fs');

@@ -50,6 +50,10 @@ shift
 if [[ $# -gt 0 ]]; then
     PATHS=("$@")
 else
+    # Nessun path specificato: scoperta automatica dal server.
+    # /health restituisce a11yPaths — l'elenco delle pagine interne pubbliche
+    # derivato da ContestoSito.getSitemapEntries() (no externalUrl, no requiresAuth).
+    # Aggiungere una pagina in site.ts la include automaticamente nell'audit.
     mapfile -t PATHS < <(
         node -e "
 const http  = require('http');

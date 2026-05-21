@@ -1455,11 +1455,7 @@ L'accessibilità è una proprietà nativa del sistema, non un'attività corretti
 
 Il pre-commit hook si attiva automaticamente dopo `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`). Ogni commit con file sorgente staged passa per ESLint prima di essere accettato.
 
-> **`site.ts` come fonte di verità per i test**
->
-> La test suite si adatta automaticamente alla configurazione del sito, senza modifiche agli script:
-> - `getSitemapEntries()` alimenta l'endpoint `/health` → `a11y-test.sh` e `lighthouse-test.sh` scoprono da soli le pagine da verificare. Aggiungere una pagina in `site.ts` la include automaticamente nell'audit.
-> - `availableLanguages` è letto da `i18n-check.sh` → se si aggiunge o rimuove una lingua, il check si adatta. Nessuna chiave hardcodata nello script.
+Il perché di ogni scelta — compreso come `site.ts` guida la scoperta automatica delle pagine e delle lingue — è documentato nei commenti degli script in `scripts/test/`.
 
 ### Regole ESLint — errori bloccanti
 

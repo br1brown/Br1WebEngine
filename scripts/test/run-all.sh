@@ -42,6 +42,9 @@ run_test() {
     fi
 }
 
+# Ordine: statici prima (veloci, nessun server), live dopo (richiedono BASE_URL).
+# i18n e tsc prima di a11y/lighthouse perché fallire su un errore di tipo
+# o una chiave mancante è più veloce e informativo di un errore a runtime.
 run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"
 run_test "i18n completeness"    "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
