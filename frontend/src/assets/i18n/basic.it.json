@@ -115,5 +115,6 @@
   "backToTopLabel": "Torna in cima",
   "opensInNewTab": "si apre in una nuova scheda",
   "footerNavLabel": "Navigazione footer",
-  "toggleNavigation": "Apri/chiudi navigazione"
+  "toggleNavigation": "Apri/chiudi navigazione",
+  "mainNavLabel": "Navigazione principale"
 }

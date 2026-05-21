@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
      [attr.data-bs-theme]="theme.themeTone()"
-     role="navigation" aria-label="Main navigation">
+     [attr.aria-label]="'mainNavLabel' | translate">
     <div class="container-fluid">
         @if (isRouteActive(homePath)) {
         <span class="navbar-brand nav-current-link"

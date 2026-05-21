@@ -115,5 +115,6 @@
   "backToTopLabel": "Back to top",
   "opensInNewTab": "opens in new tab",
   "footerNavLabel": "Footer navigation",
-  "toggleNavigation": "Toggle navigation"
+  "toggleNavigation": "Toggle navigation",
+  "mainNavLabel": "Main navigation"
 }
