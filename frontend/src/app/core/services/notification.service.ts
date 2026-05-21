@@ -257,6 +257,8 @@ export class NotificationService {
                 didOpen: (toast) => {
                     toast.addEventListener('mouseenter', Swal.stopTimer);
                     toast.addEventListener('mouseleave', Swal.resumeTimer);
+                    toast.addEventListener('focus', Swal.stopTimer);
+                    toast.addEventListener('blur', Swal.resumeTimer);
                 }
             });
             void Toast.fire({ icon, title: message });
@@ -274,7 +276,7 @@ export class NotificationService {
         if (swal) {
             void swal.then(Swal => {
                 const ul = document.createElement('ul');
-                ul.style.cssText = 'text-align:left;font-size:0.9em;margin:0;';
+                ul.className = 'text-start small mb-0 mt-2';
                 items.forEach(msg => {
                     const li = document.createElement('li');
                     li.textContent = msg;

@@ -116,5 +116,6 @@
   "opensInNewTab": "si apre in una nuova scheda",
   "footerNavLabel": "Navigazione footer",
   "toggleNavigation": "Apri/chiudi navigazione",
-  "mainNavLabel": "Navigazione principale"
+  "mainNavLabel": "Navigazione principale",
+  "erroreGenerico": "Si è verificato un errore"
 }

@@ -116,5 +116,6 @@
   "opensInNewTab": "opens in new tab",
   "footerNavLabel": "Footer navigation",
   "toggleNavigation": "Toggle navigation",
-  "mainNavLabel": "Main navigation"
+  "mainNavLabel": "Main navigation",
+  "erroreGenerico": "An error occurred"
 }
