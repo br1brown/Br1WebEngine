@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from './src/app/app.config';
 import { ContestoSito } from './src/app/site';
+import { ThemeService } from './src/app/core/services/theme.service';
 import { ImgBuilderService } from './src/app/core/services/img-builder.service';
 import { FontConfig } from './src/styles/font-config';
 import { PreviewCrypto } from './src/preview-crypto.server';
@@ -30,6 +31,15 @@ const browserDistFolder = resolve(serverDistFolder, '../browser');
 const assetFilesDir = serverEnv.assetsDir
     ? resolve(serverEnv.assetsDir)
     : join(browserDistFolder, 'assets/files');
+
+/**
+ * Tono del tema calcolato una volta all'avvio dal colorTema in config.
+ * Viene iniettato come data-bs-theme / data-theme-tone sull'<html> di ogni
+ * risposta SSR così i token CSS ($colorSecondary ecc.) sono corretti già nel
+ * primo byte — prima che Angular idrati e ThemeService li ri-applichi.
+ */
+const initialThemeTone: 'light' | 'dark' =
+    ThemeService.prefersDarkText(ContestoSito.config.colorTema) ? 'light' : 'dark';
 
 /** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
@@ -536,13 +546,42 @@ app.use(
 app.use((request, response, next) => {
     angularApp
         .handle(request)
-        .then((renderedResponse) => {
-            if (renderedResponse) {
-                /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
-                return writeResponseToNodeResponse(renderedResponse, response);
+        .then(async (angularResponse) => {
+            if (!angularResponse) {
+                next(); // Se Angular non ha una rotta corrispondente, passa al 404 di Express
+                return;
             }
-            next(); // Se Angular non ha una rotta corrispondente, passa al 404 di Express
-            return;
+
+            // Per le risposte HTML garantisce che data-bs-theme / data-theme-tone
+            // siano presenti sull'<html> fin dal primo byte, così i token CSS
+            // adattivi (--colorSecondary ecc.) sono corretti prima dell'idratazione.
+            // ThemeService.effect() li imposta già durante il render SSR: questo
+            // blocco interviene solo se per qualsiasi motivo mancano ancora.
+            const ct = angularResponse.headers.get('content-type') ?? '';
+            if (ct.includes('text/html')) {
+                const html = await angularResponse.text();
+                // Inietta gli attributi solo se Angular SSR non li ha già impostati.
+                // Il body è stato consumato da text(): serve sempre una nuova Response.
+                const patched = html.includes('data-bs-theme=')
+                    ? html
+                    : html.replace(
+                        '<html',
+                        `<html data-bs-theme="${initialThemeTone}" data-theme-tone="${initialThemeTone}"`
+                    );
+                const headers = new Headers(angularResponse.headers);
+                headers.delete('content-length');
+                return writeResponseToNodeResponse(
+                    new Response(patched, {
+                        status: angularResponse.status,
+                        statusText: angularResponse.statusText,
+                        headers,
+                    }),
+                    response
+                );
+            }
+
+            /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
+            return writeResponseToNodeResponse(angularResponse, response);
         })
         .catch(next);
 });
