@@ -14,68 +14,214 @@
 
 ---
 
-## Accessibilità — Accessible by Design & by Default
+## Creare una pagina
 
-L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. Ogni componente, ogni PR e ogni modifica devono rispettare questi principi.
+Ogni pagina ha un tipo logico definito in `site.ts`, estende `PageBaseComponent<T>` e riceve i propri dati tramite il resolver centralizzato.
 
-### Baseline WCAG obbligatoria
+### 1. Registrare il tipo in site.ts
 
-- **WCAG 2.1 AA** come livello minimo per tutti i nuovi componenti
-- Ogni violazione bloccante viene rilevata automaticamente da ESLint prima del merge
+Aggiungere la voce a `PageType`:
 
-### Regole ESLint accessibility (errori bloccanti)
+```typescript
+export enum PageType {
+    Home     = 'home',
+    Social   = 'social',
+    Articoli = 'articoli',   // ← nuovo
+}
+```
 
-Configurate in `frontend/eslint.config.mjs`. Le seguenti violazioni rompono `npm run lint` e bloccano la CI:
+### 2. Creare il componente
 
-| Regola | Cosa verifica |
+Il componente estende `PageBaseComponent<T>` dove `T` è il tipo del contenuto caricato dal resolver:
+
+```typescript
+@Component({
+    selector: 'app-articoli',
+    standalone: true,
+    imports: [TranslatePipe],
+    templateUrl: './articoli.component.html',
+})
+export class ArticoliComponent extends PageBaseComponent<Articolo[]> {}
+```
+
+`PageBaseComponent` inietta automaticamente i servizi comuni e li espone ai componenti figlio:
+
+| Proprietà | Tipo | Uso |
+|---|---|---|
+| `pageContent()` | `Signal<T \| null>` | Dati caricati dal resolver, `null` se errore o non disponibile |
+| `api` | `ApiService` | Client HTTP verso il backend |
+| `asset` | `AssetService` | Risoluzione URL asset |
+| `notify` | `NotificationService` | Dialog, toast, loading |
+| `translate` | `TranslateService` | Traduzioni e lingua corrente |
+
+### 3. Usare i dati nel template
+
+`pageContent()` è un signal reattivo: si aggiorna automaticamente al cambio lingua e alla navigazione.
+
+```html
+@if (pageContent(); as articoli) {
+    @for (a of articoli; track a.id) {
+        <article>{{ a.titolo }}</article>
+    }
+} @else {
+    <app-loading [loading]="true" />
+}
+```
+
+### 4. Aggiungere un endpoint API
+
+In `api.service.ts`, registrare il path nella costante `API` e aggiungere il metodo pubblico:
+
+```typescript
+const API = {
+    articoli: 'articoli',   // ← aggiungere qui
+} as const;
+
+getArticoli(): Promise<Articolo[]> {
+    return this.api_get<Articolo[]>(API.articoli);
+}
+```
+
+Scegliere il wrapper in base al caso d'uso:
+
+| Wrapper | Quando usarlo |
 |---|---|
-| `alt-text` | `<img>` senza attributo `alt` |
-| `elements-content` | Elementi interattivi senza testo accessibile |
-| `label-has-associated-control` | `<label>` senza `for`/`id` corrispondente |
-| `valid-aria` | Attributi ARIA inesistenti o mal formati |
-| `role-has-required-aria` | Role ARIA senza le proprietà obbligatorie |
-| `table-scope` | `<th>` senza `scope` |
-| `no-distracting-elements` | `<marquee>`, `<blink>` |
+| `this.api_get<T>()` | Lettura una-tantum → restituisce `Promise<T>` |
+| `this.api_post<T>()` | Mutazione o invio dati |
+| `this.api_resource<T>()` | Componente persistente che deve aggiornarsi al cambio di signal (es. lingua nel footer) |
 
-Le seguenti sono warning (da valutare caso per caso, non bloccano):
+`BaseApiService.handleError()` gestisce automaticamente la notifica all'utente via Swal e ri-lancia l'errore. Il componente che chiama l'API deve gestire solo lo **stato** nel catch.
 
-| Regola | Cosa verifica |
-|---|---|
-| `click-events-have-key-events` | Click handler senza equivalente keyboard |
-| `interactive-supports-focus` | Elementi interattivi non focusabili |
-| `mouse-events-have-key-events` | Mouse events senza keyboard fallback |
-| `no-autofocus` | Uso di `autofocus` |
+Per le chiamate API aggiuntive all'interno di un componente (fuori dal resolver), usare il facilitatore `loadData()` ereditato da `PageBaseComponent`:
 
-### Checklist componente accessibile
+```typescript
+async caricaExtra(): Promise<void> {
+    this.extra = await this.loadData(() => this.api.getArticoli());
+}
+```
 
-Prima di considerare completo qualsiasi componente UI:
+`loadData()` restituisce `null` in caso di errore — la notifica è già stata mostrata da `BaseApiService`.
 
-- [ ] Semantic HTML corretto (`<button>` per azioni, `<a>` per navigazione, heading gerarchia)
-- [ ] Tutti i `<label>` associati via `for`/`id` o nesting
-- [ ] Tutti i `<img>` hanno `alt` (descrittivo se informativo, `""` se decorativo)
+### 5. Caricare i dati nel resolver
+
+In `content.resolver.ts`, aggiungere un case nello switch di `loadResolved()`:
+
+```typescript
+case PageType.Articoli:
+    content = await this.apiService.getArticoli();
+    break;
+```
+
+Il `try-catch` esterno è già presente: se l'API fallisce, la navigazione si completa con `content = null` invece di cancellarsi. Non occorre gestire l'errore nel singolo case.
+
+---
+
+## Componenti condivisi disponibili
+
+Verificare sempre che il componente cercato non esista già in `shared/` prima di crearne uno nuovo.
+
+### Componenti
+
+| Componente | Uso | File |
+|---|---|---|
+| `<app-loading>` | Spinner accessibile (`role="status"`, `aria-live`, testo visually-hidden) | `shared/components/loading/` |
+| `<app-nav-link>` | Link con `aria-current`, gestione external/internal/active | `shared/components/nav-link/` |
+| `<app-nav-dropdown>` | Disclosure `<details>`/`<summary>` con keyboard nav | `shared/components/nav-dropdown/` |
+| `<app-context-menu>` | Context menu con focus trap, keyboard nav (↑↓ Home End) e focus restore | `shared/components/context-menu/` |
+| `<app-cookie-banner>` | Banner cookie con `role="alert"` e gestione consenso | `shared/components/cookie-banner/` |
+| `<app-back-to-top>` | FAB "torna su" accessibile con `aria-label` tradotto | `shared/components/back-to-top/` |
+| `<app-social-link>` | Link social con `aria-label` adattivo (WCAG 2.5.3-safe) | `shared/components/social-link/` |
+| `<app-footer-nav>` | Griglia link footer da `ContestoSito.linkFooter` con `<nav aria-label>` | `shared/components/footer-nav/` |
+| `<app-profile-render>` | Render dati profilo (contatti + dati societari) in sezioni | `shared/components/profile-render/` |
+
+### Direttive
+
+| Direttiva | Selettore | Uso | File |
+|---|---|---|---|
+| FocusTrapDirective | `appFocusTrap` | Imprigiona il focus Tab/Shift+Tab — usare su dialog/drawer | `shared/directives/focus-trap.directive.ts` |
+| ContextMenuDirective | `appContextMenu` | Aggiunge context menu a qualsiasi elemento | `shared/directives/context-menu.directive.ts` |
+| AssetDirective | `appAsset` / `appAssetHref` | Risolve URL asset da id tramite `AssetService` | `shared/directives/asset.directive.ts` |
+| PageDirective | `appPage` | `RouterLink` da `PageType` con `href` reale per SSR | `shared/directives/page.directive.ts` |
+| ImgRenderDirective | `img[imgRender]` | Genera canvas → PNG → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/img-render.directive.ts` |
+| QrRenderDirective | `img[qrContent]` | Genera QR code → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/qr-render.directive.ts` |
+
+### Pipe
+
+| Pipe | Uso | File |
+|---|---|---|
+| `translate` | Traduce una chiave i18n con argomenti posizionali opzionali | `shared/pipes/translate.pipe.ts` |
+| `markdown` | Converte Markdown → HTML sicuro | `shared/pipes/markdown.pipe.ts` |
+
+---
+
+## Accessibilità — Best Practice
+
+L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. WCAG 2.1 AA è il livello minimo per ogni componente nuovo o modificato.
+
+### Checklist prima di considerare un componente completo
+
+- [ ] Semantic HTML corretto: `<button>` per azioni, `<a>` per navigazione, gerarchia heading rispettata
+- [ ] Tutti i `<label>` associati al controllo via `for`/`id` o nesting
+- [ ] Tutti i `<img>` hanno `alt` (descrittivo se informativo, `""` se puramente decorativo)
 - [ ] Icone decorative hanno `aria-hidden="true"`
-- [ ] Elementi interattivi raggiungibili e attivabili da tastiera
-- [ ] Focus visibile garantito (usa `.fab:focus-visible` o `:focus-visible` globale)
-- [ ] `aria-label` usato **solo** quando non c'è testo visibile — mai duplicare il testo visibile
-- [ ] Testi `aria-label` usano `| translate` (mai stringhe hardcoded)
-- [ ] Link esterni hanno `rel="noopener noreferrer"` e avvisano dello screen change
-- [ ] Overlay/modal usano `appFocusTrap` e ripristinano il focus alla chiusura
-- [ ] Animazioni rispettano `prefers-reduced-motion` (già gestito in `base.css`)
-- [ ] Testato a contrasto: testo normale ≥ 4.5:1, testo grande ≥ 3:1
+- [ ] Elementi interattivi raggiungibili e attivabili da tastiera, focus visibile
+- [ ] `aria-label` usato solo quando non c'è testo visibile — il testo visibile è già il nome accessibile
+- [ ] Ogni testo `aria-label` passa per `| translate` — nessuna stringa hardcoded
+- [ ] Link esterni: `rel="noopener noreferrer"` + avviso screen reader visually-hidden
+- [ ] Overlay e modal: `appFocusTrap` attivo + focus ripristinato all'elemento trigger alla chiusura
+- [ ] Contrasto testo normale ≥ 4.5:1, testo grande ≥ 3:1
 
-### Design token — usa sempre i token, mai valori hardcoded
+### aria-label — binding, non interpolazione
+
+Usare sempre `[attr.aria-label]` (property binding). Il binding accetta `null` per rimuovere l'attributo quando c'è già testo visibile, evitando la ridondanza vietata da WCAG 2.5.3.
+
+```html
+<!-- Elemento solo-icona: aria-label necessario -->
+<button [attr.aria-label]="'backToTopLabel' | translate">
+    <i class="fas fa-chevron-up" aria-hidden="true"></i>
+</button>
+
+<!-- Testo visibile presente: aria-label non va aggiunto -->
+<button>
+    <i class="fas fa-save" aria-hidden="true"></i>
+    {{ 'save' | translate }}
+</button>
+```
+
+### Link esterni
+
+```html
+<a href="..." target="_blank" rel="noopener noreferrer">
+    {{ label }}
+    <span class="visually-hidden"> ({{ 'opensInNewTab' | translate }})</span>
+</a>
+```
+
+### Form — label associate
+
+```html
+<label for="email" class="form-label">{{ 'mail' | translate }}</label>
+<input id="email" type="email" class="form-control">
+```
+
+### Overlay e dialog
+
+```html
+<div role="dialog"
+     aria-modal="true"
+     [attr.aria-label]="'dialogTitle' | translate"
+     appFocusTrap>
+    <!-- contenuto -->
+</div>
+```
+
+### Design token — colori e focus sempre da variabile
 
 ```css
-/* ✅ Corretto */
 background: var(--colorSurface);
-color: var(--colorSurfaceText);
-border: 1px solid var(--colorSurfaceBorder);
-outline: var(--focusRingWidth) solid var(--focusRingColor);
-
-/* ❌ Sbagliato */
-background: #f8f9fa;
-color: #212529;
-outline: 3px solid #141619;
+color:       var(--colorSurfaceText);
+border:      1px solid var(--colorSurfaceBorder);
+outline:     var(--focusRingWidth) solid var(--focusRingColor);
 ```
 
 Token disponibili (definiti in `frontend/src/styles/base.css`):
@@ -93,106 +239,30 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
 | `--focusRingWidth` | Spessore anello di focus |
 | `--focusRingOffset` | Offset anello di focus |
 
-### Componenti condivisi disponibili (usa questi, non reinventare)
-
-#### Componenti
-
-| Componente | Uso | File |
-|---|---|---|
-| `<app-loading>` | Spinner accessibile (`role="status"`, `aria-live`, testo visually-hidden) | `shared/components/loading/` |
-| `<app-nav-link>` | Link con `aria-current`, gestione external/internal/active | `shared/components/nav-link/` |
-| `<app-nav-dropdown>` | Disclosure `<details>`/`<summary>` con keyboard nav | `shared/components/nav-dropdown/` |
-| `<app-context-menu>` | Context menu con focus trap, keyboard nav (↑↓ Home End) e focus restore | `shared/components/context-menu/` |
-| `<app-cookie-banner>` | Banner cookie con `role="alert"` e gestione consenso | `shared/components/cookie-banner/` |
-| `<app-back-to-top>` | FAB "torna su" accessibile con `aria-label` tradotto | `shared/components/back-to-top/` |
-| `<app-social-link>` | Link social con `aria-label` adattivo (WCAG 2.5.3-safe) | `shared/components/social-link/` |
-| `<app-footer-nav>` | Griglia link footer da `ContestoSito.linkFooter` con `<nav aria-label>` | `shared/components/footer-nav/` |
-| `<app-profile-render>` | Render dati profilo (contatti + dati societari) in sezioni | `shared/components/profile-render/` |
-
-#### Direttive
-
-| Direttiva | Selettore | Uso | File |
-|---|---|---|---|
-| FocusTrapDirective | `appFocusTrap` | Imprigiona il focus Tab/Shift+Tab — usare su dialog/drawer | `shared/directives/focus-trap.directive.ts` |
-| ContextMenuDirective | `appContextMenu` | Aggiunge context menu a qualsiasi elemento | `shared/directives/context-menu.directive.ts` |
-| AssetDirective | `appAsset` / `appAssetHref` | Risolve URL asset da id tramite `AssetService` | `shared/directives/asset.directive.ts` |
-| PageDirective | `appPage` | `RouterLink` da `PageType` con `href` reale per SSR | `shared/directives/page.directive.ts` |
-| ImgRenderDirective | `img[imgRender]` | Genera canvas → PNG → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/img-render.directive.ts` |
-| QrRenderDirective | `img[qrContent]` | Genera QR code → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/qr-render.directive.ts` |
-
-#### Pipe
-
-| Pipe | Uso | File |
-|---|---|---|
-| `translate` | Traduce una chiave i18n con argomenti posizionali opzionali | `shared/pipes/translate.pipe.ts` |
-| `markdown` | Converte Markdown → HTML sicuro | `shared/pipes/markdown.pipe.ts` |
-
-**Regola**: prima di creare un nuovo componente, verifica che non esista già in `shared/`. Duplicare componenti shared senza motivazione valida è un errore architetturale.
-
 ---
 
-## Pattern da seguire
+## Regole ESLint accessibility
 
-### Aria-label — quando usarlo
+Configurate in `frontend/eslint.config.mjs`. Le violazioni seguenti rompono `npm run lint` e bloccano la CI:
 
-Usare sempre `[attr.aria-label]` (binding), mai `aria-label="{{ ... }}"` (interpolazione):
-il binding permette di passare `null` per rimuovere l'attributo del tutto (es. WCAG 2.5.3 in `<app-social-link>`).
+| Regola | Cosa verifica |
+|---|---|
+| `alt-text` | `<img>` senza attributo `alt` |
+| `elements-content` | Elementi interattivi senza testo accessibile |
+| `label-has-associated-control` | `<label>` senza `for`/`id` corrispondente |
+| `valid-aria` | Attributi ARIA inesistenti o mal formati |
+| `role-has-required-aria` | Role ARIA senza le proprietà obbligatorie |
+| `table-scope` | `<th>` senza `scope` |
+| `no-distracting-elements` | `<marquee>`, `<blink>` |
 
-```html
-<!-- ✅ Solo icona: aria-label necessario, binding con translate -->
-<button [attr.aria-label]="'backToTopLabel' | translate">
-    <i class="fas fa-chevron-up" aria-hidden="true"></i>
-</button>
+Le seguenti sono warning, da valutare caso per caso:
 
-<!-- ✅ Testo visibile: aria-label NON va messo -->
-<button>
-    <i class="fas fa-save" aria-hidden="true"></i>
-    {{ 'save' | translate }}
-</button>
-
-<!-- ❌ Testo visibile + aria-label identico: ridondante e fragile (WCAG 2.5.3) -->
-<button [attr.aria-label]="'save' | translate">
-    <i class="fas fa-save" aria-hidden="true"></i>
-    {{ 'save' | translate }}
-</button>
-
-<!-- ❌ Stringa hardcoded: non localizzabile -->
-<button aria-label="Close">...</button>
-```
-
-### Link esterni
-
-```html
-<!-- ✅ Annuncia l'apertura in nuova scheda -->
-<a href="..." target="_blank" rel="noopener noreferrer">
-    {{ label }}
-    <span class="visually-hidden"> ({{ 'opensInNewTab' | translate }})</span>
-</a>
-```
-
-### Form — label obbligatorie
-
-```html
-<!-- ✅ Corretto -->
-<label for="email" class="form-label">{{ 'mail' | translate }}</label>
-<input id="email" type="email" class="form-control">
-
-<!-- ❌ Label orfana -->
-<label class="form-label">{{ 'mail' | translate }}</label>
-<input type="email" class="form-control">
-```
-
-### Overlay e dialog
-
-```html
-<!-- ✅ Con focus trap, role e aria-modal -->
-<div role="dialog"
-     aria-modal="true"
-     [attr.aria-label]="'dialogTitle' | translate"
-     appFocusTrap>
-    <!-- contenuto -->
-</div>
-```
+| Regola | Cosa verifica |
+|---|---|
+| `click-events-have-key-events` | Click handler senza equivalente keyboard |
+| `interactive-supports-focus` | Elementi interattivi non focusabili |
+| `mouse-events-have-key-events` | Mouse events senza keyboard fallback |
+| `no-autofocus` | Uso di `autofocus` |
 
 ---
 
@@ -206,119 +276,38 @@ il binding permette di passare `null` per rimuovere l'attributo del tutto (es. W
 | 2 — CI | `.github/workflows/ci.yml` → job `frontend` → step `Lint` | Ad ogni push/PR |
 | 3 — Runtime WCAG | `a11y-test.sh` (pa11y + WCAG2AA) chiamato da `deploy.sh --test-public` | Nel smoke test Docker del deploy |
 
-### Hook pre-commit
-
-Attivato automaticamente da `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`).
-Il commit viene bloccato se `npm run lint` trova errori ESLint nei file staged.
-
-### CI lint
-
-Lo step `Lint` in `.github/workflows/ci.yml` esegue `npm run lint` sul job `frontend`.
-Un errore ESLint rompe la pipeline e blocca il merge della PR.
-
-### a11y-test.sh
-
-Script stand-alone che esegue pa11y (WCAG 2.1 AA) su un server in esecuzione:
+Il pre-commit hook viene attivato automaticamente da `npm install` (script `prepare` configura `core.hooksPath = .githooks`).
 
 ```bash
-# Utilizzo diretto
+# Audit WCAG 2.1 AA su un server in esecuzione
 ./a11y-test.sh http://localhost:3000
 ./a11y-test.sh http://localhost:3000 / /social /404
 
-# Integrato in deploy.sh (automatico con --test-public)
+# Integrato nel deploy
 bash deploy.sh --test-public
-bash deploy.sh --test-public --skip-a11y   # salta il test a11y
+bash deploy.sh --test-public --skip-a11y   # solo per debug locale
 ```
 
 Configurazione in `pa11y.json` (root del repo): standard WCAG2AA, livello "error".
-
-Il flag `--skip-a11y` è utile solo per debug; non usarlo nelle pipeline di produzione.
-
----
-
-## Aggiungere un endpoint API
-
-### 1. Registrare il path
-
-In `frontend/src/app/core/services/api.service.ts`, aggiungere la chiave alla costante `API`:
-
-```typescript
-const API = {
-    social:  'social',
-    profile: 'profile',
-    articoli: 'articoli',          // ← nuovo
-} as const;
-```
-
-### 2. Aggiungere il metodo pubblico
-
-Scegliere il wrapper in base all'uso:
-
-| Wrapper | Quando usarlo |
-|---|---|
-| `this.api_get<T>()` | Chiamata una-tantum, risultato come Promise |
-| `this.api_post<T>()` | Mutazione/invio dati |
-| `this.api_resource<T>()` | Componente reattivo che deve aggiornarsi al cambio di signal (es. lingua) |
-
-```typescript
-// Chiamata una-tantum
-getArticoli(): Promise<Articolo[]> {
-    return this.api_get<Articolo[]>(API.articoli);
-}
-
-// Reattivo (footer, header — componenti sempre attivi)
-getArticoliResource() {
-    return this.api_resource<Articolo[]>(API.articoli);
-}
-```
-
-La gestione errori è automatica: `BaseApiService.handleError()` mostra il dialog e ri-lancia l'errore. Il componente che chiama l'API deve gestire solo lo **stato** nel `catch` (es. `content = null`), non notificare di nuovo.
-
-### 3. Se il dato carica una pagina — aggiornare il resolver
-
-In `frontend/src/app/pages/content.resolver.ts`, aggiungere un case nello switch:
-
-```typescript
-case PageType.Articoli:
-    content = await this.apiService.getArticoli();
-    break;
-```
-
-Il `try-catch` esterno è già presente e protegge il router: se l'API fallisce, la navigazione si completa comunque con `content = null`.
-
-### Cosa NON fare
-
-```typescript
-// ❌ Chiamare notify.handleApiError() nel componente dopo un errore API:
-//    BaseApiService lo ha già fatto → l'utente vede due dialog.
-try {
-    this.data = await this.api.getArticoli();
-} catch (err) {
-    this.notify.handleApiError(...); // doppio Swal
-}
-
-// ✅ Gestire solo lo stato:
-try {
-    this.data = await this.api.getArticoli();
-} catch {
-    this.data = null; // notifica già mostrata
-}
-```
 
 ---
 
 ## Comandi frequenti
 
 ```bash
-# Frontend
 cd frontend
 npm run lint          # ESLint + regole a11y (0 errori = pronto per PR)
 npm run build         # Build production
 npm test              # Test unitari (Karma/Jasmine)
+```
 
-# I18n: aggiungi sempre le chiavi in ENTRAMBI i file
-# frontend/src/assets/i18n/basic.en.json
-# frontend/src/assets/i18n/basic.it.json
+I18n — aggiungere sempre le chiavi in tutti i file coinvolti:
+
+```
+frontend/src/assets/i18n/basic.en.json   # chiavi framework condivise (EN)
+frontend/src/assets/i18n/basic.it.json   # chiavi framework condivise (IT)
+frontend/src/assets/i18n/addon.en.json   # chiavi specifiche del progetto (EN)
+frontend/src/assets/i18n/addon.it.json   # chiavi specifiche del progetto (IT)
 ```
 
 ---
@@ -341,7 +330,7 @@ frontend/
 │   ├── layout/           # Shell (navbar, footer, smoke-effect)
 │   ├── pages/            # Componenti di rotta (home, error, policy, social)
 │   └── shared/
-│       ├── components/   # Componenti riusabili — usa questi prima di crearne di nuovi
+│       ├── components/   # Componenti riusabili — verificare qui prima di crearne di nuovi
 │       ├── directives/   # Direttive standalone
 │       └── pipes/        # translate, markdown
 ├── src/styles/
