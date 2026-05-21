@@ -130,6 +130,20 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
     font-size: 0.95rem;
 }
 
+/* btn-outline-secondary (#6c757d) fails WCAG 4.5:1 on light surfaces (3.3:1).
+   Remap to surface text colour so the reject button stays accessible in every
+   theme variant without changing the neutral visual intent. */
+app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn-outline-secondary {
+    --bs-btn-color: var(--colorSurfaceText);
+    --bs-btn-border-color: color-mix(in srgb, var(--colorSurfaceText) 45%, transparent);
+    --bs-btn-hover-color: var(--colorSurfaceText);
+    --bs-btn-hover-border-color: var(--colorSurfaceText);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--colorSurfaceText) 10%, transparent);
+    --bs-btn-active-bg: color-mix(in srgb, var(--colorSurfaceText) 18%, transparent);
+    --bs-btn-active-color: var(--colorSurfaceText);
+    --bs-btn-active-border-color: var(--colorSurfaceText);
+}
+
 @media (max-width: 767.98px) {
     app-cookie-banner .cookie-banner-modern {
         padding-left: 0.75rem;

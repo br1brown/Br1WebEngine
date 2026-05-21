@@ -407,8 +407,10 @@
                                 <p class="small text-muted mb-2">{{ 'internalsApiDesc' | translate }}</p>
                                 <p class="small mb-2">{{ apiStatus }}</p>
 
+                                <label class="form-label small mb-1" for="socialFilter">{{ 'socialFilterLabel' | translate }}</label>
                                 <div class="input-group input-group-sm mb-2">
                                     <input type="text"
+                                           id="socialFilter"
                                            class="form-control"
                                            [(ngModel)]="socialFilter"
                                            [placeholder]="translate.translate('socialFilterLabel')">
@@ -431,8 +433,10 @@
                                 <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
                                 <p class="small text-muted mb-2">{{ 'assetResolverDesc' | translate }}</p>
 
+                                <label class="form-label small mb-1" for="assetIdInput">{{ 'assetResolverInputLabel' | translate }}</label>
                                 <div class="input-group input-group-sm mb-2">
                                     <input type="text"
+                                           id="assetIdInput"
                                            class="form-control"
                                            [(ngModel)]="assetId"
                                            [placeholder]="translate.translate('assetResolverInputLabel')">

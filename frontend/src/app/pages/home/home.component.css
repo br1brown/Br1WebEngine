@@ -67,3 +67,29 @@
     cursor: default;
   }
 }
+
+/* btn-outline-info (#0dcaf0) and btn-outline-warning (#ffc107) fail WCAG 4.5:1
+   on light card backgrounds (1.96:1 and 1.63:1 respectively). Override to
+   accessible teal/amber in light mode; Bootstrap defaults remain for dark mode
+   where the original colours already meet contrast requirements. */
+:root[data-theme-tone='light'] .btn-outline-info {
+    --bs-btn-color: #00819b;
+    --bs-btn-border-color: #00819b;
+    --bs-btn-hover-bg: #00819b;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-border-color: #00819b;
+    --bs-btn-active-bg: #006a7e;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-border-color: #006a7e;
+}
+
+:root[data-theme-tone='light'] .btn-outline-warning {
+    --bs-btn-color: #967100;
+    --bs-btn-border-color: #967100;
+    --bs-btn-hover-bg: #967100;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-border-color: #967100;
+    --bs-btn-active-bg: #7a5b00;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-border-color: #7a5b00;
+}
