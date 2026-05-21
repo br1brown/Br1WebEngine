@@ -110,5 +110,6 @@
   "cookieCategoryProfilingDesc": "Used to show personalised content based on the user's interests.",
   "nuovaVersioneTitle": "New version available",
   "nuovaVersioneDesc": "An updated version of the application is available. Refresh the page to apply the changes.",
-  "aggiornaApp": "Refresh"
+  "aggiornaApp": "Refresh",
+  "contextMenuLabel": "Context menu"
 }

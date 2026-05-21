@@ -1,4 +1,32 @@
-/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
+/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService.
+ *
+ * ── Design Token Reference ───────────────────────────────────────────────────
+ * Tutte le variabili --color* sono "design token" gestiti da ThemeService.
+ * Non usare valori di colore hardcoded nei componenti: usa sempre i token qui
+ * sotto per garantire coerenza, dark-mode e accessibilità automatici.
+ *
+ * Token di colore:
+ *   --colorTema          Colore principale del brand (impostato runtime)
+ *   --colorBase          Sfondo body (20% bianco + tema)
+ *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA
+ *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
+ *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
+ *   --colorLink          Colore link, di default currentColor
+ *   --colorSurface       Sfondo pannelli/card
+ *   --colorSurfaceHover  Sfondo pannelli on hover
+ *   --colorSurfaceBorder Bordo pannelli
+ *   --colorSurfaceText   Testo su --colorSurface
+ *
+ * Token di focus (WCAG 2.4.7 / 2.4.11):
+ *   --focusRingColor     Colore dell'anello di focus (default: --colorPrimary)
+ *   --focusRingWidth     Spessore dell'anello (default: 3px)
+ *   --focusRingOffset    Offset dall'elemento (default: 2px)
+ *
+ * Uso tipico nei componenti:
+ *   background: var(--colorSurface);
+ *   color: var(--colorSurfaceText);
+ *   border: 1px solid var(--colorSurfaceBorder);
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 /* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
    ThemeService imposta a runtime: --colorTema, --fontFamily, --colorPrimary,
@@ -18,6 +46,11 @@
     --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
     --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
     --colorSurfaceText: color-mix(in srgb, white 94%, var(--colorTema) 6%);
+
+    /* Focus tokens — WCAG 2.4.7 / 2.4.11 */
+    --focusRingColor: var(--colorPrimary, #141619);
+    --focusRingWidth: 3px;
+    --focusRingOffset: 2px;
 }
 
 :root[data-theme-tone='light'] {
@@ -30,6 +63,18 @@
 
 :root[data-theme-tone='dark'] {
     color-scheme: dark;
+}
+
+/* ── Focus-visible policy globale (WCAG 2.4.7 / 2.4.11) ────────────────────
+   Garantisce un indicatore di focus visibile e coerente su TUTTI gli elementi
+   interattivi. I browser mostrano il focus solo via tastiera (:focus-visible);
+   il mouse non genera l'anello. Componenti con focus personalizzato (es. .fab,
+   .skip-link) ridefiniscono il loro :focus-visible più sotto.
+   ─────────────────────────────────────────────────────────────────────────── */
+:focus-visible {
+    outline: var(--focusRingWidth) solid var(--focusRingColor);
+    outline-offset: var(--focusRingOffset);
+    border-radius: 2px;
 }
 
 html {

@@ -110,5 +110,6 @@
   "cookieCategoryProfilingDesc": "Utilizzati per mostrare contenuti personalizzati in base agli interessi dell'utente.",
   "nuovaVersioneTitle": "Nuova versione disponibile",
   "nuovaVersioneDesc": "È disponibile una versione aggiornata dell'applicazione. Aggiorna la pagina per applicare le modifiche.",
-  "aggiornaApp": "Aggiorna"
+  "aggiornaApp": "Aggiorna",
+  "contextMenuLabel": "Menu contestuale"
 }

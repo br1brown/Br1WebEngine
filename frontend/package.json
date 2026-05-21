@@ -21,7 +21,8 @@
     "dev": "ng serve --open --ssl false --proxy-config proxy.local.conf.json",
     "dev:ssr": "npm run build && cross-env ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@angular/animations": "^19.0.0",
@@ -51,6 +52,9 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
+    "@angular-eslint/eslint-plugin": "^21.4.0",
+    "@angular-eslint/eslint-plugin-template": "^21.4.0",
+    "@angular-eslint/template-parser": "^21.4.0",
     "@angular/build": "^19.0.0",
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
@@ -66,6 +70,7 @@
     "karma-jasmine": "^5.1.0",
     "karma-jasmine-html-reporter": "^2.2.0",
     "tsx": "^4.19.0",
-    "typescript": "~5.6.0"
+    "typescript": "~5.6.0",
+    "typescript-eslint": "^8.59.4"
   }
 }

@@ -2,7 +2,7 @@
      class="context-menu surface-elevated"
      [class.context-menu-sheet]="presentation() === 'sheet'"
      role="menu"
-     aria-label="Menu contestuale"
+     [attr.aria-label]="'contextMenuLabel' | translate"
      [style.left.px]="presentation() === 'popover' ? menuX() : null"
      [style.top.px]="presentation() === 'popover' ? menuY() : null">
     <ul class="list-unstyled m-0" role="presentation">

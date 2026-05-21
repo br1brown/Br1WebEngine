@@ -51,6 +51,10 @@ jobs:
         working-directory: frontend
         run: npm audit --audit-level=high --omit=dev
 
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
       - name: Generate Statics
         working-directory: frontend
         run: npm run generate:statics

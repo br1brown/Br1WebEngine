@@ -27,6 +27,7 @@ export class ContextMenuDirective {
 
     private overlayRef: ComponentRef<ContextMenuOverlayComponent> | null = null;
     private destroyListeners: (() => void)[] = [];
+    private triggerEl: Element | null = null;
     private longPressTimer: number | null = null;
     private suppressNextClickTimer: number | null = null;
     private pointerOrigin: { x: number; y: number } | null = null;
@@ -115,6 +116,9 @@ export class ContextMenuDirective {
     private openMenu(clientX: number, clientY: number, presentation: 'popover' | 'sheet'): void {
         this.close();
 
+        // Salva l'elemento con il focus corrente per ripristinarlo alla chiusura
+        this.triggerEl = this.isBrowser ? document.activeElement : null;
+
         this.overlayRef = this.vcr.createComponent(ContextMenuOverlayComponent);
 
         // setInput() è l'API corretta per impostare signal inputs su componenti creati dinamicamente
@@ -128,12 +132,15 @@ export class ContextMenuDirective {
         }
 
         this.overlayRef.instance.adjustPosition(clientX, clientY);
+        this.overlayRef.instance.focusFirst();
 
         // OutputRef.subscribe() si auto-completa quando il componente viene distrutto
         this.overlayRef.instance.optionSelected.subscribe(option => {
             option.action?.();
             this.close();
         });
+
+        this.overlayRef.instance.menuDismissed.subscribe(() => this.close());
 
         this.addCloseListeners(el);
     }
@@ -220,6 +227,10 @@ export class ContextMenuDirective {
             }
             this.overlayRef.destroy();
             this.overlayRef = null;
+
+            // Ripristina il focus all'elemento che ha aperto il menu
+            (this.triggerEl as HTMLElement | null)?.focus();
+            this.triggerEl = null;
         }
         this.destroyListeners.forEach(fn => fn());
         this.destroyListeners = [];

@@ -44,7 +44,7 @@ export class ContentResolver {
 
         let content: unknown = null;
         //Pronto per essere modificato da eventuali api future - vedi apiService
-        let info = ContestoSito.getPageInfo(pageType);
+        const info = ContestoSito.getPageInfo(pageType);
 
         switch (pageType) {
             case PageType.Social:

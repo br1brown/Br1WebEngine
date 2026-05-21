@@ -1,11 +1,16 @@
 import { Component, input } from '@angular/core';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
     selector: 'app-loading',
+    imports: [TranslatePipe],
     template: `
         @if (loading()) {
-            <div class="d-flex justify-content-center align-items-center py-4">
-                <div class="spinner-border" role="status" aria-hidden="true"></div>
+            <div class="d-flex justify-content-center align-items-center py-4"
+                 role="status"
+                 aria-live="polite">
+                <div class="spinner-border" aria-hidden="true"></div>
+                <span class="visually-hidden">{{ 'caricamento' | translate }}</span>
             </div>
         } @else {
             <ng-content />

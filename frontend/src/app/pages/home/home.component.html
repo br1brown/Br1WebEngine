@@ -16,8 +16,9 @@
                                 <h2 class="card-title mb-1 h5">{{ 'markdownLabTitle' | translate }}</h2>
                                 <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
 
-                                <label class="form-label">{{ 'markdownInputLabel' | translate }}</label>
+                                <label class="form-label" for="markdownInput">{{ 'markdownInputLabel' | translate }}</label>
                                 <textarea class="form-control"
+                                          id="markdownInput"
                                           rows="7"
                                           [(ngModel)]="markdownInput"
                                           (ngModelChange)="onMarkdownChange()"
@@ -50,13 +51,14 @@
                                     {{ 'markdownShortcutHint' | translate }}
                                 </small>
 
-                                <label class="form-label mt-3">{{ 'markdownPreviewTitle' | translate }}</label>
+                                <p class="form-label mt-3 mb-1" id="markdownPreviewLabel">{{ 'markdownPreviewTitle' | translate }}</p>
                                 <div class="border rounded p-3 markdown-preview theme-demo-surface"
+                                     aria-labelledby="markdownPreviewLabel"
                                      [innerHTML]="markdownPreview">
                                 </div>
 
                                 @if (markdownHtml) {
-                                <label class="form-label mt-3">{{ 'markdownHtmlOutputTitle' | translate }}</label>
+                                <p class="form-label mt-3 mb-1">{{ 'markdownHtmlOutputTitle' | translate }}</p>
                                 <pre class="border rounded p-2 mb-2 theme-demo-surface"><code>{{ markdownHtml }}</code></pre>
                                 <button class="btn btn-sm btn-outline-primary"
                                         (click)="copyToClipboard(markdownHtml)">
@@ -78,17 +80,19 @@
 
                                 <div class="row g-3 align-items-start">
                                     <div class="col-md-5">
-                                        <label class="form-label">{{ 'imageTextPlaceholder' | translate }}</label>
+                                        <label class="form-label" for="imgText">{{ 'imageTextPlaceholder' | translate }}</label>
                                         <textarea class="form-control mb-3"
+                                                  id="imgText"
                                                   rows="3"
                                                   [(ngModel)]="imgText"
                                                   (ngModelChange)="onImageInputChange()"></textarea>
 
                                         <div class="mb-3">
-                                            <label class="form-label">
+                                            <label class="form-label" for="imgFontSize">
                                                 {{ 'imageSize' | translate }}: {{ imgFontSize }}px
                                             </label>
                                             <input type="range"
+                                                   id="imgFontSize"
                                                    class="form-range"
                                                    min="50"
                                                    max="120"
@@ -138,8 +142,9 @@
                                     <div class="col-md-5">
 
                                         <!-- Tipo -->
-                                        <label class="form-label">Tipo</label>
+                                        <label class="form-label" for="qrType">Tipo</label>
                                         <select class="form-select mb-3"
+                                                id="qrType"
                                                 [(ngModel)]="qrType"
                                                 (ngModelChange)="onQrTypeChange()">
                                             <option value="text">Testo / URL</option>
@@ -153,48 +158,51 @@
                                         @switch (qrType) {
 
                                             @case ('text') {
-                                                <label class="form-label">Contenuto</label>
+                                                <label class="form-label" for="qrText">Contenuto</label>
                                                 <textarea class="form-control mb-3"
+                                                          id="qrText"
                                                           rows="3"
                                                           [(ngModel)]="qrText"
                                                           placeholder="https://example.com oppure testo libero"></textarea>
                                             }
 
                                             @case ('whatsapp') {
-                                                <label class="form-label">Numero (con prefisso, es. +39…)</label>
-                                                <input type="tel" class="form-control mb-2"
+                                                <label class="form-label" for="qrPhone">Numero (con prefisso, es. +39…)</label>
+                                                <input type="tel" id="qrPhone" class="form-control mb-2"
                                                        [(ngModel)]="qrPhone"
                                                        placeholder="+393331234567">
-                                                <label class="form-label">Messaggio precompilato (opzionale)</label>
+                                                <label class="form-label" for="qrWhatsappText">Messaggio precompilato (opzionale)</label>
                                                 <textarea class="form-control mb-3"
+                                                          id="qrWhatsappText"
                                                           rows="2"
                                                           [(ngModel)]="qrWhatsappText"></textarea>
                                             }
 
                                             @case ('email') {
-                                                <label class="form-label">Destinatario</label>
-                                                <input type="email" class="form-control mb-2"
+                                                <label class="form-label" for="qrEmail">Destinatario</label>
+                                                <input type="email" id="qrEmail" class="form-control mb-2"
                                                        [(ngModel)]="qrEmail"
                                                        placeholder="info@esempio.it">
-                                                <label class="form-label">Oggetto (opzionale)</label>
-                                                <input type="text" class="form-control mb-2"
+                                                <label class="form-label" for="qrEmailSubject">Oggetto (opzionale)</label>
+                                                <input type="text" id="qrEmailSubject" class="form-control mb-2"
                                                        [(ngModel)]="qrEmailSubject">
-                                                <label class="form-label">Corpo (opzionale)</label>
+                                                <label class="form-label" for="qrEmailBody">Corpo (opzionale)</label>
                                                 <textarea class="form-control mb-3"
+                                                          id="qrEmailBody"
                                                           rows="2"
                                                           [(ngModel)]="qrEmailBody"></textarea>
                                             }
 
                                             @case ('wifi') {
-                                                <label class="form-label">Nome rete (SSID)</label>
-                                                <input type="text" class="form-control mb-2"
+                                                <label class="form-label" for="qrSsid">Nome rete (SSID)</label>
+                                                <input type="text" id="qrSsid" class="form-control mb-2"
                                                        [(ngModel)]="qrSsid"
                                                        placeholder="NomeWifi">
-                                                <label class="form-label">Password (opzionale)</label>
-                                                <input type="text" class="form-control mb-2"
+                                                <label class="form-label" for="qrWifiPassword">Password (opzionale)</label>
+                                                <input type="text" id="qrWifiPassword" class="form-control mb-2"
                                                        [(ngModel)]="qrWifiPassword">
-                                                <label class="form-label">Sicurezza</label>
-                                                <select class="form-select mb-3" [(ngModel)]="qrWifiEncryption">
+                                                <label class="form-label" for="qrWifiEncryption">Sicurezza</label>
+                                                <select id="qrWifiEncryption" class="form-select mb-3" [(ngModel)]="qrWifiEncryption">
                                                     <option value="WPA">WPA / WPA2</option>
                                                     <option value="WEP">WEP</option>
                                                     <option value="nopass">Nessuna</option>
@@ -202,19 +210,19 @@
                                             }
 
                                             @case ('sepa') {
-                                                <label class="form-label">IBAN beneficiario</label>
-                                                <input type="text" class="form-control mb-2"
+                                                <label class="form-label" for="qrIban">IBAN beneficiario</label>
+                                                <input type="text" id="qrIban" class="form-control mb-2"
                                                        [(ngModel)]="qrIban"
                                                        placeholder="IT60 X054 2811 1010 0000 0123 456">
-                                                <label class="form-label">Nome beneficiario</label>
-                                                <input type="text" class="form-control mb-2"
+                                                <label class="form-label" for="qrBeneficiaryName">Nome beneficiario</label>
+                                                <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
                                                        [(ngModel)]="qrBeneficiaryName">
-                                                <label class="form-label">Importo (€)</label>
-                                                <input type="number" class="form-control mb-2"
+                                                <label class="form-label" for="qrAmount">Importo (€)</label>
+                                                <input type="number" id="qrAmount" class="form-control mb-2"
                                                        [(ngModel)]="qrAmount"
                                                        min="0.01" step="0.01">
-                                                <label class="form-label">Causale (opzionale)</label>
-                                                <input type="text" class="form-control mb-3"
+                                                <label class="form-label" for="qrRemittance">Causale (opzionale)</label>
+                                                <input type="text" id="qrRemittance" class="form-control mb-3"
                                                        [(ngModel)]="qrRemittance">
                                             }
                                         }
@@ -269,8 +277,9 @@
                                 <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
 
                                 <div class="mb-3">
-                                    <label class="form-label">{{ 'speechInputLabel' | translate }}</label>
+                                    <label class="form-label" for="speechInput">{{ 'speechInputLabel' | translate }}</label>
                                     <textarea class="form-control"
+                                              id="speechInput"
                                               rows="3"
                                               [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
                                               [placeholder]="translate.translate('speechPlaceholder')"></textarea>
