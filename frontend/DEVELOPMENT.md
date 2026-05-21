@@ -1444,15 +1444,22 @@ const { rawUrl, angularUrl } = this.asset.getUrlFromBlob(blob);
 
 L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. WCAG 2.1 AA è il livello minimo per ogni componente nuovo o modificato.
 
-### Tre livelli di protezione automatici
+### Quattro livelli di protezione automatici
 
 | Livello | Strumento | Quando scatta |
 |---|---|---|
-| 1 — Pre-commit locale | `.githooks/pre-commit` → `npm run lint` | Ad ogni `git commit` con file `frontend/src/` staged |
-| 2 — CI | `.github/workflows/ci.yml` → step `Lint` | Ad ogni push/PR |
-| 3 — Runtime WCAG | `a11y-test.sh` (pa11y + WCAG2AA) | Nel smoke test Docker di `deploy.sh --test-public` |
+| Pre-commit | `scripts/test/lint-check.sh` | Ad ogni `git commit` con file `frontend/src/` staged |
+| CI — statico | `lint-check.sh`, `tsc-check.sh`, `i18n-check.sh` | Ad ogni push/PR (job paralleli, nessun server) |
+| CI — live | `a11y-test.sh`, `lighthouse-test.sh` | Ad ogni push/PR (job `live-tests`, dopo i job statici) |
+| Deploy | `scripts/test/run-all.sh` | `deploy.sh --run-tests` (post-deploy, tutti gli script in sequenza) |
 
 Il pre-commit hook si attiva automaticamente dopo `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`). Ogni commit con file sorgente staged passa per ESLint prima di essere accettato.
+
+> **`site.ts` come fonte di verità per i test**
+>
+> La test suite si adatta automaticamente alla configurazione del sito, senza modifiche agli script:
+> - `getSitemapEntries()` alimenta l'endpoint `/health` → `a11y-test.sh` e `lighthouse-test.sh` scoprono da soli le pagine da verificare. Aggiungere una pagina in `site.ts` la include automaticamente nell'audit.
+> - `availableLanguages` è letto da `i18n-check.sh` → se si aggiunge o rimuove una lingua, il check si adatta. Nessuna chiave hardcodata nello script.
 
 ### Regole ESLint — errori bloccanti
 
@@ -1569,15 +1576,21 @@ Token disponibili (definiti in `src/styles/base.css`):
 ### Audit WCAG a runtime
 
 ```bash
-# Audit diretto su un server in esecuzione
-./a11y-test.sh http://localhost:3000
-./a11y-test.sh http://localhost:3000 / /social /404
+# Audit accessibilità su un server in esecuzione (auto-scopre le pagine da /health)
+scripts/test/a11y-test.sh http://localhost:3000
 
-# Integrato nel deploy (automatico con --test-public)
-bash deploy.sh --test-public
+# Audit Lighthouse (performance, a11y, best-practices, seo)
+scripts/test/lighthouse-test.sh http://localhost:3000
+
+# Suite completa (lint → tsc → i18n → a11y → lighthouse)
+scripts/test/run-all.sh http://localhost:3000
+
+# Nel deploy post-produzione
+bash deploy.sh --run-tests
 ```
 
-Configurazione in `pa11y.json` (root del repo): standard WCAG2AA, livello "error". Il flag `--skip-a11y` è disponibile solo per debug locale.
+Configurazione pa11y in `scripts/test/pa11y.json`: standard WCAG2AA, livello "error".
+Soglie Lighthouse in `scripts/test/lighthouse.json`: performance 70, accessibility 90, best-practices 85, seo 80.
 
 ---
 

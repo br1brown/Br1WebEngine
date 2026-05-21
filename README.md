@@ -112,6 +112,10 @@ Un campo vuoto in configurazione disabilita completamente il login JWT — nessu
 
 Menu contestuale (click destro su desktop, long-press su mobile), 35+ piattaforme social con icona e colore brand precisi, condivisione nativa con fallback automatico su clipboard e download, generazione di immagini su canvas con word-wrap e colori dal tema, generatore QR code in cinque formati, ottimizzazione immagini on-demand con conversione WebP. Tutto senza configurazione aggiuntiva.
 
+### Test e qualità automatici
+
+Aggiungere una pagina o una lingua in `site.ts` aggiorna automaticamente anche la test suite — senza toccare gli script. L'audit WCAG e Lighthouse scopre le pagine da testare dallo stesso endpoint `/health` che alimenta la sitemap. Il check i18n legge le lingue dichiarate in configurazione e verifica che tutti i file di traduzione siano allineati. Un pre-commit hook blocca ogni commit che introduce violazioni di accessibilità ESLint. Cinque job CI paralleli coprono linting, type check, simmetria i18n, WCAG 2.1 AA e budget Lighthouse — ciascuno con log separati e segnalazione indipendente.
+
 ### Build e deploy
 
 La build genera automaticamente meta tag, sitemap, icone PWA e robots.txt prima di compilare. Docker sostituisce le variabili d'ambiente nel bundle già compilato a runtime — nessun rebuild per cambiare endpoint o chiave API. L'app segnala all'utente quando è disponibile una nuova versione senza forzare il reload.
