@@ -95,19 +95,37 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
 
 ### Componenti condivisi disponibili (usa questi, non reinventare)
 
-| Componente/Direttiva | Uso | File |
+#### Componenti
+
+| Componente | Uso | File |
 |---|---|---|
-| `<app-loading>` | Spinner accessibile con testo screen reader | `shared/components/loading/` |
-| `<app-nav-link>` | Link con aria-current, external/internal/active | `shared/components/nav-link/` |
-| `<app-nav-dropdown>` | Disclosure navigation con keyboard | `shared/components/nav-dropdown/` |
-| `<app-context-menu>` | Context menu con focus trap e keyboard nav | `shared/components/context-menu/` |
-| `<app-cookie-banner>` | Banner consenso cookie con role="alert" | `shared/components/cookie-banner/` |
-| `<app-back-to-top>` | FAB "torna su" accessibile | `shared/components/back-to-top/` |
-| `<app-social-link>` | Link social con aria-label adattivo | `shared/components/social-link/` |
-| `appFocusTrap` | Direttiva focus trap per dialog/drawer | `shared/directives/focus-trap.directive.ts` |
-| `appContextMenu` | Aggiunge context menu a qualsiasi elemento | `shared/directives/context-menu.directive.ts` |
-| `appAsset` / `appAssetHref` | Risolve URL asset da id | `shared/directives/asset.directive.ts` |
-| `appPage` | RouterLink da PageType con href reale | `shared/directives/page.directive.ts` |
+| `<app-loading>` | Spinner accessibile (`role="status"`, `aria-live`, testo visually-hidden) | `shared/components/loading/` |
+| `<app-nav-link>` | Link con `aria-current`, gestione external/internal/active | `shared/components/nav-link/` |
+| `<app-nav-dropdown>` | Disclosure `<details>`/`<summary>` con keyboard nav | `shared/components/nav-dropdown/` |
+| `<app-context-menu>` | Context menu con focus trap, keyboard nav (↑↓ Home End) e focus restore | `shared/components/context-menu/` |
+| `<app-cookie-banner>` | Banner cookie con `role="alert"` e gestione consenso | `shared/components/cookie-banner/` |
+| `<app-back-to-top>` | FAB "torna su" accessibile con `aria-label` tradotto | `shared/components/back-to-top/` |
+| `<app-social-link>` | Link social con `aria-label` adattivo (WCAG 2.5.3-safe) | `shared/components/social-link/` |
+| `<app-footer-nav>` | Griglia link footer da `ContestoSito.linkFooter` con `<nav aria-label>` | `shared/components/footer-nav/` |
+| `<app-profile-render>` | Render dati profilo (contatti + dati societari) in sezioni | `shared/components/profile-render/` |
+
+#### Direttive
+
+| Direttiva | Selettore | Uso | File |
+|---|---|---|---|
+| FocusTrapDirective | `appFocusTrap` | Imprigiona il focus Tab/Shift+Tab — usare su dialog/drawer | `shared/directives/focus-trap.directive.ts` |
+| ContextMenuDirective | `appContextMenu` | Aggiunge context menu a qualsiasi elemento | `shared/directives/context-menu.directive.ts` |
+| AssetDirective | `appAsset` / `appAssetHref` | Risolve URL asset da id tramite `AssetService` | `shared/directives/asset.directive.ts` |
+| PageDirective | `appPage` | `RouterLink` da `PageType` con `href` reale per SSR | `shared/directives/page.directive.ts` |
+| ImgRenderDirective | `img[imgRender]` | Genera canvas → PNG → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/img-render.directive.ts` |
+| QrRenderDirective | `img[qrContent]` | Genera QR code → `src` su `<img>`; l'`alt` va sull'`<img>` | `shared/directives/qr-render.directive.ts` |
+
+#### Pipe
+
+| Pipe | Uso | File |
+|---|---|---|
+| `translate` | Traduce una chiave i18n con argomenti posizionali opzionali | `shared/pipes/translate.pipe.ts` |
+| `markdown` | Converte Markdown → HTML sicuro | `shared/pipes/markdown.pipe.ts` |
 
 **Regola**: prima di creare un nuovo componente, verifica che non esista già in `shared/`. Duplicare componenti shared senza motivazione valida è un errore architetturale.
 
@@ -117,9 +135,12 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
 
 ### Aria-label — quando usarlo
 
+Usare sempre `[attr.aria-label]` (binding), mai `aria-label="{{ ... }}"` (interpolazione):
+il binding permette di passare `null` per rimuovere l'attributo del tutto (es. WCAG 2.5.3 in `<app-social-link>`).
+
 ```html
-<!-- ✅ Solo icona: aria-label necessario -->
-<button aria-label="{{ 'backToTopLabel' | translate }}">
+<!-- ✅ Solo icona: aria-label necessario, binding con translate -->
+<button [attr.aria-label]="'backToTopLabel' | translate">
     <i class="fas fa-chevron-up" aria-hidden="true"></i>
 </button>
 
@@ -129,11 +150,14 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
     {{ 'save' | translate }}
 </button>
 
-<!-- ❌ Testo visibile + aria-label identico: ridondante e fragile -->
-<button aria-label="{{ 'save' | translate }}">
+<!-- ❌ Testo visibile + aria-label identico: ridondante e fragile (WCAG 2.5.3) -->
+<button [attr.aria-label]="'save' | translate">
     <i class="fas fa-save" aria-hidden="true"></i>
     {{ 'save' | translate }}
 </button>
+
+<!-- ❌ Stringa hardcoded: non localizzabile -->
+<button aria-label="Close">...</button>
 ```
 
 ### Link esterni
@@ -172,6 +196,46 @@ Token disponibili (definiti in `frontend/src/styles/base.css`):
 
 ---
 
+## Tooling di accessibilità
+
+### Tre livelli di protezione
+
+| Livello | Strumento | Quando scatta |
+|---|---|---|
+| 1 — Locale pre-commit | `.githooks/pre-commit` → `npm run lint` | Ad ogni `git commit` con file `frontend/src/` staged |
+| 2 — CI | `.github/workflows/ci.yml` → job `frontend` → step `Lint` | Ad ogni push/PR |
+| 3 — Runtime WCAG | `a11y-test.sh` (pa11y + WCAG2AA) chiamato da `deploy.sh --test-public` | Nel smoke test Docker del deploy |
+
+### Hook pre-commit
+
+Attivato automaticamente da `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`).
+Il commit viene bloccato se `npm run lint` trova errori ESLint nei file staged.
+
+### CI lint
+
+Lo step `Lint` in `.github/workflows/ci.yml` esegue `npm run lint` sul job `frontend`.
+Un errore ESLint rompe la pipeline e blocca il merge della PR.
+
+### a11y-test.sh
+
+Script stand-alone che esegue pa11y (WCAG 2.1 AA) su un server in esecuzione:
+
+```bash
+# Utilizzo diretto
+./a11y-test.sh http://localhost:3000
+./a11y-test.sh http://localhost:3000 / /social /404
+
+# Integrato in deploy.sh (automatico con --test-public)
+bash deploy.sh --test-public
+bash deploy.sh --test-public --skip-a11y   # salta il test a11y
+```
+
+Configurazione in `pa11y.json` (root del repo): standard WCAG2AA, livello "error".
+
+Il flag `--skip-a11y` è utile solo per debug; non usarlo nelle pipeline di produzione.
+
+---
+
 ## Comandi frequenti
 
 ```bash
@@ -188,24 +252,34 @@ npm test              # Test unitari (Karma/Jasmine)
 
 ---
 
-## Struttura cartelle (frontend)
+## Struttura cartelle
 
 ```
-src/app/
-├── core/services/        # Business logic, API, theme, i18n
-├── layout/               # Shell (navbar, footer, smoke-effect)
-├── pages/                # Componenti di rotta (home, error, policy, social)
-├── shared/
-│   ├── components/       # Componenti riusabili — usa questi prima di crearne di nuovi
-│   ├── directives/       # Direttive standalone
-│   └── pipes/            # translate, markdown
-src/styles/
-├── base.css              # Design token, layout globale, focus policy
-├── nav.css               # Stili navigazione
-└── social.css            # Stili social links
-src/assets/i18n/
-├── basic.en.json         # Traduzioni EN (chiavi condivise)
-├── basic.it.json         # Traduzioni IT (chiavi condivise)
-├── addon.en.json         # Traduzioni EN (chiavi aggiuntive progetto)
-└── addon.it.json         # Traduzioni IT (chiavi aggiuntive progetto)
+# Root
+a11y-test.sh              # Audit WCAG 2.1 AA runtime (pa11y), chiamato da deploy.sh
+pa11y.json                # Configurazione pa11y (standard, livello, chrome flags)
+deploy.sh                 # Script deploy (--test-public esegue a11y-test.sh)
+.github/workflows/ci.yml  # CI: build backend + frontend + lint + smoke test
+.githooks/pre-commit      # Hook: blocca commit se npm run lint fallisce
+
+# Frontend
+frontend/
+├── eslint.config.mjs     # ESLint flat config con regole a11y bloccanti
+├── src/app/
+│   ├── core/services/    # Business logic, API, theme, i18n, translate
+│   ├── layout/           # Shell (navbar, footer, smoke-effect)
+│   ├── pages/            # Componenti di rotta (home, error, policy, social)
+│   └── shared/
+│       ├── components/   # Componenti riusabili — usa questi prima di crearne di nuovi
+│       ├── directives/   # Direttive standalone
+│       └── pipes/        # translate, markdown
+├── src/styles/
+│   ├── base.css          # Design token, layout globale, focus policy (:focus-visible)
+│   ├── nav.css           # Stili navigazione
+│   └── social.css        # Stili social links
+└── src/assets/i18n/
+    ├── basic.en.json     # Traduzioni EN (chiavi framework condivise)
+    ├── basic.it.json     # Traduzioni IT (chiavi framework condivise)
+    ├── addon.en.json     # Traduzioni EN (chiavi specifiche del progetto)
+    └── addon.it.json     # Traduzioni IT (chiavi specifiche del progetto)
 ```
