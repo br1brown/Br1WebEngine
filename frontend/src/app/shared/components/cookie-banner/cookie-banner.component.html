@@ -51,11 +51,9 @@
                     </div>
                 }
             </div>
-            <!-- Le azioni di accettazione (Accetta tutto, Salva scelte) sono
-                 .btn-primary per dare coerenza tematica alle CTA. Rifiuta tutto
-                 resta outline-secondary (neutro) per non spingere l'utente verso
-                 un'accettazione di default. Su mobile (column-reverse) la primary
-                 è ultima nel DOM così appare in alto sotto il pollice. -->
+            <!-- Rifiuta tutto: outline-secondary (neutro adattivo, non spinge verso
+                 l'accettazione). Accetta / Salva: btn-success (verde universale,
+                 segnale positivo indipendente dal colorTema del sito). -->
             <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
                 <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill"
                         [class.flex-fill]="hasMixedCategories()"
@@ -63,13 +61,13 @@
                         (click)="reject()">
                     {{ 'cookieBannerReject' | translate }}
                 </button>
-                <button class="btn btn-primary fw-semibold text-nowrap rounded-pill"
+                <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
                         [class.flex-fill]="hasMixedCategories()"
                         type="button"
                         (click)="accept()">
                     {{ 'cookieBannerAccept' | translate }}
                 </button>
-                <button class="btn btn-primary fw-semibold text-nowrap rounded-pill"
+                <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
                         [class.flex-fill]="hasMixedCategories()"
                         [hidden]="!hasMixedCategories()"
                         type="button"
