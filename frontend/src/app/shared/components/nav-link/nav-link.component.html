@@ -5,6 +5,7 @@
        rel="noopener noreferrer"
        (click)="onClick()">
         {{ link().label | translate }}
+        <span class="visually-hidden"> ({{ 'opensInNewTab' | translate }})</span>
     </a>
 } @else if (isActive()) {
     <span [class]="resolvedClass()" aria-current="page">

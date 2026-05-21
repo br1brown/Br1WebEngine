@@ -1,5 +1,6 @@
 import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { TranslatePipe } from '../../pipes/translate.pipe';
 
 /**
  * BackToTopComponent — Bottone "torna su" che appare durante lo scroll.
@@ -13,6 +14,7 @@ import { isPlatformBrowser } from '@angular/common';
  */
 @Component({
   selector: 'app-back-to-top',
+  imports: [TranslatePipe],
   templateUrl: './back-to-top.component.html',
   styleUrl: './back-to-top.component.css'
 })

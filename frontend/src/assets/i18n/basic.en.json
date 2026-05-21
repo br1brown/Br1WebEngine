@@ -111,5 +111,8 @@
   "nuovaVersioneTitle": "New version available",
   "nuovaVersioneDesc": "An updated version of the application is available. Refresh the page to apply the changes.",
   "aggiornaApp": "Refresh",
-  "contextMenuLabel": "Context menu"
+  "contextMenuLabel": "Context menu",
+  "backToTopLabel": "Back to top",
+  "opensInNewTab": "opens in new tab",
+  "footerNavLabel": "Footer navigation"
 }
