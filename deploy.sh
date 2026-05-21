@@ -15,6 +15,7 @@
 #   --public-host HOST               Public host header (default: br1gaming.localhost)
 #   --public-port PORT               Public reverse proxy port (default: 8088)
 #   --skip-invalid-host-check        Skip the negative host authorization check
+#   --skip-a11y                      Skip the accessibility audit (a11y-test.sh)
 # =============================================================================
 
 set -euo pipefail
@@ -33,6 +34,7 @@ TEST_POST_DEPLOY=true
 # Variabili specifiche per i test pubblici
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
+SKIP_A11Y=false
 PUBLIC_HOST="br1gaming.localhost"
 PUBLIC_PORT="8088"
 
@@ -47,6 +49,7 @@ while [[ $# -gt 0 ]]; do
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
+        --skip-a11y) SKIP_A11Y=true; shift ;;
         *)
             echo "  WARN unknown option ignored: $1" >&2
             shift
@@ -391,6 +394,21 @@ if [[ "$TEST_PUBLIC" == true ]]; then
         mapfile -t backend_response < <(curl_plain "http://127.0.0.1:${BACKEND_PORT}/health")
         assert_status "${backend_response[0]}" "200" "Exposed backend /health returned unexpected status" || exit 1
         ok "Exposed backend /health returned HTTP 200"
+    fi
+
+    # ── Accessibility audit ────────────────────────────────────────────────
+    echo
+    echo -e "${BOLD}Accessibility Test${RESET}"
+
+    if [[ "$SKIP_A11Y" == true ]]; then
+        warn "Accessibility test saltato (--skip-a11y)"
+    else
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        bash "${SCRIPT_DIR}/a11y-test.sh" "$browser_url" / || {
+            echo
+            fail "Accessibility audit fallito — correggere le violazioni WCAG prima del merge"
+            exit 1
+        }
     fi
 
     echo
