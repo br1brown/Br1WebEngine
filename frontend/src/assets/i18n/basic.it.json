@@ -114,5 +114,6 @@
   "contextMenuLabel": "Menu contestuale",
   "backToTopLabel": "Torna in cima",
   "opensInNewTab": "si apre in una nuova scheda",
-  "footerNavLabel": "Navigazione footer"
+  "footerNavLabel": "Navigazione footer",
+  "toggleNavigation": "Apri/chiudi navigazione"
 }

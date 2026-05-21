@@ -114,5 +114,6 @@
   "contextMenuLabel": "Context menu",
   "backToTopLabel": "Back to top",
   "opensInNewTab": "opens in new tab",
-  "footerNavLabel": "Footer navigation"
+  "footerNavLabel": "Footer navigation",
+  "toggleNavigation": "Toggle navigation"
 }
