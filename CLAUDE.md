@@ -236,6 +236,77 @@ Il flag `--skip-a11y` è utile solo per debug; non usarlo nelle pipeline di prod
 
 ---
 
+## Aggiungere un endpoint API
+
+### 1. Registrare il path
+
+In `frontend/src/app/core/services/api.service.ts`, aggiungere la chiave alla costante `API`:
+
+```typescript
+const API = {
+    social:  'social',
+    profile: 'profile',
+    articoli: 'articoli',          // ← nuovo
+} as const;
+```
+
+### 2. Aggiungere il metodo pubblico
+
+Scegliere il wrapper in base all'uso:
+
+| Wrapper | Quando usarlo |
+|---|---|
+| `this.api_get<T>()` | Chiamata una-tantum, risultato come Promise |
+| `this.api_post<T>()` | Mutazione/invio dati |
+| `this.api_resource<T>()` | Componente reattivo che deve aggiornarsi al cambio di signal (es. lingua) |
+
+```typescript
+// Chiamata una-tantum
+getArticoli(): Promise<Articolo[]> {
+    return this.api_get<Articolo[]>(API.articoli);
+}
+
+// Reattivo (footer, header — componenti sempre attivi)
+getArticoliResource() {
+    return this.api_resource<Articolo[]>(API.articoli);
+}
+```
+
+La gestione errori è automatica: `BaseApiService.handleError()` mostra il dialog e ri-lancia l'errore. Il componente che chiama l'API deve gestire solo lo **stato** nel `catch` (es. `content = null`), non notificare di nuovo.
+
+### 3. Se il dato carica una pagina — aggiornare il resolver
+
+In `frontend/src/app/pages/content.resolver.ts`, aggiungere un case nello switch:
+
+```typescript
+case PageType.Articoli:
+    content = await this.apiService.getArticoli();
+    break;
+```
+
+Il `try-catch` esterno è già presente e protegge il router: se l'API fallisce, la navigazione si completa comunque con `content = null`.
+
+### Cosa NON fare
+
+```typescript
+// ❌ Chiamare notify.handleApiError() nel componente dopo un errore API:
+//    BaseApiService lo ha già fatto → l'utente vede due dialog.
+try {
+    this.data = await this.api.getArticoli();
+} catch (err) {
+    this.notify.handleApiError(...); // doppio Swal
+}
+
+// ✅ Gestire solo lo stato:
+try {
+    this.data = await this.api.getArticoli();
+} catch {
+    this.data = null; // notifica già mostrata
+}
+```
+
+---
+
 ## Comandi frequenti
 
 ```bash

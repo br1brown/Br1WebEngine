@@ -21,8 +21,13 @@ export interface ResolvedPage<T = unknown> {
 /**
  * Servizio centralizzato per il caricamento dei contenuti di pagina.
  *
- * Punto unico di estensione: per aggiungere contenuto a una nuova pagina
- * basta aggiungere un case in fileSlug() — nessun altro file da toccare.
+ * Per aggiungere il contenuto di una nuova pagina:
+ *   1. Aggiungere il metodo in ApiService (o usare tryLoadPolicy per file statici)
+ *   2. Aggiungere un case nello switch di loadResolved()
+ *
+ * Il try-catch esterno protegge il router: se l'API fallisce, BaseApiService
+ * ha già mostrato il dialog all'utente e il resolver restituisce content = null
+ * invece di rigettare (che cancellerebbe la navigazione).
  *
  * In SSR la fetch viene risolta come URL assoluta usando l'origin della request
  * corrente (token REQUEST), cosi' la chiamata loopback raggiunge lo stesso

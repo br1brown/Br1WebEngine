@@ -16,11 +16,15 @@ const API = {
 
 /**
  * Client HTTP centralizzato. Ogni endpoint del backend ha un metodo pubblico dedicato.
- * La gestione errori e' automatica: NotificationService mostra l'errore all'utente.
+ * La gestione errori e' automatica: BaseApiService.handleError() notifica l'utente via
+ * NotificationService e ri-lancia l'errore per chi vuole gestire lo stato localmente.
  *
  * Per aggiungere un endpoint:
- *   - Aggiungere il path in API (sopra)
- *   - Aggiungere il metodo pubblico usando this.get<T>() o this.post<T>()
+ *   1. Aggiungere il path nella costante API (sopra)
+ *   2. Aggiungere il metodo pubblico:
+ *      - chiamate una-tantum  → this.api_get<T>() / this.api_post<T>()
+ *      - componenti reattivi  → this.api_resource<T>()  (si aggiorna ai cambi di signal)
+ *   3. Se il dato carica una pagina, aggiungere un case in ContentResolver.loadResolved()
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService extends BaseApiService {
