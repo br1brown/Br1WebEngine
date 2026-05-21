@@ -25,6 +25,7 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
 - [Meta SEO e SSR](#meta-seo-e-ssr)
 - [Pattern dei Signal](#pattern-dei-signal)
 - [Internazionalizzazione (i18n)](#internazionalizzazione-i18n)
+- [Accessibilità](#accessibilità)
 
 **Riferimento**
 - [Configurazione del sito (site.ts)](#configurazione-del-sito-sitets)
@@ -234,6 +235,7 @@ Già disponibile da `PageBaseComponent` senza nessun `inject()` aggiuntivo:
 | `this.asset` | `AssetService` | URL degli asset statici |
 | `this.notify` | `NotificationService` | Toast, dialog, conferme |
 | `this.pageContent()` | `T \| null` | Contenuto dal resolver, già tipizzato |
+| `this.loadData(loader)` | `Promise<T \| null>` | Wrapper per chiamate API aggiuntive nel componente; restituisce `null` su errore (la notifica è già gestita da `BaseApiService`) |
 
 `pageContent()` è un `computed` signal che vale `null` per le pagine senza contenuto, e si aggiorna automaticamente a ogni cambio lingua nel browser (il resolver viene rieseguito dal `PageBaseComponent` tramite un `effect()` che reagisce a `translate.currentLang()`).
 
@@ -705,6 +707,28 @@ Nel template:
     @for (p of prodottiResource.value() ?? []; track p.id) {
         <div class="card">{{ p.nome }}</div>
     }
+}
+```
+
+**Pattern c — `loadData()` per chiamate aggiuntive nel componente**
+
+Per chiamate API che avvengono in risposta a un'interazione utente, o per dati che non passano dal resolver. `loadData()` è ereditato da `PageBaseComponent` e racchiude il try-catch: restituisce `null` se l'API fallisce, senza ri-notificare (la notifica è già gestita da `BaseApiService`).
+
+```typescript
+// src/app/pages/catalogo/catalogo.component.ts
+export class CatalogoComponent extends PageBaseComponent<void> {
+    readonly dettaglio = signal<Prodotto | null>(null);
+
+    async mostraDettaglio(id: string): Promise<void> {
+        this.dettaglio.set(await this.loadData(() => this.api.getProdottoById(id)));
+    }
+}
+```
+
+```html
+<button (click)="mostraDettaglio(p.id)">Dettaglio</button>
+@if (dettaglio()) {
+    <p>{{ dettaglio()!.nome }}</p>
 }
 ```
 
@@ -1417,6 +1441,141 @@ const { rawUrl, angularUrl } = this.asset.getUrlFromBlob(blob);
 // angularUrl → sanitizzato per i template Angular (es. [src]="angularUrl")
 // Entrambi gli URL vengono revocati automaticamente ad ogni NavigationEnd
 ```
+
+---
+
+## Accessibilità
+
+L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. WCAG 2.1 AA è il livello minimo per ogni componente nuovo o modificato.
+
+### Tre livelli di protezione automatici
+
+| Livello | Strumento | Quando scatta |
+|---|---|---|
+| 1 — Pre-commit locale | `.githooks/pre-commit` → `npm run lint` | Ad ogni `git commit` con file `frontend/src/` staged |
+| 2 — CI | `.github/workflows/ci.yml` → step `Lint` | Ad ogni push/PR |
+| 3 — Runtime WCAG | `a11y-test.sh` (pa11y + WCAG2AA) | Nel smoke test Docker di `deploy.sh --test-public` |
+
+Il pre-commit hook si attiva automaticamente dopo `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`). Ogni commit con file sorgente staged passa per ESLint prima di essere accettato.
+
+### Regole ESLint — errori bloccanti
+
+Configurate in `eslint.config.mjs`. Rompono `npm run lint` e bloccano la CI:
+
+| Regola | Cosa verifica |
+|---|---|
+| `alt-text` | `<img>` senza attributo `alt` |
+| `elements-content` | Elementi interattivi senza testo accessibile |
+| `label-has-associated-control` | `<label>` senza `for`/`id` corrispondente |
+| `valid-aria` | Attributi ARIA inesistenti o mal formati |
+| `role-has-required-aria` | Role ARIA senza le proprietà obbligatorie |
+| `table-scope` | `<th>` senza `scope` |
+| `no-distracting-elements` | `<marquee>`, `<blink>` |
+
+Warning (non bloccanti, da valutare caso per caso): `click-events-have-key-events`, `interactive-supports-focus`, `mouse-events-have-key-events`, `no-autofocus`.
+
+### Checklist — prima di considerare un componente completo
+
+- [ ] Semantic HTML corretto: `<button>` per azioni, `<a>` per navigazione, gerarchia heading rispettata
+- [ ] Tutti i `<label>` associati al controllo via `for`/`id` o nesting diretto
+- [ ] Tutti i `<img>` hanno `alt` (descrittivo se informativo, `""` se puramente decorativo)
+- [ ] Icone decorative hanno `aria-hidden="true"`
+- [ ] Elementi interattivi raggiungibili e attivabili da tastiera, focus visibile
+- [ ] `aria-label` usato solo quando non c'è testo visibile — il testo visibile è già il nome accessibile dell'elemento
+- [ ] Ogni testo `aria-label` passa per `| translate` — nessuna stringa hardcoded
+- [ ] Link esterni: `rel="noopener noreferrer"` + avviso screen reader in `visually-hidden`
+- [ ] Overlay e modal: `appFocusTrap` attivo + focus ripristinato all'elemento trigger alla chiusura
+- [ ] Contrasto: testo normale ≥ 4.5:1, testo grande ≥ 3:1
+
+### aria-label — property binding, non interpolazione
+
+Usare sempre `[attr.aria-label]` (property binding). A differenza dell'interpolazione `aria-label="{{ ... }}"`, il binding accetta `null` per rimuovere completamente l'attributo — necessario quando è già presente testo visibile, per rispettare WCAG 2.5.3 (*Label in Name*: il nome accessibile non può contraddire il testo visibile).
+
+```html
+<!-- Elemento con sola icona: aria-label necessario -->
+<button [attr.aria-label]="'backToTopLabel' | translate">
+    <i class="fas fa-chevron-up" aria-hidden="true"></i>
+</button>
+
+<!-- Testo visibile presente: aria-label non va aggiunto -->
+<button>
+    <i class="fas fa-save" aria-hidden="true"></i>
+    {{ 'save' | translate }}
+</button>
+```
+
+### Link esterni
+
+```html
+<a href="..." target="_blank" rel="noopener noreferrer">
+    {{ label }}
+    <span class="visually-hidden"> ({{ 'opensInNewTab' | translate }})</span>
+</a>
+```
+
+`opensInNewTab` è già presente nei file `basic.*.json` del template — non va aggiunto di nuovo.
+
+### Form — label associate
+
+```html
+<label for="email" class="form-label">{{ 'mail' | translate }}</label>
+<input id="email" type="email" class="form-control">
+```
+
+Un `<label>` non associato tramite `for`/`id` (o nesting diretto) è un errore bloccante ESLint.
+
+### Overlay e dialog
+
+```html
+<div role="dialog"
+     aria-modal="true"
+     [attr.aria-label]="'dialogTitle' | translate"
+     appFocusTrap>
+    <!-- contenuto -->
+</div>
+```
+
+`appFocusTrap` (in `shared/directives/focus-trap.directive.ts`) intrappola il focus Tab/Shift+Tab all'interno del dialog e sposta il focus sul primo elemento interattivo all'apertura. Alla chiusura, il focus va ripristinato sull'elemento che ha aperto il dialog.
+
+### Design token — colori e focus sempre da variabile CSS
+
+```css
+/* Corretto */
+background: var(--colorSurface);
+color:      var(--colorSurfaceText);
+border:     1px solid var(--colorSurfaceBorder);
+outline:    var(--focusRingWidth) solid var(--focusRingColor);
+```
+
+I token garantiscono che i rapporti di contrasto WCAG siano calcolati centralmente in `ThemeService` e propagati automaticamente tramite `color-mix()` in `base.css`. Usare valori hex hardcoded bypassa questo sistema e può rompere il contrasto in modalità scura o con temi personalizzati.
+
+Token disponibili (definiti in `src/styles/base.css`):
+
+| Token | Uso |
+|---|---|
+| `--colorTema` | Colore brand principale |
+| `--colorPrimary` | Variante WCAG-safe per bottoni/CTA |
+| `--colorPrimaryText` | Testo leggibile su `--colorPrimary` |
+| `--colorSurface` | Sfondo pannelli/card |
+| `--colorSurfaceText` | Testo su `--colorSurface` |
+| `--colorSurfaceBorder` | Bordo pannelli |
+| `--colorLink` | Colore link |
+| `--focusRingColor` | Colore anello di focus |
+| `--focusRingWidth` | Spessore anello di focus |
+| `--focusRingOffset` | Offset anello di focus |
+
+### Audit WCAG a runtime
+
+```bash
+# Audit diretto su un server in esecuzione
+./a11y-test.sh http://localhost:3000
+./a11y-test.sh http://localhost:3000 / /social /404
+
+# Integrato nel deploy (automatico con --test-public)
+bash deploy.sh --test-public
+```
+
+Configurazione in `pa11y.json` (root del repo): standard WCAG2AA, livello "error". Il flag `--skip-a11y` è disponibile solo per debug locale.
 
 ---
 
