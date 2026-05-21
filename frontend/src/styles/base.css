@@ -146,29 +146,31 @@ body {
    secondary, info e warning di Bootstrap hanno colori statici (hex fissi nel
    CSS compilato) che falliscono WCAG 4.5:1 in almeno uno dei due temi.
    Definiamo token propri — come già fatto per --colorPrimary — e mappiamo i
-   --bs-btn-* su di essi una volta sola. I valori variano per tema (dark/light).
-   La regola in cookie-banner.component.css ha specificità maggiore e usa
-   --colorSurfaceText per quel pannello specifico: rimane invariata. */
+   --bs-btn-* su di essi una volta sola. I valori variano per tema (dark/light). */
 
-/* Dark (default): colori Bootstrap originali, già accessibili su sfondo scuro.
-   secondary (#6c757d) fallisce → #adb5bd (6.1:1 su #212529). */
-:root {
-    --colorSecondary:     #adb5bd;
-    --colorSecondaryText: #212529;
-    --colorInfo:          #0dcaf0;   /* 6.4:1 su sfondo scuro */
-    --colorInfoText:      #212529;
-    --colorWarning:       #ffc107;   /* 7.7:1 su sfondo scuro */
-    --colorWarningText:   #212529;
-}
-
-/* Light: varianti più scure per garantire ≥ 4.5:1 su sfondi bianchi/chiari. */
-:root[data-theme-tone='light'] {
+/* Light (default + qualsiasi scope Bootstrap light): valori scuri ≥ 4.5:1 su
+   sfondo chiaro. Lo stesso pattern di Bootstrap per i token semantici:
+   `:root` e `[data-bs-theme='light']` condividono i valori light; il dark scope
+   li sovrascrive; un nested [data-bs-theme='light'] (es. panelForcedLight) li
+   ristabilisce per i discendenti anche quando la pagina è globalmente dark. */
+:root,
+[data-bs-theme='light'] {
     --colorSecondary:     #495057;   /* 8.1:1 su bianco */
     --colorSecondaryText: #fff;
     --colorInfo:          #00819b;   /* 4.6:1 su bianco */
     --colorInfoText:      #fff;
     --colorWarning:       #967100;   /* 4.6:1 su bianco */
     --colorWarningText:   #fff;
+}
+
+/* Dark Bootstrap scope: colori chiari per ≥ 4.5:1 su sfondo scuro (#212529). */
+[data-bs-theme='dark'] {
+    --colorSecondary:     #adb5bd;   /* 6.1:1 su #212529 */
+    --colorSecondaryText: #212529;
+    --colorInfo:          #0dcaf0;   /* 6.4:1 su sfondo scuro */
+    --colorInfoText:      #212529;
+    --colorWarning:       #ffc107;   /* 7.7:1 su sfondo scuro */
+    --colorWarningText:   #212529;
 }
 
 .btn-outline-secondary {
