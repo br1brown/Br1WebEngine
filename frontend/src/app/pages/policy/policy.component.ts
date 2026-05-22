@@ -47,8 +47,10 @@ export class PolicyComponent extends PageBaseComponent<string> {
     }
 
     private formatProfileData(profile: Profile): FormattedProfile {
-        const sede = profile.sedeLegale ?? {};
-        const indirizzo = `${sede.via}, ${sede.civico}\n${sede.cap} ${sede.citta} (${sede.provincia})\n${sede.nazione}`.trim();
+        const sede = profile.sedeLegale;
+        const indirizzo = sede
+            ? `${sede.via ?? ''}, ${sede.civico ?? ''}\n${sede.cap ?? ''} ${sede.citta ?? ''} (${sede.provincia ?? ''})\n${sede.nazione ?? ''}`.trim()
+            : undefined;
 
         return {
             ragioneSociale: profile.ragioneSociale,
@@ -59,9 +61,9 @@ export class PolicyComponent extends PageBaseComponent<string> {
             telefono: profile.contatti?.telefono,
             email: profile.contatti?.email,
             pec: profile.contatti?.pec,
-            indirizzo: indirizzo,
+            indirizzo,
             rappresentanteLegale: profile.metadatiAggiuntivi?.['rappresentanteLegale'],
-            citta: sede.citta
+            citta: sede?.citta
         };
     }
 
