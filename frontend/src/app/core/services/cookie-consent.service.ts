@@ -29,11 +29,14 @@ export enum CookieCategory {
  * Per aggiungere un cookie del progetto:
  *   1. Aggiungere la chiave a COOKIE_KEYS
  *   2. Aggiungere la mappatura chiave → categoria in COOKIE_MAP
- *   3. Il banner apparirà automaticamente se la categoria diventa necessaria
+ *   3. Il banner comparirà automaticamente se la categoria diventa necessaria
  *
- * @example
- *   export const COOKIE_KEYS = { GA_SESSION: '_ga' } as const;
- *   const COOKIE_MAP: CookieMap = { [COOKIE_KEYS.GA_SESSION]: CookieCategory.Analytics };
+ * Il nome fisico del cookie nel browser sarà: {appSlug}.{category}.{rawKey}
+ * Es. COOKIE_KEYS = { GA: '_ga' }, COOKIE_MAP = { _ga: Analytics }
+ *   → cookie "myapp.analytics._ga"
+ *
+ * Cookie non censiti (non in COOKIE_MAP) usano {appSlug}.{rawKey} senza categoria
+ * e generano un console.warn — il progetto resta funzionante ma non è GDPR compliant.
  */
 export const COOKIE_KEYS = {} as const;
 export type CookieKey = typeof COOKIE_KEYS[keyof typeof COOKIE_KEYS];
@@ -48,12 +51,13 @@ const COOKIE_MAP: CookieMap = {};
  * Il principio cardine è il "Privacy by Default": le scritture sono bloccate
  * finché l'utente non esprime un consenso esplicito per la categoria relativa.
  *
- * Ogni categoria ha una computed `isXxxNeeded` auto-calcolata da COOKIE_MAP.
+ * isXxxNeeded è auto-calcolata dalla propria fetta di COOKIE_MAP.
  * Aggiungere un cookie a COOKIE_MAP fa comparire automaticamente la sezione nel banner.
  *
- * Due cookie sono gestiti direttamente dal servizio indipendentemente da COOKIE_KEYS:
- * - Preferenza lingua (tecnico, built-in)
- * - Service Worker (tecnico, built-in)
+ * Due funzionalità sono gestite direttamente dal servizio come metodi cappello,
+ * al di fuori di COOKIE_KEYS/COOKIE_MAP perché omnipresenti nel sito:
+ * - Preferenza lingua  →  {appSlug}.lang  (tecnico, built-in)
+ * - Service Worker     →  registrazione ngsw-worker.js  (tecnico, built-in)
  */
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
@@ -67,14 +71,13 @@ export class CookieConsentService {
 
     // ─── CATEGORIE: isNeeded ────────────────────────────────────────────
     //
-    // isTechnicalNeeded: sito multilingua (lingua built-in) OPPURE isWebApp (Service Worker)
-    // OPPURE almeno un cookie tecnico in COOKIE_MAP. Usa injector.get(TranslateService) per
-    // evitare il ciclo DI CookieConsentService → TranslateService → CookieConsentService.
-    // injector.get() è lazy: risolto solo quando la computed viene letta, dopo che
-    // entrambi i servizi sono stati costruiti.
-    // @warning NON sostituire con inject(TranslateService) nel costruttore.
+    // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
+    // isTechnicalNeeded include anche lingua built-in (multilingua) e SW (isWebApp).
     //
-    // isAnalyticsNeeded / isProfilingNeeded: auto-calcolato da COOKIE_MAP.
+    // @remarks isTechnicalNeeded usa injector.get(TranslateService) anziché
+    // inject() nel costruttore per spezzare la dipendenza circolare:
+    // CookieConsentService → TranslateService → CookieConsentService.
+    // @warning NON sostituire con inject(TranslateService) nel costruttore.
 
     readonly isTechnicalNeeded = computed(() =>
         this.injector.get(TranslateService).availableLangs().length > 1
@@ -207,9 +210,9 @@ export class CookieConsentService {
     }
 
     /**
-     * Registra il Service Worker nella sessione corrente appena il consenso tecnico è dato.
-     * All'avvio successivo provideServiceWorker() usa isTechnicalConsentGiven() e lo
-     * registra con l'integrazione Angular completa (SwUpdate).
+     * Metodo cappello SW: registra ngsw-worker.js nella sessione corrente appena
+     * il consenso tecnico è dato. All'avvio successivo provideServiceWorker() usa
+     * isTechnicalConsentGiven() e lo registra con l'integrazione Angular (SwUpdate).
      * Nessuna operazione se isWebApp è false in site.ts.
      */
     private applyServiceWorker(): void {
@@ -226,8 +229,8 @@ export class CookieConsentService {
     }
 
     /**
-     * Se il consenso tecnico è stato revocato, rimuove il cookie della preferenza lingua.
-     * Se è stato dato, non fa nulla: la lingua viene scritta al prossimo cambio lingua.
+     * Metodo cappello lingua: se il consenso tecnico è revocato rimuove il cookie lingua.
+     * La scrittura avviene in setSavedLanguage() al momento del cambio lingua.
      */
     private applyLanguagePreference(): void {
         if (!this._technicalAccepted()) {
@@ -235,34 +238,56 @@ export class CookieConsentService {
         }
     }
 
-    // ─── COOKIE TIPIZZATI (progetto) ────────────────────────────────────
+    // ─── COOKIE DI PROGETTO (tipizzati) ─────────────────────────────────
     //
-    // Solo i cookie registrati in COOKIE_KEYS/COOKIE_MAP sono accessibili qui.
-    // Quando COOKIE_KEYS = {}, CookieKey = never: setCookie/getCookie non sono invocabili.
+    // Chiave fisica nel browser: {appSlug}.{category}.{rawKey}  ← censito in COOKIE_MAP
+    //                            {appSlug}.{rawKey}             ← non censito (+ console.warn)
+    //
+    // Quando COOKIE_KEYS = {}, CookieKey = never: setCookie/getCookie non sono invocabili
+    // a compile-time — errore TypeScript prima ancora di arrivare a runtime.
 
-    /** Scrive un cookie di progetto. Bloccato se il consenso per la categoria non è stato dato.
-     *  Se la chiave non è censita in COOKIE_MAP, fallback a Technical con console.warn. */
+    /** Scrive un cookie di progetto.
+     *  Bloccato silenziosamente se il consenso per la categoria non è stato dato. */
     setCookie(key: CookieKey, value: string, maxAgeSeconds: number): void {
-        const category = COOKIE_MAP[key as string] ?? this.warnUnregistered(key as string);
+        const rawKey = key as string;
+        const category = COOKIE_MAP[rawKey];
+        if (!category) {
+            this.warnUnregistered(rawKey, 'set');
+            if (!this._technicalAccepted()) return;
+            this.writeCookieDirect(`${this.appSlug}.${rawKey}`, value, maxAgeSeconds);
+            return;
+        }
         if (!this.isCategoryAccepted(category)) return;
-        this.writeCookieDirect(key as string, value, maxAgeSeconds);
+        this.writeCookieDirect(`${this.appSlug}.${category}.${rawKey}`, value, maxAgeSeconds);
     }
 
-    /** Legge un cookie di progetto.
-     *  Se la chiave non è censita in COOKIE_MAP, logga un console.warn e legge comunque. */
+    /** Legge un cookie di progetto. */
     getCookie(key: CookieKey): string | null {
-        if (!COOKIE_MAP[key as string]) this.warnUnregistered(key as string);
-        return this.readCookieDirect(key as string);
+        const rawKey = key as string;
+        const category = COOKIE_MAP[rawKey];
+        if (!category) {
+            this.warnUnregistered(rawKey, 'get');
+            return this.readCookieDirect(`${this.appSlug}.${rawKey}`);
+        }
+        return this.readCookieDirect(`${this.appSlug}.${category}.${rawKey}`);
     }
 
     /** Rimuove un cookie di progetto. La rimozione è sempre consentita. */
     removeCookie(key: CookieKey): void {
-        this.eraseCookieDirect(key as string);
+        const rawKey = key as string;
+        const category = COOKIE_MAP[rawKey];
+        const storageKey = category
+            ? `${this.appSlug}.${category}.${rawKey}`
+            : `${this.appSlug}.${rawKey}`;
+        this.eraseCookieDirect(storageKey);
     }
 
     // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
+    //
+    // Metodo cappello: usa la stessa meccanica write/read ma non passa per COOKIE_MAP.
+    // Chiave fisica: {appSlug}.lang  (namespaced, senza categoria — funzionalità built-in)
 
-    private readonly LANG_KEY = 'lang';
+    private readonly LANG_KEY = `${this.appSlug}.lang`;
     private readonly LANG_MAX_AGE = 60 * 60 * 24 * 365;
 
     getSavedLanguage(): string | null {
@@ -280,14 +305,12 @@ export class CookieConsentService {
 
     // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
 
-    /** Logga un warning per chiave non censita e restituisce il fallback Technical. */
-    private warnUnregistered(key: string): CookieCategory {
+    private warnUnregistered(key: string, op: 'set' | 'get'): void {
         console.warn(
-            `[CookieConsentService] Il cookie "${key}" non è censito in COOKIE_MAP.`,
-            'Aggiungilo a COOKIE_KEYS e COOKIE_MAP in cookie-consent.service.ts.',
-            'Trattato come CookieCategory.Technical per sicurezza.'
+            `[CookieConsentService] ${op === 'set' ? 'Scrittura' : 'Lettura'} del cookie "${key}" — non censito in COOKIE_MAP.`,
+            `Chiave usata nel browser: "${this.appSlug}.${key}" (senza categoria — non GDPR compliant).`,
+            'Per censirlo: aggiungilo a COOKIE_KEYS e COOKIE_MAP in cookie-consent.service.ts.'
         );
-        return CookieCategory.Technical;
     }
 
     private readCookieDirect(key: string): string | null {
