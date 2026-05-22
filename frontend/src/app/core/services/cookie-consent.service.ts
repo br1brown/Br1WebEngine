@@ -24,21 +24,36 @@ export enum CookieCategory {
 }
 
 /**
+ * Registro dei cookie del progetto: chiave costante → categoria di consenso.
+ *
+ * Per aggiungere un cookie del progetto:
+ *   1. Aggiungere la chiave a COOKIE_KEYS
+ *   2. Aggiungere la mappatura chiave → categoria in COOKIE_MAP
+ *   3. Il banner apparirà automaticamente se la categoria diventa necessaria
+ *
+ * @example
+ *   export const COOKIE_KEYS = { GA_SESSION: '_ga' } as const;
+ *   const COOKIE_MAP: CookieMap = { [COOKIE_KEYS.GA_SESSION]: CookieCategory.Analytics };
+ */
+export const COOKIE_KEYS = {} as const;
+export type CookieKey = typeof COOKIE_KEYS[keyof typeof COOKIE_KEYS];
+
+type CookieMap = Readonly<Record<string, CookieCategory>>;
+const COOKIE_MAP: CookieMap = {};
+
+/**
  * COOKIE CONSENT SERVICE
  * Gestione centralizzata del consenso cookie — Conformità EU (ePrivacy + GDPR).
  *
  * Il principio cardine è il "Privacy by Default": le scritture sono bloccate
  * finché l'utente non esprime un consenso esplicito per la categoria relativa.
  *
- * Ogni categoria ha una computed `isXxxNeeded` che determina se la sezione
- * compare nel banner. Default: false (categoria inattiva, non appare nel banner).
- * Per attivare una categoria: modifica la funzione perché ritorni true.
- * La funzione è computed quindi può essere dinamica — es. condizionata allo
- * stato di login, alla presenza di uno script di terze parti, ecc.
+ * Ogni categoria ha una computed `isXxxNeeded` auto-calcolata da COOKIE_MAP.
+ * Aggiungere un cookie a COOKIE_MAP fa comparire automaticamente la sezione nel banner.
  *
- * La categoria è dichiarata al momento della scrittura (setCookie).
- * La lettura (getCookie) non richiede la categoria: se il consenso non fu
- * mai dato, il cookie non fu mai scritto e la lettura restituisce null da sola.
+ * Due cookie sono gestiti direttamente dal servizio indipendentemente da COOKIE_KEYS:
+ * - Preferenza lingua (tecnico, built-in)
+ * - Service Worker (tecnico, built-in)
  */
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
@@ -49,30 +64,30 @@ export class CookieConsentService {
     private readonly appSlug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
     private readonly consentKey = `cookie-consent-${this.appSlug}`;
     private readonly consentLogKey = `cookie-consent-log-${this.appSlug}`;
-    private readonly languagePreferenceKey = 'lang';
-    private readonly languagePreferenceMaxAgeSeconds = 60 * 60 * 24 * 365;
 
     // ─── CATEGORIE: isNeeded ────────────────────────────────────────────
     //
-    // Ogni categoria sa autonomamente se è necessaria, leggendo lo stato
-    // dei servizi che la riguardano. Il servizio cookie è lui a sapere dove
-    // andare a recuperare l'informazione — chi usa il servizio non deve
-    // occuparsene.
-    //
-    // @remarks isTechnicalNeeded usa injector.get(TranslateService) anziché
-    // inject() nel costruttore per spezzare la dipendenza circolare:
+    // isTechnicalNeeded: sito multilingua (lingua built-in) OPPURE almeno un cookie
+    // tecnico in COOKIE_MAP. Usa injector.get(TranslateService) per evitare il ciclo DI
     // CookieConsentService → TranslateService → CookieConsentService.
-    // injector.get() è lazy: risolto solo quando la computed viene letta,
-    // dopo che entrambi i servizi sono stati costruiti.
+    // injector.get() è lazy: risolto solo quando la computed viene letta, dopo che
+    // entrambi i servizi sono stati costruiti.
     // @warning NON sostituire con inject(TranslateService) nel costruttore.
+    //
+    // isAnalyticsNeeded / isProfilingNeeded: auto-calcolato da COOKIE_MAP.
 
     readonly isTechnicalNeeded = computed(() =>
         this.injector.get(TranslateService).availableLangs().length > 1
+        || Object.values(COOKIE_MAP).some(c => c === CookieCategory.Technical)
     );
 
-    readonly isAnalyticsNeeded = computed(() => false);
+    readonly isAnalyticsNeeded = computed(() =>
+        Object.values(COOKIE_MAP).some(c => c === CookieCategory.Analytics)
+    );
 
-    readonly isProfilingNeeded = computed(() => false);
+    readonly isProfilingNeeded = computed(() =>
+        Object.values(COOKIE_MAP).some(c => c === CookieCategory.Profiling)
+    );
 
     /** True se almeno una categoria richiede il consenso.
      *  Falso lato server: il banner non va nell'HTML SSR, compare solo dopo l'idratazione. */
@@ -100,21 +115,23 @@ export class CookieConsentService {
                 const analyticsStored = localStorage.getItem(`${this.consentKey}-analytics`);
                 const profilingStored = localStorage.getItem(`${this.consentKey}-profiling`);
 
-                // Carica sempre i valori salvati (pre-riempiono i toggle anche se il banner riappare)
                 if (technicalStored !== null) this._technicalAccepted.set(technicalStored === '1');
                 if (analyticsStored !== null) this._analyticsAccepted.set(analyticsStored === '1');
                 if (profilingStored !== null) this._profilingAccepted.set(profilingStored === '1');
 
-                // responded = true solo se tutte le categorie attualmente attive hanno una risposta.
-                // isTechnicalNeeded() NON va chiamata qui: usa injector.get(TranslateService) che
-                // causa NG0200 (ciclo DI) se chiamato durante la costruzione del servizio.
-                // Usiamo ContestoSito.config.availableLanguages — stessa logica, senza injector.
-                const isTechnicalNeededNow = ContestoSito.config.availableLanguages.length > 1;
+                // isTechnicalNeeded() NON va chiamata qui (causa NG0200 via injector.get).
+                // Replica la stessa logica usando ContestoSito e COOKIE_MAP direttamente.
+                const isTechnicalNeededNow =
+                    ContestoSito.config.availableLanguages.length > 1
+                    || Object.values(COOKIE_MAP).some(c => c === CookieCategory.Technical);
+                const isAnalyticsNeededNow = Object.values(COOKIE_MAP).some(c => c === CookieCategory.Analytics);
+                const isProfilingNeededNow = Object.values(COOKIE_MAP).some(c => c === CookieCategory.Profiling);
+
                 const anyStored = technicalStored !== null || analyticsStored !== null || profilingStored !== null;
                 const allAnswered =
                     (!isTechnicalNeededNow || technicalStored !== null) &&
-                    (!this.isAnalyticsNeeded() || analyticsStored !== null) &&
-                    (!this.isProfilingNeeded() || profilingStored !== null);
+                    (!isAnalyticsNeededNow || analyticsStored !== null) &&
+                    (!isProfilingNeededNow || profilingStored !== null);
                 if (anyStored && allAnswered) this.responded.set(true);
             } catch { }
         }
@@ -164,7 +181,7 @@ export class CookieConsentService {
             if (this.isTechnicalNeeded()) localStorage.setItem(`${this.consentKey}-technical`, this._technicalAccepted() ? '1' : '0');
             if (this.isAnalyticsNeeded()) localStorage.setItem(`${this.consentKey}-analytics`, this._analyticsAccepted() ? '1' : '0');
             if (this.isProfilingNeeded()) localStorage.setItem(`${this.consentKey}-profiling`, this._profilingAccepted() ? '1' : '0');
-            const log = {
+            localStorage.setItem(this.consentLogKey, JSON.stringify({
                 categories: {
                     technical: this._technicalAccepted(),
                     analytics: this._analyticsAccepted(),
@@ -172,24 +189,28 @@ export class CookieConsentService {
                 },
                 timestamp: new Date().toISOString(),
                 version: ContestoSito.config.version,
-            };
-            localStorage.setItem(this.consentLogKey, JSON.stringify(log));
+            }));
         } catch { }
         this.applyConsent();
     }
 
-    /**
-     * Applica i side effect del consenso appena salvato.
-     * Punto unico per tutto ciò che deve accadere quando l'utente accetta o rifiuta:
-     * aggiungere qui ogni nuova azione (es. caricamento script analytics).
-     *
-     * — Consenso tecnico → registra il Service Worker se non già attivo.
-     *   All'avvio successivo provideServiceWorker userà isTechnicalConsentGiven()
-     *   e lo registrerà con l'integrazione Angular completa (SwUpdate).
-     */
-    private applyConsent(): void {
-        if (!this.isBrowser || isDevMode()) return;
+    // ─── SIDE EFFECT DEL CONSENSO ───────────────────────────────────────
+    //
+    // Punto unico per tutto ciò che deve accadere quando l'utente accetta o rifiuta.
+    // Per aggiungere un nuovo side effect: aggiungere un metodo applyXxx() e chiamarlo qui.
 
+    private applyConsent(): void {
+        this.applyServiceWorker();
+        this.applyLanguagePreference();
+    }
+
+    /**
+     * Registra il Service Worker nella sessione corrente appena il consenso tecnico è dato.
+     * All'avvio successivo provideServiceWorker() usa isTechnicalConsentGiven() e lo
+     * registra con l'integrazione Angular completa (SwUpdate).
+     */
+    private applyServiceWorker(): void {
+        if (!this.isBrowser || isDevMode()) return;
         if (this._technicalAccepted() && 'serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistration().then(existing => {
                 if (!existing) {
@@ -201,28 +222,71 @@ export class CookieConsentService {
         }
     }
 
-    // ─── OPERAZIONI SUI COOKIE ──────────────────────────────────────────
+    /**
+     * Se il consenso tecnico è stato revocato, rimuove il cookie della preferenza lingua.
+     * Se è stato dato, non fa nulla: la lingua viene scritta al prossimo cambio lingua.
+     */
+    private applyLanguagePreference(): void {
+        if (!this._technicalAccepted()) {
+            this.eraseCookieDirect(this.LANG_KEY);
+        }
+    }
 
-    /** Legge un cookie. Se il consenso non fu dato, il cookie non fu scritto: restituisce null da solo. */
-    getCookie(key: string): string | null {
+    // ─── COOKIE TIPIZZATI (progetto) ────────────────────────────────────
+    //
+    // Solo i cookie registrati in COOKIE_KEYS/COOKIE_MAP sono accessibili qui.
+    // Quando COOKIE_KEYS = {}, CookieKey = never: setCookie/getCookie non sono invocabili.
+
+    /** Scrive un cookie di progetto. Bloccato se il consenso per la categoria non è stato dato. */
+    setCookie(key: CookieKey, value: string, maxAgeSeconds: number): void {
+        const category = COOKIE_MAP[key as string];
+        if (!category || !this.isCategoryAccepted(category)) return;
+        this.writeCookieDirect(key as string, value, maxAgeSeconds);
+    }
+
+    /** Legge un cookie di progetto. */
+    getCookie(key: CookieKey): string | null {
+        return this.readCookieDirect(key as string);
+    }
+
+    /** Rimuove un cookie di progetto. La rimozione è sempre consentita. */
+    removeCookie(key: CookieKey): void {
+        this.eraseCookieDirect(key as string);
+    }
+
+    // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
+
+    private readonly LANG_KEY = 'lang';
+    private readonly LANG_MAX_AGE = 60 * 60 * 24 * 365;
+
+    getSavedLanguage(): string | null {
+        return this.readCookieDirect(this.LANG_KEY);
+    }
+
+    setSavedLanguage(language: string): void {
+        if (!this._technicalAccepted()) return;
+        this.writeCookieDirect(this.LANG_KEY, language, this.LANG_MAX_AGE);
+    }
+
+    clearSavedLanguage(): void {
+        this.eraseCookieDirect(this.LANG_KEY);
+    }
+
+    // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
+
+    private readCookieDirect(key: string): string | null {
         if (!this.isBrowser) return null;
         const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const match = this.document.cookie.match(new RegExp(`(?:^|;\\s*)${escapedKey}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : null;
     }
 
-    /**
-     * Scrive un cookie per la categoria dichiarata.
-     * Bloccato silenziosamente se il consenso per quella categoria non è stato dato.
-     */
-    setCookie(key: string, value: string, maxAgeSeconds: number, category: CookieCategory): void {
-        if (!this.isBrowser || !this.isCategoryAccepted(category)) return;
-        this.document.cookie =
-            `${key}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
+    private writeCookieDirect(key: string, value: string, maxAgeSeconds: number): void {
+        if (!this.isBrowser) return;
+        this.document.cookie = `${key}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
     }
 
-    /** Rimuove un cookie. La rimozione è sempre consentita. */
-    removeCookie(key: string): void {
+    private eraseCookieDirect(key: string): void {
         if (!this.isBrowser) return;
         this.document.cookie = `${key}=; Path=/; Max-Age=0; SameSite=Lax`;
     }
@@ -233,19 +297,5 @@ export class CookieConsentService {
             case CookieCategory.Analytics: return this._analyticsAccepted();
             case CookieCategory.Profiling: return this._profilingAccepted();
         }
-    }
-
-    // ─── PREFERENZA LINGUA ──────────────────────────────────────────────
-
-    getSavedLanguage(): string | null {
-        return this.getCookie(this.languagePreferenceKey);
-    }
-
-    setSavedLanguage(language: string): void {
-        this.setCookie(this.languagePreferenceKey, language, this.languagePreferenceMaxAgeSeconds, CookieCategory.Technical);
-    }
-
-    clearSavedLanguage(): void {
-        this.removeCookie(this.languagePreferenceKey);
     }
 }
