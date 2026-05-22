@@ -102,7 +102,7 @@ Un colore hex in configurazione genera in automatico il contrasto del testo (WCA
 
 ### Internazionalizzazione e contenuti
 
-Le lingue disponibili si dichiarano con tag BCP 47 validati a build time. Ogni lingua ha due file di traduzione: uno di base del template e uno di progetto che sovrascrive solo le chiavi necessarie. I contenuti legali sono file Markdown modificabili senza toccare il codice. Il Markdown viene renderizzato con protezione XSS integrata. Il consenso cookie si rileva da solo e blocca le scritture finché l'utente non accetta.
+Le lingue disponibili si dichiarano con tag BCP 47 validati a build time. Ogni lingua ha due file di traduzione: uno di base del template e uno di progetto che sovrascrive solo le chiavi necessarie. I contenuti legali sono file Markdown modificabili senza toccare il codice. Il Markdown viene renderizzato con protezione XSS integrata. Il consenso cookie si rileva da solo e blocca le scritture finché l'utente non accetta. I cookie del progetto si registrano in un unico file (`cookie-registry.ts`): il banner GDPR compare automaticamente per le categorie presenti, la pagina Cookie Policy si disabilita da sola quando non ci sono cookie da dichiarare, e il placeholder `{{cookieList}}` nei file Markdown si espande nella tabella dei cookie nella lingua corrente dell'utente — tutto senza configurazione aggiuntiva.
 
 ### Backend e sicurezza
 

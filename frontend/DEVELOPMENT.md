@@ -964,6 +964,29 @@ export class MioComponent {
 | `getSavedLanguage()` | Legge il cookie di preferenza lingua |
 | `setSavedLanguage(lang)` | Scrive il cookie lingua se il consenso tecnico è attivo |
 | `clearSavedLanguage()` | Rimuove il cookie lingua |
+| `listMarkdown(t)` | Genera la tabella Markdown dei cookie censiti; `t` è la funzione di traduzione |
+
+### Tabella cookie nei file Markdown legali
+
+I file `.md` in `assets/legal/` possono contenere il placeholder `{{cookieList}}`. `ContentResolver` lo sostituisce con la tabella Markdown generata da `listMarkdown()` prima che il testo raggiunga il componente.
+
+```markdown
+## Cookie utilizzati
+
+{{cookieList}}
+```
+
+La tabella include automaticamente: preferenza lingua (se multilingua), Service Worker (se `isWebApp: true`) e tutti i cookie censiti in `COOKIE_MAP`.
+
+### Auto-disabilitazione della pagina Cookie Policy
+
+Il builder (`buildSite`) disabilita automaticamente la pagina corrispondente a `PageType.CookiePolicy` quando non ci sono cookie da dichiarare — ovvero quando tutte e tre le condizioni sono vere:
+
+- `isWebApp: false` (nessun Service Worker)
+- lingua singola (nessun cookie di preferenza lingua)
+- `COOKIE_MAP` vuoto (nessun cookie di progetto)
+
+Il lookup avviene per nome (`'CookiePolicy'`) sull'enum a runtime, quindi se un progetto figlio rimuove `PageType.CookiePolicy` dall'enum la logica è semplicemente inerte — nessun errore. La pagina viene esclusa da `pageMap`, dalla sitemap e dalla navigazione senza nessun intervento manuale.
 
 ---
 

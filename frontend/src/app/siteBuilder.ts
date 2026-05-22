@@ -1,5 +1,5 @@
 import type { Type } from '@angular/core';
-import type { PageType } from './site';
+import { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
 import { COOKIE_MAP } from './core/services/cookie-registry';
 
@@ -275,12 +275,6 @@ export type LeafPageInput = BasePageInput & {
      * Se omesso e `requiresAuth` è false, il builder usa `'server'` in automatico.
      */
     renderMode?: SiteRenderMode;
-
-    /**
-     * Se true, la pagina viene auto-disabilitata quando non ci sono cookie da mostrare
-     * (isWebApp: false, lingua singola, COOKIE_MAP vuoto).
-     */
-    isCookiePolicy?: boolean;
 
     /**
      * Descrizione della pagina per social sharing (og:description, twitter:description).
@@ -1025,17 +1019,17 @@ export function buildSite(
              */
 
             /**
-             * Auto-disabilita le pagine cookie policy se non ci sono cookie da mostrare.
-             * Condizione: isWebApp false, lingua singola e COOKIE_MAP vuoto.
+             * Auto-disabilita la pagina cookie policy se non ci sono cookie da mostrare.
+             * Il lookup sull'enum è dinamico: se CookiePolicy viene rimosso dall'enum
+             * il cast a Record restituisce undefined e il blocco è no-op.
              */
-            if (page.isCookiePolicy && siteConfig) {
+            const cookiePolicyType = Object.entries(PageType).find(([key]) => key === 'CookiePolicy')?.[1]; // 'CookiePolicy' = chiave enum — aggiornare se rinominata
+            if (siteConfig && cookiePolicyType !== undefined && page.pageType === cookiePolicyType) {
                 const noCookies =
                     !siteConfig.isWebApp
                     && siteConfig.availableLanguages.length <= 1
                     && Object.keys(COOKIE_MAP).length === 0;
-                if (noCookies) {
-                    return [];
-                }
+                if (noCookies) return [];
             }
 
             if (seenInternalPaths.has(fullPath)) {
