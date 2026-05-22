@@ -208,9 +208,10 @@ export class CookieConsentService {
      * Registra il Service Worker nella sessione corrente appena il consenso tecnico è dato.
      * All'avvio successivo provideServiceWorker() usa isTechnicalConsentGiven() e lo
      * registra con l'integrazione Angular completa (SwUpdate).
+     * Nessuna operazione se isWebApp è false in site.ts.
      */
     private applyServiceWorker(): void {
-        if (!this.isBrowser || isDevMode()) return;
+        if (!this.isBrowser || isDevMode() || !ContestoSito.config.isWebApp) return;
         if (this._technicalAccepted() && 'serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistration().then(existing => {
                 if (!existing) {

@@ -16,6 +16,7 @@ import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
 import { SSR_API_PREFIX } from './core/services/base-api.service';
 import { isTechnicalConsentGiven } from './core/services/cookie-consent.service';
+import { ContestoSito } from './site';
 
 /**
  * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
@@ -63,11 +64,11 @@ export const appConfig: ApplicationConfig = {
             authService.restoreSession();
         }),
 
-        /** PWA: abilitato solo se il consenso tecnico è già stato salvato (vedi CookieConsentService).
+        /** PWA: abilitato solo se isWebApp, fuori da devMode e con consenso tecnico già salvato.
          *  Al primo accesso è disabilitato; CookieConsentService.applyConsent() lo registra
          *  nella stessa sessione dopo l'accettazione, e da qui in poi parte integrato. */
         provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode() && isTechnicalConsentGiven(),
+            enabled: !isDevMode() && ContestoSito.config.isWebApp && isTechnicalConsentGiven(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
         {

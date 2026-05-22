@@ -112,6 +112,8 @@ export interface SiteConfig {
     showNav: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
+    isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
     smoke: SmokeSettings;
 }
@@ -144,6 +146,12 @@ export interface SiteConfigInput {
     showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /**
+     * Abilita le funzionalità PWA: Service Worker, cache offline e aggiornamenti automatici.
+     * Se `false`, il SW non viene registrato e `VersionCheckService` usa solo il polling manifest.
+     * Default: `true`.
+     */
+    isWebApp?: boolean;
     /** Forza l'uso esclusivo dell'immagine per le anteprime social (Open Graph) senza aggiungere scritte o favicon. */
     onlyPlainImage?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
@@ -883,6 +891,7 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+                isWebApp: siteConfigurationInput.isWebApp ?? true,
                 onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
                 smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
             };
