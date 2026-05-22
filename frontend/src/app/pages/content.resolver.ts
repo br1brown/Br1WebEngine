@@ -6,7 +6,6 @@ import { catchError } from 'rxjs/operators';
 import { ContestoSito, PageType } from '../site';
 import { TranslateService } from '../core/services/translate.service';
 import { ApiService } from '../core/services/api.service';
-import { CookieConsentService } from '../core/services/cookie-consent.service';
 import { PageInfo } from '../siteBuilder';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
@@ -42,16 +41,14 @@ export interface ResolvedPage<T = unknown> {
  * LEGAL_FILE_READER (fornito da app.config.server.ts), eliminando la chiamata
  * HTTP loopback. Nel browser resta una semplice fetch relativa.
  *
- * Il placeholder {{cookieList}} viene sostituito qui con la tabella Markdown
- * generata da CookieConsentService.listMarkdown(). I placeholder di profilo
- * ({{ragioneSociale}} ecc.) sono gestiti da PolicyComponent.
+ * I placeholder {{cookieList}} e {{ragioneSociale}} ecc. sono gestiti
+ * interamente da PolicyComponent — il resolver restituisce Markdown grezzo.
  */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {
     private readonly http = inject(HttpClient);
     private readonly translate = inject(TranslateService);
     private readonly apiService = inject(ApiService);
-    private readonly cookieConsent = inject(CookieConsentService);
     private readonly fileReader = inject(LEGAL_FILE_READER);
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
@@ -92,23 +89,11 @@ export class ContentResolver {
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
-        let raw: string | null;
-        if (this.fileReader) {
-            raw = await this.fileReader(slug, lang);
-        } else {
-            raw = await firstValueFrom(
-                this.http.get(`/assets/legal/${slug}.${lang}.md`, { responseType: 'text' })
-                    .pipe(catchError(() => of(null)))
-            );
-        }
-        if (raw === null) return null;
-        return this.injectCookieList(raw);
-    }
-
-    private injectCookieList(content: string): string {
-        if (!content.includes('{{cookieList}}')) return content;
-        const table = this.cookieConsent.listMarkdown(k => this.translate.translate(k));
-        return content.replace(/\{\{cookieList\}\}/g, table);
+        if (this.fileReader) return this.fileReader(slug, lang);
+        return firstValueFrom(
+            this.http.get(`/assets/legal/${slug}.${lang}.md`, { responseType: 'text' })
+                .pipe(catchError(() => of(null)))
+        );
     }
 }
 

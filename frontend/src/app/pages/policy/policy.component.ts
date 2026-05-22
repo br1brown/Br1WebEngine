@@ -1,6 +1,7 @@
-import { Component, computed, effect, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
+import { CookieConsentService } from '../../core/services/cookie-consent.service';
 import type { Profile } from '../../core/dto/profile.dto';
 
 type ProfileData = Record<string, string | undefined>;
@@ -12,14 +13,28 @@ type ProfileData = Record<string, string | undefined>;
     styleUrl: './policy.component.css'
 })
 export class PolicyComponent extends PageBaseComponent<string> {
+    private readonly cookieConsent = inject(CookieConsentService);
+
     /** null = non ancora caricato, {} = errore (previene retry), Record = dati disponibili */
     private readonly profileData = signal<ProfileData | null>(null);
 
     readonly displayContent = computed(() => {
-        const content = this.pageContent() ?? '';
+        let content = this.pageContent() ?? '';
+        if (!content) return content;
+
+        // {{cookieList}} — sincrono, reattivo al cambio lingua tramite pageContent()
+        if (content.includes('{{cookieList}}')) {
+            const table = this.cookieConsent.listMarkdown(k => this.translate.translate(k));
+            content = content.replace(/\{\{cookieList\}\}/g, table);
+        }
+
+        // placeholder profilo — asincrono, risolti quando profileData è disponibile
         const profile = this.profileData();
-        if (!content.includes('{{') || !profile) return content;
-        return this.interpolate(content, profile);
+        if (content.includes('{{') && profile) {
+            content = this.interpolate(content, profile);
+        }
+
+        return content;
     });
 
     constructor() {
