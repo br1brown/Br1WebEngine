@@ -22,11 +22,15 @@ export class BackToTopComponent {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly isVisible = signal(false);
+  private rafId: number | null = null;
 
   @HostListener('window:scroll')
   onScroll(): void {
-    if (this.isBrowser)
+    if (!this.isBrowser || this.rafId !== null) return;
+    this.rafId = requestAnimationFrame(() => {
       this.isVisible.set(window.scrollY > 300);
+      this.rafId = null;
+    });
   }
 
   scrollToTop(): void {
