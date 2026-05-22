@@ -67,9 +67,9 @@ export class CookieConsentService {
 
     // ─── CATEGORIE: isNeeded ────────────────────────────────────────────
     //
-    // isTechnicalNeeded: sito multilingua (lingua built-in) OPPURE almeno un cookie
-    // tecnico in COOKIE_MAP. Usa injector.get(TranslateService) per evitare il ciclo DI
-    // CookieConsentService → TranslateService → CookieConsentService.
+    // isTechnicalNeeded: sito multilingua (lingua built-in) OPPURE isWebApp (Service Worker)
+    // OPPURE almeno un cookie tecnico in COOKIE_MAP. Usa injector.get(TranslateService) per
+    // evitare il ciclo DI CookieConsentService → TranslateService → CookieConsentService.
     // injector.get() è lazy: risolto solo quando la computed viene letta, dopo che
     // entrambi i servizi sono stati costruiti.
     // @warning NON sostituire con inject(TranslateService) nel costruttore.
@@ -78,6 +78,7 @@ export class CookieConsentService {
 
     readonly isTechnicalNeeded = computed(() =>
         this.injector.get(TranslateService).availableLangs().length > 1
+        || ContestoSito.config.isWebApp
         || Object.values(COOKIE_MAP).some(c => c === CookieCategory.Technical)
     );
 
@@ -123,6 +124,7 @@ export class CookieConsentService {
                 // Replica la stessa logica usando ContestoSito e COOKIE_MAP direttamente.
                 const isTechnicalNeededNow =
                     ContestoSito.config.availableLanguages.length > 1
+                    || ContestoSito.config.isWebApp
                     || Object.values(COOKIE_MAP).some(c => c === CookieCategory.Technical);
                 const isAnalyticsNeededNow = Object.values(COOKIE_MAP).some(c => c === CookieCategory.Analytics);
                 const isProfilingNeededNow = Object.values(COOKIE_MAP).some(c => c === CookieCategory.Profiling);
@@ -238,15 +240,18 @@ export class CookieConsentService {
     // Solo i cookie registrati in COOKIE_KEYS/COOKIE_MAP sono accessibili qui.
     // Quando COOKIE_KEYS = {}, CookieKey = never: setCookie/getCookie non sono invocabili.
 
-    /** Scrive un cookie di progetto. Bloccato se il consenso per la categoria non è stato dato. */
+    /** Scrive un cookie di progetto. Bloccato se il consenso per la categoria non è stato dato.
+     *  Se la chiave non è censita in COOKIE_MAP, fallback a Technical con console.warn. */
     setCookie(key: CookieKey, value: string, maxAgeSeconds: number): void {
-        const category = COOKIE_MAP[key as string];
-        if (!category || !this.isCategoryAccepted(category)) return;
+        const category = COOKIE_MAP[key as string] ?? this.warnUnregistered(key as string);
+        if (!this.isCategoryAccepted(category)) return;
         this.writeCookieDirect(key as string, value, maxAgeSeconds);
     }
 
-    /** Legge un cookie di progetto. */
+    /** Legge un cookie di progetto.
+     *  Se la chiave non è censita in COOKIE_MAP, logga un console.warn e legge comunque. */
     getCookie(key: CookieKey): string | null {
+        if (!COOKIE_MAP[key as string]) this.warnUnregistered(key as string);
         return this.readCookieDirect(key as string);
     }
 
@@ -274,6 +279,16 @@ export class CookieConsentService {
     }
 
     // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
+
+    /** Logga un warning per chiave non censita e restituisce il fallback Technical. */
+    private warnUnregistered(key: string): CookieCategory {
+        console.warn(
+            `[CookieConsentService] Il cookie "${key}" non è censito in COOKIE_MAP.`,
+            'Aggiungilo a COOKIE_KEYS e COOKIE_MAP in cookie-consent.service.ts.',
+            'Trattato come CookieCategory.Technical per sicurezza.'
+        );
+        return CookieCategory.Technical;
+    }
 
     private readCookieDirect(key: string): string | null {
         if (!this.isBrowser) return null;
