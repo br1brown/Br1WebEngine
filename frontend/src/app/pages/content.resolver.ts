@@ -8,7 +8,6 @@ import { TranslateService } from '../core/services/translate.service';
 import { ApiService } from '../core/services/api.service';
 import { CookieConsentService } from '../core/services/cookie-consent.service';
 import { PageInfo } from '../siteBuilder';
-import type { Profile } from '../core/dto/profile.dto';
 
 export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
 
@@ -43,8 +42,9 @@ export interface ResolvedPage<T = unknown> {
  * LEGAL_FILE_READER (fornito da app.config.server.ts), eliminando la chiamata
  * HTTP loopback. Nel browser resta una semplice fetch relativa.
  *
- * I placeholder {{cookieList}} e {{chiave}} vengono sostituiti qui,
- * prima che il contenuto raggiunga il componente.
+ * Il placeholder {{cookieList}} viene sostituito qui con la tabella Markdown
+ * generata da CookieConsentService.listMarkdown(). I placeholder di profilo
+ * ({{ragioneSociale}} ecc.) sono gestiti da PolicyComponent.
  */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {
@@ -101,53 +101,14 @@ export class ContentResolver {
                     .pipe(catchError(() => of(null)))
             );
         }
-        if (!raw) return raw;
-        return this.interpolatePolicyContent(raw);
+        if (raw === null) return null;
+        return this.injectCookieList(raw);
     }
 
-    private async interpolatePolicyContent(content: string): Promise<string> {
-        let result = content;
-
-        if (result.includes('{{cookieList}}')) {
-            const table = this.cookieConsent.listMarkdown(k => this.translate.translate(k));
-            result = result.replace(/\{\{cookieList\}\}/g, table);
-        }
-
-        if (result.includes('{{')) {
-            const profile = await this.apiService.getProfile().catch(() => null);
-            if (profile) {
-                const data = this.formatProfileData(profile);
-                for (const [key, value] of Object.entries(data)) {
-                    result = result.replace(
-                        new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
-                        value ?? ''
-                    );
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private formatProfileData(profile: Profile): Record<string, string | undefined> {
-        const sede = profile.sedeLegale;
-        const indirizzo = sede
-            ? `${sede.via ?? ''}, ${sede.civico ?? ''}\n${sede.cap ?? ''} ${sede.citta ?? ''} (${sede.provincia ?? ''})\n${sede.nazione ?? ''}`.trim()
-            : undefined;
-
-        return {
-            ragioneSociale: profile.ragioneSociale,
-            partitaIva: profile.partitaIva,
-            codiceFiscale: profile.codiceFiscale,
-            numeroRea: profile.datiSocietari?.numeroRea,
-            registroImprese: profile.datiSocietari?.registroImprese,
-            telefono: profile.contatti?.telefono,
-            email: profile.contatti?.email,
-            pec: profile.contatti?.pec,
-            indirizzo,
-            rappresentanteLegale: profile.metadatiAggiuntivi?.['rappresentanteLegale'],
-            citta: sede?.citta
-        };
+    private injectCookieList(content: string): string {
+        if (!content.includes('{{cookieList}}')) return content;
+        const table = this.cookieConsent.listMarkdown(k => this.translate.translate(k));
+        return content.replace(/\{\{cookieList\}\}/g, table);
     }
 }
 

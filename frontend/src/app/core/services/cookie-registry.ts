@@ -5,22 +5,24 @@ export enum CookieCategory {
 }
 
 /**
- * Registro dei cookie del progetto: chiave costante → categoria di consenso.
+ * Registro unico dei cookie del progetto.
  *
- * Per aggiungere un cookie del progetto:
- *   1. Aggiungere la chiave a COOKIE_KEYS
- *   2. Aggiungere la mappatura chiave → categoria in COOKIE_MAP
- *   3. Il banner comparirà automaticamente se la categoria diventa necessaria
+ * Chiave  = nome raw del cookie nel browser  (il nome fisico sarà "{category}.{rawKey}")
+ * Valore  = categoria di consenso richiesta
  *
- * Il nome fisico del cookie nel browser sarà: {category}.{rawKey}
- * Es. COOKIE_KEYS = { GA: '_ga' }, COOKIE_MAP = { _ga: Analytics }
- *   → cookie "analytics._ga"
+ * Aggiungere una riga qui è sufficiente per:
+ *   - Attivare automaticamente la sezione nel banner GDPR
+ *   - Rendere la chiave tipizzata e chiamabile via setCookie/getCookie/removeCookie
+ *   - Includerla nella tabella {{cookieList}} nei file Markdown delle policy
  *
- * Cookie non censiti usano {rawKey} senza categoria, generano console.warn
- * su set e get — funzionante ma non GDPR compliant.
+ * Con mappa vuota: CookieKey = never → setCookie/getCookie non sono invocabili a compile-time.
+ *
+ * Esempio:
+ *   '_ga':           CookieCategory.Analytics,
+ *   '_ga_XXXXXXXX':  CookieCategory.Analytics,
  */
-export const COOKIE_KEYS = {} as const;
-export type CookieKey = typeof COOKIE_KEYS[keyof typeof COOKIE_KEYS];
+export const COOKIE_MAP = {
 
-export type CookieMap = Readonly<Record<string, CookieCategory>>;
-export const COOKIE_MAP: CookieMap = {};
+} as const satisfies Readonly<Record<string, CookieCategory>>;
+
+export type CookieKey = keyof typeof COOKIE_MAP;

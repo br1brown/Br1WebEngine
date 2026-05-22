@@ -4,8 +4,7 @@ import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../site';
 import { CookieCategory, COOKIE_MAP } from './cookie-registry';
 
-// Re-export per backward compat — chi importa da cookie-consent.service non deve cambiare
-export { CookieCategory, COOKIE_KEYS } from './cookie-registry';
+export { CookieCategory } from './cookie-registry';
 export type { CookieKey } from './cookie-registry';
 
 /**
@@ -218,21 +217,24 @@ export class CookieConsentService {
 
     // ─── COOKIE DI PROGETTO (tipizzati) ─────────────────────────────────
     //
-    // Chiave fisica nel browser: {category}.{rawKey}  ← censito in COOKIE_MAP
-    //                            {rawKey}             ← non censito (+ console.warn)
+    // Chiave fisica nel browser: {category}.{rawKey}
     //
-    // Quando COOKIE_KEYS = {}, CookieKey = never: setCookie/getCookie non sono invocabili
+    // CookieKey = keyof typeof COOKIE_MAP.
+    // Con mappa vuota: CookieKey = never → setCookie/getCookie non sono invocabili
     // a compile-time — errore TypeScript prima ancora di arrivare a runtime.
+    //
+    // I tre metodi includono un check runtime difensivo per eventuali cast `as any`.
+    // Una chiave non censita blocca la scrittura con console.error (Privacy by Default).
+
+    private readonly _cm = COOKIE_MAP as Readonly<Record<string, CookieCategory | undefined>>;
 
     /** Scrive un cookie di progetto.
-     *  Bloccato silenziosamente se il consenso per la categoria non è stato dato. */
+     *  Bloccato se la chiave non è censita in COOKIE_MAP o se il consenso manca. */
     setCookie(key: import('./cookie-registry').CookieKey, value: string, maxAgeSeconds: number): void {
         const rawKey = key as string;
-        const category = COOKIE_MAP[rawKey];
+        const category = this._cm[rawKey];
         if (!category) {
-            this.warnUnregistered(rawKey, 'set');
-            if (!this._technicalAccepted()) return;
-            this.writeCookieDirect(`${rawKey}`, value, maxAgeSeconds);
+            console.error(`[CookieConsentService] Cookie "${rawKey}" non censito in COOKIE_MAP — scrittura bloccata. Aggiungilo a COOKIE_MAP in cookie-registry.ts.`);
             return;
         }
         if (!this.isCategoryAccepted(category)) return;
@@ -242,10 +244,10 @@ export class CookieConsentService {
     /** Legge un cookie di progetto. */
     getCookie(key: import('./cookie-registry').CookieKey): string | null {
         const rawKey = key as string;
-        const category = COOKIE_MAP[rawKey];
+        const category = this._cm[rawKey];
         if (!category) {
-            this.warnUnregistered(rawKey, 'get');
-            return this.readCookieDirect(`${rawKey}`);
+            console.error(`[CookieConsentService] Cookie "${rawKey}" non censito in COOKIE_MAP — lettura bloccata.`);
+            return null;
         }
         return this.readCookieDirect(`${category}.${rawKey}`);
     }
@@ -253,11 +255,8 @@ export class CookieConsentService {
     /** Rimuove un cookie di progetto. La rimozione è sempre consentita. */
     removeCookie(key: import('./cookie-registry').CookieKey): void {
         const rawKey = key as string;
-        const category = COOKIE_MAP[rawKey];
-        const storageKey = category
-            ? `${category}.${rawKey}`
-            : `${rawKey}`;
-        this.eraseCookieDirect(storageKey);
+        const category = this._cm[rawKey];
+        this.eraseCookieDirect(category ? `${category}.${rawKey}` : rawKey);
     }
 
     // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
@@ -308,14 +307,6 @@ export class CookieConsentService {
     }
 
     // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
-
-    private warnUnregistered(key: string, op: 'set' | 'get'): void {
-        console.warn(
-            `[CookieConsentService] ${op === 'set' ? 'Scrittura' : 'Lettura'} del cookie "${key}" — non censito in COOKIE_MAP.`,
-            `Chiave usata nel browser: "${key}" (senza categoria — non GDPR compliant).`,
-            'Per censirlo: aggiungilo a COOKIE_KEYS e COOKIE_MAP in cookie-registry.ts.'
-        );
-    }
 
     private readCookieDirect(key: string): string | null {
         if (!this.isBrowser) return null;

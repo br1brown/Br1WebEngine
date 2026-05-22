@@ -846,56 +846,47 @@ La **categoria tecnica** è quindi necessaria ogni volta che il sito è multilin
 
 ### Aggiungere un cookie di progetto
 
-**Dove si trova il file:** `src/app/core/services/cookie-consent.service.ts` — le costanti `COOKIE_KEYS` e `COOKIE_MAP` in cima al file.
+**Dove si trova il file:** `src/app/core/services/cookie-registry.ts` — il solo `COOKIE_MAP`.
 
-**Passo 1 — Aggiungere la chiave a `COOKIE_KEYS`**
-
-```typescript
-// src/app/core/services/cookie-consent.service.ts
-export const COOKIE_KEYS = {
-    GA_SESSION: '_ga',
-    GA_CLIENT:  '_ga_XXXXXXXX',
-} as const;
-```
-
-Le chiavi sono costanti tipizzate (`as const`): usarle nel codice invece delle stringhe raw garantisce che TypeScript segnali un errore a compile time se si fa riferimento a un cookie non registrato.
-
-**Passo 2 — Mappare ogni chiave alla sua categoria in `COOKIE_MAP`**
+Aggiungere una riga è tutto quello che serve:
 
 ```typescript
-// src/app/core/services/cookie-consent.service.ts
-type CookieMap = Readonly<Record<string, CookieCategory>>;
-const COOKIE_MAP: CookieMap = {
-    [COOKIE_KEYS.GA_SESSION]: CookieCategory.Analytics,
-    [COOKIE_KEYS.GA_CLIENT]:  CookieCategory.Analytics,
-};
+// src/app/core/services/cookie-registry.ts
+export const COOKIE_MAP = {
+    '_ga':          CookieCategory.Analytics,
+    '_ga_XXXXXXXX': CookieCategory.Analytics,
+} as const satisfies Readonly<Record<string, CookieCategory>>;
 ```
 
-Aggiungere un cookie `Analytics` o `Profiling` fa comparire automaticamente la sezione corrispondente nel banner GDPR al prossimo caricamento dell'app — nessuna altra modifica necessaria.
+La chiave è il nome raw del cookie nel browser. Il nome fisico nel browser sarà `{categoria}.{chiave}` (es. `analytics._ga`).
 
-**Passo 3 — Usare `setCookie` / `getCookie` nel codice**
+Aggiungendo la riga, automaticamente:
+- la sezione corrispondente appare nel banner GDPR
+- la chiave diventa un `CookieKey` valido e utilizzabile a compile-time
+- la tabella `{{cookieList}}` nei file Markdown delle policy la include
+
+**Usare `setCookie` / `getCookie` nel codice**
 
 ```typescript
 import { inject } from '@angular/core';
-import { CookieConsentService, COOKIE_KEYS } from '../../core/services/cookie-consent.service';
+import { CookieConsentService } from '../../core/services/cookie-consent.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
     private readonly consent = inject(CookieConsentService);
 
     init(): void {
-        // setCookie è bloccato silenziosamente se il consenso analytics non è stato dato.
-        // Non serve controllare manualmente lo stato di consenso: il servizio lo fa da solo.
-        this.consent.setCookie(COOKIE_KEYS.GA_SESSION, 'valore', 60 * 60 * 24 * 365);
+        // Bloccato dal servizio se il consenso analytics non è stato dato.
+        this.consent.setCookie('_ga', 'valore', 60 * 60 * 24 * 365);
     }
 
     getSession(): string | null {
-        return this.consent.getCookie(COOKIE_KEYS.GA_SESSION);
+        return this.consent.getCookie('_ga');
     }
 }
 ```
 
-> **Type safety**: quando `COOKIE_KEYS = {}` (vuoto), il tipo `CookieKey` diventa `never` e `setCookie`/`getCookie` non possono essere chiamati con nessun argomento valido — errore a compile time, non a runtime.
+TypeScript valida le chiavi a compile time: una stringa non presente in `COOKIE_MAP` produce un errore prima ancora del runtime. Con mappa vuota, `CookieKey = never` e i metodi sono di fatto inaccessibili.
 
 ### Aggiungere un side effect al consenso
 
