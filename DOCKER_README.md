@@ -81,8 +81,8 @@ Questo resta il file consumato da Docker Compose.
 | `FRONTEND_BASE_URL` | no | — | URL canonico pubblico del frontend |
 | `EXPOSE_BACKEND` | no | — | Impostata da `deploy.sh`: `yes` espone la porta backend sull'host |
 | `PUBLIC_TEST_PORT` | no | `8088` | Porta host usata dal reverse proxy del test pubblico |
-| `PUBLIC_TEST_BASE_URL` | no | `http://br1gaming.localhost:8088` | URL pubblico simulato per il test locale |
-| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `br1gaming.localhost` | Host inoltrato dal reverse proxy al frontend SSR |
+| `PUBLIC_TEST_BASE_URL` | no | `http://localhost:8088` | URL pubblico simulato per il test locale |
+| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `localhost` | Host inoltrato dal reverse proxy al frontend SSR |
 
 I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
 
@@ -126,7 +126,7 @@ docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --b
 
 URL di test predefinito:
 
-- `http://br1gaming.localhost:8088`
+- `http://localhost:8088`
 
 Cosa simula davvero:
 
@@ -138,10 +138,9 @@ Cosa simula davvero:
 Smoke test utili:
 
 ```bash
-curl -i http://127.0.0.1:8088/health -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/avventura/poveri-maschi -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/generatori/incel -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/api/stories -H "Host: br1gaming.localhost"
+curl -i http://localhost:8088/health
+curl -i http://localhost:8088/
+curl -i http://localhost:8088/api/health
 ```
 
 Script pronti:
