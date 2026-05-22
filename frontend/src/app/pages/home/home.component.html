@@ -1,477 +1,531 @@
 <!-- INTRO -->
-            <section class="mb-4">
-                <h1 class="mb-2">{{ 'dashboardHome' | translate }}</h1>
-                <p class="lead mb-1" [innerHTML]="translate.translate('createdBy', appName)"></p>
-                <p class="text-muted mb-0">{{ 'welcomeConsole' | translate }}</p>
-            </section>
+<section class="mb-4">
+    <h1 class="mb-2">{{ 'dashboardHome' | translate }}</h1>
+    <p class="lead mb-1" [innerHTML]="translate.translate('createdBy', appName)"></p>
+    <p class="text-muted mb-0">{{ 'welcomeConsole' | translate }}</p>
+</section>
 
-            <!-- FUNZIONALITA' PRINCIPALI -->
-            <section class="mb-4">
-                <div class="row g-3">
+<!-- FUNZIONALITA' PRINCIPALI -->
+<section class="mb-4">
+    <div class="row g-3">
 
-                    <!-- Markdown -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">{{ 'markdownLabTitle' | translate }}</h2>
-                                <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
+        <!-- Markdown -->
+        <div class="col-12 col-xl-6">
+            <div class="card h-100">
+                <div class="card-body p-0">
+                    <div class="row g-0 h-100">
 
-                                <label class="form-label" for="markdownInput">{{ 'markdownInputLabel' | translate }}</label>
-                                <textarea class="form-control"
-                                          id="markdownInput"
-                                          rows="7"
-                                          [(ngModel)]="markdownInput"
-                                          (ngModelChange)="onMarkdownChange()"
-                                          (keydown.control.enter)="renderMarkdown()"
-                                          [placeholder]="translate.translate('markdownPlaceholder')"></textarea>
+                        <div class="col-12 col-lg-7 p-3">
+                            <h2 class="card-title mb-1 h5">{{ 'markdownLabTitle' | translate }}</h2>
+                            <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
 
-                                <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            (click)="setPreset('base')">
-                                        {{ 'presetBase' | translate }}
-                                    </button>
+                            <label class="form-label" for="markdownInput">{{ 'markdownInputLabel' | translate }}</label>
+                            <textarea class="form-control"
+                                      id="markdownInput"
+                                      rows="6"
+                                      [(ngModel)]="markdownInput"
+                                      (ngModelChange)="onMarkdownChange()"
+                                      (keydown.control.enter)="renderMarkdown()"
+                                      [placeholder]="translate.translate('markdownPlaceholder')"></textarea>
 
-                                    <button class="btn btn-sm btn-outline-secondary"
-                                            (click)="setPreset('table')">
-                                        {{ 'presetTable' | translate }}
-                                    </button>
-
-                                    <div class="form-check form-check-inline ms-1">
-                                        <input class="form-check-input"
-                                               type="checkbox"
-                                               id="autoPreview"
-                                               [(ngModel)]="autoPreview">
-                                        <label class="form-check-label" for="autoPreview">
-                                            {{ 'markdownAutoPreview' | translate }}
-                                        </label>
-                                    </div>
+                            <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                <button class="btn btn-sm btn-outline-secondary" (click)="setPreset('base')">
+                                    {{ 'presetBase' | translate }}
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" (click)="setPreset('table')">
+                                    {{ 'presetTable' | translate }}
+                                </button>
+                                <div class="form-check form-check-inline ms-1">
+                                    <input class="form-check-input" type="checkbox" id="autoPreview" [(ngModel)]="autoPreview">
+                                    <label class="form-check-label" for="autoPreview">{{ 'markdownAutoPreview' | translate }}</label>
                                 </div>
+                            </div>
 
-                                <small class="text-muted d-block mt-2">
-                                    {{ 'markdownShortcutHint' | translate }}
-                                </small>
+                            <small class="text-muted d-block mt-2">{{ 'markdownShortcutHint' | translate }}</small>
 
-                                <p class="form-label mt-3 mb-1" id="markdownPreviewLabel">{{ 'markdownPreviewTitle' | translate }}</p>
-                                <div class="border rounded p-3 markdown-preview theme-demo-surface"
-                                     aria-labelledby="markdownPreviewLabel"
-                                     [innerHTML]="markdownPreview">
-                                </div>
+                            <p class="form-label mt-3 mb-1" id="markdownPreviewLabel">{{ 'markdownPreviewTitle' | translate }}</p>
+                            <div class="border rounded p-3 markdown-preview theme-demo-surface"
+                                 aria-labelledby="markdownPreviewLabel"
+                                 [innerHTML]="markdownPreview"></div>
 
-                                @if (markdownHtml) {
+                            @if (markdownHtml) {
                                 <p class="form-label mt-3 mb-1">{{ 'markdownHtmlOutputTitle' | translate }}</p>
                                 <pre class="border rounded p-2 mb-2 theme-demo-surface"><code>{{ markdownHtml }}</code></pre>
-                                <button class="btn btn-sm btn-outline-primary"
-                                        (click)="copyToClipboard(markdownHtml)">
+                                <button class="btn btn-sm btn-outline-primary" (click)="copyToClipboard(markdownHtml)">
                                     <i class="fa-solid fa-copy me-1"></i>{{ 'copyHtml' | translate }}
                                 </button>
-                                }
-                            </div>
+                            }
                         </div>
-                    </div>
 
-                    <!-- Demo immagini -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">{{ 'imgBuilderTitle' | translate }}</h2>
-                                <p class="text-muted small mb-3">
-                                    Demo minimale di generazione immagine lato client
-                                </p>
-
-                                <div class="row g-3 align-items-start">
-                                    <div class="col-md-5">
-                                        <label class="form-label" for="imgText">{{ 'imageTextPlaceholder' | translate }}</label>
-                                        <textarea class="form-control mb-3"
-                                                  id="imgText"
-                                                  rows="3"
-                                                  [(ngModel)]="imgText"
-                                                  (ngModelChange)="onImageInputChange()"></textarea>
-
-                                        <div class="mb-3">
-                                            <label class="form-label" for="imgFontSize">
-                                                {{ 'imageSize' | translate }}: {{ imgFontSize }}px
-                                            </label>
-                                            <input type="range"
-                                                   id="imgFontSize"
-                                                   class="form-range"
-                                                   min="50"
-                                                   max="120"
-                                                   step="1"
-                                                   [(ngModel)]="imgFontSize"
-                                                   (input)="onImageInputChange()">
-                                        </div>
-
-                                        <button class="btn btn-outline-secondary btn-sm"
-                                                (click)="resetHomeImage()">
-                                            Reset
-                                        </button>
-                                    </div>
-
-                                    <div class="col-md-7">
-                                        <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface"
-                                             [appContextMenu]="imgContextMenuOptions()">
-                                            <img [imgRender]="imgConfig()"
-                                                 (canvasChange)="imgCanvas.set($event)"
-                                                 class="img-fluid rounded border image-preview-canvas cursor-context-menu"
-                                                 [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-markdown">Utilizzo</label>
+                            <textarea id="code-markdown"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.markdown"></textarea>
                         </div>
-                    </div>
 
-                </div>
-            </section>
-
-            <!-- QR CODE -->
-            <section class="mb-4">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">QR Code</h2>
-                                <p class="text-muted small mb-3">
-                                    Genera QR code per testo, link, WhatsApp, email, Wi-Fi e pagamenti SEPA.
-                                    Colori automatici dal tema attivo con contrasto WCAG garantito.
-                                </p>
-
-                                <div class="row g-4 align-items-start">
-
-                                    <!-- Controlli -->
-                                    <div class="col-md-5">
-
-                                        <!-- Tipo -->
-                                        <label class="form-label" for="qrType">Tipo</label>
-                                        <select class="form-select mb-3"
-                                                id="qrType"
-                                                [(ngModel)]="qrType"
-                                                (ngModelChange)="onQrTypeChange()">
-                                            <option value="text">Testo / URL</option>
-                                            <option value="whatsapp">WhatsApp</option>
-                                            <option value="email">Email</option>
-                                            <option value="wifi">Wi-Fi</option>
-                                            <option value="sepa">Pagamento SEPA</option>
-                                        </select>
-
-                                        <!-- Campi dinamici per tipo -->
-                                        @switch (qrType) {
-
-                                            @case ('text') {
-                                                <label class="form-label" for="qrText">Contenuto</label>
-                                                <textarea class="form-control mb-3"
-                                                          id="qrText"
-                                                          rows="3"
-                                                          [(ngModel)]="qrText"
-                                                          placeholder="https://example.com oppure testo libero"></textarea>
-                                            }
-
-                                            @case ('whatsapp') {
-                                                <label class="form-label" for="qrPhone">Numero (con prefisso, es. +39…)</label>
-                                                <input type="tel" id="qrPhone" class="form-control mb-2"
-                                                       [(ngModel)]="qrPhone"
-                                                       placeholder="+393331234567">
-                                                <label class="form-label" for="qrWhatsappText">Messaggio precompilato (opzionale)</label>
-                                                <textarea class="form-control mb-3"
-                                                          id="qrWhatsappText"
-                                                          rows="2"
-                                                          [(ngModel)]="qrWhatsappText"></textarea>
-                                            }
-
-                                            @case ('email') {
-                                                <label class="form-label" for="qrEmail">Destinatario</label>
-                                                <input type="email" id="qrEmail" class="form-control mb-2"
-                                                       [(ngModel)]="qrEmail"
-                                                       placeholder="info@esempio.it">
-                                                <label class="form-label" for="qrEmailSubject">Oggetto (opzionale)</label>
-                                                <input type="text" id="qrEmailSubject" class="form-control mb-2"
-                                                       [(ngModel)]="qrEmailSubject">
-                                                <label class="form-label" for="qrEmailBody">Corpo (opzionale)</label>
-                                                <textarea class="form-control mb-3"
-                                                          id="qrEmailBody"
-                                                          rows="2"
-                                                          [(ngModel)]="qrEmailBody"></textarea>
-                                            }
-
-                                            @case ('wifi') {
-                                                <label class="form-label" for="qrSsid">Nome rete (SSID)</label>
-                                                <input type="text" id="qrSsid" class="form-control mb-2"
-                                                       [(ngModel)]="qrSsid"
-                                                       placeholder="NomeWifi">
-                                                <label class="form-label" for="qrWifiPassword">Password (opzionale)</label>
-                                                <input type="text" id="qrWifiPassword" class="form-control mb-2"
-                                                       [(ngModel)]="qrWifiPassword">
-                                                <label class="form-label" for="qrWifiEncryption">Sicurezza</label>
-                                                <select id="qrWifiEncryption" class="form-select mb-3" [(ngModel)]="qrWifiEncryption">
-                                                    <option value="WPA">WPA / WPA2</option>
-                                                    <option value="WEP">WEP</option>
-                                                    <option value="nopass">Nessuna</option>
-                                                </select>
-                                            }
-
-                                            @case ('sepa') {
-                                                <label class="form-label" for="qrIban">IBAN beneficiario</label>
-                                                <input type="text" id="qrIban" class="form-control mb-2"
-                                                       [(ngModel)]="qrIban"
-                                                       placeholder="IT60 X054 2811 1010 0000 0123 456">
-                                                <label class="form-label" for="qrBeneficiaryName">Nome beneficiario</label>
-                                                <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
-                                                       [(ngModel)]="qrBeneficiaryName">
-                                                <label class="form-label" for="qrAmount">Importo (€)</label>
-                                                <input type="number" id="qrAmount" class="form-control mb-2"
-                                                       [(ngModel)]="qrAmount"
-                                                       min="0.01" step="0.01">
-                                                <label class="form-label" for="qrRemittance">Causale (opzionale)</label>
-                                                <input type="text" id="qrRemittance" class="form-control mb-3"
-                                                       [(ngModel)]="qrRemittance">
-                                            }
-                                        }
-
-                                        <button class="btn btn-primary btn-sm" (click)="generateQr()">
-                                            <i class="fa-solid fa-qrcode me-1"></i>Genera
-                                        </button>
-
-                                        @if (qrError(); as err) {
-                                            <div class="alert alert-warning mt-3 mb-0 py-2 small">
-                                                <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ err }}
-                                            </div>
-                                        }
-                                    </div>
-
-                                    <!-- Anteprima -->
-                                    <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
-                                        <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100"
-                                             [appContextMenu]="qrContextMenuOptions()">
-                                            @if (qrConfig()) {
-                                                <img [qrContent]="qrConfig()"
-                                                     (blobChange)="qrBlob.set($event)"
-                                                     (errorChange)="qrError.set($event)"
-                                                     alt="QR Code generato"
-                                                     class="img-fluid rounded cursor-context-menu"
-                                                     style="max-width: 280px;">
-                                            } @else {
-                                                <span class="text-muted small">
-                                                    <i class="fa-solid fa-qrcode fa-2x d-block mb-2 text-center opacity-25"></i>
-                                                    Configura i campi e premi <strong>Genera</strong>
-                                                </span>
-                                            }
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
+        </div>
 
-            <!-- COMPONENTI UX -->
-            <section class="mb-4">
-                <div class="row g-3">
+        <!-- Demo immagini -->
+        <div class="col-12 col-xl-6">
+            <div class="card h-100">
+                <div class="card-body p-0">
+                    <div class="row g-0 h-100">
 
-                    <!-- Sintesi Vocale (TTS) -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">{{ 'speechDemoTitle' | translate }}</h2>
-                                <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
+                        <div class="col-12 col-lg-7 p-3">
+                            <h2 class="card-title mb-1 h5">{{ 'imgBuilderTitle' | translate }}</h2>
+                            <p class="text-muted small mb-3">Demo minimale di generazione immagine lato client</p>
 
-                                <div class="mb-3">
-                                    <label class="form-label" for="speechInput">{{ 'speechInputLabel' | translate }}</label>
-                                    <textarea class="form-control"
-                                              id="speechInput"
+                            <div class="row g-3 align-items-start">
+                                <div class="col-sm-5">
+                                    <label class="form-label" for="imgText">{{ 'imageTextPlaceholder' | translate }}</label>
+                                    <textarea class="form-control mb-3"
+                                              id="imgText"
                                               rows="3"
-                                              [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
-                                              [placeholder]="translate.translate('speechPlaceholder')"></textarea>
+                                              [(ngModel)]="imgText"
+                                              (ngModelChange)="onImageInputChange()"></textarea>
+
+                                    <div class="mb-3">
+                                        <label class="form-label" for="imgFontSize">
+                                            {{ 'imageSize' | translate }}: {{ imgFontSize }}px
+                                        </label>
+                                        <input type="range" id="imgFontSize" class="form-range"
+                                               min="50" max="120" step="1"
+                                               [(ngModel)]="imgFontSize"
+                                               (input)="onImageInputChange()">
+                                    </div>
+
+                                    <button class="btn btn-outline-secondary btn-sm" (click)="resetHomeImage()">Reset</button>
                                 </div>
 
-                                <div class="d-flex align-items-center gap-2">
-                                    <button class="btn"
-                                            [ngClass]="speech.isSpeaking() ? 'btn-danger' : 'btn-success'"
-                                            (click)="toggleSpeech()">
-                                        <i class="fa-solid me-1"
-                                           [class.fa-play]="!speech.isSpeaking()"
-                                           [class.fa-stop]="speech.isSpeaking()"></i>
+                                <div class="col-sm-7">
+                                    <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface"
+                                         [appContextMenu]="imgContextMenuOptions()">
+                                        <img [imgRender]="imgConfig()"
+                                             (canvasChange)="imgCanvas.set($event)"
+                                             class="img-fluid rounded border image-preview-canvas cursor-context-menu"
+                                             [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                        {{ (speech.isSpeaking() ? 'speechStop' : 'speechPlay') | translate }}
+                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-img">Utilizzo</label>
+                            <textarea id="code-img"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.imgRender"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- QR CODE -->
+<section class="mb-4">
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="row g-0">
+
+                        <div class="col-12 col-lg-8 p-3">
+                            <h2 class="card-title mb-1 h5">QR Code</h2>
+                            <p class="text-muted small mb-3">
+                                Genera QR code per testo, link, WhatsApp, email, Wi-Fi e pagamenti SEPA.
+                                Colori automatici dal tema attivo con contrasto WCAG garantito.
+                            </p>
+
+                            <div class="row g-4 align-items-start">
+                                <div class="col-md-5">
+                                    <label class="form-label" for="qrType">Tipo</label>
+                                    <select class="form-select mb-3" id="qrType"
+                                            [(ngModel)]="qrType" (ngModelChange)="onQrTypeChange()">
+                                        <option value="text">Testo / URL</option>
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="email">Email</option>
+                                        <option value="wifi">Wi-Fi</option>
+                                        <option value="sepa">Pagamento SEPA</option>
+                                    </select>
+
+                                    @switch (qrType) {
+                                        @case ('text') {
+                                            <label class="form-label" for="qrText">Contenuto</label>
+                                            <textarea class="form-control mb-3" id="qrText" rows="3"
+                                                      [(ngModel)]="qrText"
+                                                      placeholder="https://example.com oppure testo libero"></textarea>
+                                        }
+                                        @case ('whatsapp') {
+                                            <label class="form-label" for="qrPhone">Numero (con prefisso, es. +39…)</label>
+                                            <input type="tel" id="qrPhone" class="form-control mb-2"
+                                                   [(ngModel)]="qrPhone" placeholder="+393331234567">
+                                            <label class="form-label" for="qrWhatsappText">Messaggio precompilato (opzionale)</label>
+                                            <textarea class="form-control mb-3" id="qrWhatsappText" rows="2"
+                                                      [(ngModel)]="qrWhatsappText"></textarea>
+                                        }
+                                        @case ('email') {
+                                            <label class="form-label" for="qrEmail">Destinatario</label>
+                                            <input type="email" id="qrEmail" class="form-control mb-2"
+                                                   [(ngModel)]="qrEmail" placeholder="info@esempio.it">
+                                            <label class="form-label" for="qrEmailSubject">Oggetto (opzionale)</label>
+                                            <input type="text" id="qrEmailSubject" class="form-control mb-2"
+                                                   [(ngModel)]="qrEmailSubject">
+                                            <label class="form-label" for="qrEmailBody">Corpo (opzionale)</label>
+                                            <textarea class="form-control mb-3" id="qrEmailBody" rows="2"
+                                                      [(ngModel)]="qrEmailBody"></textarea>
+                                        }
+                                        @case ('wifi') {
+                                            <label class="form-label" for="qrSsid">Nome rete (SSID)</label>
+                                            <input type="text" id="qrSsid" class="form-control mb-2"
+                                                   [(ngModel)]="qrSsid" placeholder="NomeWifi">
+                                            <label class="form-label" for="qrWifiPassword">Password (opzionale)</label>
+                                            <input type="text" id="qrWifiPassword" class="form-control mb-2"
+                                                   [(ngModel)]="qrWifiPassword">
+                                            <label class="form-label" for="qrWifiEncryption">Sicurezza</label>
+                                            <select id="qrWifiEncryption" class="form-select mb-3"
+                                                    [(ngModel)]="qrWifiEncryption">
+                                                <option value="WPA">WPA / WPA2</option>
+                                                <option value="WEP">WEP</option>
+                                                <option value="nopass">Nessuna</option>
+                                            </select>
+                                        }
+                                        @case ('sepa') {
+                                            <label class="form-label" for="qrIban">IBAN beneficiario</label>
+                                            <input type="text" id="qrIban" class="form-control mb-2"
+                                                   [(ngModel)]="qrIban" placeholder="IT60 X054 2811 1010 0000 0123 456">
+                                            <label class="form-label" for="qrBeneficiaryName">Nome beneficiario</label>
+                                            <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
+                                                   [(ngModel)]="qrBeneficiaryName">
+                                            <label class="form-label" for="qrAmount">Importo (€)</label>
+                                            <input type="number" id="qrAmount" class="form-control mb-2"
+                                                   [(ngModel)]="qrAmount" min="0.01" step="0.01">
+                                            <label class="form-label" for="qrRemittance">Causale (opzionale)</label>
+                                            <input type="text" id="qrRemittance" class="form-control mb-3"
+                                                   [(ngModel)]="qrRemittance">
+                                        }
+                                    }
+
+                                    <button class="btn btn-primary btn-sm" (click)="generateQr()">
+                                        <i class="fa-solid fa-qrcode me-1"></i>Genera
                                     </button>
 
-                                    @if (speech.currentVoice()) {
+                                    @if (qrError(); as err) {
+                                        <div class="alert alert-warning mt-3 mb-0 py-2 small">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ err }}
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
+                                    <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100"
+                                         [appContextMenu]="qrContextMenuOptions()">
+                                        @if (qrConfig()) {
+                                            <img [qrContent]="qrConfig()"
+                                                 (blobChange)="qrBlob.set($event)"
+                                                 (errorChange)="qrError.set($event)"
+                                                 alt="QR Code generato"
+                                                 class="img-fluid rounded cursor-context-menu"
+                                                 style="max-width: 280px;">
+                                        } @else {
+                                            <span class="text-muted small">
+                                                <i class="fa-solid fa-qrcode fa-2x d-block mb-2 text-center opacity-25"></i>
+                                                Configura i campi e premi <strong>Genera</strong>
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-qr">Utilizzo</label>
+                            <textarea id="code-qr"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.qrCode"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- COMPONENTI UX -->
+<section class="mb-4">
+    <div class="row g-3">
+
+        <!-- Sintesi Vocale (TTS) -->
+        <div class="col-12 col-xl-6">
+            <div class="card h-100">
+                <div class="card-body p-0">
+                    <div class="row g-0 h-100">
+
+                        <div class="col-12 col-lg-7 p-3">
+                            <h2 class="card-title mb-1 h5">{{ 'speechDemoTitle' | translate }}</h2>
+                            <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="speechInput">{{ 'speechInputLabel' | translate }}</label>
+                                <textarea class="form-control" id="speechInput" rows="3"
+                                          [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
+                                          [placeholder]="translate.translate('speechPlaceholder')"></textarea>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <button class="btn"
+                                        [ngClass]="speech.isSpeaking() ? 'btn-danger' : 'btn-success'"
+                                        (click)="toggleSpeech()">
+                                    <i class="fa-solid me-1"
+                                       [class.fa-play]="!speech.isSpeaking()"
+                                       [class.fa-stop]="speech.isSpeaking()"></i>
+                                    {{ (speech.isSpeaking() ? 'speechStop' : 'speechPlay') | translate }}
+                                </button>
+
+                                @if (speech.currentVoice()) {
                                     <span class="badge text-bg-light border" [title]="('speechVoiceLabel' | translate)">
                                         <i class="fa-solid fa-robot me-1"></i>
                                         {{ speech.currentVoice()?.name }}
                                     </span>
-                                    }
-                                </div>
+                                }
+                            </div>
 
-                                @if (speech.isSpeaking()) {
+                            @if (speech.isSpeaking()) {
                                 <div class="mt-2 small text-primary animate-pulse">
                                     <i class="fa-solid fa-volume-high me-1"></i>
                                     {{ 'speechPlaying' | translate }}
                                 </div>
-                                }
-                            </div>
+                            }
                         </div>
+
+                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-speech">Utilizzo</label>
+                            <textarea id="code-speech"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.speech"></textarea>
+                        </div>
+
                     </div>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Demo modali -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
-                                <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
+        <!-- Demo modali -->
+        <div class="col-12 col-xl-6">
+            <div class="card h-100">
+                <div class="card-body p-0">
+                    <div class="row g-0 h-100">
 
-                                <div class="d-flex flex-wrap gap-2 mb-3">
-                                    <button class="btn btn-outline-info" (click)="showAlert()">
-                                        <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
-                                    </button>
+                        <div class="col-12 col-lg-7 p-3">
+                            <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
+                            <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
 
-                                    <button class="btn btn-outline-warning" (click)="showConfirm()">
-                                        <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
-                                    </button>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <button class="btn btn-outline-info" (click)="showAlert()">
+                                    <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
+                                </button>
+                                <button class="btn btn-outline-warning" (click)="showConfirm()">
+                                    <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
+                                </button>
+                                <button class="btn btn-outline-primary" (click)="showFormModal()">
+                                    <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
+                                </button>
+                            </div>
 
-                                    <button class="btn btn-outline-primary" (click)="showFormModal()">
-                                        <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
-                                    </button>
-                                </div>
-
-                                @if (modalResult()) {
+                            @if (modalResult()) {
                                 <div class="alert border mb-0 theme-demo-surface">
                                     <i class="fa-solid fa-circle-check text-success me-1"></i>
                                     {{ modalResult() }}
                                 </div>
-                                }
-                            </div>
+                            }
                         </div>
-                    </div>
 
+                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-notify">Utilizzo</label>
+                            <textarea id="code-notify"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.notify"></textarea>
+                        </div>
+
+                    </div>
                 </div>
-            </section>
+            </div>
+        </div>
 
-            <!-- SISTEMA -->
-            <section>
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h2 class="mb-0 h4">System</h2>
+    </div>
+</section>
+
+<!-- SISTEMA -->
+<section>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0 h4">System</h2>
+    </div>
+
+    <div class="row g-3">
+
+        <!-- Tema -->
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h3 class="mb-2 h6">{{ 'themeAccessibilityTitle' | translate }}</h3>
+                    <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        <span class="badge theme-token-badge"
+                              [style.backgroundColor]="theme.colorTema()"
+                              [style.color]="theme.colorTemaText()">
+                            colorTema: {{ theme.colorTema() }}
+                        </span>
+                        <span class="badge theme-token-badge"
+                              [style.backgroundColor]="theme.colorPrimary()"
+                              [style.color]="theme.colorPrimaryText()">
+                            colorPrimary: {{ theme.colorPrimary() }}
+                        </span>
+                    </div>
+                    <hr class="my-2">
+                    <label class="small fw-semibold text-muted mb-2" for="code-theme">Utilizzo</label>
+                    <textarea id="code-theme"
+                              class="form-control form-control-sm font-monospace flex-grow-1"
+                              readonly spellcheck="false"
+                              style="resize: none; min-height: 160px;"
+                              [value]="snippets.theme"></textarea>
                 </div>
+            </div>
+        </div>
 
-                <div class="row g-3">
+        <!-- i18n -->
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h3 class="mb-2 h6">{{ 'i18nTitle' | translate }}</h3>
+                    <p class="small text-muted mb-2">{{ 'i18nDesc' | translate }}</p>
+                    <p class="mb-2 small">
+                        {{ 'labelLang' | translate }}: <strong>{{ translate.currentLang() }}</strong>
+                    </p>
+                    <div class="d-flex flex-wrap gap-1 mb-3">
+                        @for (lang of translate.availableLangs(); track lang) {
+                            <span class="badge bg-secondary">{{ lang }}</span>
+                        }
+                    </div>
+                    <hr class="my-2">
+                    <label class="small fw-semibold text-muted mb-2" for="code-i18n">Utilizzo</label>
+                    <textarea id="code-i18n"
+                              class="form-control form-control-sm font-monospace flex-grow-1"
+                              readonly spellcheck="false"
+                              style="resize: none; min-height: 160px;"
+                              [value]="snippets.i18n"></textarea>
+                </div>
+            </div>
+        </div>
 
-                    <!-- Tema -->
-                    <div class="col-md-6 col-xl-3">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h3 class="mb-2 h6">{{ 'themeAccessibilityTitle' | translate }}</h3>
-                                <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <span class="badge theme-token-badge"
-                                          [style.backgroundColor]="theme.colorTema()"
-                                          [style.color]="theme.colorTemaText()">
-                                        colorTema: {{ theme.colorTema() }}
-                                    </span>
+        <!-- API -->
+        <div class="col-md-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h3 class="mb-2 h6">{{ 'apiStatusTitle' | translate }}</h3>
+                    <p class="small text-muted mb-2">{{ 'internalsApiDesc' | translate }}</p>
+                    <p class="small mb-2">{{ apiStatus }}</p>
 
-                                    <span class="badge theme-token-badge"
-                                          [style.backgroundColor]="theme.colorPrimary()"
-                                          [style.color]="theme.colorPrimaryText()">
-                                        colorPrimary: {{ theme.colorPrimary() }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                    <label class="form-label small mb-1" for="socialFilter">{{ 'socialFilterLabel' | translate }}</label>
+                    <div class="input-group input-group-sm mb-3">
+                        <input type="text" id="socialFilter" class="form-control"
+                               [(ngModel)]="socialFilter"
+                               [placeholder]="translate.translate('socialFilterLabel')">
+                        <button class="btn btn-outline-primary" (click)="callSocialApi()">
+                            {{ 'cerca' | translate }}
+                        </button>
                     </div>
 
-                    <!-- i18n -->
-                    <div class="col-md-6 col-xl-3">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h3 class="mb-2 h6">{{ 'i18nTitle' | translate }}</h3>
-                                <p class="small text-muted mb-2">{{ 'i18nDesc' | translate }}</p>
-                                <p class="mb-2 small">
-                                    {{ 'labelLang' | translate }}:
-                                    <strong>{{ translate.currentLang() }}</strong>
-                                </p>
+                    @if (socialResult()) {
+                        <pre class="border rounded p-2 mb-3 api-result-output theme-demo-surface"><code>{{ socialResult() }}</code></pre>
+                    }
 
-                                <div class="d-flex flex-wrap gap-1">
-                                    @for (lang of translate.availableLangs(); track lang) {
-                                    <span class="badge bg-secondary">{{ lang }}</span>
-                                    }
-                                </div>
+                    <hr class="my-2">
+                    <label class="small fw-semibold text-muted mb-2" for="code-api">Utilizzo</label>
+                    <textarea id="code-api"
+                              class="form-control form-control-sm font-monospace flex-grow-1"
+                              readonly spellcheck="false"
+                              style="resize: none; min-height: 160px;"
+                              [value]="snippets.api"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Asset + Image Resize Playground -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="row g-0">
+
+                        <div class="col-12 col-lg-7 p-3">
+                            <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
+                            <p class="small text-muted mb-2">{{ 'assetResolverDesc' | translate }}</p>
+
+                            <label class="form-label small mb-1" for="assetIdInput">{{ 'assetResolverInputLabel' | translate }}</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="assetIdInput" class="form-control"
+                                       [(ngModel)]="assetId"
+                                       [placeholder]="translate.translate('assetResolverInputLabel')">
+                                <button class="btn btn-outline-primary" (click)="resolveAsset()">
+                                    Originale
+                                </button>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- API -->
-                    <div class="col-md-6 col-xl-3">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h3 class="mb-2 h6">{{ 'apiStatusTitle' | translate }}</h3>
-                                <p class="small text-muted mb-2">{{ 'internalsApiDesc' | translate }}</p>
-                                <p class="small mb-2">{{ apiStatus }}</p>
-
-                                <label class="form-label small mb-1" for="socialFilter">{{ 'socialFilterLabel' | translate }}</label>
-                                <div class="input-group input-group-sm mb-2">
-                                    <input type="text"
-                                           id="socialFilter"
-                                           class="form-control"
-                                           [(ngModel)]="socialFilter"
-                                           [placeholder]="translate.translate('socialFilterLabel')">
-                                    <button class="btn btn-outline-primary" (click)="callSocialApi()">
-                                        {{ 'cerca' | translate }}
-                                    </button>
-                                </div>
-
-                                @if (socialResult()) {
-                                <pre class="border rounded p-2 mb-0 api-result-output theme-demo-surface"><code>{{ socialResult() }}</code></pre>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Asset + Image Resize Playground -->
-                    <div class="col-12 col-xl-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
-                                <p class="small text-muted mb-2">{{ 'assetResolverDesc' | translate }}</p>
-
-                                <label class="form-label small mb-1" for="assetIdInput">{{ 'assetResolverInputLabel' | translate }}</label>
-                                <div class="input-group input-group-sm mb-2">
-                                    <input type="text"
-                                           id="assetIdInput"
-                                           class="form-control"
-                                           [(ngModel)]="assetId"
-                                           [placeholder]="translate.translate('assetResolverInputLabel')">
-                                    <button class="btn btn-outline-primary" (click)="resolveAsset()">
-                                        Originale
-                                    </button>
-                                </div>
-
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <span class="small text-muted">Resize:</span>
-                                    @for (w of assetWidths; track w) {
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                <span class="small text-muted">Resize:</span>
+                                @for (w of assetWidths; track w) {
                                     <button class="btn btn-sm"
                                             [class.btn-primary]="assetResizeWidth() === w"
                                             [class.btn-outline-secondary]="assetResizeWidth() !== w"
                                             (click)="resolveAssetResized(w)">
                                         {{ w }}px
                                     </button>
-                                    }
-                                </div>
+                                }
+                            </div>
 
-                                @if (appliedAssetId(); as id) {
+                            @if (appliedAssetId(); as id) {
                                 <p class="mb-2 mt-2 small font-monospace d-flex align-items-center gap-2 flex-wrap">
                                     <code>{{ asset.getUrl(id, assetResizeWidth() ?? undefined) }}</code>
                                     @if (assetResizeWidth(); as w) {
-                                    <span class="badge text-bg-success">WebP · {{ w }}px</span>
+                                        <span class="badge text-bg-success">WebP · {{ w }}px</span>
                                     }
                                 </p>
                                 <img [appAsset]="id"
                                      [appAssetWidth]="assetResizeWidth() ?? undefined"
                                      [alt]="translate.translate('assetPreviewAlt')"
                                      class="img-fluid rounded border asset-preview-image">
-                                }
-                            </div>
+                            }
                         </div>
-                    </div>
 
+                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                            <label class="small fw-semibold text-muted mb-2" for="code-asset">Utilizzo</label>
+                            <textarea id="code-asset"
+                                      class="form-control form-control-sm font-monospace flex-grow-1"
+                                      readonly spellcheck="false"
+                                      style="resize: none; min-height: 200px;"
+                                      [value]="snippets.asset"></textarea>
+                        </div>
+
+                    </div>
                 </div>
-            </section>
+            </div>
+        </div>
+
+    </div>
+</section>
