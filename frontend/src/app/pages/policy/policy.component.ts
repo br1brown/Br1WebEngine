@@ -41,7 +41,9 @@ export class PolicyComponent extends PageBaseComponent<string> {
         super();
         effect(() => {
             const content = this.pageContent();
-            if (content?.includes('{{') && !this.profileData()) {
+            // Cerca placeholder profilo escludendo {{cookieList}} (già gestito in displayContent)
+            const hasProfilePlaceholders = content != null && /\{\{(?!cookieList\}\})/.test(content);
+            if (hasProfilePlaceholders && !this.profileData()) {
                 this.api.getProfile()
                     .then(p => this.profileData.set(this.buildProfileData(p)))
                     .catch(() => this.profileData.set({}));
@@ -71,10 +73,6 @@ export class PolicyComponent extends PageBaseComponent<string> {
     }
 
     private interpolate(content: string, data: ProfileData): string {
-        let result = content;
-        for (const [key, value] of Object.entries(data)) {
-            result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value ?? '');
-        }
-        return result;
+        return content.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? '');
     }
 }
