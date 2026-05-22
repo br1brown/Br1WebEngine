@@ -105,7 +105,7 @@ export class TranslateService {
      * Cerca la chiave nelle traduzioni e sostituisce i segnaposto posizionali.
      * Es: translate("saluto", "Mario") → "Ciao {0}" diventa "Ciao Mario"
      */
-    translate(key: string, ...args: any[]): string {
+    translate(key: string, ...args: unknown[]): string {
         const template = this.translations()[key];
         if (!template) return key;
         if (args.length === 0) return template;
@@ -117,7 +117,7 @@ export class TranslateService {
         return result;
     }
 
-    t(key: string, ...args: any[]): string {
+    t(key: string, ...args: unknown[]): string {
         return this.translate(key, ...args);
     }
 

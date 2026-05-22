@@ -2,7 +2,7 @@ import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/ro
 import { inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
-import { ContestoSito, PageType } from './site';
+import { ContestoSito } from './site';
 import { AuthService } from './core/services/auth.service';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';

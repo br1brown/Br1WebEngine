@@ -1,6 +1,9 @@
 import { Component, computed, effect, signal } from '@angular/core';
 import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
+import type { Profile } from '../../core/dto/profile.dto';
+
+type FormattedProfile = Record<string, string | undefined>;
 
 /**
  * Componente riusabile per tutte le pagine legali.
@@ -16,7 +19,7 @@ import { PageBaseComponent } from '../page-base.component';
     styleUrl: './policy.component.css'
 })
 export class PolicyComponent extends PageBaseComponent<string> {
-    private readonly profileData = signal<any>(null);
+    private readonly profileData = signal<FormattedProfile | null>(null);
 
     readonly displayContent = computed(() => {
         const content = this.pageContent() ?? '';
@@ -43,8 +46,8 @@ export class PolicyComponent extends PageBaseComponent<string> {
         });
     }
 
-    private formatProfileData(profile: any): any {
-        const sede = profile.sedeLegale;
+    private formatProfileData(profile: Profile): FormattedProfile {
+        const sede = profile.sedeLegale ?? {};
         const indirizzo = `${sede.via}, ${sede.civico}\n${sede.cap} ${sede.citta} (${sede.provincia})\n${sede.nazione}`.trim();
 
         return {
@@ -57,12 +60,12 @@ export class PolicyComponent extends PageBaseComponent<string> {
             email: profile.contatti?.email,
             pec: profile.contatti?.pec,
             indirizzo: indirizzo,
-            rappresentanteLegale: profile.metadatiAggiuntivi?.rappresentanteLegale,
+            rappresentanteLegale: profile.metadatiAggiuntivi?.['rappresentanteLegale'],
             citta: sede.citta
         };
     }
 
-    private interpolatePlaceholders(content: string, profile: any): string {
+    private interpolatePlaceholders(content: string, profile: FormattedProfile): string {
         let result = content;
         for (const [key, value] of Object.entries(profile)) {
             const placeholder = new RegExp(`\\{\\{${key}\\}\\}`, 'g');

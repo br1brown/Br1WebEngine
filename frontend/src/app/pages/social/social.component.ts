@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed } from '@angular/core';
 import { SocialLinkComponent } from '../../shared/components/social-link/social-link.component';
 import { PageBaseComponent } from '../page-base.component';
 

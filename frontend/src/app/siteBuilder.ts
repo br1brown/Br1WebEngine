@@ -1,7 +1,6 @@
-    import type { Type, EnvironmentProviders, Provider } from '@angular/core';
+import type { Type } from '@angular/core';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
-import { FontConfig } from '../styles/font-config';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -173,7 +172,7 @@ type BasePageInput = {
     /** Abilita l'accesso solo ad utenti autenticati. */
     requiresAuth?: boolean;
     /** Dati arbitrari aggiuntivi associati alla pagina. */
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
 };
 
 /** Discriminante esplicito delle varianti di pagina supportate dalla DSL. */
@@ -237,6 +236,7 @@ export type LeafPageInput = BasePageInput & {
     pageType: PageType;
 
     /** Loader lazy del componente Angular associato alla pagina */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     component: () => Promise<Type<PageBaseComponent<any>>>;
 
     /** Non consentito per una pagina foglia interna */

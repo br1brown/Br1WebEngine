@@ -25,7 +25,7 @@ import { TranslateService } from '../../core/services/translate.service';
 export class TranslatePipe implements PipeTransform {
     private readonly translateService = inject(TranslateService);
 
-    transform(key: string, ...args: any[]): string {
+    transform(key: string, ...args: unknown[]): string {
         return this.translateService.translate(key, ...args);
     }
 }
