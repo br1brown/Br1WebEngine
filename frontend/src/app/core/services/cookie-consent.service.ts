@@ -160,9 +160,14 @@ export class CookieConsentService {
     private persistConsent(): void {
         if (!this.isBrowser) return;
         try {
+            // Categorie necessarie: scrivi il consenso. Non più necessarie: rimuovi la chiave
+            // per evitare che un vecchio '1' venga ripristinato al reload se la categoria torna.
             if (this.isTechnicalNeeded()) localStorage.setItem(`${this.consentKey}-technical`, this._technicalAccepted() ? '1' : '0');
+            else localStorage.removeItem(`${this.consentKey}-technical`);
             if (this.isAnalyticsNeeded()) localStorage.setItem(`${this.consentKey}-analytics`, this._analyticsAccepted() ? '1' : '0');
+            else localStorage.removeItem(`${this.consentKey}-analytics`);
             if (this.isProfilingNeeded()) localStorage.setItem(`${this.consentKey}-profiling`, this._profilingAccepted() ? '1' : '0');
+            else localStorage.removeItem(`${this.consentKey}-profiling`);
             localStorage.setItem(this.consentLogKey, JSON.stringify({
                 categories: {
                     technical: this._technicalAccepted(),

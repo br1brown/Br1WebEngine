@@ -116,8 +116,12 @@ export class ContextMenuDirective {
     private openMenu(clientX: number, clientY: number, presentation: 'popover' | 'sheet'): void {
         this.close();
 
-        // Salva l'elemento con il focus corrente per ripristinarlo alla chiusura
-        this.triggerEl = this.isBrowser ? document.activeElement : null;
+        // Salva l'elemento trigger per ripristinare il focus alla chiusura.
+        // Fallback all'host della direttiva se activeElement è body (elemento non focusable).
+        const active = this.isBrowser ? document.activeElement : null;
+        this.triggerEl = (active && active !== document.body)
+            ? active
+            : this.vcr.element.nativeElement;
 
         this.overlayRef = this.vcr.createComponent(ContextMenuOverlayComponent);
 
@@ -228,8 +232,14 @@ export class ContextMenuDirective {
             this.overlayRef.destroy();
             this.overlayRef = null;
 
-            // Ripristina il focus all'elemento che ha aperto il menu
-            (this.triggerEl as HTMLElement | null)?.focus();
+            // Ripristina il focus. tabindex="-1" temporaneo per elementi non nativamente focusabili.
+            if (this.triggerEl) {
+                const el = this.triggerEl as HTMLElement;
+                const addedTabIndex = !el.hasAttribute('tabindex');
+                if (addedTabIndex) el.setAttribute('tabindex', '-1');
+                el.focus({ preventScroll: true });
+                if (addedTabIndex) el.removeAttribute('tabindex');
+            }
             this.triggerEl = null;
         }
         this.destroyListeners.forEach(fn => fn());
