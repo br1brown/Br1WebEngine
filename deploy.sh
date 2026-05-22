@@ -13,7 +13,7 @@
 # Options for --test-public:
 #   --down-after                     Stop the test stack at the end
 #   --run-tests                      Call scripts/test/run-all.sh after health check
-#   --public-host HOST               Public host header (default: br1gaming.localhost)
+#   --public-host HOST               Public host header (default: localhost)
 #   --public-port PORT               Public reverse proxy port (default: 8088)
 #   --skip-invalid-host-check        Skip the negative host authorization check
 # =============================================================================
@@ -35,7 +35,7 @@ TEST_POST_DEPLOY=true
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
 RUN_TESTS=false
-PUBLIC_HOST="br1gaming.localhost"
+PUBLIC_HOST="localhost"
 PUBLIC_PORT="8088"
 
 # Parsing argomenti

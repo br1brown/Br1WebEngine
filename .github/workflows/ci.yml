@@ -110,16 +110,13 @@ jobs:
         run: bash deploy.sh --test-public
 
       - name: Accessibility audit
-        run: bash scripts/test/a11y-test.sh http://br1gaming.localhost:8088
+        run: bash scripts/test/a11y-test.sh http://localhost:8088
 
       - name: Lighthouse audit
-        run: bash scripts/test/lighthouse-test.sh http://br1gaming.localhost:8088
+        run: bash scripts/test/lighthouse-test.sh http://localhost:8088
 
       - name: Tear down
         if: always()
         run: |
           COMPOSE_PROJECT_NAME=ci_test \
-          PUBLIC_TEST_PORT=8088 \
-          PUBLIC_TEST_BASE_URL=http://br1gaming.localhost:8088 \
-          PUBLIC_TEST_ALLOWED_HOSTS=br1gaming.localhost \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down
