@@ -1,4 +1,4 @@
-import { inject, Injectable, REQUEST } from '@angular/core';
+import { inject, Injectable, InjectionToken } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ResolveFn } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
@@ -7,6 +7,14 @@ import { ContestoSito, PageType } from '../site';
 import { TranslateService } from '../core/services/translate.service';
 import { ApiService } from '../core/services/api.service';
 import { PageInfo } from '../siteBuilder';
+
+export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
+
+/** In SSR viene fornita da app.config.server.ts per leggere i file .md da disco.
+ *  Nel browser rimane null e tryLoadPolicy usa la fetch HTTP normale. */
+export const LEGAL_FILE_READER = new InjectionToken<LegalFileReader | null>(
+    'LegalFileReader', { providedIn: 'root', factory: () => null }
+);
 
 /**
  * Dati restituiti dal resolver: contenuto della pagina + metadati SEO.
@@ -29,17 +37,16 @@ export interface ResolvedPage<T = unknown> {
  * ha già mostrato il dialog all'utente e il resolver restituisce content = null
  * invece di rigettare (che cancellerebbe la navigazione).
  *
- * In SSR la fetch viene risolta come URL assoluta usando l'origin della request
- * corrente (token REQUEST), cosi' la chiamata loopback raggiunge lo stesso
- * processo Express che serve gli asset statici. Nel browser resta un path
- * relativo, intercettato dal service worker / cache standard.
+ * In SSR i file .md delle policy vengono letti direttamente da disco tramite
+ * LEGAL_FILE_READER (fornito da app.config.server.ts), eliminando la chiamata
+ * HTTP loopback. Nel browser resta una semplice fetch relativa.
  */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {
     private readonly http = inject(HttpClient);
     private readonly translate = inject(TranslateService);
     private readonly apiService = inject(ApiService);
-    private readonly request = inject(REQUEST, { optional: true });
+    private readonly fileReader = inject(LEGAL_FILE_READER);
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
@@ -79,11 +86,10 @@ export class ContentResolver {
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
-        const path = `/assets/legal/${slug}.${lang}.md`;
-        const url = this.request ? new URL(path, this.request.url).toString() : path;
-
+        if (this.fileReader) return this.fileReader(slug, lang);
         return await firstValueFrom(
-            this.http.get(url, { responseType: 'text' }).pipe(catchError(() => of(null)))
+            this.http.get(`/assets/legal/${slug}.${lang}.md`, { responseType: 'text' })
+                .pipe(catchError(() => of(null)))
         );
     }
 }
