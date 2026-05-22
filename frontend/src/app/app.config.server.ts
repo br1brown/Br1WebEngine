@@ -74,6 +74,7 @@ const serverConfig: ApplicationConfig = {
                         'utf-8'
                     );
                 } catch {
+                    console.warn(`[LEGAL_FILE_READER] File non trovato: assets/legal/${slug}.${lang}.md`);
                     return null;
                 }
             },

@@ -2,7 +2,7 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../site';
-import { CookieCategory, COOKIE_MAP } from './cookie-registry';
+import { CookieCategory, COOKIE_MAP, type CookieKey } from './cookie-registry';
 
 export { CookieCategory } from './cookie-registry';
 export type { CookieKey } from './cookie-registry';
@@ -235,7 +235,7 @@ export class CookieConsentService {
 
     /** Scrive un cookie di progetto.
      *  Bloccato se la chiave non è censita in COOKIE_MAP o se il consenso manca. */
-    setCookie(key: import('./cookie-registry').CookieKey, value: string, maxAgeSeconds: number): void {
+    setCookie(key: CookieKey, value: string, maxAgeSeconds: number): void {
         const rawKey = key as string;
         const category = this._cm[rawKey];
         if (!category) {
@@ -247,7 +247,7 @@ export class CookieConsentService {
     }
 
     /** Legge un cookie di progetto. */
-    getCookie(key: import('./cookie-registry').CookieKey): string | null {
+    getCookie(key: CookieKey): string | null {
         const rawKey = key as string;
         const category = this._cm[rawKey];
         if (!category) {
@@ -258,7 +258,7 @@ export class CookieConsentService {
     }
 
     /** Rimuove un cookie di progetto. La rimozione è sempre consentita. */
-    removeCookie(key: import('./cookie-registry').CookieKey): void {
+    removeCookie(key: CookieKey): void {
         const rawKey = key as string;
         const category = this._cm[rawKey];
         this.eraseCookieDirect(category ? `${category}.${rawKey}` : rawKey);

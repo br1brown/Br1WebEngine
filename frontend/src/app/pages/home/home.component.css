@@ -47,6 +47,10 @@
   max-width: 100%;
 }
 
+.qr-preview {
+  max-width: 280px;
+}
+
 .theme-token-badge {
   border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
   font-family: var(--bs-font-monospace);

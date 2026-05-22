@@ -1,4 +1,4 @@
-import { Injectable, effect, computed, signal, inject } from '@angular/core';
+import { Injectable, effect, signal, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ContestoSito } from '../../site';
 import { FontConfig } from '../../../styles/font-config';
@@ -37,11 +37,13 @@ export class ThemeService {
      */
     readonly forcedTone = signal<'light' | 'dark' | null>(null);
 
-    /** true se l'utente ha preferenza media query prefers-reduced-motion: reduce */
-    readonly prefersReducedMotion = computed(() => {
-        if (typeof window === 'undefined') return false;
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    });
+    private readonly _prefersReducedMotion = signal<boolean>(
+        typeof window !== 'undefined'
+            ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            : false
+    );
+    /** true se l'utente ha preferenza media query prefers-reduced-motion: reduce. Reattivo ai cambi OS. */
+    readonly prefersReducedMotion = this._prefersReducedMotion.asReadonly();
 
     // ── Computed: si aggiornano automaticamente al cambio di colorTema ────────
 
@@ -106,6 +108,12 @@ export class ThemeService {
     );
 
     constructor() {
+        // Aggiorna il signal prefersReducedMotion quando l'utente cambia le preferenze OS.
+        if (typeof window !== 'undefined') {
+            window.matchMedia('(prefers-reduced-motion: reduce)')
+                .addEventListener('change', e => this._prefersReducedMotion.set(e.matches));
+        }
+
         // Effect reattivo: ogni volta che colorTema o themeTone cambiano,
         // aggiorna le variabili CSS e gli attributi Bootstrap sul DOM.
         effect(() => {
