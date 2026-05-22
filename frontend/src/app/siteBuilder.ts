@@ -143,7 +143,10 @@ export interface SiteConfigInput {
     colorTema: string;
     /** Visibilita del footer. */
     showFooter?: boolean;
-    /** Visibilita del header. */
+    /** Visibilita del header.
+     * @remarks `false` nasconde l'intera navbar incondizionatamente — incluso il language picker
+     * per i siti multilingua. Se il sito ha più lingue e si imposta `showNav: false`,
+     * il cambio lingua non sarà accessibile tramite UI. Usare con consapevolezza. */
     showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
