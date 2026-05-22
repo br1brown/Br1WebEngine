@@ -173,7 +173,7 @@ export class CookieConsentService {
                 version: ContestoSito.config.version,
             }));
         } catch { }
-        this.applyConsent();
+        try { this.applyConsent(); } catch { }
     }
 
     // ─── SIDE EFFECT DEL CONSENSO ───────────────────────────────────────

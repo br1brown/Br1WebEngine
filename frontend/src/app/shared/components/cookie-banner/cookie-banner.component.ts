@@ -39,7 +39,12 @@ export class CookieBannerComponent {
         return this.translate.translate(key, path);
     });
 
-    reopen(): void { this.cookieConsent.reopen(); }
+    reopen(): void {
+        this.pendingTechnical.set(this.cookieConsent.technicalAccepted());
+        this.pendingAnalytics.set(this.cookieConsent.analyticsAccepted());
+        this.pendingProfiling.set(this.cookieConsent.profilingAccepted());
+        this.cookieConsent.reopen();
+    }
 
     accept(): void {
         if (this.cookieConsent.isTechnicalNeeded()) this.pendingTechnical.set(true);
