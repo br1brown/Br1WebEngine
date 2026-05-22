@@ -1,7 +1,21 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, Injector, computed, inject, PLATFORM_ID, signal } from '@angular/core';
+import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../site';
+
+/**
+ * Controlla se il consenso tecnico è stato già salvato in localStorage.
+ * Fonte unica della chiave — usata anche da app.config.ts per decidere
+ * se abilitare il Service Worker all'avvio dell'app.
+ */
+export function isTechnicalConsentGiven(): boolean {
+    try {
+        const slug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
+        return localStorage.getItem(`cookie-consent-${slug}-technical`) === '1';
+    } catch {
+        return false;
+    }
+}
 
 export enum CookieCategory {
     Technical = 'technical',
@@ -141,7 +155,7 @@ export class CookieConsentService {
     }
 
     /**
-     * Salva le scelte per categoria in localStorage.
+     * Salva le scelte per categoria in localStorage, poi applica i side effect.
      * Include log per dimostrare la conformità in caso di audit (Accountability GDPR).
      */
     private persistConsent(): void {
@@ -161,6 +175,30 @@ export class CookieConsentService {
             };
             localStorage.setItem(this.consentLogKey, JSON.stringify(log));
         } catch { }
+        this.applyConsent();
+    }
+
+    /**
+     * Applica i side effect del consenso appena salvato.
+     * Punto unico per tutto ciò che deve accadere quando l'utente accetta o rifiuta:
+     * aggiungere qui ogni nuova azione (es. caricamento script analytics).
+     *
+     * — Consenso tecnico → registra il Service Worker se non già attivo.
+     *   All'avvio successivo provideServiceWorker userà isTechnicalConsentGiven()
+     *   e lo registrerà con l'integrazione Angular completa (SwUpdate).
+     */
+    private applyConsent(): void {
+        if (!this.isBrowser || isDevMode()) return;
+
+        if (this._technicalAccepted() && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(existing => {
+                if (!existing) {
+                    navigator.serviceWorker.register('ngsw-worker.js', { scope: '/' }).catch(() => {
+                        // Fallback silenzioso: il SW si registrerà al prossimo caricamento
+                    });
+                }
+            });
+        }
     }
 
     // ─── OPERAZIONI SUI COOKIE ──────────────────────────────────────────
