@@ -1,6 +1,7 @@
 import type { Type } from '@angular/core';
 import type { PageType } from './site';
 import type { PageBaseComponent } from './pages/page-base.component';
+import { COOKIE_MAP } from './core/services/cookie-registry';
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -274,6 +275,12 @@ export type LeafPageInput = BasePageInput & {
      * Se omesso e `requiresAuth` è false, il builder usa `'server'` in automatico.
      */
     renderMode?: SiteRenderMode;
+
+    /**
+     * Se true, la pagina viene auto-disabilitata quando non ci sono cookie da mostrare
+     * (isWebApp: false, lingua singola, COOKIE_MAP vuoto).
+     */
+    isCookiePolicy?: boolean;
 
     /**
      * Descrizione della pagina per social sharing (og:description, twitter:description).
