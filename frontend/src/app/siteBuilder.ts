@@ -169,7 +169,8 @@ type BasePageInput = {
     title: string;
     /** Indica se la pagina e figli devono essere inclusa nella build finale. Default: true */
     enabled?: boolean;
-    /** Abilita l'accesso solo ad utenti autenticati. */
+    /** Abilita l'accesso solo ad utenti autenticati. Forza automaticamente
+     *  `renderMode: 'client'` — i bot non possono loggarsi, l'SSR è inutile. */
     requiresAuth?: boolean;
     /** Dati arbitrari aggiuntivi associati alla pagina. */
     data?: Record<string, unknown>;
