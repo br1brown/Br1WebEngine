@@ -1023,6 +1023,21 @@ export function buildSite(
              * Se arriviamo qui, siamo su una pagina foglia interna.
              * La registriamo nella mappa e la aggiungiamo alla sitemap.
              */
+
+            /**
+             * Auto-disabilita le pagine cookie policy se non ci sono cookie da mostrare.
+             * Condizione: isWebApp false, lingua singola e COOKIE_MAP vuoto.
+             */
+            if (page.isCookiePolicy && siteConfig) {
+                const noCookies =
+                    !siteConfig.isWebApp
+                    && siteConfig.availableLanguages.length <= 1
+                    && Object.keys(COOKIE_MAP).length === 0;
+                if (noCookies) {
+                    return [];
+                }
+            }
+
             if (seenInternalPaths.has(fullPath)) {
                 throw new Error(
                     `[SiteBuilder] Path interno duplicato rilevato: "${fullPath}".`

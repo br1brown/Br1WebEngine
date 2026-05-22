@@ -2,7 +2,7 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../site';
-import { CookieCategory, COOKIE_KEYS, COOKIE_MAP } from './cookie-registry';
+import { CookieCategory, COOKIE_MAP } from './cookie-registry';
 
 // Re-export per backward compat — chi importa da cookie-consent.service non deve cambiare
 export { CookieCategory, COOKIE_KEYS } from './cookie-registry';
