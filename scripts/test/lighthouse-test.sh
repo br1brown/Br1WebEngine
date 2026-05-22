@@ -131,6 +131,7 @@ for path in "${PATHS[@]}"; do
         --output=json \
         --output-path="$REPORT" \
         --chrome-flags="--headless=new --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu" \
+        --throttling-method=provided \
         --only-categories=performance,accessibility,best-practices,seo \
         --timeout="$TIMEOUT" \
         --quiet \
