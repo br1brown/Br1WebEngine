@@ -107,7 +107,8 @@
               "node_modules/@fortawesome/fontawesome-free/css/brands.min.css",
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "karmaConfig": "karma.conf.js"
           }
         }
       }
