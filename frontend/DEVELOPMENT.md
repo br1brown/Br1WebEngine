@@ -19,6 +19,7 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
 - [Aggiungere una direttiva](#aggiungere-una-direttiva)
 - [Aggiungere un endpoint API](#aggiungere-un-endpoint-api)
 - [Autenticazione JWT (login)](#autenticazione-jwt-login)
+- [Gestione cookie e consenso GDPR](#gestione-cookie-e-consenso-gdpr)
 - [Gestione errori HTTP](#gestione-errori-http)
 - [Resolver automatico dei contenuti](#resolver-automatico-dei-contenuti)
 - [Regole SSR](#regole-ssr)
@@ -823,6 +824,146 @@ export class NavbarComponent {
     <a [appPage]="PageType.Login">Accedi</a>
 }
 ```
+
+---
+
+## Gestione cookie e consenso GDPR
+
+`CookieConsentService` gestisce tutto il ciclo di vita del consenso cookie in conformità con ePrivacy + GDPR. Il principio è il **Privacy by Default**: nessun cookie viene scritto finché l'utente non accetta esplicitamente la categoria corrispondente.
+
+Il banner GDPR appare automaticamente quando almeno una categoria di cookie risulta necessaria. Non serve attivarlo manualmente.
+
+### Due cookie gestiti automaticamente dal servizio
+
+Indipendentemente da `COOKIE_KEYS`, il servizio gestisce sempre:
+
+| Cookie | Categoria | Quando viene scritto |
+|---|---|---|
+| Preferenza lingua (`lang`) | Tecnico | Al cambio lingua, se il consenso tecnico è attivo |
+| Service Worker (`ngsw-worker.js`) | Tecnico | In `applyConsent()` alla prima accettazione tecnica della sessione |
+
+La **categoria tecnica** è quindi necessaria ogni volta che il sito è multilingua (più di una lingua in `availableLanguages`). Se il sito è monolingua e `COOKIE_KEYS` è vuoto, il banner non comparirà mai.
+
+### Aggiungere un cookie di progetto
+
+**Dove si trova il file:** `src/app/core/services/cookie-consent.service.ts` — le costanti `COOKIE_KEYS` e `COOKIE_MAP` in cima al file.
+
+**Passo 1 — Aggiungere la chiave a `COOKIE_KEYS`**
+
+```typescript
+// src/app/core/services/cookie-consent.service.ts
+export const COOKIE_KEYS = {
+    GA_SESSION: '_ga',
+    GA_CLIENT:  '_ga_XXXXXXXX',
+} as const;
+```
+
+Le chiavi sono costanti tipizzate (`as const`): usarle nel codice invece delle stringhe raw garantisce che TypeScript segnali un errore a compile time se si fa riferimento a un cookie non registrato.
+
+**Passo 2 — Mappare ogni chiave alla sua categoria in `COOKIE_MAP`**
+
+```typescript
+// src/app/core/services/cookie-consent.service.ts
+type CookieMap = Readonly<Record<string, CookieCategory>>;
+const COOKIE_MAP: CookieMap = {
+    [COOKIE_KEYS.GA_SESSION]: CookieCategory.Analytics,
+    [COOKIE_KEYS.GA_CLIENT]:  CookieCategory.Analytics,
+};
+```
+
+Aggiungere un cookie `Analytics` o `Profiling` fa comparire automaticamente la sezione corrispondente nel banner GDPR al prossimo caricamento dell'app — nessuna altra modifica necessaria.
+
+**Passo 3 — Usare `setCookie` / `getCookie` nel codice**
+
+```typescript
+import { inject } from '@angular/core';
+import { CookieConsentService, COOKIE_KEYS } from '../../core/services/cookie-consent.service';
+
+@Injectable({ providedIn: 'root' })
+export class AnalyticsService {
+    private readonly consent = inject(CookieConsentService);
+
+    init(): void {
+        // setCookie è bloccato silenziosamente se il consenso analytics non è stato dato.
+        // Non serve controllare manualmente lo stato di consenso: il servizio lo fa da solo.
+        this.consent.setCookie(COOKIE_KEYS.GA_SESSION, 'valore', 60 * 60 * 24 * 365);
+    }
+
+    getSession(): string | null {
+        return this.consent.getCookie(COOKIE_KEYS.GA_SESSION);
+    }
+}
+```
+
+> **Type safety**: quando `COOKIE_KEYS = {}` (vuoto), il tipo `CookieKey` diventa `never` e `setCookie`/`getCookie` non possono essere chiamati con nessun argomento valido — errore a compile time, non a runtime.
+
+### Aggiungere un side effect al consenso
+
+Tutto ciò che deve accadere nel momento in cui l'utente accetta o rifiuta va nel metodo privato `applyConsent()` di `CookieConsentService`. Questo è il punto unico di estensione: non serve intercettare `accept()`, `reject()` o `saveSelected()` dall'esterno.
+
+```typescript
+// src/app/core/services/cookie-consent.service.ts
+private applyConsent(): void {
+    this.applyServiceWorker();        // built-in: SW tecnico
+    this.applyLanguagePreference();   // built-in: pulizia cookie lingua se revocato
+    this.applyAnalytics();            // ← aggiunto dal progetto figlio
+}
+
+private applyAnalytics(): void {
+    if (!this.isBrowser) return;
+    if (this._analyticsAccepted()) {
+        // carica script analytics o inizializza SDK
+    } else {
+        // rimuovi cookie analytics esistenti se l'utente ha revocato il consenso
+        this.removeCookie(COOKIE_KEYS.GA_SESSION);
+        this.removeCookie(COOKIE_KEYS.GA_CLIENT);
+    }
+}
+```
+
+### Leggere lo stato del consenso in un componente
+
+```typescript
+import { inject } from '@angular/core';
+import { CookieConsentService } from '../../core/services/cookie-consent.service';
+
+@Component({ ... })
+export class MioComponent {
+    private readonly consent = inject(CookieConsentService);
+
+    // signal readonly — usabile direttamente nei template
+    readonly analyticsAttivi = this.consent.analyticsAccepted;
+}
+```
+
+```html
+@if (analyticsAttivi()) {
+    <!-- contenuto disponibile solo con consenso analytics -->
+}
+```
+
+### Riepilogo delle API pubbliche
+
+| Metodo / proprietà | Descrizione |
+|---|---|
+| `isNeeded` | `Signal<boolean>` — `true` se almeno una categoria è necessaria (falso in SSR) |
+| `isTechnicalNeeded` | `Signal<boolean>` — `true` se multilingua o ci sono cookie tecnici in `COOKIE_MAP` |
+| `isAnalyticsNeeded` | `Signal<boolean>` — `true` se ci sono cookie analytics in `COOKIE_MAP` |
+| `isProfilingNeeded` | `Signal<boolean>` — `true` se ci sono cookie profiling in `COOKIE_MAP` |
+| `technicalAccepted` | `Signal<boolean>` — stato corrente del consenso tecnico |
+| `analyticsAccepted` | `Signal<boolean>` — stato corrente del consenso analytics |
+| `profilingAccepted` | `Signal<boolean>` — stato corrente del consenso profiling |
+| `responded` | `Signal<boolean>` — `true` se l'utente ha già risposto al banner |
+| `accept()` | Accetta tutte le categorie attive |
+| `reject()` | Rifiuta tutte le categorie |
+| `saveSelected(tech, anal, prof)` | Salva la selezione granulare dai toggle del banner |
+| `reopen()` | Riapre il banner (porta `responded` a `false`) |
+| `setCookie(key, value, maxAge)` | Scrive un cookie registrato in `COOKIE_KEYS`; bloccato senza consenso |
+| `getCookie(key)` | Legge un cookie registrato in `COOKIE_KEYS` |
+| `removeCookie(key)` | Rimuove un cookie; sempre consentito |
+| `getSavedLanguage()` | Legge il cookie di preferenza lingua |
+| `setSavedLanguage(lang)` | Scrive il cookie lingua se il consenso tecnico è attivo |
+| `clearSavedLanguage()` | Rimuove il cookie lingua |
 
 ---
 
