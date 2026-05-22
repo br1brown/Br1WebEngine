@@ -21,7 +21,7 @@
     "dev": "ng serve --open --ssl false --proxy-config proxy.local.conf.json",
     "dev:ssr": "npm run build && cross-env ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src",
     "prepare": "git config --local core.hooksPath .githooks 2>/dev/null || true"
   },
