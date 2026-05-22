@@ -263,7 +263,9 @@ export type LeafPageInput = BasePageInput & {
     layout?: {
         /** Mostra o nasconde il pannello contenuto. Default: true. */
         showPanel?: boolean;
-        /** Nasconde la navbar solo su questa pagina. Non influenza le altre pagine né il language picker globale. */
+        /** Nasconde la navbar solo su questa pagina. Non influenza le altre pagine né il language picker globale.
+         * @remarks Se `SiteConfigInput.showNav` è `false`, la navbar è sempre nascosta
+         * indipendentemente da questo valore — la configurazione globale ha sempre la precedenza. */
         showNav?: boolean;
         /** Nasconde il footer su questa pagina. */
         showFooter?: boolean;
