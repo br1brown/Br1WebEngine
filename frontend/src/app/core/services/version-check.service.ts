@@ -134,7 +134,12 @@ export class VersionCheckService implements OnDestroy {
             // Hard-reload per portare la nuova versione attiva
             window.location.reload();
         } else {
-            // Se l'utente rifiuta, permettiamo un nuovo controllo al prossimo intervallo
+            // L'utente ha posticipato: chiude la subscription SW per non riproporre
+            // il dialog da VERSION_READY nello stesso ciclo. Il polling manifest
+            // continuerà ogni CHECK_INTERVAL_MS e mostrerà un nuovo dialog se esce
+            // un aggiornamento successivo.
+            this.swSub?.unsubscribe();
+            this.swSub = null;
             this.updateShown = false;
         }
     }
