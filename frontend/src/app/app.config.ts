@@ -15,6 +15,20 @@ import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { TranslateService } from './core/services/translate.service';
 import { SSR_API_PREFIX } from './core/services/base-api.service';
+import { ContestoSito } from './site';
+
+/** Il SW scrive sul dispositivo: lo registriamo solo se l'utente ha già dato
+ *  consenso tecnico (stesso principio di CookieConsentService — privacy by default).
+ *  Al primo accesso il SW è disabilitato; si attiva dal caricamento successivo
+ *  alla prima accettazione. */
+const swEnabled = (): boolean => {
+    try {
+        const slug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
+        return localStorage.getItem(`cookie-consent-${slug}-technical`) === '1';
+    } catch {
+        return false;
+    }
+};
 
 /**
  * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
@@ -62,9 +76,9 @@ export const appConfig: ApplicationConfig = {
             authService.restoreSession();
         }),
 
-        /** PWA: Service Worker ufficiale Angular (solo in produzione) */
+        /** PWA: Service Worker ufficiale Angular — solo in produzione e solo dopo consenso tecnico */
         provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode(),
+            enabled: !isDevMode() && swEnabled(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
         {

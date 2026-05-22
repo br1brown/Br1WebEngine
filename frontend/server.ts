@@ -539,6 +539,9 @@ app.use((request, response, next) => {
         .handle(request)
         .then((renderedResponse) => {
             if (renderedResponse) {
+                /** Le risposte SSR non devono essere cachate da proxy intermedi:
+                 *  contengono HTML dinamico e potrebbero in futuro includere dati personalizzati. */
+                response.setHeader('Cache-Control', 'no-cache');
                 /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
                 return writeResponseToNodeResponse(renderedResponse, response);
             }
