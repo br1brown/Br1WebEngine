@@ -8,12 +8,25 @@ import { TranslateService } from './translate.service';
 
 /**
  * Funzione sincrona di cifratura del payload preview.
- * Fornita solo in SSR via `app.config.server.ts` (Node.js `crypto` sincrono).
+ * Fornita in SSR via `app.config.server.ts` con `useFactory` (Node.js `crypto` sincrono).
  * Nel browser il token non è fornito → inject restituisce null → og:image non viene
  * aggiornato durante la navigazione SPA (i crawler vedono sempre l'HTML SSR).
+ *
+ * NOTA: usare `useFactory` anziché `useValue` — Angular 19 SSR non propaga correttamente
+ * funzioni passate con `useValue` agli injection token.
  */
 export const SSR_PREVIEW_ENCRYPT_FN =
     new InjectionToken<(payload: Record<string, string>) => string>('SSR_PREVIEW_ENCRYPT_FN');
+
+/**
+ * Origin canonico del frontend (es. "https://yourdomain.com"), letto da FRONTEND_BASE_URL.
+ * Fornito in SSR via app.config.server.ts con useValue — sorgente di verità per og:image,
+ * indipendente dagli header proxy e dal valore che Angular ricostruisce per document.URL.
+ * Nel browser non è fornito → fallback a document.location.origin.
+ */
+export const SSR_FRONTEND_ORIGIN =
+    new InjectionToken<string>('SSR_FRONTEND_ORIGIN');
+
 
 /**
  * PAGE META SERVICE
@@ -30,7 +43,8 @@ export class PageMetaService {
 
     /** Cifratura preview: disponibile solo in SSR, null nel browser. */
     private readonly encryptFn = inject(SSR_PREVIEW_ENCRYPT_FN, { optional: true });
-
+    /** Origin del frontend: fornito in SSR, null nel browser. */
+    private readonly frontendOrigin = inject(SSR_FRONTEND_ORIGIN, { optional: true });
 
 
     /**
@@ -95,10 +109,9 @@ export class PageMetaService {
         // In SSR, document.URL riflette l'indirizzo richiesto dal client.
         const url = this.document.URL;
 
-        // Calcola l'origine (dominio) in modo sicuro sia per Browser che per SSR
-        const origin = this.document.location?.origin || (() => {
-            try { return new URL(url).origin; } catch { return ''; }
-        })();
+        const origin = this.frontendOrigin
+            || this.document.location?.origin
+            || (() => { try { return new URL(url).origin; } catch { return ''; } })();
 
         this.meta.updateTag({ property: 'og:url', content: url });
 

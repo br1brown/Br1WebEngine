@@ -129,9 +129,27 @@ const immutableAssetPattern = /\.[0-9a-f]{16,}\.(?:js|css|woff2?|ttf|eot|svg|png
 
 /** Inizializzazione applicazione Express */
 const app = express();
+/**
+ * Header proxy fidati inviati da Nginx Proxy Manager.
+ *
+ * trustProxyHeaders è necessario non per ricostruire l'URL (l'origin di og:image
+ * viene da SSR_FRONTEND_ORIGIN, indipendente dagli header), ma perché Angular SSR
+ * senza questa opzione, ricevendo qualsiasi X-Forwarded-*, scende silenziosamente
+ * a index.csr.html (CSR) invece di eseguire il rendering server-side.
+ * X-Forwarded-Scheme è non-standard ma inviato da NPM/nginx.
+ */
+const TRUSTED_PROXY_HEADERS = [
+    'x-forwarded-for',
+    'x-forwarded-host',
+    'x-forwarded-port',
+    'x-forwarded-proto',
+    'x-forwarded-prefix',
+    'x-forwarded-scheme',
+] as const;
 /** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: serverEnv.allowedHosts
+    allowedHosts: serverEnv.allowedHosts,
+    trustProxyHeaders: TRUSTED_PROXY_HEADERS,
 });
 
 /**

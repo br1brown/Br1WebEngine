@@ -5,7 +5,7 @@ import { appConfig } from './app.config';
 import { ContestoSito } from './site';
 import type { SiteRenderMode } from './siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/services/base-api.service';
-import { SSR_PREVIEW_ENCRYPT_FN } from './core/services/page-meta.service';
+import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/services/page-meta.service';
 import { serverEnv } from '../server-env';
 import { PreviewCrypto } from '../preview-crypto.server';
 
@@ -52,10 +52,25 @@ const serverConfig: ApplicationConfig = {
             provide: SSR_API_KEY,
             useValue: serverEnv.backendApiKey,
         },
-        /** Cifratura sincrona del payload preview (Node.js crypto) — solo SSR */
+        /**
+         * Cifratura sincrona del payload preview (Node.js crypto) — solo SSR.
+         * NOTA: useFactory è obbligatorio — useValue non propaga funzioni correttamente
+         * in Angular 19 SSR (i due bundle server.mjs e main.server.mjs hanno istanze
+         * di modulo separate; useFactory risolve il valore nel contesto DI corretto).
+         */
         {
             provide: SSR_PREVIEW_ENCRYPT_FN,
-            useValue: (p: Record<string, string>) => PreviewCrypto.encrypt(p),
+            useFactory: () => (p: Record<string, string>) => PreviewCrypto.encrypt(p),
+        },
+        /**
+         * Origin canonico del frontend da FRONTEND_BASE_URL.
+         * Usato da PageMetaService come sorgente di verità per og:image: garantisce https://
+         * indipendentemente da come Angular ricostruisce document.URL dall'header proxy.
+         * useValue è sufficiente (stringa, non funzione).
+         */
+        {
+            provide: SSR_FRONTEND_ORIGIN,
+            useValue: serverEnv.frontendBaseUrl,
         },
     ]
 };
