@@ -19,7 +19,7 @@
             "server": "src/main.server.ts",
             "tsConfig": "tsconfig.json",
             "ssr": {
-              "entry": "server.ts"
+              "entry": "src/app/core/engine/server/server.ts"
             },
             "outputMode": "server",
             "assets": [
@@ -53,7 +53,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "750kB",
+                  "maximumWarning": "820kB",
                   "maximumError": "1MB"
                 },
                 {

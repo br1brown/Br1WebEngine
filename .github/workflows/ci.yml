@@ -51,6 +51,12 @@ jobs:
         working-directory: frontend
         run: npm audit --audit-level=high --omit=dev
 
+      - name: Lint
+        run: bash scripts/test/lint-check.sh
+
+      - name: Type check
+        run: bash scripts/test/tsc-check.sh
+
       - name: Generate Statics
         working-directory: frontend
         run: npm run generate:statics
@@ -63,16 +69,54 @@ jobs:
         working-directory: frontend
         run: npx ng build --configuration production
 
-  smoke-test:
-    name: Docker Smoke Test
+  i18n:
+    name: i18n completeness
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Check key symmetry EN↔IT
+        run: bash scripts/test/i18n-check.sh
+
+  live-tests:
+    name: Live tests
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
 
       - name: Prepare environment
         run: |
           echo "COMPOSE_PROJECT_NAME=ci_test" > .env.param
           echo "FRONTEND_PORT=3000" >> .env.param
 
-      - name: Run Smoke Test
-        run: bash deploy.sh --test-public --down-after
+      - name: Start stack
+        run: bash deploy.sh --test-public
+
+      - name: Accessibility audit
+        run: bash scripts/test/a11y-test.sh http://localhost:8088
+
+      - name: Lighthouse audit
+        run: bash scripts/test/lighthouse-test.sh http://localhost:8088
+
+      - name: Tear down
+        if: always()
+        run: |
+          COMPOSE_PROJECT_NAME=ci_test \
+          docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

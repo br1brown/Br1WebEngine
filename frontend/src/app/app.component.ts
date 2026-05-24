@@ -4,15 +4,15 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
-import { ThemeService } from './core/services/theme.service';
-import { FooterComponent } from './layout/footer/footer.component';
-import { NavbarComponent } from './layout/navbar/navbar.component';
-import { SmokeEffectComponent } from './layout/smoke-effect/smoke-effect.component';
-import { BackToTopComponent } from './shared/components/back-to-top/back-to-top.component';
-import { CookieBannerComponent } from './shared/components/cookie-banner/cookie-banner.component';
-import { PageMetaService } from './core/services/page-meta.service';
-import { VersionCheckService } from './core/services/version-check.service';
-import { TranslatePipe } from './shared/pipes/translate.pipe';
+import { ThemeService } from './core/engine/services/theme.service';
+import { FooterComponent } from './components/layout/footer/footer.component';
+import { NavbarComponent } from './components/layout/navbar/navbar.component';
+import { SmokeEffectComponent } from './components/layout/smoke-effect/smoke-effect.component';
+import { BackToTopComponent } from './components/shared/back-to-top/back-to-top.component';
+import { CookieBannerComponent } from './components/shared/cookie-banner/cookie-banner.component';
+import { PageMetaService } from './core/engine/services/page-meta.service';
+import { VersionCheckService } from './core/engine/services/version-check.service';
+import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 
 /**
  * Shell principale dell'app.
@@ -32,6 +32,10 @@ export class AppComponent {
     readonly theme = inject(ThemeService);
 
     readonly smoke = ContestoSito.config.smoke;
+
+    readonly showSmoke = computed(() => 
+        this.smoke.enable && !this.theme.prefersReducedMotion()
+    );
 
     // Espone la route foglia corrente come signal, cosi' il layout globale
     // puo' reagire ai flag custom e ai meta della pagina attiva.

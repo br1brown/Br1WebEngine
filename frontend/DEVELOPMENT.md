@@ -19,12 +19,14 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
 - [Aggiungere una direttiva](#aggiungere-una-direttiva)
 - [Aggiungere un endpoint API](#aggiungere-un-endpoint-api)
 - [Autenticazione JWT (login)](#autenticazione-jwt-login)
+- [Gestione cookie e consenso GDPR](#gestione-cookie-e-consenso-gdpr)
 - [Gestione errori HTTP](#gestione-errori-http)
 - [Resolver automatico dei contenuti](#resolver-automatico-dei-contenuti)
 - [Regole SSR](#regole-ssr)
 - [Meta SEO e SSR](#meta-seo-e-ssr)
 - [Pattern dei Signal](#pattern-dei-signal)
 - [Internazionalizzazione (i18n)](#internazionalizzazione-i18n)
+- [Accessibilità](#accessibilità)
 
 **Riferimento**
 - [Configurazione del sito (site.ts)](#configurazione-del-sito-sitets)
@@ -46,60 +48,47 @@ src/
 │   ├── app.config.server.ts    ← override SSR: URL backend assoluto, API key server-side
 │   ├── app.routes.ts           ← routing generato da site.ts + authGuard (non toccare)
 │   ├── site.ts                 ← ★ configurazione dichiarativa: pagine, menu, PageType
-│   ├── siteBuilder.ts          ← logica interna del builder (non toccare)
 │   │
 │   ├── core/
 │   │   ├── dto/                ← tipi TypeScript delle risposte API
 │   │   │   ├── api.dto.ts      ← LoginResult e tipi globali
 │   │   │   └── profile.dto.ts  ← Profile (esempio: aggiungi qui i tuoi DTO)
-│   │   └── services/
-│   │       ├── api.service.ts          ← ★ unico client HTTP: un metodo per endpoint
-│   │       ├── base-api.service.ts     ← infrastruttura HTTP (header, errori, SSR URL)
-│   │       ├── auth.service.ts         ← TokenService + AuthService (login/logout/token)
-│   │       ├── asset.service.ts        ← URL verso CDN, gestione Blob con revoca
-│   │       ├── img-builder.service.ts  ← generazione PNG su canvas
-│   │       ├── notification.service.ts ← SweetAlert2: toast, error, confirm, prompt
-│   │       ├── page-meta.service.ts    ← titolo/description/og tag per SSR
-│   │       ├── qr-code.service.ts      ← QR code PNG/SVG con cache
-│   │       ├── share.service.ts        ← clipboard, Web Share API, download
-│   │       ├── speech.service.ts       ← Text-to-speech (Web Speech API)
-│   │       ├── theme.service.ts        ← tema dinamico, CSS custom properties
-│   │       ├── translate.service.ts    ← i18n, lingua corrente (signal)
-│   │       └── version-check.service.ts← rileva aggiornamenti (polling manifest + SwUpdate per PWA)
+│   │   ├── services/
+│   │   │   ├── api.service.ts  ← ★ unico client HTTP: un metodo per endpoint
+│   │   │   └── auth.service.ts ← TokenService + AuthService (login/logout/token)
+│   │   └── engine/             ← codice del motore — non modificare
+│   │       ├── siteBuilder.ts
+│   │       ├── services/       ← asset, img-builder, notification, page-meta,
+│   │       │                      qr-code, share, speech, theme, translate,
+│   │       │                      version-check, base-api, cookie-consent
+│   │       ├── directives/     ← asset, context-menu, img-render, page, qr-render
+│   │       ├── pipes/          ← markdown, translate
+│   │       ├── scripts/        ← generate-statics, generate-icons
+│   │       └── server/         ← server.ts, server-env.ts, preview-crypto.server.ts
 │   │
-│   ├── layout/                 ← componenti sempre visibili (non sono pagine)
-│   │   ├── navbar/             ← navbar responsiva con dropdown e menu mobile
-│   │   ├── footer/             ← footer con nav e profilo
-│   │   └── smoke-effect/       ← effetto decorativo canvas
+│   ├── components/
+│   │   ├── layout/             ← componenti sempre visibili (non sono pagine)
+│   │   │   ├── navbar/         ← navbar responsiva con dropdown e menu mobile
+│   │   │   ├── footer/         ← footer con nav e profilo
+│   │   │   └── smoke-effect/   ← effetto decorativo canvas
+│   │   └── shared/             ← ★ aggiungi qui i tuoi componenti condivisi
+│   │       ├── back-to-top/
+│   │       ├── context-menu/   ← overlay + directive
+│   │       ├── cookie-banner/
+│   │       ├── footer-nav/
+│   │       ├── loading/
+│   │       ├── nav-dropdown/
+│   │       ├── nav-link/
+│   │       ├── profile-render/
+│   │       └── social-link/
 │   │
-│   ├── pages/                  ← una cartella per ogni pagina
-│   │   ├── page-base.component.ts ← ★ classe base per tutte le pagine
-│   │   ├── content.resolver.ts    ← resolver automatico contenuti (non toccare)
-│   │   ├── home/               ← pagina home (esempio completo con API call)
-│   │   ├── policy/             ← pagine legali (privacy, cookie, TOS, legal)
-│   │   ├── social/             ← pagina link social
-│   │   └── error/              ← pagina errore (404, 401, 500 ecc.)
-│   │
-│   └── shared/                 ← componenti e directive riutilizzabili tra pagine
-│       ├── components/         ← aggiungi qui i tuoi componenti condivisi
-│       │   ├── back-to-top/
-│       │   ├── context-menu/   ← overlay + directive
-│       │   ├── cookie-banner/
-│       │   ├── footer-nav/
-│       │   ├── loading/
-│       │   ├── nav-dropdown/
-│       │   ├── nav-link/
-│       │   ├── profile-render/
-│       │   └── social-link/
-│       ├── directives/         ← aggiungi qui le tue directive
-│       │   ├── asset.directive.ts
-│       │   ├── context-menu.directive.ts
-│       │   ├── img-render.directive.ts
-│       │   ├── page.directive.ts
-│       │   └── qr-render.directive.ts
-│       └── pipes/
-│           ├── markdown.pipe.ts
-│           └── translate.pipe.ts
+│   └── pages/                  ← una cartella per ogni pagina
+│       ├── page-base.component.ts ← ★ classe base per tutte le pagine
+│       ├── content.resolver.ts    ← resolver automatico contenuti (non toccare)
+│       ├── home/               ← pagina home (esempio e showcase dell'engine)
+│       ├── policy/             ← pagine legali (privacy, cookie, TOS, legal)
+│       ├── social/             ← pagina link social
+│       └── error/              ← pagina errore (404, 401, 500 ecc.)
 │
 └── assets/
     ├── i18n/
@@ -116,7 +105,7 @@ src/
 - `core/dto/` — per i tipi delle risposte API
 - `core/services/api.service.ts` — per i metodi HTTP verso il backend
 - `pages/page-base.component.ts` — da estendere per ogni nuova pagina
-- `shared/components/` e `shared/directives/` — per i componenti riutilizzabili
+- `components/shared/` — per i componenti condivisi riutilizzabili
 - `assets/i18n/addon.*.json` — per le traduzioni di progetto
 
 ---
@@ -317,7 +306,7 @@ constructor(private http: HttpClient) {}
 
 ## Aggiungere un componente
 
-I componenti **condivisi** (usabili in più pagine) vanno in `src/app/shared/components/`.  
+I componenti **condivisi** (usabili in più pagine) vanno in `src/app/components/shared/`.  
 I componenti **specifici di una pagina** (usati solo lì) possono stare nella cartella della pagina stessa.
 
 ### Component o directive?
@@ -341,7 +330,7 @@ In questi casi una **directive** sul tag esistente è la soluzione corretta: `[a
 ### Pattern base
 
 ```typescript
-// src/app/shared/components/mio-widget/mio-widget.component.ts
+// src/app/components/shared/mio-widget/mio-widget.component.ts
 @Component({
     selector: 'app-mio-widget',
     standalone: true,    // sempre standalone — niente NgModule
@@ -373,15 +362,15 @@ export class MioWidgetComponent implements AfterViewInit {
 
 #### 1. Creare il file TypeScript
 
-**Dove si trova il file:** `src/app/shared/components/mio-widget/mio-widget.component.ts`. Ogni componente ha la propria cartella con lo stesso nome del componente.
+**Dove si trova il file:** `src/app/components/shared/mio-widget/mio-widget.component.ts`. Ogni componente ha la propria cartella con lo stesso nome del componente.
 
 `input.required<string>()` è un input obbligatorio: Angular dà errore a compile time se il padre non lo passa. `input<boolean>(true)` è un input opzionale con valore di default `true`.
 
 ```typescript
-// src/app/shared/components/mio-widget/mio-widget.component.ts
+// src/app/components/shared/mio-widget/mio-widget.component.ts
 import { Component, inject, input } from '@angular/core';
-import { TranslateService } from '../../../core/services/translate.service';
-import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { TranslateService } from '../../../core/engine/services/translate.service';
+import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 
 @Component({
     selector: 'app-mio-widget',
@@ -402,12 +391,12 @@ export class MioWidgetComponent {
 
 #### 2. Creare il template HTML
 
-**Dove si trova il file:** `src/app/shared/components/mio-widget/mio-widget.component.html`.
+**Dove si trova il file:** `src/app/components/shared/mio-widget/mio-widget.component.html`.
 
 Gli input signal si leggono con la sintassi `input()` (con le parentesi) — sono funzioni che restituiscono il valore corrente. `@if` e `@for` sono la nuova sintassi di controllo del flusso di Angular 17+ (più leggibile della vecchia `*ngIf`/`*ngFor`).
 
 ```html
-<!-- src/app/shared/components/mio-widget/mio-widget.component.html -->
+<!-- src/app/components/shared/mio-widget/mio-widget.component.html -->
 <div class="card">
     <div class="card-header">
         <!-- titolo() legge il valore dell'input signal -->
@@ -433,7 +422,7 @@ Nel file `.ts` del componente/pagina che deve includere `<app-mio-widget>`:
 // src/app/pages/home/home.component.ts
 import { Component, computed } from '@angular/core';
 import { PageBaseComponent } from '../page-base.component';
-import { MioWidgetComponent } from '../../shared/components/mio-widget/mio-widget.component';
+import { MioWidgetComponent } from '../../components/shared/mio-widget/mio-widget.component';
 
 @Component({
     selector: 'app-home',
@@ -465,12 +454,12 @@ Le directive aggiungono comportamento a elementi HTML esistenti senza introdurre
 
 ### Directive con event handler
 
-**Dove creare il file:** `src/app/shared/directives/mia.directive.ts`.
+**Dove creare il file:** `src/app/core/directives/mia.directive.ts`.
 
 `@HostListener` intercetta un evento sull'elemento host della direttiva. Non viene scatenato lato server, quindi è naturalmente SSR-safe — il guard `isPlatformBrowser` è un ulteriore livello di sicurezza per codice browser-only esplicito.
 
 ```typescript
-// src/app/shared/directives/mia.directive.ts
+// src/app/core/directives/mia.directive.ts
 import { Directive, HostListener, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
@@ -503,7 +492,7 @@ private readonly vcr = inject(ViewContainerRef);
 Questo è il pattern dominante nel template per gli "atomi presentazionali": la direttiva reagisce a un input via signal/computed e aggiorna automaticamente un attributo dell'host. Il vantaggio è che l'elemento host (es. `<img>`) conserva tutti i suoi attributi standard (`alt`, `class`, `loading`, `width`) senza bisogno di una API custom.
 
 ```typescript
-// src/app/shared/directives/mia.directive.ts
+// src/app/core/directives/mia.directive.ts
 @Directive({
     selector: 'img[appMia]',                  // selector vincolato al tag img
     standalone: true,
@@ -578,7 +567,9 @@ const API = {
 - `api_post<T>(path, body)` — esegue una POST e restituisce una `Promise<T>`
 - `api_resource<T>(path)` — restituisce un `HttpResourceRef<T | undefined>` con signal `.value()` e `.isLoading()` che si aggiornano automaticamente
 
-**Gestione errori**: `api_get`, `api_post` e `api_resource` gestiscono gli errori automaticamente tramite `handleError` del servizio base: mostrano la notifica all'utente via `NotificationService` e rilanciano l'errore per eventuali handler upstream. Non servono `try/catch` nei componenti salvo casi specifici.
+**Gestione errori**:
+- `api_get` e `api_post` — quando la richiesta fallisce, `BaseApiService.handleError()` mostra automaticamente la notifica all'utente via `NotificationService` e rilancia l'errore (la Promise viene rigettata). Non serve `try/catch` per la notifica; serve solo per gestire lo stato locale dopo il fallimento.
+- `api_resource` — Angular's `httpResource` **non** passa per `handleError`. L'errore viene memorizzato nel signal `.error()` del resource. Nessuna notifica automatica: se si vuole avvisare l'utente, il componente deve osservare `.error()` esplicitamente (vedi Pattern b).
 
 ```typescript
 // src/app/core/services/api.service.ts — dentro la classe ApiService
@@ -654,7 +645,10 @@ export class CatalogoComponent extends PageBaseComponent<void> {
             this.api.getProdottiFiltrati('elettronica', true)
                 .then(lista => this.prodotti.set(lista))
                 .finally(() => this.loading.set(false));
-                // .catch() non è necessario: api_get gestisce già gli errori con NotificationService
+                // .catch() non necessario per la notifica: api_get la gestisce già.
+                // Se serve azzerare lo stato locale in caso di errore, usare .catch(() => null)
+                // o un try-catch — ma NON chiamare notify.handleApiError() nel catch:
+                // BaseApiService l'ha già invocato prima di rilanciare l'errore.
         });
     }
 }
@@ -678,8 +672,8 @@ Nel template:
 Adatto per componenti persistenti (header, footer, widget) che devono restare aggiornati al cambio lingua o token senza logica aggiuntiva nel componente. Il resource si aggiorna da solo ogni volta che cambia un signal letto nella sua factory (lingua, token JWT).
 
 ```typescript
-// src/app/shared/components/lista-prodotti/lista-prodotti.component.ts
-import { Component } from '@angular/core';
+// src/app/components/shared/lista-prodotti/lista-prodotti.component.ts
+import { Component, effect } from '@angular/core';
 import { PageBaseComponent } from '../../../pages/page-base.component';
 
 @Component({
@@ -692,6 +686,16 @@ export class ListaProdottiComponent extends PageBaseComponent<void> {
     // Il resource si inizializza immediatamente e si aggiorna automaticamente.
     // Non serve afterNextRender, non serve un signal loading separato.
     readonly prodottiResource = this.api.getProdottiResource();
+
+    constructor() {
+        super();
+        // api_resource NON chiama handleError automaticamente: l'errore va in .error().
+        // Questo effect lo osserva e notifica l'utente quando il resource fallisce.
+        effect(() => {
+            const err = this.prodottiResource.error();
+            if (err) this.notify.handleApiError((err as any).status, (err as any).error);
+        });
+    }
 }
 ```
 
@@ -701,6 +705,8 @@ Nel template:
 <!-- lista-prodotti.component.html -->
 @if (prodottiResource.isLoading()) {
     <app-loading [loading]="true" />
+} @else if (prodottiResource.error()) {
+    <!-- stato di errore: la notifica è già mostrata dall'effect nel componente -->
 } @else {
     @for (p of prodottiResource.value() ?? []; track p.id) {
         <div class="card">{{ p.nome }}</div>
@@ -783,7 +789,23 @@ defineSitePages([
 ]);
 ```
 
-`app.routes.ts` applica automaticamente `authGuard` a tutte le rotte con questo flag. Se l'utente non è autenticato, viene mostrata una notifica di errore e viene reindirizzato a `/error/401`. Non serve toccare `app.routes.ts`.
+`app.routes.ts` applica automaticamente `authGuard` a tutte le rotte con questo flag. Se l'utente non è autenticato, viene mostrata una notifica di errore e viene reindirizzato.
+
+### Configurare la pagina di redirect (401)
+
+Per impostazione predefinita, se un utente non è autenticato (o se atterra direttamente su `/error/401`), viene mostrata una pagina di errore tecnica. 
+Puoi invece reindirizzarlo automaticamente a una pagina specifica (es. la pagina di Login) configurando `pageForAuthGuard` all'interno di `site.ts`:
+
+```typescript
+// frontend/src/app/site.ts
+setSiteConfiguration({
+    appName: 'Il mio sito',
+    // ...
+    pageForAuthGuard: PageType.Login // ← reindirizza i 401 a questa pagina
+});
+```
+
+Il redirect avviene dinamicamente traducendo l'enum nel path reale. Non serve toccare `app.routes.ts`.
 
 ### Leggere lo stato di login in un componente
 
@@ -805,6 +827,160 @@ export class NavbarComponent {
     <a [appPage]="PageType.Login">Accedi</a>
 }
 ```
+
+---
+
+## Gestione cookie e consenso GDPR
+
+`CookieConsentService` gestisce tutto il ciclo di vita del consenso cookie in conformità con ePrivacy + GDPR. Il principio è il **Privacy by Default**: nessun cookie viene scritto finché l'utente non accetta esplicitamente la categoria corrispondente.
+
+Il banner GDPR appare automaticamente quando almeno una categoria di cookie risulta necessaria. Non serve attivarlo manualmente.
+
+### Due cookie gestiti automaticamente dal servizio
+
+Indipendentemente da `COOKIE_KEYS`, il servizio gestisce sempre:
+
+| Cookie | Categoria | Quando viene scritto |
+|---|---|---|
+| Preferenza lingua (`lang`) | Tecnico | Al cambio lingua, se il consenso tecnico è attivo |
+| Service Worker (`ngsw-worker.js`) | Tecnico | In `applyConsent()` alla prima accettazione tecnica della sessione |
+
+La **categoria tecnica** è quindi necessaria ogni volta che il sito è multilingua (più di una lingua in `availableLanguages`). Se il sito è monolingua e `COOKIE_KEYS` è vuoto, il banner non comparirà mai.
+
+### Aggiungere un cookie di progetto
+
+**Dove si trova il file:** `src/app/core/services/cookie-registry.ts` — il solo `COOKIE_MAP`.
+
+Aggiungere una riga è tutto quello che serve:
+
+```typescript
+// src/app/core/services/cookie-registry.ts
+export const COOKIE_MAP = {
+    '_ga':          CookieCategory.Analytics,
+    '_ga_XXXXXXXX': CookieCategory.Analytics,
+} as const satisfies Readonly<Record<string, CookieCategory>>;
+```
+
+La chiave è il nome raw del cookie nel browser. Il nome fisico nel browser sarà `{categoria}.{chiave}` (es. `analytics._ga`).
+
+Aggiungendo la riga, automaticamente:
+- la sezione corrispondente appare nel banner GDPR
+- la chiave diventa un `CookieKey` valido e utilizzabile a compile-time
+- la tabella `{{cookieList}}` nei file Markdown delle policy la include
+
+**Usare `setCookie` / `getCookie` nel codice**
+
+```typescript
+import { inject } from '@angular/core';
+import { CookieConsentService } from '../../core/services/cookie-consent.service';
+
+@Injectable({ providedIn: 'root' })
+export class AnalyticsService {
+    private readonly consent = inject(CookieConsentService);
+
+    init(): void {
+        // Bloccato dal servizio se il consenso analytics non è stato dato.
+        this.consent.setCookie('_ga', 'valore', 60 * 60 * 24 * 365);
+    }
+
+    getSession(): string | null {
+        return this.consent.getCookie('_ga');
+    }
+}
+```
+
+TypeScript valida le chiavi a compile time: una stringa non presente in `COOKIE_MAP` produce un errore prima ancora del runtime. Con mappa vuota, `CookieKey = never` e i metodi sono di fatto inaccessibili.
+
+### Aggiungere un side effect al consenso
+
+Tutto ciò che deve accadere nel momento in cui l'utente accetta o rifiuta va nel metodo privato `applyConsent()` di `CookieConsentService`. Questo è il punto unico di estensione: non serve intercettare `accept()`, `reject()` o `saveSelected()` dall'esterno.
+
+```typescript
+// src/app/core/services/cookie-consent.service.ts
+private applyConsent(): void {
+    this.applyServiceWorker();        // built-in: SW tecnico
+    this.applyLanguagePreference();   // built-in: pulizia cookie lingua se revocato
+    this.applyAnalytics();            // ← aggiunto dal progetto figlio
+}
+
+private applyAnalytics(): void {
+    if (!this.isBrowser) return;
+    if (this._analyticsAccepted()) {
+        // carica script analytics o inizializza SDK
+    } else {
+        // rimuovi cookie analytics esistenti se l'utente ha revocato il consenso
+        this.removeCookie(COOKIE_KEYS.GA_SESSION);
+        this.removeCookie(COOKIE_KEYS.GA_CLIENT);
+    }
+}
+```
+
+### Leggere lo stato del consenso in un componente
+
+```typescript
+import { inject } from '@angular/core';
+import { CookieConsentService } from '../../core/services/cookie-consent.service';
+
+@Component({ ... })
+export class MioComponent {
+    private readonly consent = inject(CookieConsentService);
+
+    // signal readonly — usabile direttamente nei template
+    readonly analyticsAttivi = this.consent.analyticsAccepted;
+}
+```
+
+```html
+@if (analyticsAttivi()) {
+    <!-- contenuto disponibile solo con consenso analytics -->
+}
+```
+
+### Riepilogo delle API pubbliche
+
+| Metodo / proprietà | Descrizione |
+|---|---|
+| `isNeeded` | `Signal<boolean>` — `true` se almeno una categoria è necessaria (falso in SSR) |
+| `isTechnicalNeeded` | `Signal<boolean>` — `true` se multilingua o ci sono cookie tecnici in `COOKIE_MAP` |
+| `isAnalyticsNeeded` | `Signal<boolean>` — `true` se ci sono cookie analytics in `COOKIE_MAP` |
+| `isProfilingNeeded` | `Signal<boolean>` — `true` se ci sono cookie profiling in `COOKIE_MAP` |
+| `technicalAccepted` | `Signal<boolean>` — stato corrente del consenso tecnico |
+| `analyticsAccepted` | `Signal<boolean>` — stato corrente del consenso analytics |
+| `profilingAccepted` | `Signal<boolean>` — stato corrente del consenso profiling |
+| `responded` | `Signal<boolean>` — `true` se l'utente ha già risposto al banner |
+| `accept()` | Accetta tutte le categorie attive |
+| `reject()` | Rifiuta tutte le categorie |
+| `saveSelected(tech, anal, prof)` | Salva la selezione granulare dai toggle del banner |
+| `reopen()` | Riapre il banner (porta `responded` a `false`) |
+| `setCookie(key, value, maxAge)` | Scrive un cookie registrato in `COOKIE_KEYS`; bloccato senza consenso |
+| `getCookie(key)` | Legge un cookie registrato in `COOKIE_KEYS` |
+| `removeCookie(key)` | Rimuove un cookie; sempre consentito |
+| `getSavedLanguage()` | Legge il cookie di preferenza lingua |
+| `setSavedLanguage(lang)` | Scrive il cookie lingua se il consenso tecnico è attivo |
+| `clearSavedLanguage()` | Rimuove il cookie lingua |
+| `listMarkdown(t)` | Genera la tabella Markdown dei cookie censiti; `t` è la funzione di traduzione |
+
+### Tabella cookie nei file Markdown legali
+
+I file `.md` in `assets/legal/` possono contenere il placeholder `{{cookieList}}`. `ContentResolver` lo sostituisce con la tabella Markdown generata da `listMarkdown()` prima che il testo raggiunga il componente.
+
+```markdown
+## Cookie utilizzati
+
+{{cookieList}}
+```
+
+La tabella include automaticamente: preferenza lingua (se multilingua), Service Worker (se `isWebApp: true`) e tutti i cookie censiti in `COOKIE_MAP`.
+
+### Auto-disabilitazione della pagina Cookie Policy
+
+Il builder (`buildSite`) disabilita automaticamente la pagina corrispondente a `PageType.CookiePolicy` quando non ci sono cookie da dichiarare — ovvero quando tutte e tre le condizioni sono vere:
+
+- `isWebApp: false` (nessun Service Worker)
+- lingua singola (nessun cookie di preferenza lingua)
+- `COOKIE_MAP` vuoto (nessun cookie di progetto)
+
+Il lookup avviene per nome (`'CookiePolicy'`) sull'enum a runtime, quindi se un progetto figlio rimuove `PageType.CookiePolicy` dall'enum la logica è semplicemente inerte — nessun errore. La pagina viene esclusa da `pageMap`, dalla sitemap e dalla navigazione senza nessun intervento manuale.
 
 ---
 
@@ -890,6 +1066,8 @@ Navigazione → contentLoaderResolver(pageType) chiama inject(ContentResolver).l
 ```
 
 Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né reload al cambio lingua. Tutto è automatico.
+
+**Protezione del router**: lo `switch` in `ContentResolver.loadResolved()` è avvolto da un try-catch. Se l'API fallisce, `BaseApiService.handleError()` mostra già la notifica all'utente e rilancia l'errore — ma il try-catch lo intercetta e restituisce `{ content: null, info }` invece di rigettare. Senza questo guard, il resolver rigettato cancellerebbe la navigazione e l'utente vedrebbe una pagina vuota anziché la pagina con `pageContent() === null`.
 
 ### Aggiungere contenuto a una nuova pagina
 
@@ -1420,6 +1598,156 @@ const { rawUrl, angularUrl } = this.asset.getUrlFromBlob(blob);
 
 ---
 
+## Accessibilità
+
+L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. WCAG 2.1 AA è il livello minimo per ogni componente nuovo o modificato.
+
+### Quattro livelli di protezione automatici
+
+| Livello | Strumento | Quando scatta |
+|---|---|---|
+| Pre-commit | `scripts/test/lint-check.sh` | Ad ogni `git commit` con file `frontend/src/` staged |
+| CI — statico | `lint-check.sh`, `tsc-check.sh`, `i18n-check.sh` | Ad ogni push/PR (job paralleli, nessun server) |
+| CI — live | `a11y-test.sh`, `lighthouse-test.sh` | Ad ogni push/PR (job `live-tests`, dopo i job statici) |
+| Deploy | `scripts/test/run-all.sh` | `deploy.sh --run-tests` (post-deploy, tutti gli script in sequenza) |
+
+Il pre-commit hook si attiva automaticamente dopo `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`). Ogni commit con file sorgente staged passa per ESLint prima di essere accettato.
+
+Il perché di ogni scelta — compreso come `site.ts` guida la scoperta automatica delle pagine e delle lingue — è documentato nei commenti degli script in `scripts/test/`.
+
+### Regole ESLint — errori bloccanti
+
+Configurate in `eslint.config.mjs`. Rompono `npm run lint` e bloccano la CI:
+
+| Regola | Cosa verifica |
+|---|---|
+| `alt-text` | `<img>` senza attributo `alt` |
+| `elements-content` | Elementi interattivi senza testo accessibile |
+| `label-has-associated-control` | `<label>` senza `for`/`id` corrispondente |
+| `valid-aria` | Attributi ARIA inesistenti o mal formati |
+| `role-has-required-aria` | Role ARIA senza le proprietà obbligatorie |
+| `table-scope` | `<th>` senza `scope` |
+| `no-distracting-elements` | `<marquee>`, `<blink>` |
+
+Warning (non bloccanti, da valutare caso per caso): `click-events-have-key-events`, `interactive-supports-focus`, `mouse-events-have-key-events`, `no-autofocus`.
+
+### Checklist — prima di considerare un componente completo
+
+- [ ] Semantic HTML corretto: `<button>` per azioni, `<a>` per navigazione, gerarchia heading rispettata
+- [ ] Tutti i `<label>` associati al controllo via `for`/`id` o nesting diretto
+- [ ] Tutti i `<img>` hanno `alt` (descrittivo se informativo, `""` se puramente decorativo)
+- [ ] Icone decorative hanno `aria-hidden="true"`
+- [ ] Elementi interattivi raggiungibili e attivabili da tastiera, focus visibile
+- [ ] `aria-label` usato solo quando non c'è testo visibile — il testo visibile è già il nome accessibile dell'elemento
+- [ ] Ogni testo `aria-label` passa per `| translate` — nessuna stringa hardcoded
+- [ ] Link esterni: `rel="noopener noreferrer"` + avviso screen reader in `visually-hidden`
+- [ ] Overlay e modal: `appFocusTrap` attivo + focus ripristinato all'elemento trigger alla chiusura
+- [ ] Contrasto: testo normale ≥ 4.5:1, testo grande ≥ 3:1
+
+### aria-label — property binding, non interpolazione
+
+Usare sempre `[attr.aria-label]` (property binding). A differenza dell'interpolazione `aria-label="{{ ... }}"`, il binding accetta `null` per rimuovere completamente l'attributo — necessario quando è già presente testo visibile, per rispettare WCAG 2.5.3 (*Label in Name*: il nome accessibile non può contraddire il testo visibile).
+
+```html
+<!-- Elemento con sola icona: aria-label necessario -->
+<button [attr.aria-label]="'backToTopLabel' | translate">
+    <i class="fas fa-chevron-up" aria-hidden="true"></i>
+</button>
+
+<!-- Testo visibile presente: aria-label non va aggiunto -->
+<button>
+    <i class="fas fa-save" aria-hidden="true"></i>
+    {{ 'save' | translate }}
+</button>
+```
+
+### Link esterni
+
+```html
+<a href="..." target="_blank" rel="noopener noreferrer">
+    {{ label }}
+    <span class="visually-hidden"> ({{ 'opensInNewTab' | translate }})</span>
+</a>
+```
+
+`opensInNewTab` è già presente nei file `basic.*.json` del template — non va aggiunto di nuovo.
+
+### Form — label associate
+
+```html
+<label for="email" class="form-label">{{ 'mail' | translate }}</label>
+<input id="email" type="email" class="form-control">
+```
+
+Un `<label>` non associato tramite `for`/`id` (o nesting diretto) è un errore bloccante ESLint.
+
+### Overlay e dialog
+
+```html
+<div role="dialog"
+     aria-modal="true"
+     [attr.aria-label]="'dialogTitle' | translate"
+     appFocusTrap>
+    <!-- contenuto -->
+</div>
+```
+
+`appFocusTrap` (in `core/directives/focus-trap.directive.ts`) intrappola il focus Tab/Shift+Tab all'interno del dialog e sposta il focus sul primo elemento interattivo all'apertura. Alla chiusura, il focus va ripristinato sull'elemento che ha aperto il dialog.
+
+### Design token — colori e focus sempre da variabile CSS
+
+```css
+/* Corretto */
+background: var(--colorSurface);
+color:      var(--colorSurfaceText);
+border:     1px solid var(--colorSurfaceBorder);
+outline:    var(--focusRingWidth) solid var(--focusRingColor);
+```
+
+I token garantiscono che i rapporti di contrasto WCAG siano calcolati centralmente in `ThemeService` e propagati automaticamente tramite `color-mix()` in `base.css`. Usare valori hex hardcoded bypassa questo sistema e può rompere il contrasto in modalità scura o con temi personalizzati.
+
+Token disponibili (definiti in `src/styles/base.css`):
+
+| Token | Uso |
+|---|---|
+| `--colorTema` | Colore brand principale |
+| `--colorPrimary` | Variante WCAG-safe per bottoni/CTA |
+| `--colorPrimaryText` | Testo leggibile su `--colorPrimary` |
+| `--colorSurface` | Sfondo pannelli/card |
+| `--colorSurfaceText` | Testo su `--colorSurface` |
+| `--colorSurfaceBorder` | Bordo pannelli |
+| `--colorSecondary` | Colore secondario adattivo (chiaro su dark, scuro su light) — WCAG AA |
+| `--colorSecondaryText` | Testo su sfondo `--colorSecondary` |
+| `--colorInfo` | Colore info adattivo — WCAG AA |
+| `--colorInfoText` | Testo su sfondo `--colorInfo` |
+| `--colorWarning` | Colore warning adattivo — WCAG AA |
+| `--colorWarningText` | Testo su sfondo `--colorWarning` |
+| `--colorLink` | Colore link |
+| `--focusRingColor` | Colore anello di focus |
+| `--focusRingWidth` | Spessore anello di focus |
+| `--focusRingOffset` | Offset anello di focus |
+
+### Audit WCAG a runtime
+
+```bash
+# Audit accessibilità su un server in esecuzione (auto-scopre le pagine da /health)
+scripts/test/a11y-test.sh http://localhost:3000
+
+# Audit Lighthouse (performance, a11y, best-practices, seo)
+scripts/test/lighthouse-test.sh http://localhost:3000
+
+# Suite completa (lint → tsc → i18n → a11y → lighthouse)
+scripts/test/run-all.sh http://localhost:3000
+
+# Nel deploy post-produzione
+bash deploy.sh --run-tests
+```
+
+Configurazione pa11y in `scripts/test/pa11y.json`: standard WCAG2AA, livello "error".
+Soglie Lighthouse in `scripts/test/lighthouse.json`: performance 70, accessibility 90, best-practices 85, seo 80.
+
+---
+
 ## Build e script
 
 ```bash
@@ -1475,12 +1803,12 @@ Tutte le directive sono `standalone: true` e devono essere aggiunte all'array `i
 
 | Directive | Selector | Import da |
 |---|---|---|
-| `[appPage]` | qualsiasi elemento con `href` | `shared/directives/page.directive` → `PageDirective` |
-| `[appAsset]` | `img, video, audio, source, iframe, embed` | `shared/directives/asset.directive` → `AssetDirective` |
-| `[appAssetHref]` | `a, link` | `shared/directives/asset.directive` → `AssetHrefDirective` |
-| `[imgRender]` | `img` | `shared/directives/img-render.directive` → `ImgRenderDirective` |
-| `[qrContent]` | `img` | `shared/directives/qr-render.directive` → `QrRenderDirective` |
-| `[appContextMenu]` | qualsiasi elemento | `shared/directives/context-menu.directive` → `ContextMenuDirective` |
+| `[appPage]` | qualsiasi elemento con `href` | `core/engine/directives/page.directive` → `PageDirective` |
+| `[appAsset]` | `img, video, audio, source, iframe, embed` | `core/engine/directives/asset.directive` → `AssetDirective` |
+| `[appAssetHref]` | `a, link` | `core/engine/directives/asset.directive` → `AssetHrefDirective` |
+| `[imgRender]` | `img` | `core/engine/directives/img-render.directive` → `ImgRenderDirective` |
+| `[qrContent]` | `img` | `core/engine/directives/qr-render.directive` → `QrRenderDirective` |
+| `[appContextMenu]` | qualsiasi elemento | `core/engine/directives/context-menu.directive` → `ContextMenuDirective` |
 
 I percorsi sono relativi a `src/app/`.
 
@@ -1492,7 +1820,7 @@ I percorsi sono relativi a `src/app/`.
 
 ```typescript
 // Nel componente o pagina che usa la directive:
-import { PageDirective } from '../../shared/directives/page.directive';
+import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageType } from '../../site';
 
 @Component({
@@ -1517,7 +1845,7 @@ import { PageType } from '../../site';
 **Cosa fa:** imposta l'attributo `src` costruendo l'URL verso `/cdn-cgi/asset?id=ID[&w=WIDTH]`. Il resize è applicato lato server solo per immagini raster (JPEG, PNG, WebP); per video, PDF e SVG il parametro width viene ignorato e viene restituito lo stream originale. Il selector è vincolato ai tag che supportano `src`: errore a compile time se si prova ad applicarla a un `<div>`.
 
 ```typescript
-import { AssetDirective } from '../../shared/directives/asset.directive';
+import { AssetDirective } from '../../core/engine/directives/asset.directive';
 
 @Component({
     imports: [AssetDirective],
@@ -1545,7 +1873,7 @@ import { AssetDirective } from '../../shared/directives/asset.directive';
 **Cosa fa:** variante di `[appAsset]` per elementi che usano `href` invece di `src`. Stesse logiche di URL construction e resize. Utile per link di download e `<link rel="preload">`.
 
 ```typescript
-import { AssetHrefDirective } from '../../shared/directives/asset.directive';
+import { AssetHrefDirective } from '../../core/engine/directives/asset.directive';
 
 @Component({
     imports: [AssetHrefDirective],
@@ -1570,7 +1898,7 @@ import { AssetHrefDirective } from '../../shared/directives/asset.directive';
 **Cosa fa:** genera un'immagine PNG su canvas tramite `ImgBuilderService` e la imposta come `src` dell'`<img>`. Non opera in SSR — il browser mostra il testo `alt` come fallback finché il canvas non è pronto. Emette il canvas grezzo via `(canvasChange)` così il componente padre può usarlo per download o condivisione senza accedere al DOM direttamente. Un token monotono garantisce che build asincrone sovrapposte non producano risultati fuori ordine.
 
 ```typescript
-import { ImgRenderDirective, ImgRenderConfig } from '../../shared/directives/img-render.directive';
+import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
 import { computed, signal } from '@angular/core';
 
 @Component({
@@ -1635,8 +1963,8 @@ export class MioComponent {
 **Cosa fa:** genera un QR code PNG tramite `QrCodeService` e lo imposta come `src` dell'`<img>`. Non opera in SSR. Emette il Blob originale via `(blobChange)` (per download/share) e il messaggio di errore tradotto via `(errorChange)`. Un token monotono previene race condition.
 
 ```typescript
-import { QrRenderDirective } from '../../shared/directives/qr-render.directive';
-import { QrConfig } from '../../core/services/qr-code.service';
+import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
+import { QrConfig } from '../../core/engine/services/qr-code.service';
 import { computed, signal } from '@angular/core';
 
 @Component({
@@ -1694,8 +2022,8 @@ export class MioComponent {
 **Cosa fa:** aggiunge un menu contestuale a qualsiasi elemento HTML. Su desktop si apre con click destro come popover posizionato vicino al cursore. Su touch (mobile, penna) si apre con long-press (450 ms) come bottom sheet a tutta larghezza. Si chiude su click fuori dall'overlay, tasto `Escape`, o selezione di un'opzione. Se `appContextMenu` è un array vuoto il long-press non viene attivato (il click destro rimane comunque intercettato).
 
 ```typescript
-import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
-import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
+import { ContextMenuDirective } from '../../core/engine/directives/context-menu.directive';
+import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
 import { computed } from '@angular/core';
 
 @Component({

@@ -1,0 +1,8 @@
+<a [href]="resolvedUrl()" target="_blank" rel="noopener noreferrer"
+   [title]="displayLabel()"
+   [attr.aria-label]="showLabel() ? null : displayLabel()">
+    <i [class]="'social-icon ' + icon()" [style.background-color]="brandColor()" aria-hidden="true"></i>
+    @if (showLabel()) {
+        <span class="social-label">{{ displayLabel() }}</span>
+    }
+</a>

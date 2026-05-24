@@ -1,7 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { TranslateService } from '../../core/services/translate.service';
-import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { PageDirective } from '../../shared/directives/page.directive';
+import { TranslateService } from '../../core/engine/services/translate.service';
+import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
+import { PageDirective } from '../../core/engine/directives/page.directive';
 import { PageType } from '../../site';
 
 /**

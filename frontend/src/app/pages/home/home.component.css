@@ -41,6 +41,17 @@
   min-height: 260px;
 }
 
+/* Pannello snippet codice: bordo superiore su mobile, sinistro da lg in su */
+.code-panel {
+  border-top: 1px solid var(--colorSurfaceBorder);
+}
+@media (min-width: 992px) {
+  .code-panel {
+    border-top: none;
+    border-left: 1px solid var(--colorSurfaceBorder);
+  }
+}
+
 .image-preview-canvas {
   display: block;
   height: auto;
@@ -67,3 +78,4 @@
     cursor: default;
   }
 }
+

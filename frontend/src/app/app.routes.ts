@@ -2,12 +2,12 @@ import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/ro
 import { inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
-import { ContestoSito, PageType } from './site';
+import { ContestoSito } from './site';
 import { AuthService } from './core/services/auth.service';
 import { contentLoaderResolver } from './pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
-import { NotificationService } from './core/services/notification.service';
-import { TranslateService } from './core/services/translate.service';
+import { InternalSitePage, isInternalPage, isParentPage } from './core/engine/siteBuilder';
+import { NotificationService } from './core/engine/services/notification.service';
+import { TranslateService } from './core/engine/services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -35,6 +35,15 @@ const authGuard: CanActivateFn = () => {
 
     // La notifica non deve bloccare il redirect: il servizio carica SweetAlert2 in lazy mode.
     void notifaction.error(t.translate('errore401Info'), t.translate('errore401Desc'));
+
+    const redirectPage = ContestoSito.config.pageForAuthGuard;
+    if (redirectPage != null) {
+        const path = ContestoSito.getPath(redirectPage);
+        if (path) {
+            return router.createUrlTree([path]);
+        }
+    }
+
     return router.createUrlTree(['/error/401']);
 };
 
@@ -98,17 +107,26 @@ function toAngularRoute(page: InternalSitePage): Route {
  * Rotte di gestione errori (404, ecc.).
  */
 function buildErrorRoutes(): Routes {
+    const routes: Routes = [];
+    const authPage = ContestoSito.config.pageForAuthGuard;
+    const authPath = authPage != null ? ContestoSito.getPath(authPage) : null;
 
-    return [
+    if (authPath) {
+        routes.push({
+            path: 'error/401',
+            redirectTo: authPath,
+            pathMatch: 'full'
+        });
+    }
+
+    routes.push(
         {
             path: 'error/:errorCode',
             title: 'errore',
             loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
-            // 'showPanel' rimane statico nel data, 'errorCode' arriverà dal path
             data: { showPanel: false }
         },
         {
-            // Fallback se si naviga su /error senza codice
             path: 'error',
             redirectTo: 'error/500',
             pathMatch: 'full'
@@ -118,5 +136,7 @@ function buildErrorRoutes(): Routes {
             path: '**',
             redirectTo: 'error/404'
         }
-    ];
+    );
+
+    return routes;
 }

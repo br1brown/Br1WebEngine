@@ -108,7 +108,19 @@
   "cookieCategoryAnalyticsDesc": "Help us understand how the site is used, in aggregated and anonymous form.",
   "cookieCategoryProfiling": "Profiling",
   "cookieCategoryProfilingDesc": "Used to show personalised content based on the user's interests.",
+  "cookieListName": "Cookie",
+  "cookieListCategory": "Category",
+  "cookieListDescription": "Description",
+  "cookieListLangDesc": "Saves the user's language preference",
+  "cookieListSWDesc": "Enables PWA features and offline cache (Service Worker)",
   "nuovaVersioneTitle": "New version available",
   "nuovaVersioneDesc": "An updated version of the application is available. Refresh the page to apply the changes.",
-  "aggiornaApp": "Refresh"
+  "aggiornaApp": "Refresh",
+  "contextMenuLabel": "Context menu",
+  "backToTopLabel": "Back to top",
+  "opensInNewTab": "opens in new tab",
+  "footerNavLabel": "Footer navigation",
+  "toggleNavigation": "Toggle navigation",
+  "mainNavLabel": "Main navigation",
+  "erroreGenerico": "An error occurred"
 }

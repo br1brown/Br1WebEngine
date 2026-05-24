@@ -1,10 +1,10 @@
 import { computed, Directive, effect, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from '../core/services/api.service';
-import { AssetService } from '../core/services/asset.service';
-import { NotificationService } from '../core/services/notification.service';
-import { TranslateService } from '../core/services/translate.service';
-import { PageMetaService } from '../core/services/page-meta.service';
+import { AssetService } from '../core/engine/services/asset.service';
+import { NotificationService } from '../core/engine/services/notification.service';
+import { TranslateService } from '../core/engine/services/translate.service';
+import { PageMetaService } from '../core/engine/services/page-meta.service';
 import { PageType } from '../site';
 import { ContentResolver, ResolvedPage } from './content.resolver';
 

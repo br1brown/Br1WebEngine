@@ -108,7 +108,19 @@
   "cookieCategoryAnalyticsDesc": "Ci aiutano a capire come viene utilizzato il sito, in forma aggregata e anonima.",
   "cookieCategoryProfiling": "Profilazione",
   "cookieCategoryProfilingDesc": "Utilizzati per mostrare contenuti personalizzati in base agli interessi dell'utente.",
+  "cookieListName": "Cookie",
+  "cookieListCategory": "Categoria",
+  "cookieListDescription": "Descrizione",
+  "cookieListLangDesc": "Salva la preferenza di lingua dell'utente",
+  "cookieListSWDesc": "Abilita funzionalità PWA e cache offline (Service Worker)",
   "nuovaVersioneTitle": "Nuova versione disponibile",
   "nuovaVersioneDesc": "È disponibile una versione aggiornata dell'applicazione. Aggiorna la pagina per applicare le modifiche.",
-  "aggiornaApp": "Aggiorna"
+  "aggiornaApp": "Aggiorna",
+  "contextMenuLabel": "Menu contestuale",
+  "backToTopLabel": "Torna in cima",
+  "opensInNewTab": "si apre in una nuova scheda",
+  "footerNavLabel": "Navigazione footer",
+  "toggleNavigation": "Apri/chiudi navigazione",
+  "mainNavLabel": "Navigazione principale",
+  "erroreGenerico": "Si è verificato un errore"
 }

@@ -1,4 +1,32 @@
-/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService. */
+/* base.css — Layout e tema. Le custom properties sono impostate da ThemeService.
+ *
+ * ── Design Token Reference ───────────────────────────────────────────────────
+ * Tutte le variabili --color* sono "design token" gestiti da ThemeService.
+ * Non usare valori di colore hardcoded nei componenti: usa sempre i token qui
+ * sotto per garantire coerenza, dark-mode e accessibilità automatici.
+ *
+ * Token di colore:
+ *   --colorTema          Colore principale del brand (impostato runtime)
+ *   --colorBase          Sfondo body (20% bianco + tema)
+ *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA
+ *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
+ *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
+ *   --colorLink          Colore link, di default currentColor
+ *   --colorSurface       Sfondo pannelli/card
+ *   --colorSurfaceHover  Sfondo pannelli on hover
+ *   --colorSurfaceBorder Bordo pannelli
+ *   --colorSurfaceText   Testo su --colorSurface
+ *
+ * Token di focus (WCAG 2.4.7 / 2.4.11):
+ *   --focusRingColor     Colore dell'anello di focus (default: --colorPrimary)
+ *   --focusRingWidth     Spessore dell'anello (default: 3px)
+ *   --focusRingOffset    Offset dall'elemento (default: 2px)
+ *
+ * Uso tipico nei componenti:
+ *   background: var(--colorSurface);
+ *   color: var(--colorSurfaceText);
+ *   border: 1px solid var(--colorSurfaceBorder);
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 /* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
    ThemeService imposta a runtime: --colorTema, --fontFamily, --colorPrimary,
@@ -18,6 +46,11 @@
     --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
     --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
     --colorSurfaceText: color-mix(in srgb, white 94%, var(--colorTema) 6%);
+
+    /* Focus tokens — WCAG 2.4.7 / 2.4.11 */
+    --focusRingColor: var(--colorPrimary, #141619);
+    --focusRingWidth: 3px;
+    --focusRingOffset: 2px;
 }
 
 :root[data-theme-tone='light'] {
@@ -30,6 +63,18 @@
 
 :root[data-theme-tone='dark'] {
     color-scheme: dark;
+}
+
+/* ── Focus-visible policy globale (WCAG 2.4.7 / 2.4.11) ────────────────────
+   Garantisce un indicatore di focus visibile e coerente su TUTTI gli elementi
+   interattivi. I browser mostrano il focus solo via tastiera (:focus-visible);
+   il mouse non genera l'anello. Componenti con focus personalizzato (es. .fab,
+   .skip-link) ridefiniscono il loro :focus-visible più sotto.
+   ─────────────────────────────────────────────────────────────────────────── */
+:focus-visible {
+    outline: var(--focusRingWidth) solid var(--focusRingColor);
+    outline-offset: var(--focusRingOffset);
+    border-radius: 2px;
 }
 
 html {
@@ -95,6 +140,76 @@ body {
     --bs-btn-active-color:     var(--colorPrimaryText, #fff);
     --bs-btn-disabled-color:   var(--bs-primary);
     --bs-btn-disabled-border-color: var(--bs-primary);
+}
+
+/* ── Token colori semantici accessibili ──────────────────────────────────────
+   secondary, info e warning di Bootstrap hanno colori statici (hex fissi nel
+   CSS compilato) che falliscono WCAG 4.5:1 in almeno uno dei due temi.
+   Definiamo token propri — come già fatto per --colorPrimary — e mappiamo i
+   --bs-btn-* su di essi una volta sola. I valori variano per tema (dark/light). */
+
+/* Light (default + qualsiasi scope Bootstrap light): valori scuri ≥ 4.5:1 su
+   sfondo chiaro. Lo stesso pattern di Bootstrap per i token semantici:
+   `:root` e `[data-bs-theme='light']` condividono i valori light; il dark scope
+   li sovrascrive; un nested [data-bs-theme='light'] (es. panelForcedLight) li
+   ristabilisce per i discendenti anche quando la pagina è globalmente dark. */
+:root,
+[data-bs-theme='light'] {
+    --colorSecondary:     #495057;   /* 8.1:1 su bianco */
+    --colorSecondaryText: #fff;
+    --colorInfo:          #00819b;   /* 4.6:1 su bianco */
+    --colorInfoText:      #fff;
+    --colorWarning:       #967100;   /* 4.6:1 su bianco */
+    --colorWarningText:   #fff;
+}
+
+/* Dark Bootstrap scope: colori chiari per ≥ 4.5:1 su sfondo scuro (#212529). */
+[data-bs-theme='dark'] {
+    --colorSecondary:     #adb5bd;   /* 6.1:1 su #212529 */
+    --colorSecondaryText: #212529;
+    --colorInfo:          #0dcaf0;   /* 6.4:1 su sfondo scuro */
+    --colorInfoText:      #212529;
+    --colorWarning:       #ffc107;   /* 7.7:1 su sfondo scuro */
+    --colorWarningText:   #212529;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color:               var(--colorSecondary);
+    --bs-btn-border-color:        var(--colorSecondary);
+    --bs-btn-hover-bg:            var(--colorSecondary);
+    --bs-btn-hover-color:         var(--colorSecondaryText);
+    --bs-btn-hover-border-color:  var(--colorSecondary);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorSecondary), #000 12%);
+    --bs-btn-active-color:        var(--colorSecondaryText);
+    --bs-btn-active-border-color: var(--colorSecondary);
+    --bs-btn-disabled-color:      var(--colorSecondary);
+    --bs-btn-disabled-border-color: var(--colorSecondary);
+}
+
+.btn-outline-info {
+    --bs-btn-color:               var(--colorInfo);
+    --bs-btn-border-color:        var(--colorInfo);
+    --bs-btn-hover-bg:            var(--colorInfo);
+    --bs-btn-hover-color:         var(--colorInfoText);
+    --bs-btn-hover-border-color:  var(--colorInfo);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorInfo), #000 12%);
+    --bs-btn-active-color:        var(--colorInfoText);
+    --bs-btn-active-border-color: var(--colorInfo);
+    --bs-btn-disabled-color:      var(--colorInfo);
+    --bs-btn-disabled-border-color: var(--colorInfo);
+}
+
+.btn-outline-warning {
+    --bs-btn-color:               var(--colorWarning);
+    --bs-btn-border-color:        var(--colorWarning);
+    --bs-btn-hover-bg:            var(--colorWarning);
+    --bs-btn-hover-color:         var(--colorWarningText);
+    --bs-btn-hover-border-color:  var(--colorWarning);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorWarning), #000 12%);
+    --bs-btn-active-color:        var(--colorWarningText);
+    --bs-btn-active-border-color: var(--colorWarning);
+    --bs-btn-disabled-color:      var(--colorWarning);
+    --bs-btn-disabled-border-color: var(--colorWarning);
 }
 
 /* I form controls (checkbox/toggle/range/input focus) restano coi default

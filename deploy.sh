@@ -7,12 +7,13 @@
 #   ./deploy.sh --skip-post-deploy   Skip health checks after deployment
 #   ./deploy.sh --dev                Development mode
 #   ./deploy.sh --no-cache           Force clean Docker rebuild
-#   ./deploy.sh --test-public        Run isolated public tests (e.g., in CI)
+#   ./deploy.sh --test-public        Run isolated smoke test in CI (infra only)
 #   ./deploy.sh --help               Show this message
 #
 # Options for --test-public:
 #   --down-after                     Stop the test stack at the end
-#   --public-host HOST               Public host header (default: br1gaming.localhost)
+#   --run-tests                      Call scripts/test/run-all.sh after health check
+#   --public-host HOST               Public host header (default: localhost)
 #   --public-port PORT               Public reverse proxy port (default: 8088)
 #   --skip-invalid-host-check        Skip the negative host authorization check
 # =============================================================================
@@ -33,7 +34,8 @@ TEST_POST_DEPLOY=true
 # Variabili specifiche per i test pubblici
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
-PUBLIC_HOST="br1gaming.localhost"
+RUN_TESTS=false
+PUBLIC_HOST="localhost"
 PUBLIC_PORT="8088"
 
 # Parsing argomenti
@@ -44,6 +46,7 @@ while [[ $# -gt 0 ]]; do
         --test-public) TEST_PUBLIC=true; shift ;;
         --skip-post-deploy) TEST_POST_DEPLOY=false; shift ;;
         --down-after) DOWN_AFTER=true; shift ;;
+        --run-tests) RUN_TESTS=true; shift ;;
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
@@ -391,6 +394,17 @@ if [[ "$TEST_PUBLIC" == true ]]; then
         mapfile -t backend_response < <(curl_plain "http://127.0.0.1:${BACKEND_PORT}/health")
         assert_status "${backend_response[0]}" "200" "Exposed backend /health returned unexpected status" || exit 1
         ok "Exposed backend /health returned HTTP 200"
+    fi
+
+    if [[ "$RUN_TESTS" == true ]]; then
+        echo
+        echo -e "${BOLD}Test Suite${RESET}"
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "$browser_url" || {
+            echo
+            fail "Test suite fallita — correggere le violazioni prima del merge"
+            exit 1
+        }
     fi
 
     echo

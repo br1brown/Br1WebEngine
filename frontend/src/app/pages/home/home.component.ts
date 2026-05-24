@@ -7,20 +7,20 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
-import { ShareService } from '../../core/services/share.service';
-import { ThemeService } from '../../core/services/theme.service';
-import { QrConfig } from '../../core/services/qr-code.service';
+import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
+import { ShareService } from '../../core/engine/services/share.service';
+import { ThemeService } from '../../core/engine/services/theme.service';
+import { QrConfig } from '../../core/engine/services/qr-code.service';
 
-import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
-import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
-import { QrRenderDirective } from '../../shared/directives/qr-render.directive';
-import { ImgRenderDirective, ImgRenderConfig } from '../../shared/directives/img-render.directive';
-import { AssetDirective } from '../../shared/directives/asset.directive';
+import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
+import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
+import { ContextMenuDirective } from '../../core/engine/directives/context-menu.directive';
+import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
+import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
+import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
-import { SpeechService } from '../../core/services/speech.service';
+import { SpeechService } from '../../core/engine/services/speech.service';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
 
 @Component({
@@ -129,6 +129,139 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     // --- Demo modali ---
     readonly modalResult = signal('');
+
+    // --- Snippet di codice per la colonna destra di ogni sezione ---
+    readonly snippets = {
+        markdown:
+`<!-- Pipe nel template -->
+<div [innerHTML]="content | markdown"></div>
+
+<!-- Import nel componente -->
+imports: [MarkdownPipe]`,
+
+        imgRender:
+`// Config
+config: ImgRenderConfig = {
+  text: 'Testo',
+  fontSize: 60,
+  renderMode: 'wrap', // 'wrap'|'fit'|'single'
+};
+
+// Template
+<img [imgRender]="config"
+     (canvasChange)="canvas.set($event)"
+     alt="Immagine generata">`,
+
+        qrCode:
+`// Config (type: text|whatsapp|email|wifi|sepa)
+config: QrConfig = {
+  type: 'text',
+  content: 'https://example.com',
+};
+
+// Template
+<img [qrContent]="config"
+     (blobChange)="blob.set($event)"
+     (errorChange)="err.set($event)"
+     alt="QR Code">`,
+
+        speech:
+`speech = inject(SpeechService);
+
+// Parla / ferma
+speech.speak('Ciao!');
+speech.stop();
+
+// Signals
+speech.isSpeaking()   // boolean
+speech.currentVoice() // SpeechSynthesisVoice`,
+
+        notify:
+`notify = inject(NotificationService);
+
+// Toast
+notify.toast('Salvato', 'success');
+
+// Alert
+await notify.success('Completato');
+
+// Conferma
+const ok = await notify.confirm(
+  'Titolo', 'Sei sicuro?'
+);
+
+// Prompt
+const val = await notify.prompt(
+  'Titolo', 'Campo', 'OK', 'Annulla'
+);`,
+
+        theme:
+`/* Token CSS — sempre da variabile */
+background: var(--colorSurface);
+color:       var(--colorSurfaceText);
+border: 1px solid var(--colorSurfaceBorder);
+
+/* Colore brand (WCAG AA garantito) */
+background: var(--colorPrimary);
+color:       var(--colorPrimaryText);
+
+/* Focus ring (WCAG 2.4.7) */
+outline: var(--focusRingWidth)
+         solid var(--focusRingColor);`,
+
+        i18n:
+`// Template
+{{ 'chiave' | translate }}
+[attr.aria-label]="'chiave' | translate"
+{{ 'msg' | translate : arg1 }}
+
+// TypeScript
+translate = inject(TranslateService);
+translate.translate('chiave');
+translate.currentLang() // Signal<string>
+
+// File: src/assets/i18n/
+//   basic.it.json  /  basic.en.json
+//   addon.it.json  /  addon.en.json`,
+
+        api:
+`// 1. api.service.ts
+const API = { items: 'items' } as const;
+getItems(): Promise<Item[]> {
+  return this.api_get<Item[]>(API.items);
+}
+
+// 2. content.resolver.ts
+case PageType.Pagina:
+  content = await this.api.getItems();
+  break;
+
+// 3. Componente (via resolver)
+pageContent() // Signal<Item[] | null>
+
+// 4. Chiamata extra
+await this.loadData(
+  () => this.api.getItems()
+);`,
+
+        asset:
+`<!-- Originale -->
+<img [appAsset]="'nomeAsset'" alt="Foto">
+
+<!-- Ridimensionato (WebP) -->
+<img [appAsset]="'nomeAsset'"
+     [appAssetWidth]="480"
+     alt="Foto">
+
+<!-- URL da TypeScript -->
+asset.getUrl('nomeAsset', 480)
+// → /assets/.../nomeAsset_480.webp
+
+<!-- Href per link/download -->
+<a [appAssetHref]="'documento'">
+  Scarica PDF
+</a>`,
+    } as const;
 
     constructor() {
         super();

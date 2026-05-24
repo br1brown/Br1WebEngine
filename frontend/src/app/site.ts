@@ -1,5 +1,5 @@
-import { inject } from '@angular/core';
-import { buildSite } from './siteBuilder';
+
+import { buildSite } from './core/engine/siteBuilder';
 
 export type {
     SiteConfig,
@@ -7,7 +7,7 @@ export type {
     SitePageInput,
     SmokeSettings,
     SmokeSettingsInput
-} from './siteBuilder';
+} from './core/engine/siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
 // ENUM PageType — identita' di ogni pagina
@@ -27,12 +27,14 @@ export type {
 //   del codice che ancora lo usano. Con le stringhe lo scopri a runtime.
 //
 export enum PageType {
-    Home,
-    Social,
+    //IMPORTANTI
     PrivacyPolicy,
     CookiePolicy,
     TermsOfService,
     LegalNotice,
+    //PERSONALIZZABILI
+    Home,
+    Social,
     Impostazioni,
     GitHub,
 }

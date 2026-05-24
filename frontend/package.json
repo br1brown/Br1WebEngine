@@ -13,15 +13,16 @@
     "clean:preview-cache": "node --eval \"const{rmSync,readdirSync}=require('fs');const{join}=require('path');try{readdirSync('src/assets/files/image-cache').filter(f=>/^preview_.*\\.webp$/.test(f)).forEach(f=>rmSync(join('src/assets/files/image-cache',f)))}catch{}\"",
     "prestart": "npm run clean:preview-cache && npm run generate:statics && npm run generate:icons",
     "prestart:docker": "npm run clean:preview-cache && npm run generate:statics && npm run generate:icons",
-    "generate:statics": "tsx scripts/generate-statics.ts",
-    "generate:icons": "tsx scripts/generate-icons.ts",
+    "generate:statics": "tsx src/app/core/engine/scripts/generate-statics.ts",
+    "generate:icons": "tsx src/app/core/engine/scripts/generate-icons.ts",
     "prebuild": "npm run clean:preview-cache && npm run generate:statics && npm run generate:icons",
     "build": "ng build",
     "serve:ssr": "node dist/app/server/server.mjs",
     "dev": "ng serve --open --ssl false --proxy-config proxy.local.conf.json",
     "dev:ssr": "npm run build && cross-env ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@angular/animations": "^19.0.0",
@@ -51,6 +52,9 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
+    "@angular-eslint/eslint-plugin": "^21.4.0",
+    "@angular-eslint/eslint-plugin-template": "^21.4.0",
+    "@angular-eslint/template-parser": "^21.4.0",
     "@angular/build": "^19.0.0",
     "@angular/cli": "^19.0.0",
     "@angular/compiler-cli": "^19.0.0",
@@ -65,7 +69,10 @@
     "karma-coverage": "^2.2.1",
     "karma-jasmine": "^5.1.0",
     "karma-jasmine-html-reporter": "^2.2.0",
+    "lighthouse": "^13.3.0",
+    "pa11y": "^9.1.1",
     "tsx": "^4.19.0",
-    "typescript": "~5.6.0"
+    "typescript": "~5.6.0",
+    "typescript-eslint": "^8.59.4"
   }
 }
