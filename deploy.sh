@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
 # =============================================================================
-# deploy.sh - Deploy and Test Br1WebEngine
+# deploy.sh - Deploy e Test Br1WebEngine
 #
-# Usage:
-#   ./deploy.sh                      Production deploy with health checks
-#   ./deploy.sh --skip-post-deploy   Skip health checks after deployment
-#   ./deploy.sh --dev                Development mode
-#   ./deploy.sh --no-cache           Force clean Docker rebuild
-#   ./deploy.sh --test-public        Run isolated smoke test in CI (infra only)
-#   ./deploy.sh --help               Show this message
+# Uso:
+#   ./deploy.sh                      Deploy in produzione (con pre-flight test isolato)
+#   ./deploy.sh --skip-post-deploy   Salta gli health check post-deploy
+#   ./deploy.sh --dev                Modalità sviluppo (Angular dev server + backend locale)
+#   ./deploy.sh --no-cache           Forza la build Docker ignorando la cache
+#   ./deploy.sh --test-public        Ambiente CI: Alza lo stack isolato e lo lascia acceso (NON fa deploy).
+#                                    Di default esegue la test suite.
+#   ./deploy.sh --help               Mostra questo messaggio
 #
-# Options for --test-public:
-#   --down-after                     Stop the test stack at the end
-#   --run-tests                      Call scripts/test/run-all.sh after health check
-#   --public-host HOST               Public host header (default: localhost)
-#   --public-port PORT               Public reverse proxy port (default: 8088)
-#   --skip-invalid-host-check        Skip the negative host authorization check
+# Opzioni (incluse per --test-public):
+#   --skip-tests                     Non esegue la test suite (utile se i test sono in step CI successivi)
+#   --run-tests                      Forza l'esecuzione della test suite (default)
+#   --down-after                     Spegne lo stack di test alla fine (usato con --test-public)
+#   --public-host HOST               Host pubblico per i test (default: localhost)
+#   --public-port PORT               Porta del proxy pubblico per i test (default: 8088)
+#   --skip-invalid-host-check        Salta il controllo negativo sull'host
 # =============================================================================
 
 set -euo pipefail

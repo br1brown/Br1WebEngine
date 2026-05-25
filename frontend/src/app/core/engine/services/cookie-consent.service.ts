@@ -202,13 +202,14 @@ export class CookieConsentService {
         if (this._technicalAccepted() && 'serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistration().then(existing => {
                 if (!existing) {
-                    navigator.serviceWorker.register('ngsw-worker.js', { scope: '/' }).catch(() => {
+                    navigator.serviceWorker.register(CookieConsentService.NGSW_WORKER, { scope: '/' }).catch(() => {
                         // Fallback silenzioso: il SW si registrerà al prossimo caricamento
                     });
                 }
             });
         }
     }
+    private static readonly NGSW_WORKER = 'ngsw-worker.js';
 
     /**
      * Metodo cappello lingua: se il consenso tecnico è revocato rimuove il cookie lingua.
@@ -216,7 +217,7 @@ export class CookieConsentService {
      */
     private applyLanguagePreference(): void {
         if (!this._technicalAccepted()) {
-            this.eraseCookieDirect(this.LANG_KEY);
+            this.eraseCookieDirect(CookieConsentService.LANG_KEY);
         }
     }
 
@@ -284,20 +285,20 @@ export class CookieConsentService {
     // Metodo cappello: usa la stessa meccanica write/read ma non passa per COOKIE_MAP.
     // Chiave fisica: lang  (senza namespace — funzionalità built-in)
 
-    private readonly LANG_KEY = 'lang';
+    private static readonly LANG_KEY = 'lang';
     private readonly LANG_MAX_AGE = 60 * 60 * 24 * 365;
 
     getSavedLanguage(): string | null {
-        return this.readCookieDirect(this.LANG_KEY);
+        return this.readCookieDirect(CookieConsentService.LANG_KEY);
     }
 
     setSavedLanguage(language: string): void {
         if (!this._technicalAccepted()) return;
-        this.writeCookieDirect(this.LANG_KEY, language, this.LANG_MAX_AGE);
+        this.writeCookieDirect(CookieConsentService.LANG_KEY, language, this.LANG_MAX_AGE);
     }
 
     clearSavedLanguage(): void {
-        this.eraseCookieDirect(this.LANG_KEY);
+        this.eraseCookieDirect(CookieConsentService.LANG_KEY);
     }
 
     // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
@@ -312,7 +313,7 @@ export class CookieConsentService {
      * @returns Il nome univoco fisico da passare alle API del browser, o `null` se la chiave è sconosciuta.
      */
     private static buildKey(rawKey: string, config?: CookieConfig): string | null {
-        if (rawKey === 'lang' || rawKey === 'ngsw-worker.js') {
+        if (rawKey === this.LANG_KEY || rawKey === CookieConsentService.NGSW_WORKER) {
             return rawKey;
         }
 
@@ -389,14 +390,14 @@ export class CookieConsentService {
             };
 
             if (ContestoSito.config.availableLanguages.length > 1) {
-                allCookies[this.LANG_KEY] = {
+                allCookies[CookieConsentService.LANG_KEY] = {
                     category: CookieCategory.Technical,
                     descriptionKey: 'linguaDescrizioneListaCookie',
                 };
             }
 
             if (ContestoSito.config.isWebApp) {
-                allCookies['ngsw-worker.js'] = {
+                allCookies[CookieConsentService.NGSW_WORKER] = {
                     category: CookieCategory.Technical,
                     descriptionKey: 'swDescrizioneListaCookie',
                 };
