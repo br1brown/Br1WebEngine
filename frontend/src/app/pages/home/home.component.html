@@ -58,7 +58,7 @@
                         </div>
 
                         <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-markdown">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-markdown">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-markdown"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"
@@ -79,7 +79,7 @@
 
                         <div class="col-12 col-lg-7 p-3">
                             <h2 class="card-title mb-1 h5">{{ 'imgBuilderTitle' | translate }}</h2>
-                            <p class="text-muted small mb-3">Demo minimale di generazione immagine lato client</p>
+                            <p class="text-muted small mb-3">{{ 'imgBuilderDesc' | translate }}</p>
 
                             <div class="row g-3 align-items-start">
                                 <div class="col-sm-5">
@@ -100,7 +100,7 @@
                                                (input)="onImageInputChange()">
                                     </div>
 
-                                    <button class="btn btn-outline-secondary btn-sm" (click)="resetHomeImage()">Reset</button>
+                                    <button class="btn btn-outline-secondary btn-sm" (click)="resetHomeImage()">{{ 'resetAction' | translate }}</button>
                                 </div>
 
                                 <div class="col-sm-7">
@@ -116,7 +116,7 @@
                         </div>
 
                         <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-img">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-img">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-img"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"
@@ -141,83 +141,82 @@
                     <div class="row g-0">
 
                         <div class="col-12 col-lg-8 p-3">
-                            <h2 class="card-title mb-1 h5">QR Code</h2>
+                            <h2 class="card-title mb-1 h5">{{ 'qrCodeTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">
-                                Genera QR code per testo, link, WhatsApp, email, Wi-Fi e pagamenti SEPA.
-                                Colori automatici dal tema attivo con contrasto WCAG garantito.
+                                {{ 'qrCodeDesc' | translate }}
                             </p>
 
                             <div class="row g-4 align-items-start">
                                 <div class="col-md-5">
-                                    <label class="form-label" for="qrType">Tipo</label>
+                                    <label class="form-label" for="qrType">{{ 'qrType' | translate }}</label>
                                     <select class="form-select mb-3" id="qrType"
                                             [(ngModel)]="qrType" (ngModelChange)="onQrTypeChange()">
-                                        <option value="text">Testo / URL</option>
-                                        <option value="whatsapp">WhatsApp</option>
-                                        <option value="email">Email</option>
-                                        <option value="wifi">Wi-Fi</option>
-                                        <option value="sepa">Pagamento SEPA</option>
+                                        <option value="text">{{ 'qrTypeText' | translate }}</option>
+                                        <option value="whatsapp">{{ 'qrTypeWhatsapp' | translate }}</option>
+                                        <option value="email">{{ 'qrTypeEmail' | translate }}</option>
+                                        <option value="wifi">{{ 'qrTypeWifi' | translate }}</option>
+                                        <option value="sepa">{{ 'qrTypeSepa' | translate }}</option>
                                     </select>
 
                                     @switch (qrType) {
                                         @case ('text') {
-                                            <label class="form-label" for="qrText">Contenuto</label>
+                                            <label class="form-label" for="qrText">{{ 'qrContent' | translate }}</label>
                                             <textarea class="form-control mb-3" id="qrText" rows="3"
                                                       [(ngModel)]="qrText"
-                                                      placeholder="https://example.com oppure testo libero"></textarea>
+                                                      [placeholder]="translate.translate('qrContentPlaceholder')"></textarea>
                                         }
                                         @case ('whatsapp') {
-                                            <label class="form-label" for="qrPhone">Numero (con prefisso, es. +39…)</label>
+                                            <label class="form-label" for="qrPhone">{{ 'qrPhone' | translate }}</label>
                                             <input type="tel" id="qrPhone" class="form-control mb-2"
                                                    [(ngModel)]="qrPhone" placeholder="+393331234567">
-                                            <label class="form-label" for="qrWhatsappText">Messaggio precompilato (opzionale)</label>
+                                            <label class="form-label" for="qrWhatsappText">{{ 'qrWhatsappText' | translate }}</label>
                                             <textarea class="form-control mb-3" id="qrWhatsappText" rows="2"
                                                       [(ngModel)]="qrWhatsappText"></textarea>
                                         }
                                         @case ('email') {
-                                            <label class="form-label" for="qrEmail">Destinatario</label>
+                                            <label class="form-label" for="qrEmail">{{ 'qrEmailRecipient' | translate }}</label>
                                             <input type="email" id="qrEmail" class="form-control mb-2"
                                                    [(ngModel)]="qrEmail" placeholder="info@esempio.it">
-                                            <label class="form-label" for="qrEmailSubject">Oggetto (opzionale)</label>
+                                            <label class="form-label" for="qrEmailSubject">{{ 'qrEmailSubject' | translate }}</label>
                                             <input type="text" id="qrEmailSubject" class="form-control mb-2"
                                                    [(ngModel)]="qrEmailSubject">
-                                            <label class="form-label" for="qrEmailBody">Corpo (opzionale)</label>
+                                            <label class="form-label" for="qrEmailBody">{{ 'qrEmailBody' | translate }}</label>
                                             <textarea class="form-control mb-3" id="qrEmailBody" rows="2"
                                                       [(ngModel)]="qrEmailBody"></textarea>
                                         }
                                         @case ('wifi') {
-                                            <label class="form-label" for="qrSsid">Nome rete (SSID)</label>
+                                            <label class="form-label" for="qrSsid">{{ 'qrSsid' | translate }}</label>
                                             <input type="text" id="qrSsid" class="form-control mb-2"
                                                    [(ngModel)]="qrSsid" placeholder="NomeWifi">
-                                            <label class="form-label" for="qrWifiPassword">Password (opzionale)</label>
+                                            <label class="form-label" for="qrWifiPassword">{{ 'qrWifiPassword' | translate }}</label>
                                             <input type="text" id="qrWifiPassword" class="form-control mb-2"
                                                    [(ngModel)]="qrWifiPassword">
-                                            <label class="form-label" for="qrWifiEncryption">Sicurezza</label>
+                                            <label class="form-label" for="qrWifiEncryption">{{ 'qrWifiEncryption' | translate }}</label>
                                             <select id="qrWifiEncryption" class="form-select mb-3"
                                                     [(ngModel)]="qrWifiEncryption">
-                                                <option value="WPA">WPA / WPA2</option>
-                                                <option value="WEP">WEP</option>
-                                                <option value="nopass">Nessuna</option>
+                                                <option value="WPA">{{ 'qrWifiEncWpa' | translate }}</option>
+                                                <option value="WEP">{{ 'qrWifiEncWep' | translate }}</option>
+                                                <option value="nopass">{{ 'qrWifiEncNone' | translate }}</option>
                                             </select>
                                         }
                                         @case ('sepa') {
-                                            <label class="form-label" for="qrIban">IBAN beneficiario</label>
+                                            <label class="form-label" for="qrIban">{{ 'qrIban' | translate }}</label>
                                             <input type="text" id="qrIban" class="form-control mb-2"
                                                    [(ngModel)]="qrIban" placeholder="IT60 X054 2811 1010 0000 0123 456">
-                                            <label class="form-label" for="qrBeneficiaryName">Nome beneficiario</label>
+                                            <label class="form-label" for="qrBeneficiaryName">{{ 'qrBeneficiaryName' | translate }}</label>
                                             <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
                                                    [(ngModel)]="qrBeneficiaryName">
-                                            <label class="form-label" for="qrAmount">Importo (€)</label>
+                                            <label class="form-label" for="qrAmount">{{ 'qrAmount' | translate }}</label>
                                             <input type="number" id="qrAmount" class="form-control mb-2"
                                                    [(ngModel)]="qrAmount" min="0.01" step="0.01">
-                                            <label class="form-label" for="qrRemittance">Causale (opzionale)</label>
+                                            <label class="form-label" for="qrRemittance">{{ 'qrRemittance' | translate }}</label>
                                             <input type="text" id="qrRemittance" class="form-control mb-3"
                                                    [(ngModel)]="qrRemittance">
                                         }
                                     }
 
                                     <button class="btn btn-primary btn-sm" (click)="generateQr()">
-                                        <i class="fa-solid fa-qrcode me-1"></i>Genera
+                                        <i class="fa-solid fa-qrcode me-1"></i>{{ 'qrGenerate' | translate }}
                                     </button>
 
                                     @if (qrError(); as err) {
@@ -234,13 +233,11 @@
                                             <img [qrContent]="qrConfig()"
                                                  (blobChange)="qrBlob.set($event)"
                                                  (errorChange)="qrError.set($event)"
-                                                 alt="QR Code generato"
+                                                 alt="{{ 'qrCodeAlt' | translate }}"
                                                  class="img-fluid rounded cursor-context-menu"
                                                  style="max-width: 280px;">
                                         } @else {
-                                            <span class="text-muted small">
-                                                <i class="fa-solid fa-qrcode fa-2x d-block mb-2 text-center opacity-25"></i>
-                                                Configura i campi e premi <strong>Genera</strong>
+                                            <span class="text-muted small" [innerHTML]="translate.translate('qrCodeEmpty')">
                                             </span>
                                         }
                                     </div>
@@ -249,7 +246,7 @@
                         </div>
 
                         <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-qr">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-qr">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-qr"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"
@@ -312,7 +309,7 @@
                         </div>
 
                         <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-speech">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-speech">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-speech"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"
@@ -356,7 +353,7 @@
                         </div>
 
                         <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-notify">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-notify">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-notify"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"
@@ -375,7 +372,7 @@
 <!-- SISTEMA -->
 <section>
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="mb-0 h4">System</h2>
+        <h2 class="mb-0 h4">{{ 'systemTitle' | translate }}</h2>
     </div>
 
     <div class="row g-3">
@@ -399,7 +396,7 @@
                         </span>
                     </div>
                     <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-theme">Utilizzo</label>
+                    <label class="small fw-semibold text-muted mb-2" for="code-theme">{{ 'usageCodeLabel' | translate }}</label>
                     <textarea id="code-theme"
                               class="form-control form-control-sm font-monospace flex-grow-1"
                               readonly spellcheck="false"
@@ -424,7 +421,7 @@
                         }
                     </div>
                     <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-i18n">Utilizzo</label>
+                    <label class="small fw-semibold text-muted mb-2" for="code-i18n">{{ 'usageCodeLabel' | translate }}</label>
                     <textarea id="code-i18n"
                               class="form-control form-control-sm font-monospace flex-grow-1"
                               readonly spellcheck="false"
@@ -457,7 +454,7 @@
                     }
 
                     <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-api">Utilizzo</label>
+                    <label class="small fw-semibold text-muted mb-2" for="code-api">{{ 'usageCodeLabel' | translate }}</label>
                     <textarea id="code-api"
                               class="form-control form-control-sm font-monospace flex-grow-1"
                               readonly spellcheck="false"
@@ -483,7 +480,7 @@
                                        [(ngModel)]="assetId"
                                        [placeholder]="translate.translate('assetResolverInputLabel')">
                                 <button class="btn btn-outline-primary" (click)="resolveAsset()">
-                                    Originale
+                                    {{ 'originalSize' | translate }}
                                 </button>
                             </div>
 
@@ -514,7 +511,7 @@
                         </div>
 
                         <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-asset">Utilizzo</label>
+                            <label class="small fw-semibold text-muted mb-2" for="code-asset">{{ 'usageCodeLabel' | translate }}</label>
                             <textarea id="code-asset"
                                       class="form-control form-control-sm font-monospace flex-grow-1"
                                       readonly spellcheck="false"

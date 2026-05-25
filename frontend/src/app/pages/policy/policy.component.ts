@@ -24,8 +24,14 @@ export class PolicyComponent extends PageBaseComponent<string> {
 
         // {{cookieList}} — sincrono, reattivo al cambio lingua tramite pageContent()
         if (content.includes('{{cookieList}}')) {
-            const table = this.cookieConsent.listMarkdown(k => this.translate.translate(k));
+            const table = this.cookieConsent.legal.listMarkdown(k => this.translate.translate(k));
             content = content.replace(/\{\{cookieList\}\}/g, table);
+        }
+
+        // {{cookieCategories}} — sincrono, reattivo al cambio lingua tramite pageContent()
+        if (content.includes('{{cookieCategories}}')) {
+            const list = this.cookieConsent.legal.listCategoriesMarkdown(k => this.translate.translate(k));
+            content = content.replace(/\{\{cookieCategories\}\}/g, list);
         }
 
         // placeholder profilo — asincrono, risolti quando profileData è disponibile
@@ -41,8 +47,8 @@ export class PolicyComponent extends PageBaseComponent<string> {
         super();
         effect(() => {
             const content = this.pageContent();
-            // Cerca placeholder profilo escludendo {{cookieList}} (già gestito in displayContent)
-            const hasProfilePlaceholders = content != null && /\{\{(?!cookieList\}\})/.test(content);
+            // Cerca placeholder profilo escludendo {{cookieList}} e {{cookieCategories}} (già gestiti in displayContent)
+            const hasProfilePlaceholders = content != null && /\{\{(?!cookieList\}\}|cookieCategories\}\})/.test(content);
             if (hasProfilePlaceholders && !this.profileData()) {
                 this.api.getProfile()
                     .then(p => this.profileData.set(this.buildProfileData(p)))

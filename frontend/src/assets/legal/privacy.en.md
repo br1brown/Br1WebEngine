@@ -1,16 +1,16 @@
 # Privacy Policy
 
 ## Personal data
-This website does not collect personal data through contact forms or newsletters. No registration is required.
+This website does not collect personal data through contact forms, newsletters, or other direct acquisition tools. No registration is required.
 Stored data is limited to technical preferences (e.g., language or theme) and is not shared with third parties or used for profiling.
 
 ## Navigation data
-Server logs record technical information (IP address, User-Agent, timestamp). This data is not cross-referenced and is kept only for technical management or security purposes.
+The application itself does not actively save or track IP addresses or other navigation data for analysis or security purposes. The only technical information processed is that which is strictly necessary for the hosting infrastructure to deliver the web pages.
 
 ## Third-party services
-The website does not integrate tracking tools, analytics, or third-party pixels. No content is loaded from external platforms that could set their own cookies.
+The website does not integrate tracking tools, analytics, or third-party pixels. No external scripts are loaded that could set their own cookies.
 
-## Security
-We adopt technical measures to protect data from unauthorised access or loss.
+## User rights
+In accordance with the GDPR (EU Regulation 2016/679), the user may exercise their rights by contacting the owner at the details provided on the Legal Notice page.
 
-**Last revision:** May 14, 2026
+**Last revision:** May 25, 2026

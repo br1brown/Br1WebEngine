@@ -4,15 +4,18 @@
 Cookies are small text files stored on your device to enhance your browsing experience.
 
 ## How we use cookies
-The website uses only **technical cookies** necessary for the platform to function (storing language, theme, or settings).
-Cookies are not used for tracking, profiling, or advertising. We do not use third-party analytics.
+This website uses the following categories of cookies, managed dynamically based on active features and your consent:
 
----
+{{cookieCategories}}
+
+All cookies used on this website are activated and stored **only with the user's explicit consent**, collected upon the first visit and adjustable at any time via the banner settings.
+
+The detailed list of cookies used on this website is provided below:
+
 {{cookieList}}
----
 
 
 ## Cookie control
-You can manage cookies through your browser settings (disable, delete, or notifications).
+In addition to the preferences managed via the website's banner, you can configure or block cookies directly through your web browser settings (disable, delete, block third-party cookies).
 
-**Last revision:** May 14, 2026
+**Last revision:** May 25, 2026

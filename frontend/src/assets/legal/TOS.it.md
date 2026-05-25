@@ -1,7 +1,7 @@
 # Termini di Servizio
 
 ## Premessa
-L'accesso e la consultazione del presente sito web sono regolati dai presenti Termini, che hanno lo scopo di definire le norme di utilizzo e tutelare la proprietà intellettuale dei contenuti. La permanenza sul sito implica la presa visione di tali condizioni.
+L'accesso e la consultazione del presente sito web sono regolati dai presenti Termini, che hanno lo scopo di definire le norme di utilizzo e tutelare la proprietà intellettuale dei contenuti.
 
 ## Utilizzo del servizio
 Il servizio è fornito "così com'è". L'utente si impegna a utilizzare il sito in modo lecito, astenendosi da attività di scraping automatizzato o tentativi di violazione della sicurezza.
@@ -15,4 +15,4 @@ Il titolare non è responsabile per danni derivanti dall'uso del sito o da event
 ## Modifiche
 I presenti termini possono essere aggiornati in qualsiasi momento per riflettere cambiamenti tecnici o normativi.
 
-**Ultima revisione:** 14 maggio 2026
+**Ultima revisione:** 25 maggio 2026

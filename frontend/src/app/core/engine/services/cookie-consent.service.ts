@@ -233,35 +233,50 @@ export class CookieConsentService {
 
     private readonly _cm = COOKIE_MAP as Readonly<Record<string, CookieConfig | undefined>>;
 
-    /** Scrive un cookie di progetto.
-     *  Bloccato se la chiave non è censita in COOKIE_MAP o se il consenso manca. */
+    /**
+     * Scrive un cookie di progetto fisicamente nel browser dell'utente.
+     * La scrittura viene automaticamente bloccata se la chiave non è censita in `COOKIE_MAP`
+     * (per prevenire cookie "orfani") o se l'utente non ha prestato il consenso per la categoria relativa.
+     *
+     * @param key La chiave tipizzata del cookie (es. 'temaScuro'), deve essere presente in `COOKIE_MAP`.
+     * @param value Il valore da salvare (verrà codificato in URI component automaticamente).
+     * @param maxAgeSeconds La durata del cookie in secondi (es. `60 * 60 * 24` per un giorno).
+     */
     setCookie(key: CookieKey, value: string, maxAgeSeconds: number): void {
         const rawKey = key as string;
         const config = this._cm[rawKey];
-        if (!config) {
-            console.error(`[CookieConsentService] Cookie "${rawKey}" non censito in COOKIE_MAP — scrittura bloccata. Aggiungilo a COOKIE_MAP in cookie-registry.ts.`);
-            return;
-        }
+        const fullKey = CookieConsentService.buildKey(rawKey, config);
+        if (!fullKey || !config) return;
+
         if (!this.isCategoryAccepted(config.category)) return;
-        this.writeCookieDirect(`${config.category}.${rawKey}`, value, maxAgeSeconds);
+        this.writeCookieDirect(fullKey, value, maxAgeSeconds);
     }
 
-    /** Legge un cookie di progetto. */
+    /**
+     * Legge il valore di un cookie di progetto.
+     * La lettura viene bloccata (ritorna `null`) se la chiave non è censita in `COOKIE_MAP`.
+     * Non verifica il consenso attuale, limitandosi a restituire il valore fisicamente presente nel browser.
+     *
+     * @param key La chiave tipizzata del cookie.
+     * @returns Il valore testuale decodificato del cookie, o `null` se il cookie non esiste o non è censito.
+     */
     getCookie(key: CookieKey): string | null {
-        const rawKey = key as string;
-        const config = this._cm[rawKey];
-        if (!config) {
-            console.error(`[CookieConsentService] Cookie "${rawKey}" non censito in COOKIE_MAP — lettura bloccata.`);
-            return null;
-        }
-        return this.readCookieDirect(`${config.category}.${rawKey}`);
+        const fullKey = CookieConsentService.buildKey(key as string);
+        if (!fullKey) return null;
+        
+        return this.readCookieDirect(fullKey);
     }
 
-    /** Rimuove un cookie di progetto. La rimozione è sempre consentita. */
+    /**
+     * Rimuove un cookie di progetto dal browser dell'utente.
+     * A differenza della scrittura, l'eliminazione è sempre consentita anche se l'utente ha revocato il consenso.
+     *
+     * @param key La chiave tipizzata del cookie da eliminare.
+     */
     removeCookie(key: CookieKey): void {
         const rawKey = key as string;
-        const config = this._cm[rawKey];
-        this.eraseCookieDirect(config ? `${config.category}.${rawKey}` : rawKey);
+        const fullKey = CookieConsentService.buildKey(rawKey) ?? rawKey;
+        this.eraseCookieDirect(fullKey);
     }
 
     // ─── PREFERENZA LINGUA (built-in) ───────────────────────────────────
@@ -285,35 +300,29 @@ export class CookieConsentService {
         this.eraseCookieDirect(this.LANG_KEY);
     }
 
-    // ─── LISTA MARKDOWN DEI COOKIE ──────────────────────────────────────
+    // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
 
     /**
-     * Genera una tabella Markdown con i cookie presenti nel sito.
-     * Restituisce stringa vuota se non ci sono cookie da mostrare.
+     * Costruisce il nome fisico completo (namespace) con cui il cookie verrà salvato nel browser.
+     * Per i cookie di progetto, il formato standard è `categoria.chiave` (es. `technical.temaScuro`).
+     * I cookie di sistema (es. 'lang' o 'ngsw-worker.js') mantengono invece il loro nome base nativo senza prefissi.
      *
-     * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+     * @param rawKey La chiave base del cookie (es. 'temaScuro' o 'lang').
+     * @param config (Opzionale) Configurazione bypassabile, usata internamente per evitare lookup duplicati.
+     * @returns Il nome univoco fisico da passare alle API del browser, o `null` se la chiave è sconosciuta.
      */
-    listMarkdown(t: (key: string) => string): string {
-        const rows: string[] = [];
-        rows.push(`| ${t('nomeListaCookie')} | ${t('categoriaListaCookie')} | ${t('descrizioneListaCookie')} |`);
-        rows.push('|---|---|---|');
-        if (ContestoSito.config.availableLanguages.length > 1) {
-            rows.push(`| \`lang\` | ${t('tecniciCategoriaCookie')} | ${t('linguaDescrizioneListaCookie')} |`);
+    private static buildKey(rawKey: string, config?: CookieConfig): string | null {
+        if (rawKey === 'lang' || rawKey === 'ngsw-worker.js') {
+            return rawKey;
         }
-        if (ContestoSito.config.isWebApp) {
-            rows.push(`| \`ngsw-worker.js\` | ${t('tecniciCategoriaCookie')} | ${t('swDescrizioneListaCookie')} |`);
-        }
-        for (const [rawKey, rawConfig] of Object.entries(COOKIE_MAP)) {
-            const config = rawConfig as CookieConfig;
-            const category = config.category;
-            const desc = config.descriptionKey ? t(config.descriptionKey) : '';
-            rows.push(`| \`${category}.${rawKey}\`  | ${t(`${category}CategoriaCookie`) }  | ${desc} |`);
-        }
-        if (rows.length <= 2) return '';
-        return rows.join('\n');
-    }
 
-    // ─── PRIMITIVI COOKIE ───────────────────────────────────────────────
+        const cfg = config ?? (COOKIE_MAP as Readonly<Record<string, CookieConfig | undefined>>)[rawKey];
+        if (!cfg) {
+            console.error(`[CookieConsentService] Cookie "${rawKey}" non censito in COOKIE_MAP.`);
+            return null;
+        }
+        return `${cfg.category}.${rawKey}`;
+    }
 
     private readCookieDirect(key: string): string | null {
         if (!this.isBrowser) return null;
@@ -340,4 +349,78 @@ export class CookieConsentService {
             default: return false;
         }
     }
+
+
+
+    // ─── PARTE LEGALE (Markdown) ──────────────────────────────────────
+
+    readonly legal = {
+        /**
+         * Genera un elenco puntato Markdown con le categorie di cookie presenti nel sito.
+         * Restituisce stringa vuota se non ci sono categorie.
+         *
+         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         */
+        listCategoriesMarkdown: (t: (key: string) => string): string => {
+            const categories = new Set<string>();
+            if (this.isTechnicalNeeded()) {
+                categories.add(`**${t('tecniciCategoriaCookie')}**: ${t('tecniciDescrizioneCategoriaCookie')}`);
+            }
+            if (this.isAnalyticsNeeded()) {
+                categories.add(`**${t('analyticsCategoriaCookie')}**: ${t('analyticsDescrizioneCategoriaCookie')}`);
+            }
+            if (this.isProfilingNeeded()) {
+                categories.add(`**${t('profilazioneCategoriaCookie')}**: ${t('profilazioneDescrizioneCategoriaCookie')}`);
+            }
+
+            return Array.from(categories).map(c => `- ${c}`).join('\n');
+        },
+
+        /**
+         * Genera una tabella Markdown con i cookie presenti nel sito.
+         * Restituisce stringa vuota se non ci sono cookie da mostrare.
+         *
+         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         */
+        listMarkdown: (t: (key: string) => string): string => {
+
+            const allCookies: Record<string, CookieConfig> = {
+                ...COOKIE_MAP,
+            };
+
+            if (ContestoSito.config.availableLanguages.length > 1) {
+                allCookies[this.LANG_KEY] = {
+                    category: CookieCategory.Technical,
+                    descriptionKey: 'linguaDescrizioneListaCookie',
+                };
+            }
+
+            if (ContestoSito.config.isWebApp) {
+                allCookies['ngsw-worker.js'] = {
+                    category: CookieCategory.Technical,
+                    descriptionKey: 'swDescrizioneListaCookie',
+                };
+            }
+
+            const rows: string[] = [];
+
+            rows.push(`| ${t('nomeListaCookie')} | ${t('categoriaListaCookie')} | ${t('descrizioneListaCookie')} |`);
+            rows.push('|---|---|---|');
+
+
+            for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
+                const category = config.category;
+                const desc = config.descriptionKey ? t(config.descriptionKey) : '';
+                const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
+
+                rows.push(
+                    `| \`${fullKey}\` | ${t(`${category}CategoriaCookie`)} | ${desc} |`
+                );
+            }
+
+            if (rows.length <= 2) return '';
+
+            return rows.join('\n');
+        }
+    };
 }

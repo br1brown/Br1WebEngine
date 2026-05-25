@@ -4,15 +4,18 @@
 I cookie sono piccoli file di testo memorizzati sul dispositivo dell'utente per migliorare l'esperienza di navigazione.
 
 ## Come usiamo i cookie
-Il sito utilizza esclusivamente **cookie tecnici** necessari al funzionamento della piattaforma (memorizzazione lingua, tema, impostazioni).
-Non vengono utilizzati cookie a scopo di tracciamento, profilazione commerciale o pubblicità. Non integriamo servizi di analytics di terze parti.
+Questo sito utilizza le seguenti categorie di cookie, gestite in modo dinamico in base alle funzionalità attive e al tuo consenso:
 
----
+{{cookieCategories}}
+
+Tutti i cookie utilizzati da questo sito vengono attivati e memorizzati **esclusivamente previo consenso esplicito** dell'utente, raccolto alla prima visita e modificabile in qualsiasi momento tramite le impostazioni del banner.
+
+L'elenco dettagliato dei cookie utilizzati in questo sito è riportato di seguito:
+
 {{cookieList}}
----
 
 
 ## Controllo dei cookie
-È possibile gestire i cookie attraverso le impostazioni del browser (disabilitazione, eliminazione, notifiche).
+Oltre alle preferenze gestibili tramite il banner del sito, è possibile configurare o bloccare i cookie direttamente attraverso le impostazioni del proprio browser web (disabilitazione, eliminazione, blocco di terze parti).
 
-**Ultima revisione:** 14 maggio 2026
+**Ultima revisione:** 25 maggio 2026

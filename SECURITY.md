@@ -4,7 +4,7 @@
 
 Se trovi una vulnerabilità di sicurezza in Br1WebEngine, **non aprire una issue pubblica**.
 
-Scrivi a **mrpillow.contact@gmail.com** con:
+Scrivi a **br1brown@hotmail.it** con:
 - Descrizione della vulnerabilità
 - Passi per riprodurla (se applicabile)
 - Impatto potenziale stimato

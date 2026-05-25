@@ -29,4 +29,4 @@ The owner is not responsible for misuse of the site's content by third parties, 
 ## Applicable law
 This website and its conditions of use are governed by Italian law.
 
-**Last revised:** May 14, 2026
+**Last revised:** May 25, 2026

@@ -1,5 +1,5 @@
 export enum CookieCategory {
-    Technical = 'technici',
+    Technical = 'tecnici',
     Analytics = 'analytics',
     Profiling = 'profilazione',
 }

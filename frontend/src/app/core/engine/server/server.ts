@@ -281,6 +281,7 @@ app.use('/api', async (req: Request, res: Response) => {
         if (cookies.length) res.setHeader('set-cookie', cookies);
 
         if (response.body) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             Readable.fromWeb(response.body as any).pipe(res);
         } else {
             res.end();

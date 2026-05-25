@@ -17,6 +17,9 @@ public class BlobController : EngineApiController
     private readonly string _uploadsPath;
     private static readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
+    /// <summary>
+    /// Inizializza una nuova istanza di <see cref="BlobController"/>.
+    /// </summary>
     public BlobController(IWebHostEnvironment env, ILogger<BlobController> logger)
         : base(logger)
     {

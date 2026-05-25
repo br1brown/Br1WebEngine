@@ -29,4 +29,4 @@ Il titolare non risponde di uso improprio dei contenuti da parte di terzi, danni
 ## Legge applicabile
 Il presente sito e le sue condizioni di utilizzo sono regolati dalla legge italiana.
 
-**Ultima revisione:** 14 maggio 2026
+**Ultima revisione:** 25 maggio 2026
