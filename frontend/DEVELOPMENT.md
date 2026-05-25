@@ -1,4 +1,4 @@
-# Frontend — Guida allo sviluppo
+# Frontend, Guida allo sviluppo
 
 Questa guida è rivolta a chi usa Br1WebEngine come template base e vuole estenderlo: aggiungere pagine, servizi, componenti o endpoint seguendo i pattern già stabiliti.
 
@@ -23,12 +23,12 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
   - [Aggiungere una pagina](#aggiungere-una-pagina)
     - [1. Aggiungere il valore all'enum `PageType`](#1-aggiungere-il-valore-allenum-pagetype)
     - [2. Registrare la pagina in `defineSitePages`](#2-registrare-la-pagina-in-definesitepages)
-    - [3. Creare il componente pagina](#3-creare-il-componente-pagina)
+    - [3. Generare il componente pagina](#3-generare-il-componente-pagina)
     - [4. Aggiungere al menu (opzionale)](#4-aggiungere-al-menu-opzionale)
   - [Aggiungere un componente](#aggiungere-un-componente)
     - [Component o directive?](#component-o-directive)
     - [Pattern base](#pattern-base)
-    - [Passi completi per creare un componente condiviso](#passi-completi-per-creare-un-componente-condiviso)
+    - [Passi completi per generare un componente condiviso](#passi-completi-per-generare-un-componente-condiviso)
   - [Aggiungere una direttiva](#aggiungere-una-direttiva)
     - [Directive con event handler](#directive-con-event-handler)
     - [Directive che calcola un attributo (src/href)](#directive-che-calcola-un-attributo-srchref)
@@ -38,10 +38,10 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
     - [Inject vs costruttore](#inject-vs-costruttore)
 - [2. Core Engine (Sotto il cofano)](#2-core-engine-sotto-il-cofano)
   - [Aggiungere un endpoint API](#aggiungere-un-endpoint-api)
-    - [Passo 1 — Definire il tipo di risposta](#passo-1--definire-il-tipo-di-risposta)
-    - [Passo 2 — Aggiungere il path alla costante `API`](#passo-2--aggiungere-il-path-alla-costante-api)
-    - [Passo 3 — Aggiungere il metodo pubblico in `ApiService`](#passo-3--aggiungere-il-metodo-pubblico-in-apiservice)
-    - [Passo 4 — Usarlo nel componente pagina](#passo-4--usarlo-nel-componente-pagina)
+    - [Passo 1, Definire il tipo di risposta](#passo-1definire-il-tipo-di-risposta)
+    - [Passo 2, Aggiungere il path alla costante `API`](#passo-2aggiungere-il-path-alla-costante-api)
+    - [Passo 3, Aggiungere il metodo pubblico in `ApiService`](#passo-3aggiungere-il-metodo-pubblico-in-apiservice)
+    - [Passo 4, Usarlo nel componente pagina](#passo-4usarlo-nel-componente-pagina)
   - [Gestione errori HTTP (Pagine vs Risorse API)](#gestione-errori-http-pagine-vs-risorse-api)
     - [Pattern Override per le API](#pattern-override-per-le-api)
     - [Contratto di Errore (Pagine vs Risorse API)](#contratto-di-errore-pagine-vs-risorse-api)
@@ -54,9 +54,9 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
     - [Leggere lo stato di login in un componente](#leggere-lo-stato-di-login-in-un-componente)
   - [Pattern dei Signal](#pattern-dei-signal)
     - [Riepilogo dei tipi](#riepilogo-dei-tipi)
-    - [`computed()` invece di `effect()` per i dati derivati](#computed-invece-di-effect-per-i-dati-derivati)
-    - [Signal + ngModel (binding bidirezionale)](#signal--ngmodel-binding-bidirezionale)
-    - [Signal + `effect()` con reattività a un altro signal](#signal--effect-con-reattivit-a-un-altro-signal)
+    - [Gestione dei dati derivati (computed)](#gestione-dei-dati-derivati-computed)
+    - [Signal + ngModel (binding bidirezionale)](#signalngmodel-binding-bidirezionale)
+    - [Signal + `effect()` con reattività a un altro signal](#signaleffect-con-reattivit-a-un-altro-signal)
   - [Internazionalizzazione (i18n)](#internazionalizzazione-i18n)
     - [Pattern Add-on per le Traduzioni](#pattern-add-on-per-le-traduzioni)
   - [Tema e stile](#tema-e-stile)
@@ -64,7 +64,7 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
     - [Sistema CSS con color-mix()](#sistema-css-con-color-mix)
     - [CSS scoping nei componenti standalone](#css-scoping-nei-componenti-standalone)
     - [FontConfig](#fontconfig)
-- [3. Produzione, SEO & Compliance](#3-produzione-seo--compliance)
+- [3. Produzione, SEO & Compliance](#3-produzione-seocompliance)
   - [Regole SSR](#regole-ssr)
     - [Cosa NON fare](#cosa-non-fare)
     - [Cosa fare nei componenti pagina](#cosa-fare-nei-componenti-pagina)
@@ -89,21 +89,21 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
     - [Auto-disabilitazione della pagina Cookie Policy](#auto-disabilitazione-della-pagina-cookie-policy)
   - [Accessibilità](#accessibilit)
     - [Quattro livelli di protezione automatici](#quattro-livelli-di-protezione-automatici)
-    - [Regole ESLint — errori bloccanti](#regole-eslint--errori-bloccanti)
-    - [Checklist — prima di considerare un componente completo](#checklist--prima-di-considerare-un-componente-completo)
-    - [aria-label — property binding, non interpolazione](#aria-label--property-binding-non-interpolazione)
+    - [Regole ESLint, errori bloccanti](#regole-eslinterrori-bloccanti)
+    - [Checklist, prima di considerare un componente completo](#checklistprima-di-considerare-un-componente-completo)
+    - [aria-label, property binding, non interpolazione](#aria-labelproperty-binding-non-interpolazione)
     - [Link esterni](#link-esterni)
-    - [Form — label associate](#form--label-associate)
+    - [Form, label associate](#formlabel-associate)
     - [Overlay e dialog](#overlay-e-dialog)
-    - [Design token — colori e focus sempre da variabile CSS](#design-token--colori-e-focus-sempre-da-variabile-css)
+    - [Design token, colori e focus sempre da variabile CSS](#design-tokencolori-e-focus-sempre-da-variabile-css)
     - [Audit WCAG a runtime](#audit-wcag-a-runtime)
 - [Audit accessibilità su un server in esecuzione (auto-scopre le pagine da /health)](#audit-accessibilit-su-un-server-in-esecuzione-auto-scopre-le-pagine-da-health)
 - [Audit Lighthouse (performance, a11y, best-practices, seo)](#audit-lighthouse-performance-a11y-best-practices-seo)
-- [Suite completa (lint → tsc → i18n → a11y → lighthouse)](#suite-completa-lint--tsc--i18n--a11y--lighthouse)
+- [Suite completa (lint → tsc → i18n → a11y → lighthouse)](#suite-completa-linttsci18na11ylighthouse)
 - [Nel deploy post-produzione](#nel-deploy-post-produzione)
   - [Asset e ottimizzazione immagini](#asset-e-ottimizzazione-immagini)
     - [Aggiungere un nuovo file (immagine, PDF, video…)](#aggiungere-un-nuovo-file-immagine-pdf-video)
-    - [Uso in template — directive](#uso-in-template--directive)
+    - [Uso in template, directive](#uso-in-templatedirective)
     - [Uso programmatico](#uso-programmatico)
   - [Build e script](#build-e-script)
     - [Iniezione variabili d'ambiente a runtime (Docker)](#iniezione-variabili-dambiente-a-runtime-docker)
@@ -113,9 +113,9 @@ Per i pattern lato backend → [`backend/DEVELOPMENT.md`](../backend/DEVELOPMENT
     - [Directive](#directive)
     - [Componenti](#componenti)
     - [Pipe](#pipe)
-    - [ImgBuilderService — dettaglio](#imgbuilderservice--dettaglio)
-    - [QrCodeService — dettaglio](#qrcodeservice--dettaglio)
-    - [ShareService — dettaglio](#shareservice--dettaglio)
+    - [ImgBuilderService, dettaglio](#imgbuilderservicedettaglio)
+    - [QrCodeService, dettaglio](#qrcodeservicedettaglio)
+    - [ShareService, dettaglio](#shareservicedettaglio)
     - [Pagine legali](#pagine-legali)
     - [Accessibilità integrata](#accessibilit-integrata)
 
@@ -142,7 +142,7 @@ src/
 │   │   ├── services/
 │   │   │   ├── api.service.ts  ← ★ unico client HTTP: un metodo per endpoint
 │   │   │   └── auth.service.ts ← TokenService + AuthService (login/logout/token)
-│   │   └── engine/             ← codice del motore — non modificare
+│   │   └── engine/             ← codice del motore, non modificare
 │   │       ├── siteBuilder.ts
 │   │       ├── services/       ← asset, img-builder, notification, page-meta,
 │   │       │                      qr-code, share, speech, theme, translate,
@@ -178,21 +178,21 @@ src/
 │
 └── assets/
     ├── i18n/
-    │   ├── basic.it.json       ← traduzioni engine (errori, UI comuni) — non toccare
+    │   ├── basic.it.json       ← traduzioni engine (errori, UI comuni), non toccare
     │   ├── basic.en.json
-    │   ├── addon.it.json       ← ★ traduzioni di progetto — aggiungi qui le tue chiavi
+    │   ├── addon.it.json       ← ★ traduzioni di progetto, aggiungi qui le tue chiavi
     │   └── addon.en.json
     ├── legal/                  ← testi legali in Markdown, una coppia per lingua
     └── files/                  ← immagini statiche e favicon
 ```
 
 **I file contrassegnati con ★ sono i punti di ingresso principali del progetto:**
-- `site.ts` — per aggiungere pagine, voci di menu, route protette
-- `core/dto/` — per i tipi delle risposte API
-- `core/services/api.service.ts` — per i metodi HTTP verso il backend
-- `pages/page-base.component.ts` — da estendere per ogni nuova pagina
-- `components/shared/` — per i componenti condivisi riutilizzabili
-- `assets/i18n/addon.*.json` — per le traduzioni di progetto
+- `site.ts`, per aggiungere pagine, voci di menu, route protette
+- `core/dto/`, per i tipi delle risposte API
+- `core/services/api.service.ts`, per i metodi HTTP verso il backend
+- `pages/page-base.component.ts`, da estendere per ogni nuova pagina
+- `components/shared/`, per i componenti condivisi riutilizzabili
+- `assets/i18n/addon.*.json`, per le traduzioni di progetto
 
 ---
 
@@ -212,16 +212,16 @@ siteFondamentaBuilder.configureFooterNavigation(f => { f.addPage(...); });
 
 Internamente `buildSite` lavora in tre fasi:
 
-1. **Dichiarazione** — l'utente descrive il sito con tipi `*Input` e campi opzionali
-2. **Normalizzazione** — il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`. PageType duplicati o path duplicati generano un errore a build time
-3. **Generazione** — produce rotte Angular, `NavLink[]` per header/footer (con flag `isExternal`), `getPath(PageType)` e `getSitemapEntries()`
+1. **Dichiarazione**, l'utente descrive il sito con tipi `*Input` e campi opzionali
+2. **Normalizzazione**, il builder deduce `kind` dalla struttura (`children` → parent, `component` → leaf, `externalUrl` → external), valida la coerenza e costruisce la mappa `PageType → path`. PageType duplicati o path duplicati generano un errore a build time
+3. **Generazione**, produce rotte Angular, `NavLink[]` per header/footer (con flag `isExternal`), `getPath(PageType)` e `getSitemapEntries()`
 
 Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script di build.
 
 ### Campi di setSiteConfiguration
 
 | Campo | Obbligatorio | Effetto |
-|---|---|---|
+|--|--|--|
 | `appName` | sì | Nome in navbar, titoli e PWA manifest |
 | `version` | no | Versione canonica dell'app (default: `"1.0.0"`). A build time `generate-statics.ts` la scrive nel meta `app-version`, nel `manifest.webmanifest` e indirettamente negli hash di NGSW. A runtime `VersionCheckService` la confronta via polling sul manifest (tab browser) + `SwUpdate.versionUpdates` (PWA installata). Concorre anche alla cache key server-side delle preview OG |
 | `defaultLang` | sì | Lingua di fallback |
@@ -231,17 +231,17 @@ Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script
 | `showFooter` | no | Mostra/nasconde footer (default: `true`) |
 | `showNav` | no | Mostra/nasconde navbar (default: `true`) |
 | `fixedTopHeader` | no | Navbar fissa in cima allo scroll (default: `false`) |
-| `smoke` | no | Effetto particellare su canvas. Campi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density` — tutti opzionali |
+| `smoke` | no | Effetto particellare su canvas. Campi: `enable`, `color`, `opacity`, `maximumVelocity`, `particleRadius`, `density`, tutti opzionali |
 
 ### Campi opzionali di una LeafPage
 
 | Campo | Obbligatorio | Effetto |
-|---|---|---|
+|--|--|--|
 | `requiresAuth: true` | no | Aggiunge guard JWT; forza `renderMode: 'client'` |
 | `layout: { showPanel: false }` | no | Pagina a schermo intero (no pannello centrale) |
-| `layout: { showNav: false }` | no | Nasconde la navbar solo su questa pagina (subordinato al globale `showNav`) |
-| `layout: { showFooter: false }` | no | Nasconde il footer solo su questa pagina (subordinato al globale `showFooter`) |
-| `renderMode: 'client'` | no | Solo browser — usare per pagine interattive incompatibili con SSR |
+| `layout: { showNav: false }` | no | Nasconde la navbar esclusivamente su questa pagina (subordinato al globale `showNav`) |
+| `layout: { showFooter: false }` | no | Nasconde il footer esclusivamente su questa pagina (subordinato al globale `showFooter`) |
+| `renderMode: 'client'` | no | Esclusivamente browser, usare per pagine interattive incompatibili con SSR |
 | `renderMode: 'server'` | no | HTML generato a ogni richiesta lato server (default se non dichiarato) |
 | `description` | no | Chiave i18n o stringa per meta description e sitemap |
 | `otherSEO: { ogImage }` | no | ID asset statico / `false` (nessuna immagine) / omesso (preview dinamica) |
@@ -254,7 +254,7 @@ Il risultato (`ContestoSito`) viene consumato da router, navbar, footer e script
 Tre metodi disponibili in `configureHeaderNavigation` / `configureFooterNavigation`:
 
 ```typescript
-h.addPage(PageType.X)                       // voce singola — path risolto dalla mappa interna
+h.addPage(PageType.X)                       // voce singola, path risolto dalla mappa interna
 h.addGroup('chiaveI18n', g => { ... })      // dropdown; sparisce se tutti i figli sono disabilitati
 h.addLink('chiaveI18n', '/path-o-url')      // link diretto a URL arbitrario
 ```
@@ -266,7 +266,7 @@ Questa funzione restituisce un blocco pre-configurato per `PrivacyPolicy`, `Cook
 
 ### PageType e getPath
 
-`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni. Restituisce `null` se la pagina è disabilitata o non registrata — non finisce mai silenziosamente in un `href` sbagliato. Usa sempre il fallback:
+`ContestoSito.getPath(PageType.X)` restituisce il path di una pagina per costruire link interni. Restituisce `null` se la pagina è disabilitata o non registrata, non finisce mai silenziosamente in un `href` sbagliato. Usa sempre il fallback:
 
 ```typescript
 const path = ContestoSito.getPath(PageType.X) ?? '/';
@@ -284,7 +284,7 @@ Ci sono esattamente **tre passi obbligatori**: enum → `site.ts` → componente
 
 **Perché questo passo?** Ogni pagina è identificata da un valore dell'enum `PageType`, non da una stringa libera. Questo significa che se in futuro cambi il path URL (`'mia-pagina'` → `'la-mia-pagina'`), cambi una riga sola in `defineSitePages` e tutti i link interni costruiti con `ContestoSito.getPath(PageType.MiaNuovaPagina)` restano validi automaticamente. Con le stringhe libere dovresti cercare e sostituire in tutto il progetto.
 
-**Dove si trova il file:** `src/app/site.ts` — è il file di configurazione centrale del sito. Trovi l'enum `PageType` in cima.
+**Dove si trova il file:** `src/app/site.ts`, è il file di configurazione centrale del sito. Trovi l'enum `PageType` in cima.
 
 ```typescript
 // src/app/site.ts
@@ -303,45 +303,45 @@ export enum PageType {
 **Dove si trova il file:** Sempre `src/app/site.ts`, dentro la chiamata `defineSitePages([...])`.
 
 ```typescript
-// src/app/site.ts — dentro defineSitePages([...])
+// src/app/site.ts, dentro defineSitePages([...])
 {
     path: 'mia-pagina',
-    title: 'miaPagina',          // chiave i18n — tradotta automaticamente nei meta tag
-    description: 'miaPaginaDesc', // chiave i18n — usata come meta description
+    title: 'miaPagina',          // chiave i18n, tradotta automaticamente nei meta tag
+    description: 'miaPaginaDesc', // chiave i18n, usata come meta description
     enabled: true,               // false = pagina ignorata: no rotta, no menu, no sitemap
     pageType: PageType.MiaNuovaPagina,
     component: () => import('./pages/mia-pagina/mia-pagina.component')
                          .then(m => m.MiaPaginaComponent),
     // Il lazy import divide il bundle: il codice della pagina viene scaricato
-    // solo quando l'utente naviga verso di essa, non all'avvio dell'app.
+    // esclusivamente quando l'utente naviga verso di essa, non all'avvio dell'app.
 }
 ```
 
 Campi opzionali utili:
 
 | Campo | Default | Obbligatorio | Quando usarlo |
-|-------|---------|---|---------------|
-| `requiresAuth: true` | — | no | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza automaticamente `renderMode: 'client'` (i bot non possono fare login) |
+|----|-----|--|--------|
+| `requiresAuth: true` |, | no | Aggiunge il guard JWT; redirect a `/error/401` se non loggato. Forza automaticamente `renderMode: 'client'` (i bot non possono fare login) |
 | `layout: { showPanel: false }` | `true` | no | Pagina a tutto schermo senza il pannello centrale (es. landing, social feed) |
-| `layout: { showNav: false }` | — | no | Nasconde la navbar solo su questa pagina. Subordinato al globale: se `showNav` è `false` in `setSiteConfiguration`, questo flag non può riattivarla |
-| `layout: { showFooter: false }` | — | no | Nasconde il footer solo su questa pagina. Subordinato al globale: se `showFooter` è `false` in `setSiteConfiguration`, questo flag non può riattivarlo |
+| `layout: { showNav: false }` |, | no | Nasconde la navbar esclusivamente su questa pagina. Subordinato al globale: se `showNav` è `false` in `setSiteConfiguration`, questo flag non ha la capacità di riattivarla |
+| `layout: { showFooter: false }` |, | no | Nasconde il footer esclusivamente su questa pagina. Subordinato al globale: se `showFooter` è `false` in `setSiteConfiguration`, questo flag non ha la capacità di riattivarlo |
 | `renderMode: 'server'` | `'server'` | no | Rendering a runtime lato server (default); l'HTML è completo per i crawler |
-| `renderMode: 'client'` | — | no | Solo browser; da usare per pagine interattive incompatibili con SSR (canvas, WebRTC, ecc.) |
-| `data: { chiave: valore }` | — | no | Dati statici aggiuntivi accessibili via `route.data` nel componente |
-| `otherSEO: { ogImage }` | — | no | ID asset → og:image 1200×630 (immagine centrata + sfondo sfocato + favicon). `false` rimuove i tag og:image. Se omesso → preview dinamica |
+| `renderMode: 'client'` |, | no | Esclusivamente browser; da usare per pagine interattive incompatibili con SSR (canvas, WebRTC, ecc.) |
+| `data: { chiave: valore }` |, | no | Dati statici aggiuntivi accessibili via `route.data` nel componente |
+| `otherSEO: { ogImage }` |, | no | ID asset → og:image 1200×630 (immagine centrata + sfondo sfocato + favicon). `false` rimuove i tag og:image. Se omesso → preview dinamica |
 | `otherSEO: { ogType }` | `'website'` | no | Valore di `og:type` (es. `'article'` per post di blog) |
 | `otherSEO: { structuredDataType }` | `'WebPage'` | no | `@type` del JSON-LD inserito nella pagina (es. `'Article'`) |
 
-### 3. Creare il componente pagina
+### 3. Generare il componente pagina
 
 **Perché estendere `PageBaseComponent`?** `PageBaseComponent<T>` è la classe base che ogni componente pagina deve estendere. Fa tre cose per te:
-- Inietta e rende disponibili `this.api`, `this.translate`, `this.asset`, `this.notify` — non devi iniettarli di nuovo nel componente figlio.
+- Inietta e rende disponibili `this.api`, `this.translate`, `this.asset`, `this.notify`, non devi iniettarli di nuovo nel componente figlio.
 - Gestisce i meta tag SEO (`<title>`, `og:title`, `og:description`, `og:image`, JSON-LD, canonical) in modo automatico e SSR-safe via `effect()`.
-- Espone `this.pageContent()` — il segnale reattivo con il contenuto caricato dal resolver, già tipizzato con il generic `T`.
+- Espone `this.pageContent()`, il segnale reattivo con il contenuto caricato dal resolver, già tipizzato con il generic `T`.
 
 Il generic `T` descrive il tipo del contenuto che la pagina si aspetta dal resolver. È **obbligatorio** dichiararlo: se la pagina non ha contenuto dal resolver, usare `<void>`.
 
-**Dove creare il file:** `src/app/pages/mia-pagina/mia-pagina.component.ts`. Ogni pagina ha la propria cartella dentro `src/app/pages/`.
+**Dove generare il file:** `src/app/pages/mia-pagina/mia-pagina.component.ts`. Ogni pagina ha la propria cartella dentro `src/app/pages/`.
 
 ```typescript
 // src/app/pages/mia-pagina/mia-pagina.component.ts
@@ -357,15 +357,15 @@ interface MeteoData {
 
 @Component({
     selector: 'app-mia-pagina',
-    standalone: true,   // sempre standalone — niente NgModule nel progetto
+    standalone: true,   // sempre standalone, niente NgModule nel progetto
     imports: [],
     templateUrl: './mia-pagina.component.html',
 })
 export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
-    // pageContent() è già MeteoData | null — nessun cast necessario.
+    // pageContent() è già MeteoData | null, nessun cast necessario.
     // computed() deriva un nuovo signal da pageContent(): si ricalcola automaticamente
     // quando pageContent() cambia (es. al cambio lingua).
-    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
+    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? ',');
     readonly citta = computed(() => this.pageContent()?.citta ?? '');
 }
 ```
@@ -374,14 +374,14 @@ Per le pagine senza contenuto dal resolver (es. una home page statica):
 
 ```typescript
 // Il generic <void> indica esplicitamente che non c'è contenuto dal resolver.
-// pageContent() varrà sempre null — non serve usarla.
+// pageContent() varrà sempre null, non serve usarla.
 export class HomeComponent extends PageBaseComponent<void> { }
 ```
 
 Già disponibile da `PageBaseComponent` senza nessun `inject()` aggiuntivo:
 
 | Proprietà | Tipo | Note |
-|-----------|------|------|
+|------|---|---|
 | `this.translate` | `TranslateService` | Traduzioni e lingua corrente |
 | `this.api` | `ApiService` | Chiamate HTTP al backend |
 | `this.asset` | `AssetService` | URL degli asset statici |
@@ -395,7 +395,7 @@ Già disponibile da `PageBaseComponent` senza nessun `inject()` aggiuntivo:
 **Dove si trova il file:** Ancora `src/app/site.ts`, nelle funzioni `configureHeaderNavigation` e `configureFooterNavigation`.
 
 ```typescript
-// site.ts — dentro configureHeaderNavigation
+// site.ts, dentro configureHeaderNavigation
 h.addPage(PageType.MiaNuovaPagina);
 
 // Oppure in un gruppo dropdown:
@@ -411,20 +411,20 @@ Le pagine con `enabled: false` vengono escluse in automatico, anche dai gruppi. 
 ## Aggiungere un componente
 
 I componenti **condivisi** (usabili in più pagine) vanno in `src/app/components/shared/`.  
-I componenti **specifici di una pagina** (usati solo lì) possono stare nella cartella della pagina stessa.
+I componenti **specifici di una pagina** (usati esclusivamente lì) possono stare nella cartella della pagina stessa.
 
 ### Component o directive?
 
-**Questo è un punto critico**: prima di creare un componente, valuta se una directive è più appropriata.
+**Questo è un punto critico**: prima di generare un componente, valuta se una directive è più appropriata.
 
 Un **componente** ha senso quando il template **compone più elementi HTML**, ha **branching condizionale** fra varianti di markup, o espone `<ng-content>` per proiettare contenuto esterno. Esempi reali nel template:
-- `<app-nav-dropdown>` — compone `<details>`/`<summary>` + `<ul>` con i figli
-- `<app-nav-link>` — alterna tre rami: `<a>` interno, `<span aria-current>` se la rotta è attiva, `<a target="_blank">` se è un link esterno
-- `<app-profile-render>` — struttura complessa di label + valori con layout proprio
+- `<app-nav-dropdown>`, compone `<details>`/`<summary>` + `<ul>` con i figli
+- `<app-nav-link>`, alterna tre rami: `<a>` interno, `<span aria-current>` se la rotta è attiva, `<a target="_blank">` se è un link esterno
+- `<app-profile-render>`, struttura complessa di label + valori con layout proprio
 
 Una **directive** ha senso quando si vuole aggiungere comportamento o calcolare un attributo su un tag HTML già esistente.
 
-**Anti-pattern da evitare**: un componente che renderizza solo un singolo elemento HTML con un attributo calcolato (es. solo `<img [src]>`). Questo causa tre problemi:
+**Anti-pattern da evitare**: un componente che renderizza esclusivamente un singolo elemento HTML con un attributo calcolato (es. esclusivamente `<img [src]>`). Questo causa tre problemi:
 1. Si aggiunge un host element superfluo nel DOM.
 2. Si perde la possibilità di applicare attributi standard (`class`, `alt`, `loading`, …) direttamente senza API custom.
 3. I selettori CSS del componente padre non raggiungono più l'`<img>` reale perché Angular applica encapsulation view (vedi *CSS scoping nei componenti standalone*).
@@ -437,7 +437,7 @@ In questi casi una **directive** sul tag esistente è la soluzione corretta: `[a
 // src/app/components/shared/mio-widget/mio-widget.component.ts
 @Component({
     selector: 'app-mio-widget',
-    standalone: true,    // sempre standalone — niente NgModule
+    standalone: true,    // sempre standalone, niente NgModule
     imports: [],         // qui si importano pipe, directive e altri componenti usati nel template
     templateUrl: './mio-widget.component.html',
 })
@@ -454,7 +454,7 @@ export class MioWidgetComponent implements AfterViewInit {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
     ngAfterViewInit(): void {
-        // ngAfterViewInit non viene chiamato in SSR, quindi è sicuro per accesso al DOM.
+        // ngAfterViewInit non viene chiamato in SSR, di conseguenza è sicuro per accesso al DOM.
         // Il guard isPlatformBrowser aggiunge un livello extra di sicurezza.
         if (!this.isBrowser) return;
         // Accesso sicuro al DOM
@@ -462,9 +462,9 @@ export class MioWidgetComponent implements AfterViewInit {
 }
 ```
 
-### Passi completi per creare un componente condiviso
+### Passi completi per generare un componente condiviso
 
-#### 1. Creare il file TypeScript
+#### 1. Generare il file TypeScript
 
 **Dove si trova il file:** `src/app/components/shared/mio-widget/mio-widget.component.ts`. Ogni componente ha la propria cartella con lo stesso nome del componente.
 
@@ -493,11 +493,11 @@ export class MioWidgetComponent {
 }
 ```
 
-#### 2. Creare il template HTML
+#### 2. Generare il template HTML
 
 **Dove si trova il file:** `src/app/components/shared/mio-widget/mio-widget.component.html`.
 
-Gli input signal si leggono con la sintassi `input()` (con le parentesi) — sono funzioni che restituiscono il valore corrente. `@if` e `@for` sono la nuova sintassi di controllo del flusso di Angular 17+ (più leggibile della vecchia `*ngIf`/`*ngFor`).
+Gli input signal si leggono con la sintassi `input()` (con le parentesi), sono funzioni che restituiscono il valore corrente. `@if` e `@for` sono la nuova sintassi di controllo del flusso di Angular 17+ (più leggibile della vecchia `*ngIf`/`*ngFor`).
 
 ```html
 <!-- src/app/components/shared/mio-widget/mio-widget.component.html -->
@@ -509,7 +509,7 @@ Gli input signal si leggono con la sintassi `input()` (con le parentesi) — son
 
     @if (visibile()) {
         <div class="card-body">
-            <!-- | translate: pipe reattiva — si aggiorna al cambio lingua senza refresh -->
+            <!-- | translate: pipe reattiva, si aggiorna al cambio lingua senza refresh -->
             <p>{{ 'widgetContenuto' | translate }}</p>
         </div>
     }
@@ -535,8 +535,8 @@ import { MioWidgetComponent } from '../../components/shared/mio-widget/mio-widge
     templateUrl: './home.component.html',
 })
 export class HomeComponent extends PageBaseComponent<void> {
-    // this.translate è già disponibile da PageBaseComponent — nessun inject aggiuntivo.
-    // computed() crea un signal derivato: si ricalcola automaticamente al cambio lingua.
+    // this.translate è già disponibile da PageBaseComponent, nessun inject aggiuntivo.
+    // computed() genera un signal derivato: si ricalcola automaticamente al cambio lingua.
     readonly titoloWidget = computed(() =>
         this.translate.translate('widgetTitolo')
     );
@@ -558,9 +558,9 @@ Le directive aggiungono comportamento a elementi HTML esistenti senza introdurre
 
 ### Directive con event handler
 
-**Dove creare il file:** `src/app/core/directives/mia.directive.ts`.
+**Dove generare il file:** `src/app/core/directives/mia.directive.ts`.
 
-`@HostListener` intercetta un evento sull'elemento host della direttiva. Non viene scatenato lato server, quindi è naturalmente SSR-safe — il guard `isPlatformBrowser` è un ulteriore livello di sicurezza per codice browser-only esplicito.
+`@HostListener` intercetta un evento sull'elemento host della direttiva. Non viene scatenato lato server, di conseguenza è naturalmente SSR-safe, il guard `isPlatformBrowser` è un ulteriore livello di sicurezza per codice browser-only esplicito.
 
 ```typescript
 // src/app/core/directives/mia.directive.ts
@@ -579,7 +579,7 @@ export class MiaDirective {
     @HostListener('click', ['$event'])
     onClick(event: MouseEvent): void {
         if (!this.isBrowser) return;
-        // logica eseguita solo nel browser
+        // logica eseguita esclusivamente nel browser
     }
 }
 ```
@@ -588,7 +588,7 @@ Se la direttiva deve accedere all'elemento host o al suo parent nel DOM, usare `
 
 ```typescript
 private readonly vcr = inject(ViewContainerRef);
-// vcr.element.nativeElement — elemento HTML su cui è applicata la direttiva
+// vcr.element.nativeElement, elemento HTML su cui è applicata la direttiva
 ```
 
 ### Directive che calcola un attributo (src/href)
@@ -613,13 +613,13 @@ export class MiaDirective {
 }
 ```
 
-Per rendering **asincrono** (canvas, blob, API esterne): usare `effect()` + un `signal` interno per `src`, con un *render token* monotono per evitare race condition quando build sovrapposte si "sorpassano". Se il consumer ha bisogno di accedere a stati derivati (blob originale, canvas raw, errore tradotto), esporli via `output()` invece che con un signal pubblico — gli output funzionano anche cross-template, i template reference no.
+Per rendering **asincrono** (canvas, blob, API esterne): usare `effect()` + un `signal` interno per `src`, con un *render token* monotono per evitare race condition quando build sovrapposte si "sorpassano". Se il consumer ha bisogno di accedere a stati derivati (blob originale, canvas raw, errore tradotto), esporli via `output()` (funzionano anche cross-template, i template reference no).
 
-**`$event` negli output non è un DOM event.** A differenza di `(click)` o `(input)` dove `$event` è un `MouseEvent`/`InputEvent`, negli `output()` Angular `$event` è esattamente il valore passato a `.emit()` — quindi il tipo concreto dichiarato nel generic (`Blob | null`, `HTMLCanvasElement | null`, ecc.). Nel template si usa direttamente come valore: `(blobChange)="blob.set($event)"` assegna il `Blob` al signal senza nessun `.target` o `.detail`. Gli output sono anche completamente opzionali: se il consumer non li ascolta, la directive emette nel vuoto senza errori — utile quando serve solo il render dell'`<img>` senza accedere al blob o all'errore.
+**`$event` negli output non è un DOM event.** A differenza di `(click)` o `(input)` dove `$event` è un `MouseEvent`/`InputEvent`, negli `output()` Angular `$event` è esattamente il valore passato a `.emit()`, di conseguenza il tipo concreto dichiarato nel generic (`Blob | null`, `HTMLCanvasElement | null`, ecc.). Nel template si usa direttamente come valore: `(blobChange)="blob.set($event)"` assegna il `Blob` al signal senza nessun `.target` o `.detail`. Gli output sono anche completamente opzionali: se il consumer non li ascolta, la directive emette nel vuoto senza errori, utile quando serve esclusivamente il render dell'`<img>` senza accedere al blob o all'errore.
 
 Vedi `AssetDirective` (sync), `ImgRenderDirective` e `QrRenderDirective` (async con output) come esempi completi.
 
-> ⚠️ `output().emit()` durante `DestroyRef.onDestroy()` viene swallowed: se il consumer mantiene stato locale dagli output (blob, canvas) e poi rimuove l'host via `@if`, deve resettare i propri signal esplicitamente. La directive non può pulirli al momento della distruzione.
+> ⚠️ `output().emit()` durante `DestroyRef.onDestroy()` viene swallowed: se il consumer mantiene stato locale dagli output (blob, canvas) e poi rimuove l'host via `@if`, deve resettare i propri signal esplicitamente. La directive non ha la capacità di pulirli al momento della distruzione.
 
 ---
 
@@ -629,7 +629,7 @@ I servizi contengono la logica condivisa tra più componenti: comunicazione con 
 
 ### Pattern base
 
-**Dove creare il file:** `src/app/core/services/mio.service.ts`. La cartella `core/services/` contiene tutti i servizi dell'applicazione.
+**Dove generare il file:** `src/app/core/services/mio.service.ts`. La cartella `core/services/` contiene tutti i servizi dell'applicazione.
 
 ```typescript
 // src/app/core/services/mio.service.ts
@@ -663,21 +663,21 @@ export class MioService {
 
 ### Regole per i servizi
 
-**Guard SSR**: qualsiasi accesso a `window`, `document`, `localStorage`, `navigator`, `matchMedia` o qualsiasi API browser **deve** essere protetto da `isPlatformBrowser(inject(PLATFORM_ID))`. Non usare `typeof window !== 'undefined'`: non sfrutta il sistema di injection Angular e può causare problemi con il prerendering.
+**Guard SSR**: qualsiasi accesso a `window`, `document`, `localStorage`, `navigator`, `matchMedia` o qualsiasi API browser **deve** essere protetto da `isPlatformBrowser(inject(PLATFORM_ID))`. Non usare `typeof window !== 'undefined'`: non sfrutta il sistema di injection Angular e ha la capacità di causare problemi con il prerendering.
 
 **Stato reattivo**: usare `signal<T>()` per lo stato mutabile del servizio, non proprietà plain. I componenti possono usare i signal direttamente nei template senza `async pipe` né `ChangeDetectorRef`.
 
-**Non usare `effect()` per sincronizzare stato**: se un valore dipende da un altro signal, usare `computed()`. Usare `effect()` solo per effetti collaterali genuini (logging, chiamate esterne, scrittura DOM).
+**Non usare `effect()` per sincronizzare stato**: se un valore dipende da un altro signal, usare `computed()`. Usare `effect()` esclusivamente per effetti collaterali genuini (logging, chiamate esterne, scrittura DOM).
 
 ### Inject vs costruttore
 
 Il progetto usa `inject()` (functional injection), non il costruttore con parametri. È più compatto e permette di usare le dipendenze direttamente come inizializzatori di proprietà (senza dover aspettare il costruttore):
 
 ```typescript
-// ✅ Pattern del progetto — le dipendenze sono disponibili immediatamente come proprietà
+// ✅ Pattern del progetto, le dipendenze sono disponibili immediatamente come proprietà
 private readonly http = inject(HttpClient);
 
-// ❌ Non usare — richiede boilerplate e non si integra bene con inject() a livello di classe
+// ❌ Non usare, richiede boilerplate e non si integra bene con inject() a livello di classe
 constructor(private http: HttpClient) {}
 ```
 
@@ -692,11 +692,11 @@ constructor(private http: HttpClient) {}
 
 Ogni endpoint del backend ha un metodo pubblico dedicato in `ApiService`. La regola è: **non chiamare mai `HttpClient` direttamente nei componenti**. Centralizzare le chiamate in `ApiService` significa che header di autenticazione, API key, gestione degli errori e URL resolution sono gestiti automaticamente da `BaseApiService`.
 
-### Passo 1 — Definire il tipo di risposta
+### Passo 1, Definire il tipo di risposta
 
 **Perché questo passo?** Definire un'interfaccia per la risposta dell'endpoint rende il tipo di ritorno esplicito, abilita l'autocompletamento nell'IDE, e permette a TypeScript di verificare che stai usando i dati correttamente nel componente.
 
-**Dove creare il file:** `src/app/core/dto/prodotto.dto.ts`. La cartella `core/dto/` raccoglie tutti i Data Transfer Object. Un file per DTO rende chiaro a quale endpoint corrisponde ogni tipo.
+**Dove generare il file:** `src/app/core/dto/prodotto.dto.ts`. La cartella `core/dto/` raccoglie tutti i Data Transfer Object. Un file per DTO rende chiaro a quale endpoint corrisponde ogni tipo.
 
 ```typescript
 // src/app/core/dto/prodotto.dto.ts
@@ -707,7 +707,7 @@ export interface Prodotto {
 }
 ```
 
-### Passo 2 — Aggiungere il path alla costante `API`
+### Passo 2, Aggiungere il path alla costante `API`
 
 **Perché questa costante?** La costante `API` in cima ad `api.service.ts` raccoglie tutti i path degli endpoint in un unico posto. Questo evita che lo stesso path stringa sia scritto in più posti (con possibili errori di battitura), e permette di vedere immediatamente tutti gli endpoint disponibili.
 
@@ -716,7 +716,7 @@ export interface Prodotto {
 Le funzioni freccia nella costante (es. `prodotto: (id) => \`prodotti/${id}\``) costruiscono URL con path parameter in modo che ogni chiamante non debba conoscere il formato del path.
 
 ```typescript
-// src/app/core/services/api.service.ts — costante API in cima al file
+// src/app/core/services/api.service.ts, costante API in cima al file
 const API = {
     social:   'social',
     profile:  'profile',
@@ -728,22 +728,22 @@ const API = {
 } as const;
 ```
 
-### Passo 3 — Aggiungere il metodo pubblico in `ApiService`
+### Passo 3, Aggiungere il metodo pubblico in `ApiService`
 
-**Perché questo passo?** Il metodo pubblico è l'interfaccia che i componenti usano. Nasconde i dettagli di `HttpParams`, `firstValueFrom`, `catchError` — il componente chiama semplicemente `this.api.getProdotti()`.
+**Perché questo passo?** Il metodo pubblico è l'interfaccia che i componenti usano. Nasconde i dettagli di `HttpParams`, `firstValueFrom`, `catchError`, il componente chiama semplicemente `this.api.getProdotti()`.
 
 **Dove si trova il file:** `src/app/core/services/api.service.ts`, dentro la classe `ApiService`. `ApiService` estende `BaseApiService`, che espone i metodi protetti `api_get`, `api_post` e `api_resource`.
 
-- `api_get<T>(path)` — esegue una GET e restituisce una `Promise<T>`
-- `api_post<T>(path, body)` — esegue una POST e restituisce una `Promise<T>`
-- `api_resource<T>(path)` — restituisce un `HttpResourceRef<T | undefined>` con signal `.value()` e `.isLoading()` che si aggiornano automaticamente
+- `api_get<T>(path)`, esegue una GET e restituisce una `Promise<T>`
+- `api_post<T>(path, body)`, esegue una POST e restituisce una `Promise<T>`
+- `api_resource<T>(path)`, restituisce un `HttpResourceRef<T | undefined>` con signal `.value()` e `.isLoading()` che si aggiornano automaticamente
 
 **Gestione errori**:
-- `api_get` e `api_post` — quando la richiesta fallisce, `BaseApiService.handleError()` mostra automaticamente la notifica all'utente via `NotificationService` e rilancia l'errore (la Promise viene rigettata). Non serve `try/catch` per la notifica; serve solo per gestire lo stato locale dopo il fallimento.
-- `api_resource` — Angular's `httpResource` **non** passa per `handleError`. L'errore viene memorizzato nel signal `.error()` del resource. Nessuna notifica automatica: se si vuole avvisare l'utente, il componente deve osservare `.error()` esplicitamente (vedi Pattern b).
+- `api_get` e `api_post`, quando la richiesta fallisce, `BaseApiService.handleError()` mostra automaticamente la notifica all'utente via `NotificationService` e rilancia l'errore (la Promise viene rigettata). Non serve `try/catch` per la notifica; serve esclusivamente per gestire lo stato locale dopo il fallimento.
+- `api_resource`, Angular's `httpResource` **non** passa per `handleError`. L'errore viene memorizzato nel signal `.error()` del resource. Nessuna notifica automatica: se si vuole avvisare l'utente, il componente deve osservare `.error()` esplicitamente (vedi Pattern b).
 
 ```typescript
-// src/app/core/services/api.service.ts — dentro la classe ApiService
+// src/app/core/services/api.service.ts, dentro la classe ApiService
 import { HttpParams } from '@angular/common/http';
 import { Prodotto } from '../dto/prodotto.dto';
 
@@ -783,15 +783,15 @@ getProdottiResource() {
 }
 ```
 
-### Passo 4 — Usarlo nel componente pagina
+### Passo 4, Usarlo nel componente pagina
 
 `this.api` è disponibile in tutti i componenti che estendono `PageBaseComponent`. Due pattern in base al caso d'uso:
 
-**Pattern a — Promise in `afterNextRender` con signal locale**
+**Pattern a, Promise in `afterNextRender` con signal locale**
 
 Adatto per dati caricati una sola volta al montaggio del componente (es. lista prodotti, dettaglio articolo).
 
-`afterNextRender` è la funzione Angular che garantisce l'esecuzione del codice solo nel browser, mai in SSR. Non è un hook del ciclo di vita dell'istanza: è una funzione che registra un callback che verrà eseguito dopo che Angular ha completato il primo render del componente nel browser. Questo la rende il posto ideale per le chiamate API che non devono girare in SSR.
+`afterNextRender` è la funzione Angular che garantisce l'esecuzione del codice esclusivamente nel browser, mai in SSR. Non è un hook del ciclo di vita dell'istanza: è una funzione che registra un callback che verrà eseguito dopo che Angular ha completato il primo render del componente nel browser. Questo la rende il posto ideale per le chiamate API che non devono girare in SSR.
 
 ```typescript
 // src/app/pages/catalogo/catalogo.component.ts
@@ -812,13 +812,13 @@ export class CatalogoComponent extends PageBaseComponent<void> {
     constructor() {
         super();   // necessario perché PageBaseComponent ha logica nel costruttore
         afterNextRender(() => {
-            // this.api è ereditato da PageBaseComponent — già iniettato, pronto all'uso.
+            // this.api è ereditato da PageBaseComponent, già iniettato, pronto all'uso.
             this.api.getProdottiFiltrati('elettronica', true)
                 .then(lista => this.prodotti.set(lista))
                 .finally(() => this.loading.set(false));
                 // .catch() non necessario per la notifica: api_get la gestisce già.
                 // Se serve azzerare lo stato locale in caso di errore, usare .catch(() => null)
-                // o un try-catch — ma NON chiamare notify.handleApiError() nel catch:
+                // o un try-catch, ma NON chiamare notify.handleApiError() nel catch:
                 // BaseApiService l'ha già invocato prima di rilanciare l'errore.
         });
     }
@@ -833,14 +833,14 @@ Nel template:
     <app-loading [loading]="true" />
 } @else {
     @for (p of prodotti(); track p.id) {
-        <div class="card">{{ p.nome }} — {{ p.prezzo | currency }}</div>
+        <div class="card">{{ p.nome }}, {{ p.prezzo | currency }}</div>
     }
 }
 ```
 
-**Pattern b — `api_resource` come proprietà readonly**
+**Pattern b, `api_resource` come proprietà readonly**
 
-Adatto per componenti persistenti (header, footer, widget) che devono restare aggiornati al cambio lingua o token senza logica aggiuntiva nel componente. Il resource si aggiorna da solo ogni volta che cambia un signal letto nella sua factory (lingua, token JWT).
+Adatto per componenti persistenti (header, footer, widget) che devono restare aggiornati al cambio lingua o token senza logica aggiuntiva nel componente. Il resource si aggiorna da esclusivamente ogni volta che cambia un signal letto nella sua factory (lingua, token JWT).
 
 ```typescript
 // src/app/components/shared/lista-prodotti/lista-prodotti.component.ts
@@ -896,10 +896,10 @@ Esiste una netta separazione architetturale tra un errore di routing (l'utente v
 
 ### Pattern Override per le API
 
-Per evitare che la modale di errore API mostri messaggi fuori contesto (es. "La pagina non esiste" per una chiamata API 404), `BaseApiService` applica un **override semantico** usando chiavi specifiche per le API (prefisso `risorsa` invece di `errore`).
+`BaseApiService` applica un **override semantico** usando chiavi specifiche per le chiamate API (prefisso `risorsa`), garantendo che la modale di errore mostri messaggi mirati al contesto dei dati.
 
 | Codice API | Chiavi i18n mappate in BaseApiService | Comportamento visivo |
-|---|---|---|
+|--|--|--|
 | `400` con `errors` | n/a | Dialog SweetAlert2 con lista errori di validazione (ProblemDetails RFC 9457) |
 | `401` | `risorsa401Titolo` / `risorsa401Descrizione` | Modale "Non autenticato: Impossibile caricare il dato..." |
 | `403` | `risorsa403Titolo` / `risorsa403Descrizione` | Modale "Accesso negato: Non hai i privilegi..." |
@@ -935,7 +935,7 @@ try {
     this.success.set(true);
 } catch {
     // La notifica è già stata mostrata da handleError.
-    // Qui gestisci solo lo stato locale del componente.
+    // Qui gestisci esclusivamente lo stato locale del componente.
     this.isSubmitting.set(false);
 }
 ```
@@ -949,15 +949,15 @@ I testi degli errori sono in `frontend/src/assets/i18n/<lingua>.json`. Le chiavi
 "errore422Descrizione": "Il server non ha potuto elaborare la richiesta."
 ```
 
-In base all'architettura `TranslateService` (che unisce gli oggetti con `Object.assign`), un progetto figlio può sovrascrivere o creare queste chiavi direttamente nel file **`addon.it.json`**, e queste avranno la precedenza sul dizionario base! Se le chiavi per un codice non esistono affatto, il sistema ricade in sicurezza sulle stringhe definite dalle chiavi `erroreGenerico` e `erroreImprevisto`.
+In base all'architettura `TranslateService` (che unisce gli oggetti con `Object.assign`), un progetto figlio ha la capacità di sovrascrivere o generare queste chiavi direttamente nel file **`addon.it.json`**, e queste avranno la precedenza sul dizionario base! Se le chiavi per un codice non esistono affatto, il sistema ricade in sicurezza sulle stringhe definite dalle chiavi `erroreGenerico` e `erroreImprevisto`.
 
 ---
 
 ## Autenticazione JWT (login)
 
-> Per il lato backend (generazione token, endpoint protetti, configurazione JWT) → [`backend/DEVELOPMENT.md — Endpoint protetti da login JWT`](../backend/DEVELOPMENT.md#endpoint-protetti-da-login-jwt).
+> Per il lato backend (generazione token, endpoint protetti, configurazione JWT) → [`backend/DEVELOPMENT.md, Endpoint protetti da login JWT`](../backend/DEVELOPMENT.md#endpoint-protetti-da-login-jwt).
 
-Il template gestisce l'autenticazione con due servizi separati per evitare dipendenze circolari (`ApiService` usa `TokenService`; `AuthService` usa `ApiService`).
+L'autenticazione è gestita tramite due servizi con gerarchia stretta: `ApiService` usa `TokenService`; `AuthService` usa `ApiService`.
 
 ```
 TokenService   ←  unica sorgente di verità sul token (signal + sessionStorage)
@@ -1007,11 +1007,11 @@ this.auth.logout(); // rimuove token da memoria e sessionStorage
 
 **5. Scadenza automatica**
 
-`TokenService` decodifica il campo `exp` del JWT (Base64url, senza librerie esterne) e pianifica un `setTimeout` che chiama `clear()` all'ora esatta di scadenza. Non serve un interceptor per il 401: il token viene rimosso prima ancora che scada lato server.
+`TokenService` decodifica il campo `exp` del JWT (Base64url, senza librerie esterne) e pianifica un `setTimeout` che chiama `clear()` all'ora esatta di scadenza. Il token viene rimosso proattivamente dalla memoria.
 
 ### Proteggere una pagina (route guard)
 
-Per rendere una pagina accessibile solo agli utenti autenticati, aggiungere `requiresAuth: true` nella sua definizione in `site.ts`:
+Per rendere una pagina accessibile esclusivamente agli utenti autenticati, aggiungere `requiresAuth: true` nella sua definizione in `site.ts`:
 
 ```typescript
 // frontend/src/app/site.ts
@@ -1031,7 +1031,7 @@ defineSitePages([
 ### Configurare la pagina di redirect (401)
 
 Per impostazione predefinita, se un utente non è autenticato (o se atterra direttamente su `/error/401`), viene mostrata una pagina di errore tecnica. 
-Puoi invece reindirizzarlo automaticamente a una pagina specifica (es. la pagina di Login) configurando `pageForAuthGuard` all'interno di `site.ts`:
+Il router ha la capacità di reindirizzare automaticamente l'utente non loggato a una pagina specifica configurando `pageForAuthGuard` all'interno di `site.ts`:
 
 ```typescript
 // frontend/src/app/site.ts
@@ -1069,26 +1069,26 @@ export class NavbarComponent {
 
 ## Pattern dei Signal
 
-Angular 16+ introduce i Signal come sistema di reattività. I signal sostituiscono i vecchi `BehaviorSubject`/`Observable` per lo stato locale e derivato — sono più leggibili, non richiedono `async pipe`, e permettono ad Angular di sapere esattamente quali parti del DOM aggiornare.
+Angular 16+ introduce i Signal come sistema di reattività. I signal sostituiscono i vecchi `BehaviorSubject`/`Observable` per lo stato locale e derivato, sono più leggibili, non richiedono `async pipe`, e permettono ad Angular di sapere esattamente quali parti del DOM aggiornare.
 
 ### Riepilogo dei tipi
 
 | Tipo | Quando usarlo |
-|------|--------------|
-| `signal<T>(valore)` | Stato mutabile — può essere `set()` o `update()` |
-| `computed(() => ...)` | Valore derivato da altri signal — **readonly**, calcolato lazy, si ricalcola solo quando i signal da cui dipende cambiano |
+|---|-------|
+| `signal<T>(valore)` | Stato mutabile, ha la capacità di essere `set()` o `update()` |
+| `computed(() => ...)` | Valore derivato da altri signal, **readonly**, calcolato lazy, si ricalcola esclusivamente quando i signal da cui dipende cambiano |
 | `effect(() => ...)` | Effetto collaterale reale: logging, scrittura DOM, chiamate a API esterne quando un signal cambia |
-| `input<T>()` / `input.required<T>()` | Input di componente/direttiva — readonly, il valore viene iniettato dal padre tramite binding |
+| `input<T>()` / `input.required<T>()` | Input di componente/direttiva, readonly, il valore viene iniettato dal padre tramite binding |
 
-### `computed()` invece di `effect()` per i dati derivati
+### Gestione dei dati derivati (computed)
 
 La regola è: se il risultato è un valore (anche una stringa, un numero, un array), usa `computed()`. Se il risultato è un'azione (scrivere nel DOM, chiamare un'API, loggare), usa `effect()`.
 
 ```typescript
-// ✅ Corretto — computed() per derivare stato
+// ✅ Corretto, computed() per derivare stato
 readonly nomePulito = computed(() => this.nome().trim().toUpperCase());
 
-// ❌ Errato — effect() non deve essere usato per derivare stato
+// ❌ Errato, effect() non deve essere usato per derivare stato
 effect(() => { this.nomePulito = this.nome().trim().toUpperCase(); });
 ```
 
@@ -1097,10 +1097,10 @@ effect(() => { this.nomePulito = this.nome().trim().toUpperCase(); });
 I `signal` non sono direttamente compatibili con `[(ngModel)]` (two-way binding). Il motivo è che `[(ngModel)]` si aspetta una proprietà scrivibile, mentre un signal è una funzione. Il pattern corretto è separare il binding di lettura (`[ngModel]`) da quello di scrittura (`(ngModelChange)`):
 
 ```html
-<!-- ✅ Corretto — lettura e scrittura separati -->
+<!-- ✅ Corretto, lettura e scrittura separati -->
 <input [ngModel]="mioSignal()" (ngModelChange)="mioSignal.set($event)">
 
-<!-- ❌ Non funziona — signal non è una proprietà plain scrivibile -->
+<!-- ❌ Non funziona, signal non è una proprietà plain scrivibile -->
 <input [(ngModel)]="mioSignal">
 ```
 
@@ -1128,7 +1128,7 @@ constructor() {
 Le lingue disponibili si dichiarano in `setSiteConfiguration` con `availableLanguages`:
 
 ```typescript
-// src/app/site.ts — dentro setSiteConfiguration({...})
+// src/app/site.ts, dentro setSiteConfiguration({...})
 setSiteConfiguration({
     defaultLang: 'it',
     availableLanguages: ['it', 'en'], // validati BCP 47 a build time
@@ -1136,14 +1136,14 @@ setSiteConfiguration({
 });
 ```
 
-Per aggiungere una lingua: aggiungerla ad `availableLanguages` e creare i file `basic.{lang}.json` e `addon.{lang}.json` corrispondenti nella cartella `src/assets/i18n/`.
+Per aggiungere una lingua: aggiungerla ad `availableLanguages` e generare i file `basic.{lang}.json` e `addon.{lang}.json` corrispondenti nella cartella `src/assets/i18n/`.
 
 ### Pattern Add-on per le Traduzioni
 Il motore linguistico divide i dizionari in due livelli per separare le responsabilità:
 - `basic.{lang}.json`: Contiene le traduzioni fornite dall'Engine (es. errori di sistema, testi delle policy, pulsanti standard). **Questo file non deve mai essere modificato** dallo sviluppatore finale, così da poter aggiornare l'Engine senza conflitti.
 - `addon.{lang}.json`: È il file in cui lo sviluppatore inserisce le stringhe specifiche del suo progetto. A runtime, il `TranslateService` unisce i due dizionari (`Object.assign({}, basic, addon)`), dando sempre priorità alle chiavi dell'`addon` in caso di omonimia.
 
-Le chiavi di traduzione sono camelCase senza spazi, solitamente in italiano o inglese. Una chiave per ogni testo distinto — non riusare la stessa chiave per testi simili ma distinti.
+Le chiavi di traduzione sono camelCase senza spazi, solitamente in italiano o inglese. Una chiave per ogni testo distinto, non riusare la stessa chiave per testi simili ma distinti.
 
 ```json
 // src/assets/i18n/it.json (esempio)
@@ -1160,14 +1160,14 @@ Nel componente, due modi di usare le traduzioni:
 const testo = this.translate.translate('miaPagina');
 
 // Traduzione reattiva (si aggiorna automaticamente al cambio lingua):
-// computed() crea un signal derivato — si ricalcola ogni volta che currentLang() cambia
+// computed() genera un signal derivato, si ricalcola ogni volta che currentLang() cambia
 readonly testo = computed(() => this.translate.translate('miaPagina'));
 ```
 
 Nel template, due modi equivalenti:
 
 ```html
-<!-- Pipe translate — la scelta consigliata nel template: dichiarativa e reattiva -->
+<!-- Pipe translate, la scelta consigliata nel template: dichiarativa e reattiva -->
 <h1>{{ 'miaPagina' | translate }}</h1>
 
 <!-- Oppure da signal computed nel componente -->
@@ -1180,19 +1180,19 @@ Nel template, due modi equivalenti:
 
 ### ThemeService
 
-Imposta una sola variabile CSS (`--colorTema`) e calcola in modo reattivo tutto il resto:
+Imposta una sola variabile CSS (`,colorTema`) e calcola in modo reattivo tutto il resto:
 
 | Signal / metodo | Cosa restituisce |
-|---|---|
+|--|--|
 | `colorTema` | Colore hex corrente (scrivibile per switchare tema a runtime) |
-| `colorTemaText` | `#000000` o `#ffffff` — contrasto massimo WCAG sul tema |
-| `colorPrimary` | Tema + 40% nero — usato per pulsanti e accenti |
+| `colorTemaText` | `#000000` o `#ffffff`, contrasto massimo WCAG sul tema |
+| `colorPrimary` | Tema + 40% nero, usato per pulsanti e accenti |
 | `colorPrimaryText` | Testo leggibile su `colorPrimary` |
 | `isDarkTextPreferred` | `true` se il tema è sufficientemente chiaro |
 
 I metodi statici (`ThemeService.prefersDarkText`, `getReadableTextColor`, `mixHexColors`) sono puri e importabili anche da Node/server.ts senza istanziare Angular.
 
-`ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori — nessuna configurazione aggiuntiva per avere coerenza visiva e contrasto WCAG.
+`ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori, nessuna configurazione aggiuntiva per avere coerenza visiva e contrasto WCAG.
 
 ### Sistema CSS con color-mix()
 
@@ -1211,34 +1211,34 @@ Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti
 
 ### CSS scoping nei componenti standalone
 
-Angular usa `ViewEncapsulation.Emulated` di default: aggiunge automaticamente un attributo univoco (`_ngcontent-xxx`) a ogni elemento del template, e riscrive i selettori del `.component.css` per matchare solo quegli elementi. Questo significa che i tuoi stili nel `.component.css` non escono accidentalmente fuori dal componente.
+Angular usa `ViewEncapsulation.Emulated` di default: aggiunge automaticamente un attributo univoco (`_ngcontent-xxx`) a ogni elemento del template, e riscrive i selettori del `.component.css` per matchare esclusivamente quegli elementi. Questo significa che i tuoi stili nel `.component.css` non escono accidentalmente fuori dal componente.
 
-Il problema nasce con i **child component standalone**: gli elementi renderizzati da un child component ricevono un attributo diverso (`_ngcontent-yyy`), quindi i selettori del padre **non li raggiungono**. Questo causa un bug non ovvio: lo stile sembra corretto nel `.css` ma non si applica.
+Il problema nasce con i **child component standalone**: gli elementi renderizzati da un child component ricevono un attributo diverso (`_ngcontent-yyy`), di conseguenza i selettori del padre non raggiungono tali elementi. Questo causa un bug: lo stile non viene applicato correttamente.
 
 Regola pratica:
 
 | Il selettore mira a... | Dove va lo stile |
-|---|---|
-| Elementi renderizzati direttamente nel template del componente | `*.component.css` (scoped) — funziona correttamente |
-| Classi renderizzate da un child component (es. `<app-nav-link>` → `<a class="nav-link">`) | `styles/*.css` (globale) — necessario perché i selettori scoped non attraversano i boundary dei componenti |
+|--|--|
+| Elementi renderizzati direttamente nel template del componente | `*.component.css` (scoped), funziona correttamente |
+| Classi renderizzate da un child component (es. `<app-nav-link>` → `<a class="nav-link">`) | `styles/*.css` (globale), necessario perché i selettori scoped non attraversano i boundary dei componenti |
 
-Esempio reale nel template: tutto il sistema di navigazione vive in `styles/nav.css` globale — `.nav-link`, `.nav-disclosure-*`, `footer a` — perché i `<a>` e i `<details>` concreti sono renderizzati da `<app-nav-link>` / `<app-nav-dropdown>` / `<app-footer-nav>`. Mantenere quegli stili in `navbar.component.css` o `footer.component.css` causa breakage non ovvio: dropdown senza `position: absolute`, link footer col colore Bootstrap blu invece di ereditare il colore del contenitore, ecc.
+Tutto il sistema di navigazione è implementato in `styles/nav.css` globale, `.nav-link`, `.nav-disclosure-*`, `footer a`, per fornire una base solida agli elementi nativi proiettati dai componenti di navigazione. Mantenere tali stili in `navbar.component.css` o `footer.component.css` causa errori di visualizzazione, come dropdown senza `position: absolute` o link footer con colori errati.
 
 Per gli **override contestuali** (es. "quando il link è dentro una `.navbar` usa il colore X"), regola:
 
 - Se il selettore parte dal container che vive nel padre (es. `.navbar .nav-link`), va in globale insieme alle definizioni base.
-- Per personalizzazioni di progetto figlio, valutare **CSS custom properties** invece dei selettori di discendenza: il container espone `--app-nav-link-color`, il child legge `color: var(--app-nav-link-color, …)`. Più robusto, niente reach-through nel DOM del figlio.
+- Per personalizzazioni di progetto figlio, il pattern richiede l'uso delle **CSS custom properties**: il container espone `,app-nav-link-color`, il child legge `color: var(,app-nav-link-color, …)`. Questo approccio mantiene l'incapsulamento del DOM.
 
 Il template-engine fornisce i baseline globali in `styles/base.css`, `styles/nav.css`, `styles/social.css`. I progetti figli aggiungono o sovrascrivono in `styles.css` o in nuovi file importati da lì.
 
 ### FontConfig
 
-**Dove si trova il file:** `src/styles/font-config.ts` — nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
+**Dove si trova il file:** `src/styles/font-config.ts`, nessuna dipendenza Angular, importabile ovunque (siteBuilder, ThemeService, server.ts).
 
 | Dizionario | Contesto |
 |---|---|
-| `FontConfig.WEB_FONTS` | Browser e Canvas — font di sistema, zero dipendenze esterne |
-| `FontConfig.SERVER_FONTS` | Sharp / immagini OG — font installati nel container Docker |
+| `FontConfig.WEB_FONTS` | Browser e Canvas, font di sistema, zero dipendenze esterne |
+| `FontConfig.SERVER_FONTS` | Sharp / immagini OG, font installati nel container Docker |
 
 `FontConfig.DEFAULT_WEB_FONT` e `DEFAULT_SERVER_FONT` sono i default usati da `ImgBuilderService`.
 
@@ -1251,12 +1251,12 @@ Il template-engine fornisce i baseline globali in `styles/base.css`, `styles/nav
 
 ## Regole SSR
 
-Il frontend usa SSR con hydration (`provideClientHydration(withEventReplay())`). Il server Node genera l'HTML completo per ogni richiesta — questo è ciò che i crawler di Google ricevono. Alcune API esistono solo nel browser (DOM, localStorage, canvas, ecc.) — accedervi lato server genera errori a runtime.
+Il frontend usa SSR con hydration (`provideClientHydration(withEventReplay())`). Il server Node genera l'HTML completo per ogni richiesta, questo è ciò che i crawler di Google ricevono. Alcune API esistono esclusivamente nel browser (DOM, localStorage, canvas, ecc.), accedervi lato server genera errori a runtime.
 
 ### Cosa NON fare
 
 ```typescript
-// ❌ window non esiste in SSR — genera ReferenceError lato server
+// ❌ window non esiste in SSR, genera ReferenceError lato server
 if (typeof window !== 'undefined') { ... }
 
 // ❌ document non esiste in SSR
@@ -1271,7 +1271,7 @@ localStorage.getItem('chiave');
 `afterNextRender` è garantito non essere mai eseguito in SSR. Usarlo per qualsiasi codice che richiede il browser: canvas, analytics, scroll, chiamate API che non devono girare in SSR.
 
 ```typescript
-// ✅ afterNextRender — garantisce esecuzione solo nel browser, mai in SSR
+// ✅ afterNextRender, garantisce esecuzione esclusivamente nel browser, mai in SSR
 constructor() {
     super();
     afterNextRender(() => {
@@ -1282,10 +1282,10 @@ constructor() {
 
 ### Cosa fare nei servizi
 
-I servizi non hanno accesso ad `afterNextRender`, quindi usano `isPlatformBrowser`:
+I servizi non hanno accesso ad `afterNextRender`, di conseguenza usano `isPlatformBrowser`:
 
 ```typescript
-// ✅ isPlatformBrowser — necessario nei servizi per proteggere le API browser
+// ✅ isPlatformBrowser, necessario nei servizi per proteggere le API browser
 @Injectable({ providedIn: 'root' })
 export class MioService {
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -1300,8 +1300,8 @@ export class MioService {
 ### Dove mettere il codice DOM
 
 | Dove | Quando usarlo |
-|---|---|
-| **`afterNextRender()`** | Opzione consigliata nei componenti pagina — non viene mai eseguito in SSR/prerender |
+|--|--|
+| **`afterNextRender()`** | Opzione consigliata nei componenti pagina, non viene mai eseguito in SSR/prerender |
 | **`ngAfterViewInit`** | Non viene chiamato in SSR → sicuro per accesso DOM, ma non garantisce il browser in tutti i contesti Angular |
 | **Event handler / `@HostListener`** | Non vengono scatenati lato server → sicuri per natura |
 | **`constructor` / `ngOnInit`** | Vengono eseguiti lato server → richiedono `isPlatformBrowser` per codice browser-only |
@@ -1317,7 +1317,7 @@ I meta tag (`<title>`, `og:title`, `og:description`, `og:image`, canonical, JSON
 **Per pagine statiche** (titolo e descrizione dichiarati in `site.ts`):
 
 ```typescript
-// src/app/site.ts — dentro defineSitePages([...])
+// src/app/site.ts, dentro defineSitePages([...])
 {
     path: 'mia-pagina',
     title: 'miaPagina',              // chiave i18n → tradotta automaticamente
@@ -1339,50 +1339,50 @@ I tag aggiornati da `PageMetaService.setPageMeta()` in un'unica chiamata:
 `twitter:title`, `twitter:description`, `twitter:image`,
 `<link rel="canonical">` e il blocco `<script type="application/ld+json">`.
 
-`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)` e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`. `PageBaseComponent` chiama `PageMetaService.setPageMeta()` via `effect()` — SSR-safe: i meta tag sono nell'HTML prima che il crawler lo riceva.
+`ContentResolver.loadResolved()` legge questi dati via `ContestoSito.getPageInfo(pageType)` e li passa a `PageBaseComponent` nel campo `info` di `ResolvedPage`. `PageBaseComponent` chiama `PageMetaService.setPageMeta()` via `effect()`, SSR-safe: i meta tag sono nell'HTML prima che il crawler lo riceva.
 
-**Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID): aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato con i dati dall'API — vedi sezione *Resolver automatico dei contenuti*.
+**Per pagine dinamiche** (titolo/descrizione da API, es. articolo con ID): aggiungere il case nel `ContentResolver` e restituire un `info` personalizzato con i dati dall'API, vedi sezione *Resolver automatico dei contenuti*.
 
 ### `PageMetaService.setPageMeta()`
 
 ```typescript
 // Firma del metodo
 setPageMeta(
-    pageTitle: string,                  // obbligatorio — valore già tradotto (non chiave i18n)
-    description?: string | null,        // opzionale — meta description
-    imgId?: string | null | false,      // opzionale — vedi comportamenti sotto
-    ogType?: string | null,             // opzionale — og:type (default: 'website')
-    structuredDataType?: string | null, // opzionale — JSON-LD @type (default: 'WebPage')
-    updatedTime?: string | null,        // opzionale — ISO 8601 per og:updated_time per-pagina;
+    pageTitle: string,                  // obbligatorio, valore già tradotto (non chiave i18n)
+    description?: string | null,        // opzionale, meta description
+    imgId?: string | null | false,      // opzionale, vedi comportamenti sotto
+    ogType?: string | null,             // opzionale, og:type (default: 'website')
+    structuredDataType?: string | null, // opzionale, JSON-LD @type (default: 'WebPage')
+    updatedTime?: string | null,        // opzionale, ISO 8601 per og:updated_time per-pagina;
                                         // se nullo resta il valore globale di build
 ): void
 
-// imgId — tre comportamenti distinti:
-// string  → /cdn-cgi/preview?p=<blob>  — payload cifrato: immagine in primo piano (contain) su sfondo sfocato.
+// imgId, tre comportamenti distinti:
+// string  → /cdn-cgi/preview?p=<blob>, payload cifrato: immagine in primo piano (contain) su sfondo sfocato.
 //           Se onlyPlainImage = false, include anche favicon in basso a sinistra e badge a pillola col titolo (colorTema + contrasto WCAG).
-// null/undefined → /cdn-cgi/preview?p=<blob>  — payload cifrato: preview testuale (sfondo colorato, favicon, titolo)
+// null/undefined → /cdn-cgi/preview?p=<blob>, payload cifrato: preview testuale (sfondo colorato, favicon, titolo)
 // false   → nessuna immagine: i tag og:image e twitter:image vengono rimossi
 ```
 
-**Opzione `onlyPlainImage`** — Per forzare la rimozione di favicon e badge di testo (scritte) da tutte le anteprime social, si imposta la proprietà `onlyPlainImage: true` all'interno di `setSiteConfiguration` in `src/app/site.ts`. Questa impostazione si applica globalmente a livello di sito e non è configurabile dinamicamente pagina per pagina. Il default se omesso è `false`.
+**Opzione `onlyPlainImage`**, Per forzare la rimozione di favicon e badge di testo (scritte) da tutte le anteprime social, si imposta la proprietà `onlyPlainImage: true` all'interno di `setSiteConfiguration` in `src/app/site.ts`. Questa impostazione si applica globalmente a livello di sito e non è configurabile dinamicamente pagina per pagina. Il default se omesso è `false`.
 
-**Sicurezza og:image** — `og:image` punta a `/cdn-cgi/preview?p=<blob>` dove `<blob>` è un payload AES-GCM (titolo, sottotitolo opzionale, ID asset opzionale, ed eventuale flag onlyImage) cifrato. 
+**Sicurezza og:image**, `og:image` punta a `/cdn-cgi/preview?p=<blob>` dove `<blob>` è un payload AES-GCM (titolo, sottotitolo opzionale, ID asset opzionale, ed eventuale flag onlyImage) cifrato. 
 La cifratura avviene in SSR in modo **sincrono** tramite la classe statica `PreviewCrypto` (descritta in `src/preview-crypto.server.ts`), la quale viene iniettata nel servizio tramite l'InjectionToken `SSR_PREVIEW_ENCRYPT_FN` (configurato in `app.config.server.ts`). Nel browser l'InjectionToken non è fornito, per cui non vengono sprecate risorse e non si espongono algoritmi di cifratura lato client.
 Il server backend Express in `server.ts` decifra e valida in modo sincrono tramite `PreviewCrypto.decrypt(blob)`; qualsiasi payload alterato o manomesso fallisce la decifrazione AES-GCM restituendo un errore **`403 Forbidden`**. 
 
-La chiave di cifratura simmetrica può essere configurata in produzione tramite la variabile d'ambiente **`PREVIEW_CRYPTO_SECRET`**; se assente, ricade sul fallback automatico basato su `appName:version` definita in `ContestoSito`. Bumpare `version` in `site.ts` invalida automaticamente tutte le anteprime in cache su disco.
+La chiave di cifratura simmetrica ha la capacità di essere configurata in produzione tramite la variabile d'ambiente **`PREVIEW_CRYPTO_SECRET`**; se assente, ricade sul fallback automatico basato su `appName:version` definita in `ContestoSito`. Bumpare `version` in `site.ts` invalida automaticamente tutte le anteprime in cache su disco.
 
-Può essere chiamato direttamente dal componente nei rari casi in cui serve sovrascrivere i meta a runtime (es. dopo un'interazione utente che cambia il contenuto della pagina).
+Ha la capacità di essere chiamato direttamente dal componente nei rari casi in cui serve sovrascrivere i meta a runtime (es. dopo un'interazione utente che cambia il contenuto della pagina).
 
 ---
 
 ## Resolver automatico dei contenuti
 
-Ogni pagina registrata in `site.ts` ottiene automaticamente un resolver che carica il contenuto prima della navigazione. Il resolver è configurato in `app.routes.ts` — che costruisce automaticamente le rotte da `site.ts` — e applica `contentLoaderResolver` come resolver su ogni leaf page.
+Ogni pagina registrata in `site.ts` ottiene automaticamente un resolver che carica il contenuto prima della navigazione. Il resolver è configurato in `app.routes.ts`, che costruisce automaticamente le rotte da `site.ts`, e applica `contentLoaderResolver` come resolver su ogni leaf page.
 
 Il resolver restituisce un oggetto `ResolvedPage<T>` con due campi:
-- `content` — i dati della pagina (es. il testo Markdown di una policy, o i dati di un articolo)
-- `info` — i metadati SEO da `site.ts` (titolo, descrizione, ogImage, ogType)
+- `content`, i dati della pagina (es. il testo Markdown di una policy, o i dati di un articolo)
+- `info`, i metadati SEO da `site.ts` (titolo, descrizione, ogImage, ogType)
 
 `PageBaseComponent` riceve questo oggetto, aggiorna i meta tag via `effect()` e espone `pageContent()` già tipizzato come `T | null`.
 
@@ -1398,13 +1398,13 @@ Navigazione → contentLoaderResolver(pageType) chiama inject(ContentResolver).l
                         ↓
              PageBaseComponent:
                effect(info)    → PageMetaService.setPageMeta()   [SSR + browser]
-               effect(lang)    → ricarica al cambio lingua     [solo browser]
+               effect(lang)    → ricarica al cambio lingua     [esclusivamente browser]
                pageContent()   → content tipizzato come T
 ```
 
-Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né reload al cambio lingua. Tutto è automatico.
+Il componente usa **esclusivamente** `this.pageContent()`, non gestisce meta tag né reload al cambio lingua. Tutto è automatico.
 
-**Protezione del router**: lo `switch` in `ContentResolver.loadResolved()` è avvolto da un try-catch. Se l'API fallisce, `BaseApiService.handleError()` mostra già la notifica all'utente e rilancia l'errore — ma il try-catch lo intercetta e restituisce `{ content: null, info }` invece di rigettare. Senza questo guard, il resolver rigettato cancellerebbe la navigazione e l'utente vedrebbe una pagina vuota anziché la pagina con `pageContent() === null`.
+**Protezione del router**: lo `switch` in `ContentResolver.loadResolved()` è avvolto da un try-catch. Se l'API fallisce, `BaseApiService.handleError()` emette la notifica di errore. Il try-catch intercetta il rilancio e restituisce `{ content: null, info }`, consentendo al router di completare la navigazione verso il componente di pagina (che gestirà lo stato nullo).
 
 ### Aggiungere contenuto a una nuova pagina
 
@@ -1413,7 +1413,7 @@ Il componente usa **solo** `this.pageContent()` — non gestisce meta tag né re
 **1. Aggiungere il case in `ContentResolver.loadResolved()`**
 
 ```typescript
-// src/app/pages/content.resolver.ts — dentro il switch(pageType)
+// src/app/pages/content.resolver.ts, dentro il switch(pageType)
 case PageType.MiaPagina:
     content = await this.apiService.getMiaPaginaData(language); // chiamata API
     // oppure:
@@ -1421,29 +1421,29 @@ case PageType.MiaPagina:
     break;
 ```
 
-I metadati SEO statici (titolo, descrizione, ogImage) vengono letti automaticamente da `ContestoSito.getPageInfo(pageType)` — dichiarati una sola volta in `site.ts`, usati automaticamente dal resolver.
+I metadati SEO statici (titolo, descrizione, ogImage) vengono letti automaticamente da `ContestoSito.getPageInfo(pageType)`, dichiarati una sola volta in `site.ts`, usati automaticamente dal resolver.
 
 **2. Estendere `PageBaseComponent<T>` nel componente**
 
 ```typescript
 // Il generic MeteoData deve corrispondere al tipo restituito dal case nel resolver.
 export class MiaPaginaComponent extends PageBaseComponent<MeteoData> {
-    // pageContent() è già MeteoData | null — nessun cast necessario.
-    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? '--');
+    // pageContent() è già MeteoData | null, nessun cast necessario.
+    readonly temperatura = computed(() => this.pageContent()?.temperatura ?? ',');
 }
 ```
 
 ### Meta SEO dinamici (titolo/descrizione da API)
 
-Per pagine con titolo che dipende dall'API (es. articolo con ID variabile nel path), il resolver può sovrascrivere `info` con i dati caricati dall'API:
+Per pagine con titolo che dipende dall'API (es. articolo con ID variabile nel path), il resolver ha la capacità di sovrascrivere `info` con i dati caricati dall'API:
 
 ```typescript
-// src/app/pages/content.resolver.ts — dentro il switch(pageType)
+// src/app/pages/content.resolver.ts, dentro il switch(pageType)
 case PageType.Articolo: {
     const articolo = await this.apiService.getArticolo(route!.params['id'], language);
     return {
         content: articolo,
-        // info personalizzato: titolo e descrizione dall'API invece che da site.ts
+        // info personalizzato: titolo e descrizione dall'API (bypassando site.ts)
         info: {
             title: articolo.titolo,          // stringa diretta, non chiave i18n
             description: articolo.descrizione,
@@ -1455,7 +1455,7 @@ case PageType.Articolo: {
 }
 ```
 
-`PageBaseComponent` chiama `setPageMeta()` automaticamente con questi dati — nessuna logica SEO nel componente.
+`PageBaseComponent` chiama `setPageMeta()` automaticamente con questi dati, nessuna logica SEO nel componente.
 
 ### Estendere in un progetto figlio
 
@@ -1495,15 +1495,15 @@ Il banner GDPR appare automaticamente quando almeno una categoria di cookie risu
 Indipendentemente da `COOKIE_KEYS`, il servizio gestisce sempre:
 
 | Cookie | Categoria | Quando viene scritto |
-|---|---|---|
+|--|--|--|
 | Preferenza lingua (`lang`) | Tecnico | Al cambio lingua, se il consenso tecnico è attivo |
 | Service Worker (`ngsw-worker.js`) | Tecnico | In `applyConsent()` alla prima accettazione tecnica della sessione |
 
-La **categoria tecnica** è quindi necessaria ogni volta che il sito è multilingua (più di una lingua in `availableLanguages`). Se il sito è monolingua e `COOKIE_KEYS` è vuoto, il banner non comparirà mai.
+La **categoria tecnica** è di conseguenza necessaria ogni volta che il sito è multilingua (più di una lingua in `availableLanguages`). Se il sito è monolingua e `COOKIE_KEYS` è vuoto, il banner non comparirà mai.
 
 ### Aggiungere un cookie di progetto
 
-**Dove si trova il file:** `src/app/core/services/cookie-registry.ts` — il solo `COOKIE_MAP`.
+**Dove si trova il file:** `src/app/core/services/cookie-registry.ts`, il esclusivamente `COOKIE_MAP`.
 
 Aggiungere una riga è tutto quello che serve:
 
@@ -1579,29 +1579,29 @@ import { CookieConsentService } from '../../core/services/cookie-consent.service
 export class MioComponent {
     private readonly consent = inject(CookieConsentService);
 
-    // signal readonly — usabile direttamente nei template
+    // signal readonly, usabile direttamente nei template
     readonly analyticsAttivi = this.consent.analyticsAccepted;
 }
 ```
 
 ```html
 @if (analyticsAttivi()) {
-    <!-- contenuto disponibile solo con consenso analytics -->
+    <!-- contenuto disponibile esclusivamente con consenso analytics -->
 }
 ```
 
 ### Riepilogo delle API pubbliche
 
 | Metodo / proprietà | Descrizione |
-|---|---|
-| `isNeeded` | `Signal<boolean>` — `true` se almeno una categoria è necessaria (falso in SSR) |
-| `isTechnicalNeeded` | `Signal<boolean>` — `true` se multilingua o ci sono cookie tecnici in `COOKIE_MAP` |
-| `isAnalyticsNeeded` | `Signal<boolean>` — `true` se ci sono cookie analytics in `COOKIE_MAP` |
-| `isProfilingNeeded` | `Signal<boolean>` — `true` se ci sono cookie profiling in `COOKIE_MAP` |
-| `technicalAccepted` | `Signal<boolean>` — stato corrente del consenso tecnico |
-| `analyticsAccepted` | `Signal<boolean>` — stato corrente del consenso analytics |
-| `profilingAccepted` | `Signal<boolean>` — stato corrente del consenso profiling |
-| `responded` | `Signal<boolean>` — `true` se l'utente ha già risposto al banner |
+|--|--|
+| `isNeeded` | `Signal<boolean>`, `true` se almeno una categoria è necessaria (falso in SSR) |
+| `isTechnicalNeeded` | `Signal<boolean>`, `true` se multilingua o ci sono cookie tecnici in `COOKIE_MAP` |
+| `isAnalyticsNeeded` | `Signal<boolean>`, `true` se ci sono cookie analytics in `COOKIE_MAP` |
+| `isProfilingNeeded` | `Signal<boolean>`, `true` se ci sono cookie profiling in `COOKIE_MAP` |
+| `technicalAccepted` | `Signal<boolean>`, stato corrente del consenso tecnico |
+| `analyticsAccepted` | `Signal<boolean>`, stato corrente del consenso analytics |
+| `profilingAccepted` | `Signal<boolean>`, stato corrente del consenso profiling |
+| `responded` | `Signal<boolean>`, `true` se l'utente ha già risposto al banner |
 | `accept()` | Accetta tutte le categorie attive |
 | `reject()` | Rifiuta tutte le categorie |
 | `saveSelected(tech, anal, prof)` | Salva la selezione granulare dai toggle del banner |
@@ -1628,13 +1628,13 @@ La tabella include automaticamente: preferenza lingua (se multilingua), Service 
 
 ### Auto-disabilitazione della pagina Cookie Policy
 
-Il builder (`buildSite`) disabilita automaticamente la pagina corrispondente a `PageType.CookiePolicy` quando non ci sono cookie da dichiarare — ovvero quando tutte e tre le condizioni sono vere:
+Il builder (`buildSite`) disabilita automaticamente la pagina corrispondente a `PageType.CookiePolicy` quando non ci sono cookie da dichiarare, ovvero quando tutte e tre le condizioni sono vere:
 
 - `isWebApp: false` (nessun Service Worker)
 - lingua singola (nessun cookie di preferenza lingua)
 - `COOKIE_MAP` vuoto (nessun cookie di progetto)
 
-Il lookup avviene per nome (`'CookiePolicy'`) sull'enum a runtime, quindi se un progetto figlio rimuove `PageType.CookiePolicy` dall'enum la logica è semplicemente inerte — nessun errore. La pagina viene esclusa da `pageMap`, dalla sitemap e dalla navigazione senza nessun intervento manuale.
+Il lookup avviene per nome (`'CookiePolicy'`) sull'enum a runtime, di conseguenza se un progetto figlio rimuove `PageType.CookiePolicy` dall'enum la logica è semplicemente inerte, nessun errore. La pagina viene esclusa da `pageMap`, dalla sitemap e dalla navigazione senza nessun intervento manuale.
 
 ---
 
@@ -1642,25 +1642,22 @@ Il lookup avviene per nome (`'CookiePolicy'`) sull'enum a runtime, quindi se un 
 
 L'accessibilità è una proprietà nativa del sistema, non un'attività correttiva. WCAG 2.1 AA è il livello minimo per ogni componente nuovo o modificato.
 
-### Quattro livelli di protezione automatici
+### Tre livelli di protezione automatici
 
 | Livello | Strumento | Quando scatta |
-|---|---|---|
-| Pre-commit | `scripts/test/lint-check.sh` | Ad ogni `git commit` con file `frontend/src/` staged |
-| CI — statico | `lint-check.sh`, `tsc-check.sh`, `i18n-check.sh` | Ad ogni push/PR (job paralleli, nessun server) |
-| CI — live | `a11y-test.sh`, `lighthouse-test.sh` | Ad ogni push/PR (job `live-tests`, dopo i job statici) |
-| Deploy | `scripts/test/run-all.sh` | `deploy.sh --run-tests` (post-deploy, tutti gli script in sequenza) |
+|--|--|--|
+| CI, statico | `lint-check.sh`, `tsc-check.sh`, `i18n-check.sh` | Ad ogni push/PR (job paralleli, nessun server) |
+| CI, live | `a11y-test.sh`, `lighthouse-test.sh` | Ad ogni push/PR (job `live-tests`, dopo i job statici) |
+| Deploy | `scripts/test/run-all.sh` | `deploy.sh,run-tests` (post-deploy, tutti gli script in sequenza) |
 
-Il pre-commit hook si attiva automaticamente dopo `npm install` (script `prepare` in `package.json` configura `core.hooksPath = .githooks`). Ogni commit con file sorgente staged passa per ESLint prima di essere accettato.
+Il perché di ogni scelta, compreso come `site.ts` guida la scoperta automatica delle pagine e delle lingue, è documentato nei commenti degli script in `scripts/test/`.
 
-Il perché di ogni scelta — compreso come `site.ts` guida la scoperta automatica delle pagine e delle lingue — è documentato nei commenti degli script in `scripts/test/`.
-
-### Regole ESLint — errori bloccanti
+### Regole ESLint, errori bloccanti
 
 Configurate in `eslint.config.mjs`. Rompono `npm run lint` e bloccano la CI:
 
 | Regola | Cosa verifica |
-|---|---|
+|--|--|
 | `alt-text` | `<img>` senza attributo `alt` |
 | `elements-content` | Elementi interattivi senza testo accessibile |
 | `label-has-associated-control` | `<label>` senza `for`/`id` corrispondente |
@@ -1671,22 +1668,22 @@ Configurate in `eslint.config.mjs`. Rompono `npm run lint` e bloccano la CI:
 
 Warning (non bloccanti, da valutare caso per caso): `click-events-have-key-events`, `interactive-supports-focus`, `mouse-events-have-key-events`, `no-autofocus`.
 
-### Checklist — prima di considerare un componente completo
+### Checklist, prima di considerare un componente completo
 
 - [ ] Semantic HTML corretto: `<button>` per azioni, `<a>` per navigazione, gerarchia heading rispettata
 - [ ] Tutti i `<label>` associati al controllo via `for`/`id` o nesting diretto
 - [ ] Tutti i `<img>` hanno `alt` (descrittivo se informativo, `""` se puramente decorativo)
 - [ ] Icone decorative hanno `aria-hidden="true"`
 - [ ] Elementi interattivi raggiungibili e attivabili da tastiera, focus visibile
-- [ ] `aria-label` usato solo quando non c'è testo visibile — il testo visibile è già il nome accessibile dell'elemento
-- [ ] Ogni testo `aria-label` passa per `| translate` — nessuna stringa hardcoded
+- [ ] `aria-label` usato esclusivamente quando non c'è testo visibile, il testo visibile è già il nome accessibile dell'elemento
+- [ ] Ogni testo `aria-label` passa per `| translate`, nessuna stringa hardcoded
 - [ ] Link esterni: `rel="noopener noreferrer"` + avviso screen reader in `visually-hidden`
 - [ ] Overlay e modal: `appFocusTrap` attivo + focus ripristinato all'elemento trigger alla chiusura
 - [ ] Contrasto: testo normale ≥ 4.5:1, testo grande ≥ 3:1
 
-### aria-label — property binding, non interpolazione
+### aria-label, property binding, non interpolazione
 
-Usare sempre `[attr.aria-label]` (property binding). A differenza dell'interpolazione `aria-label="{{ ... }}"`, il binding accetta `null` per rimuovere completamente l'attributo — necessario quando è già presente testo visibile, per rispettare WCAG 2.5.3 (*Label in Name*: il nome accessibile non può contraddire il testo visibile).
+Usare sempre `[attr.aria-label]` (property binding). A differenza dell'interpolazione `aria-label="{{ ... }}"`, il binding accetta `null` per rimuovere completamente l'attributo, necessario quando è già presente testo visibile, per rispettare WCAG 2.5.3 (*Label in Name*: il nome accessibile non ha la capacità di contraddire il testo visibile).
 
 ```html
 <!-- Elemento con sola icona: aria-label necessario -->
@@ -1710,9 +1707,9 @@ Usare sempre `[attr.aria-label]` (property binding). A differenza dell'interpola
 </a>
 ```
 
-`opensInNewTab` è già presente nei file `basic.*.json` del template — non va aggiunto di nuovo.
+`opensInNewTab` è già presente nei file `basic.*.json` del template, non va aggiunto di nuovo.
 
-### Form — label associate
+### Form, label associate
 
 ```html
 <label for="email" class="form-label">{{ 'mail' | translate }}</label>
@@ -1734,7 +1731,7 @@ Un `<label>` non associato tramite `for`/`id` (o nesting diretto) è un errore b
 
 `appFocusTrap` (in `core/directives/focus-trap.directive.ts`) intrappola il focus Tab/Shift+Tab all'interno del dialog e sposta il focus sul primo elemento interattivo all'apertura. Alla chiusura, il focus va ripristinato sull'elemento che ha aperto il dialog.
 
-### Design token — colori e focus sempre da variabile CSS
+### Design token, colori e focus sempre da variabile CSS
 
 ```css
 /* Corretto */
@@ -1794,7 +1791,7 @@ Soglie Lighthouse in `scripts/test/lighthouse.json`: performance 70, accessibili
 
 Tutti i file statici serviti tramite CDN vivono in `src/assets/files/` e sono **sempre referenziati tramite ID**, mai per nome file diretto. Questo permette di rinominare o sostituire un file senza toccare i template.
 
-**Passo 1 — Copia il file** in `frontend/src/assets/files/`:
+**Passo 1, Copia il file** in `frontend/src/assets/files/`:
 
 ```
 frontend/src/assets/files/
@@ -1802,7 +1799,7 @@ frontend/src/assets/files/
   hero.jpg          ← nuovo file
 ```
 
-**Passo 2 — Registra l'ID** in `frontend/src/assets/mapping.json`:
+**Passo 2, Registra l'ID** in `frontend/src/assets/mapping.json`:
 
 ```json
 {
@@ -1814,7 +1811,7 @@ frontend/src/assets/files/
 
 La chiave (es. `"hero"`) è l'ID che userai nei template e nel codice. Il valore è il nome file fisico. Da questo momento `appAsset="hero"` e `this.asset.getUrl('hero')` funzionano.
 
-**Perché questo livello di indirezione?** La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente via URL. Passano sempre attraverso il layer `/cdn-cgi/asset`, che per le immagini raster fa resize + conversione WebP on-demand e mette in cache il risultato. Per PDF, SVG e video fa passthrough diretto. L'ID disaccoppia il riferimento dal nome fisico: se domani sostituisci `hero.jpg` con `hero-v2.webp`, aggiorni solo il mapping, non tutti i template.
+**Perché questo livello di indirezione?** La directory `assets/files/` è bloccata, i file non sono mai raggiungibili direttamente via URL. Passano sempre attraverso il layer `/cdn-cgi/asset`, che per le immagini raster fa resize + conversione WebP on-demand e mette in cache il risultato. Per PDF, SVG e video fa passthrough diretto. L'ID disaccoppia il riferimento dal nome fisico: se domani sostituisci `hero.jpg` con `hero-v2.webp`, aggiorni esclusivamente il mapping, non tutti i template.
 
 ---
 
@@ -1823,13 +1820,13 @@ La chiave (es. `"hero"`) è l'ID che userai nei template e nel codice. Il valore
 | Endpoint | Scopo |
 |---|---|
 | `/cdn-cgi/asset?id=X[&w=N]` | Serve il file raw: resize + WebP per immagini raster, passthrough per PDF/SVG/… |
-| `/cdn-cgi/preview?p=<blob>` | Genera al volo l'og:image (1200×630). Il blob è un payload AES-GCM prodotto in SSR tramite `SSR_PREVIEW_ENCRYPT_FN` (delegato a `PreviewCrypto.encrypt`) — titolo, sottotitolo opzionale, ID asset opzionale, flag onlyImage opzionale. Variante dispatch: presenza di `id` nel payload → immagine in primo piano con sfondo sfocato (e badge + favicon se `onlyImage` non è `'true'`); assenza → SVG testuale (sfondo colorato, favicon, titolo). Blob manomesso → 403. |
+| `/cdn-cgi/preview?p=<blob>` | Genera al volo l'og:image (1200×630). Il blob è un payload AES-GCM prodotto in SSR tramite `SSR_PREVIEW_ENCRYPT_FN` (delegato a `PreviewCrypto.encrypt`), titolo, sottotitolo opzionale, ID asset opzionale, flag onlyImage opzionale. Variante dispatch: presenza di `id` nel payload → immagine in primo piano con sfondo sfocato (e badge + favicon se `onlyImage` non è `'true'`); assenza → SVG testuale (sfondo colorato, favicon, titolo). Blob manomesso → 403. |
 
-Entrambi usano cache su disco (invalidata aggiornando `version` in `site.ts`) e single-flight per richieste concorrenti alla stessa risorsa.
+Entrambi usano cache su disco (invalidata aggiornando `version` in `site.ts`) e single-flight per chiamate concorrenti alla stessa risorsa.
 
-La directory `assets/files/` è bloccata — i file non sono mai raggiungibili direttamente, solo tramite ID.
+La directory `assets/files/` è bloccata, i file non sono mai raggiungibili direttamente, esclusivamente tramite ID.
 
-### Uso in template — directive
+### Uso in template, directive
 
 Il modo preferito nei template è tramite directive: niente signal intermedi, `src` / `href` si aggiornano reattivamente al cambio degli input.
 
@@ -1844,14 +1841,14 @@ Il modo preferito nei template è tramite directive: niente signal intermedi, `s
 <link rel="preload" as="image" [appAssetHref]="'hero'" [appAssetWidth]="1024">
 ```
 
-`appAssetWidth` ha effetto solo per immagini raster: il server ignora il parametro per video / PDF / SVG e restituisce lo stream originale. È quindi sicuro lasciarlo non valorizzato anche su tag non-immagine.
+`appAssetWidth` ha effetto esclusivamente per immagini raster: il server ignora il parametro per video / PDF / SVG e restituisce lo stream originale. È di conseguenza sicuro lasciarlo non valorizzato anche su tag non-immagine.
 
 ### Uso programmatico
 
 Per casi non template (canvas dinamici, popup, costruzione URL da codice):
 
 ```typescript
-// this.asset è disponibile da PageBaseComponent — nessun inject aggiuntivo nei componenti pagina.
+// this.asset è disponibile da PageBaseComponent, nessun inject aggiuntivo nei componenti pagina.
 this.asset.getUrl('hero', 1080)      // → URL ottimizzato via /cdn-cgi/asset
 ```
 
@@ -1878,9 +1875,9 @@ Gli script leggono da `ContestoSito`: nome app, colore, lingue, path pagine. Per
 
 ### Iniezione variabili d'ambiente a runtime (Docker)
 
-Rilevante solo in deploy con Docker — in sviluppo locale non si applica.
+Rilevante esclusivamente in deploy con Docker, in sviluppo locale non si applica.
 
-Angular compila il bundle a build time e non può leggere env del container a runtime. La soluzione: `environment.ts` usa i segnaposto letterali `__API_URL__` e `__API_KEY__`. All'avvio del container, `docker-entrypoint.sh` esegue `sed` su tutti i `.js` del bundle sostituendo quei segnaposto con i valori reali. Il server SSR parte solo dopo la sostituzione.
+Angular compila il bundle a build time e non ha la capacità di leggere env del container a runtime. La soluzione: `environment.ts` usa i segnaposto letterali `__API_URL__` e `__API_KEY__`. All'avvio del container, `docker-entrypoint.sh` esegue `sed` su tutti i `.js` del bundle sostituendo quei segnaposto con i valori reali. Il server SSR parte esclusivamente dopo la sostituzione.
 
 Quando `API_URL` è vuota, il server Node fa da proxy su `/api/*` verso il backend sulla rete Docker. Se valorizzata, il frontend chiama direttamente quell'URL (utile con backend su server separato).
 
@@ -1895,7 +1892,7 @@ Cache: asset con hash nel nome → 1 anno `immutable`; asset non hashati (i18n, 
 
 ## Servizi disponibili
 
-Tutti `providedIn: 'root'` — istanziati una sola volta per tutta l'app. Disponibili tramite `inject()` in qualsiasi componente o servizio.
+Tutti `providedIn: 'root'`, istanziati una sola volta per tutta l'app. Disponibili tramite `inject()` in qualsiasi componente o servizio.
 
 | Servizio | Ruolo |
 |---|---|
@@ -1907,7 +1904,7 @@ Tutti `providedIn: 'root'` — istanziati una sola volta per tutta l'app. Dispon
 | `ApiService` | Unico client HTTP verso il backend: `getProfile`, `getSocial`, `getBlob`, `exportDocument`, `login` |
 | `ContentResolver` | Resolver automatico contenuti di pagina; estendibile via DI nei progetti figli |
 | `AssetService` | URL verso `/cdn-cgi/asset`; `getUrlFromBlob` per Blob locali con tracking e revoca automatica |
-| `ShareService` | Clipboard API, Web Share API, download — un'unica interfaccia con fallback |
+| `ShareService` | Clipboard API, Web Share API, download, un'unica interfaccia con fallback |
 | `ImgBuilderService` | Genera PNG su canvas (`buildBlob`, `buildCanvas`, `buildFile`); `buildSvg` statico SSR-safe |
 | `QrCodeService` | QR code PNG/SVG per URL, WhatsApp, email, Wi-Fi, SEPA; cache per payload+colori |
 | `NotificationService` | SweetAlert2 lazy: `success`, `error`, `confirm`, `prompt`, `interact`, `toast`, `validationErrors`, `handleApiError` |
@@ -1964,7 +1961,7 @@ import { PageType } from '../../site';
 
 #### `[appAsset]`
 
-**Cosa fa:** imposta l'attributo `src` costruendo l'URL verso `/cdn-cgi/asset?id=ID[&w=WIDTH]`. Il resize è applicato lato server solo per immagini raster (JPEG, PNG, WebP); per video, PDF e SVG il parametro width viene ignorato e viene restituito lo stream originale. Il selector è vincolato ai tag che supportano `src`: errore a compile time se si prova ad applicarla a un `<div>`.
+**Cosa fa:** imposta l'attributo `src` costruendo l'URL verso `/cdn-cgi/asset?id=ID[&w=WIDTH]`. Il resize è applicato lato server esclusivamente per immagini raster (JPEG, PNG, WebP); per video, PDF e SVG il parametro width viene ignorato e viene restituito lo stream originale. Il selector è vincolato ai tag che supportano `src`: errore a compile time se si prova ad applicarla a un `<div>`.
 
 ```typescript
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
@@ -2017,7 +2014,7 @@ import { AssetHrefDirective } from '../../core/engine/directives/asset.directive
 
 #### `[imgRender]`
 
-**Cosa fa:** genera un'immagine PNG su canvas tramite `ImgBuilderService` e la imposta come `src` dell'`<img>`. Non opera in SSR — il browser mostra il testo `alt` come fallback finché il canvas non è pronto. Emette il canvas grezzo via `(canvasChange)` così il componente padre può usarlo per download o condivisione senza accedere al DOM direttamente. Un token monotono garantisce che build asincrone sovrapposte non producano risultati fuori ordine.
+**Cosa fa:** genera un'immagine PNG su canvas tramite `ImgBuilderService` e la imposta come `src` dell'`<img>`. Non opera in SSR, il browser mostra il testo `alt` come fallback finché il canvas non è pronto. Emette il canvas grezzo via `(canvasChange)` così il componente padre ha la capacità di usarlo per download o condivisione senza accedere al DOM direttamente. Un token monotono garantisce che build asincrone sovrapposte non producano risultati fuori ordine.
 
 ```typescript
 import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
@@ -2058,7 +2055,7 @@ export class MioComponent {
 
 | Campo | Tipo | Obbligatorio | Default | Note |
 |---|---|---|---|---|
-| `text` | `string` | sì | — | Testo da disegnare sull'immagine |
+| `text` | `string` | sì | nessuno | Testo da disegnare sull'immagine |
 | `bgColor` | `string` | no | colore tema dal `ThemeService` | Esadecimale, es. `'#3a86ff'` |
 | `textColor` | `string` | no | contrasto WCAG automatico su `bgColor` | Esadecimale |
 | `fontSize` | `number` | no | `40` | Pixel |
@@ -2122,7 +2119,7 @@ export class MioComponent {
 | `blobChange` | `Blob \| null` | Blob PNG del QR; `null` su errore o quando `qrContent` è `null` |
 | `errorChange` | `string \| null` | Messaggio d'errore tradotto nella lingua corrente; `null` se la generazione ha avuto successo |
 
-**`QrConfig`** — discriminated union su `type`. Il campo `type` è sempre obbligatorio; gli altri campi dipendono dal tipo scelto:
+**`QrConfig`**, discriminated union su `type`. Il campo `type` è sempre obbligatorio; gli altri campi dipendono dal tipo scelto:
 
 ```typescript
 | { type: 'text';      content: string }
@@ -2160,7 +2157,7 @@ export class MioComponent {
             icon: 'fa-solid fa-download',   // classe Font Awesome completa
             action: () => this.scarica(),
         },
-        { separator: true },   // divisore visuale — gli altri campi vengono ignorati
+        { separator: true },   // divisore visuale, gli altri campi vengono ignorati
         {
             label: 'Elimina',
             icon: 'fa-solid fa-trash',
@@ -2173,7 +2170,7 @@ export class MioComponent {
 
 ```html
 <div [appContextMenu]="opzioni()">
-    <!-- qualsiasi contenuto — click destro o long-press attiva il menu -->
+    <!-- qualsiasi contenuto, click destro o long-press attiva il menu -->
 </div>
 ```
 
@@ -2212,10 +2209,10 @@ export class MioComponent {
 | `{{ chiave \| translate }}` | i18n reattivo: si aggiorna al cambio lingua senza refresh della pagina |
 | `{{ testo \| markdown }}` | Markdown → HTML con protezione XSS integrata (HTML raw ignorato) |
 
-### ImgBuilderService — dettaglio
+### ImgBuilderService, dettaglio
 
 ```typescript
-// Metodi istanza (browser — leggono i Signal del tema come default)
+// Metodi istanza (browser, leggono i Signal del tema come default)
 buildCanvas(text, opts?) → Promise<HTMLCanvasElement | null>
 buildBlob(text, opts?)   → Promise<Blob | null>
 buildFile(text, name?, opts?) → Promise<File | null>
@@ -2227,7 +2224,7 @@ ImgBuilderService.buildSvg(text, bgColor, textColor, fontSize, fontFamily, ratio
 
 `opts` è tutto opzionale: `bgColor`/`textColor` (dal tema), `fontSize` (40px), `ratio` (`'4:3'`), `fontFamily`, `wordWrap` (true), `maxWidth` (1200px), `lineHeight` (1.4). In SSR i metodi istanza restituiscono `null`.
 
-### QrCodeService — dettaglio
+### QrCodeService, dettaglio
 
 Formati supportati: `text`, `whatsapp` (phone), `email` (to, subject, body), `wifi` (ssid, password, encryption), `sepa` (iban, name, amount, remittance).
 
@@ -2245,7 +2242,7 @@ const svg = await this.qrCode.toSVG(config);
 
 Validazione integrata per telefono (E.164), email e IBAN. Risultati cachati per payload + colori.
 
-### ShareService — dettaglio
+### ShareService, dettaglio
 
 ```typescript
 this.share.copyText('testo');                           // Clipboard API con notifica
@@ -2257,11 +2254,11 @@ this.share.downloadBlob(blob, 'file.png');              // Download diretto
 
 ### Pagine legali
 
-Un solo componente (`PolicyComponent`) gestisce privacy, cookie policy, termini e note legali. `ContentResolver` carica il Markdown corretto da `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Per aggiungere una nuova pagina legale: aggiungere un `case` in `ContentResolver.loadResolved()` e il file `.md` corrispondente.
+Un unico componente (`PolicyComponent`) gestisce privacy, cookie policy, termini e note legali. `ContentResolver` carica il Markdown corretto da `/assets/legal/{tipo}.{lang}.md` con fallback all'italiano. Per aggiungere una nuova pagina legale: aggiungere un `case` in `ContentResolver.loadResolved()` e il file `.md` corrispondente.
 
 ### Accessibilità integrata
 
-- **Skip-link** (WCAG 2.4.1): visibile solo su focus per navigazione da tastiera
+- **Skip-link** (WCAG 2.4.1): visibile esclusivamente su focus per navigazione da tastiera
 - **`prefers-reduced-motion`** (WCAG 2.3.3): animazioni disabilitate se la preferenza è attiva
 - **`safe-area-inset`**: navbar e footer si adattano ai dispositivi con notch
 - **Contrasto AA**: `text-body-secondary` forzato a `#595f66`

@@ -1,4 +1,4 @@
-# Backend — Guida allo sviluppo
+# Backend, Guida allo sviluppo
 
 Questa guida è rivolta a chi usa Br1WebEngine come template base e vuole estenderlo: aggiungere endpoint, servizi, store o logica di sicurezza seguendo i pattern già stabiliti.
 
@@ -17,25 +17,25 @@ Per i pattern lato frontend → [`frontend/DEVELOPMENT.md`](../frontend/DEVELOPM
     - [Perché le classi base dell'engine?](#perché-le-classi-base-dell'engine?)
     - [API esposte (esempi del template)](#api-esposte-esempi-del-template)
     - [Flusso di una richiesta](#flusso-di-una-richiesta)
-    - [Ordine della pipeline HTTP (critico — non invertire)](#ordine-della-pipeline-http-critico-—-non-invertire)
+    - [Ordine della pipeline HTTP (critico, non invertire)](#ordine-della-pipeline-http-critico--non-invertire)
   - [Configurazione (appsettings.json)](#configurazione-appsettingsjson)
     - [Sezione Security](#sezione-security)
     - [Sezione Localization](#sezione-localization)
     - [Aggiungere una nuova sezione di configurazione](#aggiungere-una-nuova-sezione-di-configurazione)
   - [Aggiungere un endpoint](#aggiungere-un-endpoint)
     - [Scegliere la classe base del controller](#scegliere-la-classe-base-del-controller)
-    - [Passo 1 — Definire il DTO di risposta in `Models/`](#passo-1-—-definire-il-dto-di-risposta-in-`models/`)
-    - [Passo 2 — Aggiungere il metodo a `IContentStore`](#passo-2-—-aggiungere-il-metodo-a-`icontentstore`)
-    - [Passo 3 — Aggiungere il metodo al servizio in `Services/`](#passo-3-—-aggiungere-il-metodo-al-servizio-in-`services/`)
-    - [Passo 4 — Aggiungere l'endpoint al controller](#passo-4-—-aggiungere-l'endpoint-al-controller)
+    - [Passo 1, Definire il DTO di risposta in `Models/`](#passo-1--definire-il-dto-di-risposta-in-`models/`)
+    - [Passo 2, Aggiungere il metodo a `IContentStore`](#passo-2--aggiungere-il-metodo-a-`icontentstore`)
+    - [Passo 3, Aggiungere il metodo al servizio in `Services/`](#passo-3--aggiungere-il-metodo-al-servizio-in-`services/`)
+    - [Passo 4, Aggiungere l'endpoint al controller](#passo-4--aggiungere-l'endpoint-al-controller)
     - [Aggiungere endpoint a un controller già configurato (forma compatta)](#aggiungere-endpoint-a-un-controller-già-configurato-forma-compatta)
-    - [Creare un nuovo controller](#creare-un-nuovo-controller)
+    - [Generare un nuovo controller](#generare-un-nuovo-controller)
   - [Aggiungere un servizio](#aggiungere-un-servizio)
     - [Registrare il servizio in Program.cs](#registrare-il-servizio-in-programcs)
     - [Iniettarlo nel controller](#iniettarlo-nel-controller)
   - [Servizi registrati](#servizi-registrati)
-    - [`AuthService` — API dell'engine](#`authservice`-—-api-dell'engine)
-    - [`UniversalLegalModel` — struttura](#`universallegalmodel`-—-struttura)
+    - [`AuthService`, API dell'engine](#`authservice`--api-dell'engine)
+    - [`UniversalLegalModel`, struttura](#`universallegalmodel`--struttura)
 - [2. Sicurezza e Autenticazione](#2-sicurezza-e-autenticazione)
   - [Sicurezza (Middleware e Autenticazione API First)](#sicurezza-middleware-e-autenticazione-api-first)
     - [`ApiKeyAuthentication` (Il biglietto d'ingresso)](#`apikeyauthentication`-il-biglietto-d'ingresso)
@@ -70,13 +70,13 @@ Per i pattern lato frontend → [`frontend/DEVELOPMENT.md`](../frontend/DEVELOPM
 
 ```
 backend/
-├── Controllers/                  ← endpoint concreti — aggiungi qui i tuoi
-│   ├── BaseController.cs         ← endpoint pubblici (solo API key)
+├── Controllers/                  ← endpoint concreti, aggiungi qui i tuoi
+│   ├── BaseController.cs         ← endpoint pubblici (esclusivamente API key)
 │   ├── AuthController.cs         ← POST /auth/login → genera JWT
 │   ├── ProtectedController.cs    ← endpoint protetti (API key + JWT)
 │   └── BlobController.cs         ← GET /blob/:slug → file dal volume uploads
 │
-├── Engine/                       ← infrastruttura del template — non modificare
+├── Engine/                       ← infrastruttura del template, non modificare
 │   ├── Controllers/
 │   │   ├── EngineApiController.cs        ← base di tutti i controller: [ApiController], [Authorize], Logger
 │   │   ├── EngineAuthController.cs       ← aggiunge Auth (AuthService) per generare JWT
@@ -91,14 +91,14 @@ backend/
 │   └── Legal/
 │       └── UniversalLegalModel.cs← modello legale riutilizzabile nei progetti figli
 │
-├── Security/                     ← middleware e autenticazione — non modificare
+├── Security/                     ← middleware e autenticazione, non modificare
 │   ├── ApiExceptionHandler.cs    ← converte ApiException in ProblemDetails (RFC 9457)
 │   ├── ApiKeyAuthentication.cs   ← verifica X-Api-Key su ogni richiesta
 │   ├── SecurityExtensions.cs     ← AddEngineServices() / UseEngineSecurity()
 │   ├── SecurityHeadersMiddleware.cs ← aggiunge header di sicurezza (X-Frame-Options, ecc.)
 │   └── TemplateControllerFeatureProvider.cs ← esclude Auth/Protected se JWT non configurato
 │
-├── Services/                     ← logica applicativa — aggiungi qui i tuoi servizi
+├── Services/                     ← logica applicativa, aggiungi qui i tuoi servizi
 │   └── SiteService.cs            ← esempio: profilo, social, legal
 │
 ├── Store/                        ← layer di persistenza
@@ -116,30 +116,30 @@ backend/
 └── appsettings.json              ← API key, CORS, JWT secret, localizzazione
 ```
 
-**Regola pratica:** tutto ciò che si trova in `Engine/` e `Security/` è infrastruttura del template — funziona senza essere toccato. Tutto il resto (`Controllers/`, `Services/`, `Store/`, `Models/`, `data/`) è territorio di progetto.
+**Regola pratica:** tutto ciò che si trova in `Engine/` e `Security/` è infrastruttura del template, funziona senza essere toccato. Tutto il resto (`Controllers/`, `Services/`, `Store/`, `Models/`, `data/`) è territorio di progetto.
 
 ### Perché le classi base dell'engine?
 
-In ASP.NET Core, ogni controller ha bisogno di `[ApiController]`, `[Authorize]`, un logger, e — se usa JWT — del servizio `AuthService`. Riscrivere queste decorazioni su ogni controller genera errori e incoerenze.
+In ASP.NET Core, ogni controller ha bisogno di `[ApiController]`, `[Authorize]`, un logger, e, se usa JWT, del servizio `AuthService`. Riscrivere queste decorazioni su ogni controller genera errori e incoerenze.
 
 Le classi `Engine/Controllers/` risolvono questo problema: ogni controller concreto eredita tutto ciò di cui ha bisogno senza dichiararlo esplicitamente.
 
 | Controller astratto | Cosa ottiene il controller concreto che lo estende |
-|---|---|
+|--|--|
 | `EngineApiController` | `[ApiController]`, `[Authorize]` (API key), proprietà `Logger` già iniettata |
 | `EngineAuthController` | Tutto quanto sopra + proprietà protetta `Auth` (l'`AuthService` per generare token JWT) |
-| `EngineProtectedController` | `EngineApiController` + `[Authorize(Policy = RequireLogin)]` — richiede anche il JWT valido |
+| `EngineProtectedController` | `EngineApiController` + `[Authorize(Policy = RequireLogin)]`, richiede anche il JWT valido |
 
 Concretamente: quando scrivi `public class BaseController : EngineApiController`, il tuo controller ha già l'autenticazione API key configurata e `Logger` pronto. Non devi aggiungere `[Authorize]` né iniettare `ILogger` nel costruttore.
 
 ### API esposte (esempi del template)
 
 | Metodo | Path | Auth | Note |
-|---|---|---|---|
+|--|--|--|--|
 | `GET` | `/api/profile` | API key | Profilo aziendale localizzato in base ad `Accept-Language` |
 | `GET` | `/api/social` | API key | Lista social; filtro opzionale con query param `nomi` |
 | `GET` | `/api/blob/{slug}` | API key | File dal volume `/app/uploads`; path traversal bloccato; `Content-Type` rilevato dall'estensione |
-| `POST` | `/api/auth/login` | API key | Body `{ "pwd": "..." }`; esposto solo quando `LoginEnabled = true` |
+| `POST` | `/api/auth/login` | API key | Body `{ "pwd": "..." }`; esposto esclusivamente quando `LoginEnabled = true` |
 | `GET` | `/health` | nessuna | Health check del processo |
 
 Gli endpoint in `ProtectedController` richiedono API key + JWT e sono inaccessibili finché `LoginEnabled = false`.
@@ -156,13 +156,13 @@ Request → API Key → RateLimiter → (JWT se protetto) → Controller → Ser
 
 La richiesta attraversa prima i middleware di sicurezza (API key, rate limiter, JWT), poi arriva al controller, che delega tutta la logica al servizio. Se il servizio lancia un'`ApiException`, il middleware `ApiExceptionHandler` la intercetta e costruisce automaticamente una risposta JSON nel formato standard ProblemDetails (RFC 9457). Il controller non deve mai gestire gli errori manualmente.
 
-### Ordine della pipeline HTTP (critico — non invertire)
+### Ordine della pipeline HTTP (critico, non invertire)
 
 `UseTemplateSecurity()` registra i middleware in quest'ordine fisso. Cambiare quest'ordine causa bug subdoli (per esempio: il rate limiter che legge l'IP sbagliato da proxy, o i preflight CORS che consumano quota).
 
 | # | Middleware | Perché in questa posizione |
-|---|-----------|---------------------------|
-| 1 | **ForwardedHeaders** | deve essere primo: sovrascrive `RemoteIpAddress` con l'IP reale prima che il rate limiter lo legga (solo se `BehindProxy: true`) |
+|--|------|--------------|
+| 1 | **ForwardedHeaders** | deve essere primo: sovrascrive `RemoteIpAddress` con l'IP reale prima che il rate limiter lo legga (esclusivamente se `BehindProxy: true`) |
 | 2 | **CORS** | gestisce i preflight `OPTIONS` prima del rate limiter; i preflight non consumano quota |
 | 3 | **RateLimiter** | fail fast per IP: 100 req/min globali, 5/min su `/auth/login`; posizione alta = risparmio risorse |
 | 4 | **SecurityHeaders** | aggiunge header anti-clickjacking/XSS su ogni risposta, inclusi 429 e errori |
@@ -172,7 +172,7 @@ La richiesta attraversa prima i middleware di sicurezza (API key, rate limiter, 
 Dopo `UseTemplateSecurity()`, `Program.cs` aggiunge nell'ordine:
 
 | # | Middleware | Note |
-|---|-----------|------|
+|--|------|---|
 | 7 | **RequestLocalization** | legge `Accept-Language` → imposta `CultureInfo.CurrentUICulture` |
 | 8 | **Authentication** | valida API key (sempre) e JWT Bearer (se `LoginEnabled`) |
 | 9 | **Authorization** | applica policy `RequireLogin` sui controller protetti |
@@ -180,7 +180,7 @@ Dopo `UseTemplateSecurity()`, `Program.cs` aggiunge nell'ordine:
 
 **Nota CORS vs AllowAnyOrigin:** `CorsOrigins` vuoto = `AllowAnyOrigin` deliberato per API pubbliche.
 La protezione reale è l'API key (`X-Api-Key`), indipendente dall'origine.
-Valorizzare `Security.CorsOrigins` solo per domini admin separati o multi-tenant.
+Valorizzare `Security.CorsOrigins` esclusivamente per domini admin separati o multi-tenant.
 
 ---
 
@@ -209,7 +209,7 @@ Valorizzare `Security.CorsOrigins` solo per domini admin separati o multi-tenant
 ```
 
 | Campo | Obbligatorio | Tipo | Default | Note |
-|---|---|---|---|---|
+|--|--|--|--|--|
 | `ApiKeys` | sì | `string[]` | `[]` | Chiavi accettate nell'header `X-Api-Key`; array vuoto = nessuna richiesta autorizzata |
 | `CorsOrigins` | no | `string[]` | `[]` | Origini CORS consentite; array vuoto = `AllowAnyOrigin` (la protezione reale è l'API key) |
 | `BehindProxy` | no | `bool` | `false` | `true` attiva `ForwardedHeaders` per leggere l'IP reale da `X-Forwarded-For` (necessario dietro nginx/reverse proxy) |
@@ -230,7 +230,7 @@ Se `Token.SecretKey` è vuota, `LoginEnabled` è `false`: il controller `AuthCon
 }
 ```
 
-La lingua di ogni richiesta viene letta dall'header `Accept-Language` inviato dal frontend Angular. Il middleware `RequestLocalization` la imposta come `CultureInfo.CurrentUICulture` prima che la richiesta arrivi al controller. I servizi leggono direttamente `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName` — non gestiscono la lingua manualmente.
+La lingua di ogni richiesta viene letta dall'header `Accept-Language` inviato dal frontend Angular. Il middleware `RequestLocalization` la imposta come `CultureInfo.CurrentUICulture` prima che la richiesta arrivi al controller. I servizi leggono direttamente `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName`, non gestiscono la lingua manualmente.
 
 ### Aggiungere una nuova sezione di configurazione
 
@@ -248,13 +248,13 @@ public class MieOpzioni
 ```
 
 ```csharp
-// backend/Program.cs — aggiungere nella sezione configurazione
+// backend/Program.cs, aggiungere nella sezione configurazione
 builder.Services.Configure<MieOpzioni>(
     builder.Configuration.GetSection("MieOpzioni"));
 ```
 
 ```csharp
-// backend/Services/MioService.cs — usare nel servizio tramite IOptions<T>
+// backend/Services/MioService.cs, usare nel servizio tramite IOptions<T>
 using Microsoft.Extensions.Options;
 
 public class MioService
@@ -271,7 +271,7 @@ public class MioService
 ```
 
 ```json
-// backend/appsettings.json — aggiungere la sezione corrispondente
+// backend/appsettings.json, aggiungere la sezione corrispondente
 {
   "MieOpzioni": {
     "ParametroA": "valore",
@@ -291,20 +291,20 @@ Aggiungere un endpoint richiede quattro passi che lavorano in strati separati. O
 Prima di tutto, decidi che tipo di accesso deve avere il tuo endpoint:
 
 | Scenario | Classe base da ereditare |
-|----------|--------------------------|
-| Endpoint pubblico (solo API key) | `EngineApiController` |
-| Endpoint di autenticazione (login, solo generazione token) | `EngineAuthController` |
+|-----|-------------|
+| Endpoint pubblico (esclusivamente API key) | `EngineApiController` |
+| Endpoint di autenticazione (login, esclusivamente generazione token) | `EngineAuthController` |
 | Endpoint protetto (API key + JWT utente) | `EngineProtectedController` |
 
-**Regola pratica**: i controller concreti già esistenti (`BaseController`, `AuthController`, `ProtectedController`) sono il punto giusto dove aggiungere nuovi endpoint dello stesso tipo. Creare un nuovo controller separato ha senso solo quando la responsabilità è davvero distinta — come `BlobController` per i file upload.
+**Regola pratica**: i controller concreti già esistenti (`BaseController`, `AuthController`, `ProtectedController`) sono il punto giusto dove aggiungere nuovi endpoint dello stesso tipo. Generare un nuovo controller separato ha senso esclusivamente quando la responsabilità è realmente distinta, come `BlobController` per i file upload.
 
 I passi seguenti mostrano il flusso completo per il caso tipico: un nuovo endpoint GET che legge dati dallo store, li elabora nel servizio e li restituisce al client.
 
-### Passo 1 — Definire il DTO di risposta in `Models/`
+### Passo 1, Definire il DTO di risposta in `Models/`
 
-**Perché questo passo?** Definire i tipi di risposta separatamente dai controller serve a due cose: rende chiaro esattamente cosa restituisce ogni endpoint, e permette al compilatore di verificare che il servizio restituisca davvero quel tipo.
+**Perché questo passo?** Definire i tipi di risposta separatamente dai controller serve a due cose: rende chiaro esattamente cosa restituisce ogni endpoint, e permette al compilatore di verificare che il servizio restituisca realmente quel tipo.
 
-**Dove si trova il file:** `backend/Models/` è la cartella dedicata ai DTO (Data Transfer Object) e ai modelli di risposta. Creare un file per ogni DTO mantiene gli import ordinati e rende chiaro a quale endpoint corrisponde ogni tipo.
+**Dove si trova il file:** `backend/Models/` è la cartella dedicata ai DTO (Data Transfer Object) e ai modelli di risposta. Generare un file per ogni DTO mantiene gli import ordinati e rende chiaro a quale endpoint corrisponde ogni tipo.
 
 > Questo passo è **opzionale** se l'endpoint restituisce un tipo già esistente (es. `UniversalLegalModel`) o un tipo primitivo come `string` o `bool`.
 
@@ -320,17 +320,17 @@ public class Prodotto
 }
 ```
 
-Nota: `= string.Empty` evita warning di nullability — in .NET 6+ i campi `string` non-nullable devono avere un valore iniziale.
+Nota: `= string.Empty` evita warning di nullability, in .NET 6+ i campi `string` non-nullable devono avere un valore iniziale.
 
-### Passo 2 — Aggiungere il metodo a `IContentStore`
+### Passo 2, Aggiungere il metodo a `IContentStore`
 
-**Perché questo passo?** `IContentStore` è il contratto di accesso ai dati. Definire qui la firma del metodo (solo l'interfaccia, non l'implementazione) serve a garantire che chiunque sostituisca lo store — che sia `FileContentStore` con i file JSON o un futuro `DbContentStore` con un database — implementi obbligatoriamente questo metodo.
+**Perché questo passo?** `IContentStore` è il contratto di accesso ai dati. Definire qui la firma del metodo (esclusivamente l'interfaccia, non l'implementazione) serve a garantire che chiunque sostituisca lo store, che sia `FileContentStore` con i file JSON o un futuro `DbContentStore` con un database, implementi obbligatoriamente questo metodo.
 
 **Dove si trovano i file:** `backend/Store/IContentStore.cs` contiene l'interfaccia (il contratto), `backend/Store/FileContentStore.cs` contiene l'implementazione concreta (la lettura dai file).
 
-> Questo passo è **opzionale** se i dati non vengono dallo store — per esempio, se si calcolano nel servizio o arrivano da un'API esterna. In quel caso scrivi la logica direttamente nel servizio.
+> Questo passo è **opzionale** se i dati non vengono dallo store, per esempio, se si calcolano nel servizio o arrivano da un'API esterna. In quel caso scrivi la logica direttamente nel servizio.
 
-**`Store/IContentStore.cs`** — aggiungere la firma del metodo:
+**`Store/IContentStore.cs`**, aggiungere la firma del metodo:
 
 ```csharp
 // backend/Store/IContentStore.cs
@@ -350,12 +350,12 @@ public interface IContentStore
 }
 ```
 
-**`Store/FileContentStore.cs`** — implementare il metodo nella classe concreta.
+**`Store/FileContentStore.cs`**, implementare il metodo nella classe concreta.
 
 Il metodo `ReadFileAsync("prodotti")` legge il file `backend/data/prodotti.json`. `LocalizedJsonDeserializer.Deserialize<T>` è un helper interno dello store che risolve automaticamente i campi localizzati nel formato `{ "it": "...", "en": "..." }`, scegliendo la lingua richiesta e ricadendo sull'italiano come fallback.
 
 ```csharp
-// backend/Store/FileContentStore.cs — aggiungere alla classe FileContentStore
+// backend/Store/FileContentStore.cs, aggiungere alla classe FileContentStore
 using Backend.Models;
 
 public async Task<List<Prodotto>> GetProdottiAsync(string language)
@@ -365,13 +365,13 @@ public async Task<List<Prodotto>> GetProdottiAsync(string language)
 }
 ```
 
-Creare anche il file dati `backend/data/prodotti.json` con la struttura attesa.
+Generare anche il file dati `backend/data/prodotti.json` con la struttura attesa.
 
-### Passo 3 — Aggiungere il metodo al servizio in `Services/`
+### Passo 3, Aggiungere il metodo al servizio in `Services/`
 
 **Perché questo passo?** Il servizio è il luogo della logica di business. Non si mette logica nei controller (devono restare sottili: ricevono una request, chiamano il servizio, restituiscono `Ok`). Non si mette logica nello store (deve restare un accesso dati puro). Il servizio è il layer intermedio dove si fa il filtraggio, la validazione del dominio, la gestione dei null, la scelta della lingua.
 
-**Dove si trova il file:** `backend/Services/` contiene tutti i servizi applicativi. Creare un file per servizio.
+**Dove si trova il file:** `backend/Services/` contiene tutti i servizi applicativi. Generare un file per servizio.
 
 `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName` legge la lingua già impostata dal middleware di localizzazione dall'header `Accept-Language` della richiesta. Il servizio non deve preoccuparsi di come arriva la lingua: è già disponibile nel contesto della richiesta.
 
@@ -439,17 +439,17 @@ public class ProdottoService
 `AddScoped` registra il servizio con una durata per-request: una nuova istanza per ogni richiesta HTTP. È il lifetime corretto per i servizi che leggono `CultureInfo.CurrentUICulture`, perché quella proprietà è specifica della richiesta corrente. Usare `AddSingleton` per servizi stateless (es. `FileContentStore`) che non dipendono da stato per-request.
 
 ```csharp
-// backend/Program.cs — sezione "SERVIZI APPLICATIVI"
+// backend/Program.cs, sezione "SERVIZI APPLICATIVI"
 builder.Services.AddScoped<ProdottoService>();
 ```
 
-### Passo 4 — Aggiungere l'endpoint al controller
+### Passo 4, Aggiungere l'endpoint al controller
 
 **Perché questo passo?** Il controller è il punto di ingresso HTTP. Il suo ruolo è minimale: ricevere la richiesta, delegare al servizio, restituire `Ok(data)`. Non contiene logica di business.
 
 **Dove si trova il file:** `backend/Controllers/BaseController.cs` contiene gli endpoint pubblici. Non aggiungere `[ApiController]`, `[Authorize]` o il logger: li eredita tutti da `EngineApiController`.
 
-`Logger` (maiuscolo) è la proprietà protetta esposta da `EngineApiController` — è già iniettata e pronta. Non serve dichiarare `ILogger` nel costruttore.
+`Logger` (maiuscolo) è la proprietà protetta esposta da `EngineApiController`, è già iniettata e pronta. Non serve dichiarare `ILogger` nel costruttore.
 
 ```csharp
 // backend/Controllers/BaseController.cs
@@ -475,7 +475,7 @@ public class BaseController : EngineApiController
         _prodottoService = prodottoService;
     }
 
-    // GET /api/prodotti  — lista completa
+    // GET /api/prodotti, lista completa
     [HttpGet("prodotti")]
     public async Task<IActionResult> GetProdotti()
     {
@@ -485,7 +485,7 @@ public class BaseController : EngineApiController
         return Ok(data);   // 200 con il JSON serializzato automaticamente
     }
 
-    // GET /api/prodotti/{id}  — singolo prodotto
+    // GET /api/prodotti/{id}, singolo prodotto
     [HttpGet("prodotti/{id}")]
     public async Task<IActionResult> GetProdottoById(string id)
     {
@@ -498,7 +498,7 @@ public class BaseController : EngineApiController
         return Ok(data);
     }
 
-    // POST /api/prodotti  — creazione (body JSON)
+    // POST /api/prodotti, creazione (body JSON)
     [HttpPost("prodotti")]
     public async Task<IActionResult> CreaProdotto([FromBody] Prodotto request)
     {
@@ -515,10 +515,10 @@ public class BaseController : EngineApiController
 
 ### Aggiungere endpoint a un controller già configurato (forma compatta)
 
-Se il controller ha già il costruttore con tutte le dipendenze, aggiungere solo il metodo endpoint:
+Se il controller ha già il costruttore con tutte le dipendenze, aggiungere esclusivamente il metodo endpoint:
 
 ```csharp
-// backend/Controllers/BaseController.cs — aggiungere solo il metodo, non il costruttore
+// backend/Controllers/BaseController.cs, aggiungere esclusivamente il metodo, non il costruttore
 
 // GET con path parameter
 [HttpGet("mio-endpoint/{id}")]
@@ -543,9 +543,9 @@ public async Task<IActionResult> CreaMioOggetto([FromBody] MioRequest request)
 }
 ```
 
-### Creare un nuovo controller
+### Generare un nuovo controller
 
-Creare un nuovo controller separato ha senso quando la responsabilità è davvero distinta da quelle già presenti. Il routing (`[Route]`) si dichiara sul controller concreto, non sulle classi base dell'engine. Non aggiungere `[ApiController]` o `[Authorize]`: li ereditano da `EngineApiController`.
+Generare un nuovo controller separato ha senso quando la responsabilità è realmente distinta da quelle già presenti. Il routing (`[Route]`) si dichiara sul controller concreto, non sulle classi base dell'engine. Non aggiungere `[ApiController]` o `[Authorize]`: li ereditano da `EngineApiController`.
 
 ```csharp
 // backend/Controllers/MioController.cs
@@ -562,7 +562,7 @@ public class MioController : EngineApiController
 {
     private readonly ProdottoService _prodottoService;
 
-    // Il costruttore riceve solo le dipendenze specifiche di questo controller.
+    // Il costruttore riceve esclusivamente le dipendenze specifiche di questo controller.
     // ILogger<MioController> identifica questo controller nei log.
     public MioController(ProdottoService prodottoService, ILogger<MioController> logger)
         : base(logger)
@@ -583,9 +583,9 @@ public class MioController : EngineApiController
 
 ## Aggiungere un servizio
 
-I servizi contengono la **logica di business** e dipendono da `IContentStore`, non dai controller né dai controller base. Questa separazione è intenzionale: il servizio non conosce HTTP, non conosce il formato dei file JSON, non conosce come arriva la richiesta. Conosce solo le regole del dominio.
+I servizi contengono la **logica di business** e dipendono da `IContentStore`, non dai controller né dai controller base. Questa separazione è intenzionale: il servizio non conosce HTTP, non conosce il formato dei file JSON, non conosce come arriva la richiesta. Conosce esclusivamente le regole del dominio.
 
-**Dove si trova il file:** `backend/Services/`. Creare un file per servizio.
+**Dove si trova il file:** `backend/Services/`. Generare un file per servizio.
 
 ```csharp
 // backend/Services/MioService.cs
@@ -626,7 +626,7 @@ public class MioService
 ### Registrare il servizio in Program.cs
 
 ```csharp
-// backend/Program.cs — dentro la sezione "SERVIZI APPLICATIVI"
+// backend/Program.cs, dentro la sezione "SERVIZI APPLICATIVI"
 builder.Services.AddScoped<MioService>();
 ```
 
@@ -635,7 +635,7 @@ builder.Services.AddScoped<MioService>();
 ### Iniettarlo nel controller
 
 ```csharp
-// backend/Controllers/BaseController.cs — modificare solo il costruttore
+// backend/Controllers/BaseController.cs, modificare esclusivamente il costruttore
 public class BaseController : EngineApiController
 {
     private readonly SiteService _service;
@@ -660,14 +660,14 @@ public class BaseController : EngineApiController
 Questi servizi sono registrati in `Program.cs` e disponibili tramite iniezione in tutta l'applicazione.
 
 | Servizio | Namespace | Lifetime | Ruolo |
-|---|---|---|---|
+|--|--|--|--|
 | `FileContentStore` | `Backend.Infrastructure` | Singleton | Implementazione di `IContentStore`; legge da `backend/data/*.json` |
 | `SiteService` | `Backend.Services` | Scoped | Logica di business del progetto; dipende da `IContentStore` |
-| `AuthService` | `Backend.Services` | Singleton (condizionale) | Generazione token JWT (engine); registrato solo se `LoginEnabled = true` |
+| `AuthService` | `Backend.Services` | Singleton (condizionale) | Generazione token JWT (engine); registrato esclusivamente se `LoginEnabled = true` |
 
-### `AuthService` — API dell'engine
+### `AuthService`, API dell'engine
 
-`AuthService` è parte dell'engine e disponibile in tutti i controller che estendono `EngineAuthController` tramite la proprietà protetta `Auth`. Non si usa direttamente nei servizi applicativi: serve solo al controller di login per generare il token.
+`AuthService` è parte dell'engine e disponibile in tutti i controller che estendono `EngineAuthController` tramite la proprietà protetta `Auth`. Non si usa direttamente nei servizi applicativi: serve esclusivamente al controller di login per generare il token.
 
 ```csharp
 // Firma del metodo disponibile tramite Auth.GenerateToken() nei controller che estendono EngineAuthController.
@@ -676,9 +676,9 @@ Questi servizi sono registrati in `Program.cs` e disponibili tramite iniezione i
 string GenerateToken(IEnumerable<Claim>? additionalClaims = null)
 ```
 
-### `UniversalLegalModel` — struttura
+### `UniversalLegalModel`, struttura
 
-Modello del template per i dati legali e anagrafici dell'organizzazione. Restituito da `IContentStore.GetProfileAsync()` e usato come base nei progetti figli. Tutti i campi sono nullable — il modello può essere valorizzato parzialmente.
+Modello del template per i dati legali e anagrafici dell'organizzazione. Restituito da `IContentStore.GetProfileAsync()` e usato come base nei progetti figli. Tutti i campi sono nullable, il modello ha la capacità di essere valorizzato parzialmente.
 
 ```csharp
 // Namespace: Backend.Models.Legal
@@ -711,7 +711,7 @@ L'Engine implementa difese di livello enterprise nativamente nella pipeline HTTP
 ### `ApiKeyAuthentication` (Il biglietto d'ingresso)
 Il backend è protetto da un handler custom di autenticazione `ApiKeyHandler` basato sull'header `X-Api-Key`. Questo funge da **prima linea di difesa**:
 - Blocca qualsiasi richiesta sprovvista di una chiave valida configurata in `Security:ApiKeys`.
-- Salta astutamente la validazione per le richieste HTTP `OPTIONS`, consentendo al browser di eseguire correttamente il preflight CORS senza schiantarsi.
+- Salta astutamente la validazione per le chiamate HTTP `OPTIONS`, consentendo al browser di eseguire correttamente il preflight CORS senza schiantarsi.
 Questo garantisce che il server non sprechi risorse (né esegua codice JWT o DB) se il client non è nemmeno autorizzato a parlargli.
 
 ### `SecurityHeadersMiddleware` (CSP & Hardening)
@@ -724,14 +724,14 @@ Per difendere il frontend da vulnerabilità (come XSS o Clickjacking), l'Engine 
 
 **La regola fondamentale:** non costruire mai risposte di errore manualmente nei controller. Non usare `return BadRequest(...)`, `return NotFound(...)` o simili. Lanciare un'eccezione della gerarchia `ApiException`: il middleware `ApiExceptionHandler` la intercetta automaticamente e restituisce un payload ProblemDetails (RFC 9457) con il codice HTTP corretto.
 
-**Perché questo approccio?** I controller restano puliti e lineari (solo il percorso felice è esplicito). La gestione degli errori è centralizzata in un unico punto. Il formato della risposta di errore è sempre coerente per tutti gli endpoint.
+**Perché questo approccio?** I controller restano puliti e lineari (esclusivamente il percorso felice è esplicito). La gestione degli errori è centralizzata in un unico punto. Il formato della risposta di errore è sempre coerente per tutti gli endpoint.
 
 ### Eccezioni disponibili
 
-Tutte in `backend/Models/ApiException.cs`. Non serve nessun `using` aggiuntivo nei controller — sono già nel namespace importato.
+Tutte in `backend/Models/ApiException.cs`. Non serve nessun `using` aggiuntivo nei controller, sono già nel namespace importato.
 
 | Eccezione | HTTP | Messaggio nel `detail` | Quando usarla |
-|---|---|---|---|
+|--|--|--|--|
 | `NotFoundException` | 404 | `"Impossibile leggere le informazioni {dataName}"` | La risorsa richiesta non esiste o non è leggibile (es. file mancante, record non trovato) |
 | `DataNotFoundException` | 404 | `"Dati non trovati"` | La risorsa esiste ma è vuota o non disponibile per la lingua richiesta |
 | `InvalidParametersException` | 400 | `"Parametri non validi o mancanti"` | Parametri della richiesta assenti, vuoti o in formato non valido |
@@ -746,10 +746,10 @@ throw new DecodingException();                   // → 400 "Errore nella decodi
 
 ### Aggiungere un nuovo tipo di errore
 
-Se nessuna delle eccezioni esistenti copre il tuo caso (es. conflitto di risorse → 409), creare una sottoclasse di `ApiException` nello stesso file `backend/Models/ApiException.cs`. Il middleware `ApiExceptionHandler` gestisce automaticamente tutte le sottoclassi di `ApiException` senza modifiche.
+Se nessuna delle eccezioni esistenti copre il tuo caso (es. conflitto di risorse → 409), generare una sottoclasse di `ApiException` nello stesso file `backend/Models/ApiException.cs`. Il middleware `ApiExceptionHandler` gestisce automaticamente tutte le sottoclassi di `ApiException` senza modifiche.
 
 ```csharp
-// backend/Models/ApiException.cs — aggiungere in fondo al file
+// backend/Models/ApiException.cs, aggiungere in fondo al file
 
 /// <summary>Errore 409 per conflitto di dati: la risorsa esiste già.</summary>
 public class ConflictException : ApiException
@@ -774,7 +774,7 @@ public async Task<IActionResult> Get(string slug)
     if (string.IsNullOrWhiteSpace(slug))
         throw new InvalidParametersException();
 
-    // Il servizio può lanciare NotFoundException se la risorsa non esiste.
+    // Il servizio ha la capacità di lanciare NotFoundException se la risorsa non esiste.
     // Non serve un try/catch: il middleware lo gestisce.
     var result = await _service.GetBySlug(slug);
 
@@ -790,21 +790,21 @@ public async Task<IActionResult> Get(string slug)
 
 ## Login condizionale (JWT)
 
-Il sistema JWT si attiva o disattiva in base a una sola condizione: il valore di `Security.Token.SecretKey` in `appsettings.json`. Questo design permette di avere un'applicazione completamente pubblica (solo API key) senza dover modificare il codice.
+Il sistema JWT si attiva o disattiva in base a una sola condizione: il valore di `Security.Token.SecretKey` in `appsettings.json`. Questo design permette di avere un'applicazione completamente pubblica (esclusivamente API key) senza dover modificare il codice.
 
 | Condizione | Effetto |
-|---|---|
+|--|--|
 | `SecretKey` vuota | `LoginEnabled = false`: nessun `AuthService`, nessun middleware JWT, nessun overhead. `AuthController` e `ProtectedController` non vengono registrati dal `TemplateControllerFeatureProvider` |
 | `SecretKey` valorizzata | `LoginEnabled = true`: `AuthService` singleton registrato, middleware JWT Bearer attivo, policy `RequireLogin` applicabile |
 | `SecretKey` < 32 caratteri | Il server lancia un'eccezione all'avvio (HMAC-SHA256 richiede chiavi sufficientemente lunghe per essere sicuro) |
 
-Il token JWT viene generato da `Auth.GenerateToken()` (disponibile in `AuthController` tramite `EngineAuthController`) e restituito al frontend. Il frontend Angular lo conserva in `sessionStorage` (sopravvive al refresh della pagina, si cancella alla chiusura del tab). Le richieste successive lo inviano nell'header `Authorization: Bearer <token>`, che il middleware JWT Bearer valida automaticamente.
+Il token JWT viene generato da `Auth.GenerateToken()` (disponibile in `AuthController` tramite `EngineAuthController`) e restituito al frontend. Il frontend Angular lo conserva in `sessionStorage` (sopravvive al refresh della pagina, si cancella alla chiusura del tab). Le chiamate successive lo inviano nell'header `Authorization: Bearer <token>`, che il middleware JWT Bearer valida automaticamente.
 
 ---
 
 ## Endpoint protetti da login JWT
 
-> Per il lato frontend (storage token, header automatico, route guard, stato `isLoggedIn`) → [`frontend/DEVELOPMENT.md — Autenticazione JWT`](../frontend/DEVELOPMENT.md#autenticazione-jwt-login).
+> Per il lato frontend (storage token, header automatico, route guard, stato `isLoggedIn`) → [`frontend/DEVELOPMENT.md, Autenticazione JWT`](../frontend/DEVELOPMENT.md#autenticazione-jwt-login).
 
 Per aggiungere endpoint che richiedono che l'utente sia loggato (cioè abbia un token JWT valido oltre all'API key), usare `EngineProtectedController` come base.
 
@@ -817,8 +817,8 @@ Per aggiungere endpoint che richiedono che l'utente sia loggato (cioè abbia un 
 [Route("protected")]
 public class ProtectedController : EngineProtectedController
 {
-    // Il costruttore riceve solo ILogger — tutto il resto è nella classe base.
-    // Non serve AuthService qui: serve solo in AuthController per generare il token.
+    // Il costruttore riceve esclusivamente ILogger, tutto il resto è nella classe base.
+    // Non serve AuthService qui: serve esclusivamente in AuthController per generare il token.
     public ProtectedController(ILogger<ProtectedController> logger)
         : base(logger) { }
 
@@ -828,7 +828,7 @@ public class ProtectedController : EngineProtectedController
         // Arrivati qui, l'utente è già autenticato: la policy RequireLogin
         // è applicata dalla classe base EngineProtectedController.
         // Non serve nessun controllo manuale del token.
-        return Ok(new { segreto = "solo per utenti loggati" });
+        return Ok(new { segreto = "esclusivamente per utenti loggati" });
     }
 }
 ```
@@ -852,16 +852,16 @@ Il template include un `AuthController` con un placeholder che risponde sempre `
 
 **Dove modificare:** `backend/Controllers/AuthController.cs`.
 
-`Auth` (maiuscolo) è la proprietà protetta esposta da `EngineAuthController` — contiene già l'istanza di `AuthService`. Non serve iniettarla nel costruttore del tuo controller.
+`Auth` (maiuscolo) è la proprietà protetta esposta da `EngineAuthController`, contiene già l'istanza di `AuthService`. Non serve iniettarla nel costruttore del tuo controller.
 
 `Auth.GenerateToken()` firma il token con HMAC-SHA256 usando la `SecretKey` da `appsettings.json` e include automaticamente il ruolo `Authenticated`, che è quello richiesto dalla policy `RequireLogin`. Accetta opzionalmente un elenco di `Claim` aggiuntivi (es. `userId`, `tenantId`) da includere nel payload del token.
 
-#### Caso semplice: solo password da appsettings
+#### Caso semplice: esclusivamente password da appsettings
 
-Per siti piccoli dove l'area protetta è ad uso esclusivamente personale (es. una dashboard admin che usi solo tu), verificare una singola password da `appsettings.json` è una soluzione perfettamente praticabile: semplice da configurare, zero dipendenze aggiuntive.
+Per siti piccoli dove l'area protetta è ad uso esclusivamente personale (es. una dashboard admin che usi esclusivamente tu), verificare una singola password da `appsettings.json` è una soluzione perfettamente praticabile: semplice da configurare, zero dipendenze aggiuntive.
 
 ```csharp
-// backend/Controllers/AuthController.cs — caso semplice, un solo admin
+// backend/Controllers/AuthController.cs, caso semplice, un esclusivamente admin
 using Microsoft.Extensions.Configuration;
 
 [HttpPost("login")]
@@ -877,7 +877,7 @@ public ActionResult<LoginResult> Login([FromBody] LoginRequest request)
 }
 ```
 
-**Quick win: aggiungi anche uno username.** Anche se entrambi sono hardcoded in `appsettings.json`, richiedere username + password è sempre meglio di richiedere solo la password — un attaccante deve indovinare due valori invece di uno. Non aumenta la complessità del codice:
+**Parametri compositi:** L'aggiunta di ulteriori verifiche (es. username) innalza la barriera di sicurezza combinatoria. L'implementazione rimane lineare:
 
 ```json
 // backend/appsettings.json
@@ -888,13 +888,13 @@ public ActionResult<LoginResult> Login([FromBody] LoginRequest request)
 ```
 
 ```csharp
-// backend/Models/LoginModels.cs — estendi LoginRequest per includere lo username
+// backend/Models/LoginModels.cs, estendi LoginRequest per includere lo username
 record LoginRequest(string? Username, string? Pwd);
 // LoginResult rimane invariato
 ```
 
 ```csharp
-// backend/Controllers/AuthController.cs — verifica username + password
+// backend/Controllers/AuthController.cs, verifica username + password
 var username = _configuration["Security:AdminUsername"];
 var password = _configuration["Security:AdminPassword"];
 if (request.Username != username || request.Pwd != password)
@@ -925,13 +925,13 @@ Il token JWT viene configurato in `appsettings.json` (vedi sotto).
 Se il progetto ha utenti multipli, registrazione pubblica, o dati sensibili di terzi, il meccanismo da `appsettings.json` non è sufficiente: le password degli utenti devono essere hashate nel database e non mai salvate in chiaro. Valuta caso per caso in base alla natura del progetto.
 
 | Segnale | Implicazione |
-|---|---|
-| Un solo utente admin, accesso personale | Appsettings con username+password va bene |
+|--|--|
+| Un esclusivamente utente admin, accesso personale | Appsettings con username+password va bene |
 | Più admin, ma gestiti manualmente | Appsettings con più entry o un hash nel DB senza framework completo |
 | Utenti registrati dal frontend | Necessario hash nel DB, blocco tentativi, verifica email |
 | Dati sensibili di terzi (GDPR) | Hash obbligatorio, valutare MFA, refresh token, audit log |
 
-Il template è volutamente anonimo riguardo al layer di persistenza (EF Core, Dapper, MongoDB — dipende dal progetto). Il pattern che segue è indipendente dall'ORM scelto.
+Il template è volutamente anonimo riguardo al layer di persistenza (EF Core, Dapper, MongoDB, dipende dal progetto). Il pattern che segue è indipendente dall'ORM scelto.
 
 #### Checklist per progetti con utenti multipli
 
@@ -947,7 +947,7 @@ Il template è volutamente anonimo riguardo al layer di persistenza (EF Core, Da
 
 Questo scaffold usa `Microsoft.AspNetCore.Identity.PasswordHasher<T>` perché è incluso in ASP.NET Core senza NuGet aggiuntivi e produce PBKDF2-SHA256. Se preferisci BCrypt, la logica è identica: sostituisci il hasher.
 
-**Passo 1 — Model utente** (`backend/Models/AppUser.cs`)
+**Passo 1, Model utente** (`backend/Models/AppUser.cs`)
 
 ```csharp
 // backend/Models/AppUser.cs
@@ -965,7 +965,7 @@ public class AppUser
 }
 ```
 
-**Passo 2 — Repository** (`backend/Services/IUserRepository.cs` + implementazione)
+**Passo 2, Repository** (`backend/Services/IUserRepository.cs` + implementazione)
 
 ```csharp
 // backend/Services/IUserRepository.cs
@@ -980,17 +980,17 @@ public interface IUserRepository
 
 L'implementazione concreta dipende dall'ORM scelto (EF Core, Dapper, ecc.) e non fa parte del template.
 
-**Passo 3 — Aggiornare `LoginRequest`** (se serve lo username)
+**Passo 3, Aggiornare `LoginRequest`** (se serve lo username)
 
 Il template usa `record LoginRequest(string? Pwd)`. Per un login reale aggiungi lo username:
 
 ```csharp
-// backend/Models/LoginModels.cs — estendi i record esistenti
+// backend/Models/LoginModels.cs, estendi i record esistenti
 record LoginRequest(string? Username, string? Pwd);
 // LoginResult rimane invariato: record LoginResult(bool Valid, string? Token, string? Error)
 ```
 
-**Passo 4 — Aggiornare `AuthController`**
+**Passo 4, Aggiornare `AuthController`**
 
 ```csharp
 // backend/Controllers/AuthController.cs
@@ -1057,15 +1057,15 @@ public class AuthController : EngineAuthController
 }
 ```
 
-**Passo 5 — Registrare il repository in `Program.cs`**
+**Passo 5, Registrare il repository in `Program.cs`**
 
 ```csharp
-// backend/Program.cs — aggiungere prima di builder.Build()
+// backend/Program.cs, aggiungere prima di builder.Build()
 builder.Services.AddScoped<IUserRepository, EfCoreUserRepository>();
 // oppure: builder.Services.AddScoped<IUserRepository, DapperUserRepository>();
 ```
 
-**Passo 6 — Hash iniziale di una password** (utility da eseguire una volta)
+**Passo 6, Hash iniziale di una password** (utility da eseguire una volta)
 
 ```csharp
 // Script di utilità per generare l'hash da inserire nel DB al primo avvio:
@@ -1087,7 +1087,7 @@ Console.WriteLine(hash);
 
 ## Content store
 
-`IContentStore` definisce il contratto di accesso ai dati senza sapere dove risiedano. Nessun servizio o controller conosce il formato di persistenza: dipendono solo dall'interfaccia.
+`IContentStore` definisce il contratto di accesso ai dati senza sapere dove risiedano. Nessun servizio o controller conosce il formato di persistenza: dipendono esclusivamente dall'interfaccia.
 
 ```csharp
 // backend/Store/IContentStore.cs
@@ -1103,9 +1103,9 @@ public interface IContentStore
 }
 ```
 
-L'implementazione attiva, `FileContentStore`, legge da `backend/data/`. Internamente usa `LocalizedJsonDeserializer`: un helper privato che percorre ricorsivamente le strutture `{ "it": ..., "en": ... }` presenti nel JSON, sceglie la lingua richiesta, ricade sul fallback italiano, e scarta i nodi vuoti. Il formato del JSON può quindi essere parzialmente localizzato — non tutti i campi devono avere una traduzione.
+L'implementazione attiva, `FileContentStore`, legge da `backend/data/`. Internamente usa `LocalizedJsonDeserializer`: un helper privato che percorre ricorsivamente le strutture `{ "it": ..., "en": ... }` presenti nel JSON, sceglie la lingua richiesta, ricade sul fallback italiano, e scarta i nodi vuoti. Il formato del JSON, di conseguenza, ha la capacità di essere parzialmente localizzato, non tutti i campi devono avere una traduzione.
 
-Per sostituire la sorgente dati (es. database) basta implementare `IContentStore` e registrarla in `Program.cs` — vedi la sezione [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database).
+Per sostituire la sorgente dati (es. database) basta implementare `IContentStore` e registrarla in `Program.cs`, vedi la sezione [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database).
 
 ### Dati inclusi nel template
 
@@ -1118,13 +1118,13 @@ Per sostituire la sorgente dati (es. database) basta implementare `IContentStore
 
 ## Sostituire FileContentStore con un database
 
-`IContentStore` è il contratto di accesso ai dati. L'implementazione attuale (`FileContentStore`) legge da file JSON in `backend/data/`. Passare a un database reale richiede solo di creare una nuova classe che implementa la stessa interfaccia — nessun altro file del progetto va modificato, perché controller e servizi dipendono da `IContentStore`, non dall'implementazione concreta.
+`IContentStore` è il contratto di accesso ai dati. L'implementazione attuale (`FileContentStore`) legge da file JSON in `backend/data/`. Passare a un database reale richiede esclusivamente di generare una nuova classe che implementa la stessa interfaccia, nessun altro file del progetto va modificato, perché controller e servizi dipendono da `IContentStore`, non dall'implementazione concreta.
 
-> **Dove mettere i file runtime persistenti (SQLite, JSON mutabili):** usa `backend/db/`, che è montato come volume Docker (`db-data:/app/db`). Il suo contenuto sopravvive ai rebuild e ai `docker compose down` senza `-v`. La cartella `backend/data/` è invece **baked nell'immagine**: perfetta per contenuto gestito via git (irl.json, social.json), ma non adatta per file che il container scrive o che non vuoi sovrascrivere ad ogni deploy.
+> **Persistenza runtime (SQLite, JSON mutabili):** I file generati a runtime vanno in `backend/db/`, montato come volume Docker (`db-data:/app/db`) per sopravvivere ai cicli di vita del container. La cartella `backend/data/` è **baked nell'immagine** ed è dedicata ai soli asset statici tracciati in git (`irl.json`, `social.json`).
 
 ### 1. Implementare `IContentStore`
 
-**Dove creare il file:** `backend/Store/DbContentStore.cs`. La nuova classe deve implementare tutti i metodi definiti in `IContentStore`.
+**Dove generare il file:** `backend/Store/DbContentStore.cs`. La nuova classe deve implementare tutti i metodi definiti in `IContentStore`.
 
 ```csharp
 // backend/Store/DbContentStore.cs
@@ -1168,7 +1168,7 @@ public class DbContentStore : IContentStore
 **Dove modificare:** `backend/Program.cs`, sezione `SERVIZI APPLICATIVI`. Sostituire la registrazione di `FileContentStore` con quella di `DbContentStore`.
 
 ```csharp
-// backend/Program.cs — sezione "SERVIZI APPLICATIVI"
+// backend/Program.cs, sezione "SERVIZI APPLICATIVI"
 // Registrare il DbContext con la connection string da appsettings.json:
 builder.Services.AddDbContext<MioDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
@@ -1177,7 +1177,7 @@ builder.Services.AddDbContext<MioDbContext>(options =>
 //   builder.Services.AddSingleton<IContentStore, FileContentStore>();
 // con:
 builder.Services.AddScoped<IContentStore, DbContentStore>();
-// (DbContentStore usa il DbContext che è Scoped, quindi non può essere Singleton)
+// (DbContentStore usa il DbContext che è Scoped, di conseguenza non ha la capacità di essere Singleton)
 ```
 
 Nessun altro file va modificato. Controller e servizi dipendono da `IContentStore`, che ora il DI risolve con `DbContentStore`.
