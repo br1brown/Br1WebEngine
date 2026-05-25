@@ -2,12 +2,12 @@ import { CanActivateFn, NavigationEnd, Route, Router, Routes } from '@angular/ro
 import { inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
-import { ContestoSito, PageType } from './site';
+import { ContestoSito } from './site';
 import { AuthService } from './core/services/auth.service';
 import { contentLoaderResolver } from './pages/content.resolver';
-import { InternalSitePage, isInternalPage, isParentPage } from './siteBuilder';
-import { NotificationService } from './core/services/notification.service';
-import { TranslateService } from './core/services/translate.service';
+import { InternalSitePage, isInternalPage, isParentPage } from './core/engine/siteBuilder';
+import { NotificationService } from './core/engine/services/notification.service';
+import { TranslateService } from './core/engine/services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -23,7 +23,7 @@ export function injectCurrentUrl() {
 /**
  * Guard di autenticazione: protegge le rotte che hanno il flag `requiresAuth`.
  */
-const authGuard: CanActivateFn = () => {
+const authGuard: CanActivateFn = (route) => {
     const t = inject(TranslateService);
     const authService = inject(AuthService);
     const notifaction = inject(NotificationService);
@@ -33,9 +33,24 @@ const authGuard: CanActivateFn = () => {
         return true;
     }
 
-    // La notifica non deve bloccare il redirect: il servizio carica SweetAlert2 in lazy mode.
-    void notifaction.error(t.translate('errore401Info'), t.translate('errore401Desc'));
-    return router.createUrlTree(['/error/401']);
+    // Mostriamo sempre la notifica (modale o toast) per spiegare all'utente PERCHÉ è stato interrotto.
+    // Essendo in una SPA, la modale rimarrà aperta anche durante e dopo il redirect,
+    // così l'utente leggerà il messaggio con la pagina di Login sullo sfondo.
+    void notifaction.error(t.translate('errore401Titolo'), t.translate('errore401Descrizione'));
+
+    const redirectPage = ContestoSito.config.pageForAuthGuard;
+    if (redirectPage != null) {
+        const path = ContestoSito.getPath(redirectPage);
+        if (path) {
+            // Redirigiamo alla pagina di login indicata, passando il vecchio pageType
+            return router.createUrlTree([path], {
+                queryParams: { returnPageType: route.data['pageType'] }
+            });
+        }
+    }
+
+    // Se redirectPage è nullo: blocchiamo la navigazione e restiamo fermi
+    return false;
 };
 
 /**
@@ -80,7 +95,9 @@ function toAngularRoute(page: InternalSitePage): Route {
         route.data = {
             ...route.data,
             pageType: page.pageType,
-            showPanel: page.showPanel !== undefined ? page.showPanel : true,
+            showPanel: page.showPanel ?? true,
+            showNav: page.showNav,
+            showFooter: page.showFooter,
             pageDescription: page.description ?? null,
             ogImage: page.ogImage ?? null,
         };
@@ -96,17 +113,26 @@ function toAngularRoute(page: InternalSitePage): Route {
  * Rotte di gestione errori (404, ecc.).
  */
 function buildErrorRoutes(): Routes {
+    const routes: Routes = [];
+    const authPage = ContestoSito.config.pageForAuthGuard;
+    const authPath = authPage != null ? ContestoSito.getPath(authPage) : null;
 
-    return [
+    if (authPath) {
+        routes.push({
+            path: 'error/401',
+            redirectTo: authPath,
+            pathMatch: 'full'
+        });
+    }
+
+    routes.push(
         {
             path: 'error/:errorCode',
-            title: 'errore',
+            title: 'genericoErrore',
             loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
-            // 'showPanel' rimane statico nel data, 'errorCode' arriverà dal path
             data: { showPanel: false }
         },
         {
-            // Fallback se si naviga su /error senza codice
             path: 'error',
             redirectTo: 'error/500',
             pathMatch: 'full'
@@ -116,5 +142,7 @@ function buildErrorRoutes(): Routes {
             path: '**',
             redirectTo: 'error/404'
         }
-    ];
+    );
+
+    return routes;
 }

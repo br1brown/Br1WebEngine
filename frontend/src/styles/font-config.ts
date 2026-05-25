@@ -46,4 +46,5 @@ export class FontConfig {
 
     /** Font di default per le immagini OG. */
     static readonly DEFAULT_SERVER_FONT = FontConfig.SERVER_FONTS.Liberation;
+
 }

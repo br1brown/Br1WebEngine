@@ -1,6 +1,6 @@
 # Br1WebEngine
 
-[![CI](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/br1brown/Br1WebEngine/actions/workflows/ci.yml)
+[![CI](https://github.com/br1brown/Br1WebEngine/actions/workflows/Controlli%20Automatici%20di%20Tutto.yml/badge.svg?branch=main)](https://github.com/br1brown/Br1WebEngine/actions/workflows/Controlli%20Automatici%20di%20Tutto.yml)
 
 **Un template full-stack per costruire siti web, basato su ASP.NET Core 9 e Angular 19.**
 
@@ -102,7 +102,7 @@ Un colore hex in configurazione genera in automatico il contrasto del testo (WCA
 
 ### Internazionalizzazione e contenuti
 
-Le lingue disponibili si dichiarano con tag BCP 47 validati a build time. Ogni lingua ha due file di traduzione: uno di base del template e uno di progetto che sovrascrive solo le chiavi necessarie. I contenuti legali sono file Markdown modificabili senza toccare il codice. Il Markdown viene renderizzato con protezione XSS integrata. Il consenso cookie si rileva da solo e blocca le scritture finché l'utente non accetta.
+Le lingue disponibili si dichiarano con tag BCP 47 validati a build time. Ogni lingua ha due file di traduzione: uno di base del template e uno di progetto che sovrascrive solo le chiavi necessarie. I contenuti legali sono file Markdown modificabili senza toccare il codice. Il Markdown viene renderizzato con protezione XSS integrata. Il consenso cookie si rileva da solo e blocca le scritture finché l'utente non accetta. I cookie del progetto si registrano in un unico file (`cookie-registry.ts`): il banner GDPR compare automaticamente per le categorie presenti, la pagina Cookie Policy si disabilita da sola quando non ci sono cookie da dichiarare, e il placeholder `{{cookieList}}` nei file Markdown si espande nella tabella dei cookie nella lingua corrente dell'utente — tutto senza configurazione aggiuntiva.
 
 ### Backend e sicurezza
 
@@ -111,6 +111,10 @@ Un campo vuoto in configurazione disabilita completamente il login JWT — nessu
 ### Componenti pronti all'uso
 
 Menu contestuale (click destro su desktop, long-press su mobile), 35+ piattaforme social con icona e colore brand precisi, condivisione nativa con fallback automatico su clipboard e download, generazione di immagini su canvas con word-wrap e colori dal tema, generatore QR code in cinque formati, ottimizzazione immagini on-demand con conversione WebP. Tutto senza configurazione aggiuntiva.
+
+### Test e qualità automatici
+
+Aggiungere una pagina o una lingua in `site.ts` aggiorna automaticamente anche la test suite — senza toccare gli script. L'audit WCAG e Lighthouse scopre le pagine da testare dallo stesso endpoint `/health` che alimenta la sitemap. Il check i18n legge le lingue dichiarate in configurazione e verifica che tutti i file di traduzione siano allineati. Un pre-commit hook blocca ogni commit che introduce violazioni di accessibilità ESLint. Cinque job CI paralleli coprono linting, type check, simmetria i18n, WCAG 2.1 AA e budget Lighthouse — ciascuno con log separati e segnalazione indipendente.
 
 ### Build e deploy
 

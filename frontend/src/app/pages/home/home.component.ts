@@ -7,20 +7,20 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { MarkdownPipe } from '../../shared/pipes/markdown.pipe';
-import { ShareService } from '../../core/services/share.service';
-import { ThemeService } from '../../core/services/theme.service';
-import { QrConfig } from '../../core/services/qr-code.service';
+import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
+import { ShareService } from '../../core/engine/services/share.service';
+import { ThemeService } from '../../core/engine/services/theme.service';
+import { QrConfig } from '../../core/engine/services/qr-code.service';
 
-import { TranslatePipe } from '../../shared/pipes/translate.pipe';
-import { ContextMenuOption } from '../../shared/components/context-menu/context-menu.models';
-import { ContextMenuDirective } from '../../shared/directives/context-menu.directive';
-import { QrRenderDirective } from '../../shared/directives/qr-render.directive';
-import { ImgRenderDirective, ImgRenderConfig } from '../../shared/directives/img-render.directive';
-import { AssetDirective } from '../../shared/directives/asset.directive';
+import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
+import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
+import { ContextMenuDirective } from '../../core/engine/directives/context-menu.directive';
+import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
+import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
+import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
-import { SpeechService } from '../../core/services/speech.service';
+import { SpeechService } from '../../core/engine/services/speech.service';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
 
 @Component({
@@ -57,8 +57,6 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     // --- Demo immagini integrata nella home ---
     imgText = 'Hello World';
-    imgBgColor = this.theme.colorPrimary();
-    imgTextColor = this.theme.colorPrimaryText();
     imgFontSize = 60;
 
     /** Config corrente del builder: aggiornata da ngModelChange e letta dalla
@@ -99,69 +97,183 @@ export class HomeComponent extends PageBaseComponent<void> {
     readonly assetResizeWidth = signal<AssetWidth | null>(null);
     readonly assetWidths = ALLOWED_WIDTHS;
 
-    // --- Demo menu contestuale ---
-    readonly contextMenuLastAction = signal('');
-    readonly clipboardContent = signal('');
-    contextDemoText = '';
-
-    readonly contextMenuOptions = computed<ContextMenuOption[]>(() => [
+    // --- Context menu per immagini generate ---
+    readonly imgContextMenuOptions = computed<ContextMenuOption[]>(() => [
         {
-            label: this.translate.translate('contextMenuCopy'),
-            icon: 'fa-solid fa-copy',
-            action: async () => {
-                this.contextMenuLastAction.set('copy');
-                const selected = window.getSelection()?.toString() || this.contextDemoText;
-                if (selected) {
-                    await this.share.copyText(selected);
-                    this.clipboardContent.set(selected);
-                }
-            }
+            label: this.translate.translate('scaricaAzione'),
+            icon: 'fa-solid fa-download',
+            action: () => this.downloadHomeImage()
         },
         {
-            label: this.translate.translate('contextMenuCut'),
-            icon: 'fa-solid fa-scissors',
-            action: async () => {
-                this.contextMenuLastAction.set('cut');
-                const selected = window.getSelection()?.toString() || '';
-                if (selected) {
-                    await this.share.copyText(selected);
-                    this.clipboardContent.set(selected);
-                    this.contextDemoText = this.contextDemoText.replace(selected, '');
-                    this.notify.toast(this.translate.translate('clipboardCut'), 'info');
-                }
-            }
-        },
-        {
-            label: this.translate.translate('contextMenuPaste'),
-            icon: 'fa-solid fa-paste',
-            action: async () => {
-                this.contextMenuLastAction.set('paste');
-                const text = await this.share.readText() || this.clipboardContent();
-                if (text) {
-                    this.contextDemoText += text;
-                    this.notify.toast(this.translate.translate('clipboardPasted'), 'success');
-                } else {
-                    this.notify.toast(this.translate.translate('clipboardEmpty'), 'warning');
-                }
-            }
-        },
-        { separator: true, label: '' },
-        {
-            label: this.translate.translate('contextMenuInfo'),
-            icon: 'fa-solid fa-circle-info',
-            action: () => {
-                this.contextMenuLastAction.set('info');
-                this.notify.success(this.translate.translate('contextMenuTitle'));
-            }
+            label: this.translate.translate('condividiAzione'),
+            icon: 'fa-solid fa-share-nodes',
+            action: () => this.shareHomeImage()
         }
     ]);
+
+    readonly qrContextMenuOptions = computed<ContextMenuOption[]>(() => {
+        const blob = this.qrBlob();
+        return blob ? [
+            {
+                label: this.translate.translate('scaricaAzione'),
+                icon: 'fa-solid fa-download',
+                action: () => void this.share.downloadBlob(blob, 'qrcode.png')
+            },
+            {
+                label: this.translate.translate('condividiAzione'),
+                icon: 'fa-solid fa-share-nodes',
+                action: () => void this.share.shareBlob(blob, 'qrcode.png', 'QR Code')
+            }
+        ] : [];
+    });
 
     // --- Demo modali ---
     readonly modalResult = signal('');
 
+    // --- Snippet di codice per la colonna destra di ogni sezione ---
+    readonly snippets = {
+        markdown:
+`<!-- Pipe nel template -->
+<div [innerHTML]="content | markdown"></div>
+
+<!-- Import nel componente -->
+imports: [MarkdownPipe]`,
+
+        imgRender:
+`// Config
+config: ImgRenderConfig = {
+  text: 'Testo',
+  fontSize: 60,
+  renderMode: 'wrap', // 'wrap'|'fit'|'single'
+};
+
+// Template
+// Nota: $event negli output Angular non è un DOM event
+// (come in un click), ma il valore emesso direttamente
+// dalla directive — qui HTMLCanvasElement|null.
+// Ometti (canvasChange) se non ti serve il canvas raw.
+<img [imgRender]="config"
+     (canvasChange)="canvas.set($event)"
+     alt="Immagine generata">`,
+
+        qrCode:
+`// Config (type: text|whatsapp|email|wifi|sepa)
+config: QrConfig = {
+  type: 'text',
+  content: 'https://example.com',
+};
+
+// Template
+// Nota: $event negli output Angular non è un DOM event
+// (come in un click), ma il valore emesso direttamente
+// dalla directive — qui Blob|null o string|null.
+// Entrambi gli output sono opzionali: omettili se non
+// hai bisogno di download/condivisione o messaggi errore.
+<img [qrContent]="config"
+     (blobChange)="blob.set($event)"
+     (errorChange)="err.set($event)"
+     alt="QR Code">`,
+
+        speech:
+`speech = inject(SpeechService);
+
+// Parla / ferma
+speech.speak('Ciao!');
+speech.stop();
+
+// Signals
+speech.isSpeaking()   // boolean
+speech.currentVoice() // SpeechSynthesisVoice`,
+
+        notify:
+`notify = inject(NotificationService);
+
+// Toast
+notify.toast('Salvato', 'success');
+
+// Alert
+await notify.success('Completato');
+
+// Conferma
+const ok = await notify.confirm(
+  'Titolo', 'Sei sicuro?'
+);
+
+// Prompt
+const val = await notify.prompt(
+  'Titolo', 'Campo', 'OK', 'Annulla'
+);`,
+
+        theme:
+`/* Token CSS — sempre da variabile */
+background: var(--colorSurface);
+color:       var(--colorSurfaceText);
+border: 1px solid var(--colorSurfaceBorder);
+
+/* Colore brand (WCAG AA garantito) */
+background: var(--colorPrimary);
+color:       var(--colorPrimaryText);
+
+/* Focus ring (WCAG 2.4.7) */
+outline: var(--focusRingWidth)
+         solid var(--focusRingColor);`,
+
+        i18n:
+`// Template
+{{ 'chiave' | translate }}
+[attr.aria-label]="'chiave' | translate"
+{{ 'msg' | translate : arg1 }}
+
+// TypeScript
+translate = inject(TranslateService);
+translate.translate('chiave');
+translate.currentLang() // Signal<string>
+
+// File: src/assets/i18n/
+//   basic.it.json  /  basic.en.json
+//   addon.it.json  /  addon.en.json`,
+
+        api:
+`// 1. api.service.ts
+const API = { items: 'items' } as const;
+getItems(): Promise<Item[]> {
+  return this.api_get<Item[]>(API.items);
+}
+
+// 2. content.resolver.ts
+case PageType.Pagina:
+  content = await this.api.getItems();
+  break;
+
+// 3. Componente (via resolver)
+pageContent() // Signal<Item[] | null>
+
+// 4. Chiamata extra
+await this.loadData(
+  () => this.api.getItems()
+);`,
+
+        asset:
+`<!-- Originale -->
+<img [appAsset]="'nomeAsset'" alt="Foto">
+
+<!-- Ridimensionato (WebP) -->
+<img [appAsset]="'nomeAsset'"
+     [appAssetWidth]="480"
+     alt="Foto">
+
+<!-- URL da TypeScript -->
+asset.getUrl('nomeAsset', 480)
+// → /assets/.../nomeAsset_480.webp
+
+<!-- Href per link/download -->
+<a [appAssetHref]="'documento'">
+  Scarica PDF
+</a>`,
+    } as const;
+
     constructor() {
         super();
-        this.contextDemoText = '';
 
         effect(() => {
             this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
@@ -203,9 +315,7 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     resetHomeImage(): void {
         this.imgText = 'Hello World';
-        this.imgBgColor = this.theme.colorPrimary();
-        this.imgTextColor = this.theme.colorPrimaryText();
-        this.imgFontSize = 48;
+        this.imgFontSize = 60;
         this.onImageInputChange();
     }
 
@@ -226,7 +336,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     shareHomeImage(): void {
         const canvas = this.imgCanvas();
         if (!canvas) return;
-        void this.share.shareCanvas(canvas, this.appName, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`);
+        void this.share.shareCanvas(canvas, `${this.appName.toLowerCase().replace(/\s+/g, '-')}-image.png`, this.appName);
     }
 
     // ==================== QR Code ====================
@@ -267,7 +377,7 @@ export class HomeComponent extends PageBaseComponent<void> {
             this.translate.translate('modalConfirmTitle'),
             this.translate.translate('modalConfirmBody')
         );
-        this.modalResult.set(this.translate.translate(confirmed ? 'confirmed' : 'cancelled'));
+        this.modalResult.set(this.translate.translate(confirmed ? 'confermatoStato' : 'annullatoStato'));
     }
 
     async showFormModal(): Promise<void> {
@@ -275,7 +385,7 @@ export class HomeComponent extends PageBaseComponent<void> {
             this.translate.translate('modalFormTitle'),
             this.translate.translate('modalFormNameLabel'),
             this.translate.translate('modalFormSubmit'),
-            this.translate.translate('annulla'),
+            this.translate.translate('annullaAzione'),
         );
         if (value !== null) {
             this.modalResult.set(`${this.translate.translate('modalResultSubmitted')}: ${value}`);
@@ -318,8 +428,8 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     get apiStatus(): string {
         return this.translate.translate(
-            'apiStatus',
-            this.translate.translate('online')
+            'apiStato',
+            this.translate.translate('onlineStato')
         );
     }
 }

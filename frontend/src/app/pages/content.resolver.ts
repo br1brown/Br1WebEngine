@@ -1,12 +1,20 @@
-import { inject, Injectable, REQUEST } from '@angular/core';
+import { inject, Injectable, InjectionToken } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ResolveFn } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ContestoSito, PageType } from '../site';
-import { TranslateService } from '../core/services/translate.service';
+import { TranslateService } from '../core/engine/services/translate.service';
 import { ApiService } from '../core/services/api.service';
-import { PageInfo } from '../siteBuilder';
+import { PageInfo } from '../core/engine/siteBuilder';
+
+export type LegalFileReader = (slug: string, lang: string) => Promise<string | null>;
+
+/** In SSR viene fornita da app.config.server.ts per leggere i file .md da disco.
+ *  Nel browser rimane null e tryLoadPolicy usa la fetch HTTP normale. */
+export const LEGAL_FILE_READER = new InjectionToken<LegalFileReader | null>(
+    'LegalFileReader', { providedIn: 'root', factory: () => null }
+);
 
 /**
  * Dati restituiti dal resolver: contenuto della pagina + metadati SEO.
@@ -21,20 +29,27 @@ export interface ResolvedPage<T = unknown> {
 /**
  * Servizio centralizzato per il caricamento dei contenuti di pagina.
  *
- * Punto unico di estensione: per aggiungere contenuto a una nuova pagina
- * basta aggiungere un case in fileSlug() — nessun altro file da toccare.
+ * Per aggiungere il contenuto di una nuova pagina:
+ *   1. Aggiungere il metodo in ApiService (o usare tryLoadPolicy per file statici)
+ *   2. Aggiungere un case nello switch di loadResolved()
  *
- * In SSR la fetch viene risolta come URL assoluta usando l'origin della request
- * corrente (token REQUEST), cosi' la chiamata loopback raggiunge lo stesso
- * processo Express che serve gli asset statici. Nel browser resta un path
- * relativo, intercettato dal service worker / cache standard.
+ * Il try-catch esterno protegge il router: se l'API fallisce, BaseApiService
+ * ha già mostrato il dialog all'utente e il resolver restituisce content = null
+ * invece di rigettare (che cancellerebbe la navigazione).
+ *
+ * In SSR i file .md delle policy vengono letti direttamente da disco tramite
+ * LEGAL_FILE_READER (fornito da app.config.server.ts), eliminando la chiamata
+ * HTTP loopback. Nel browser resta una semplice fetch relativa.
+ *
+ * I placeholder {{cookieList}} e {{ragioneSociale}} ecc. sono gestiti
+ * interamente da PolicyComponent — il resolver restituisce Markdown grezzo.
  */
 @Injectable({ providedIn: 'root' })
 export class ContentResolver {
     private readonly http = inject(HttpClient);
     private readonly translate = inject(TranslateService);
     private readonly apiService = inject(ApiService);
-    private readonly request = inject(REQUEST, { optional: true });
+    private readonly fileReader = inject(LEGAL_FILE_READER);
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
@@ -43,36 +58,41 @@ export class ContentResolver {
             language = ContestoSito.config.defaultLang;
 
         let content: unknown = null;
-        //Pronto per essere modificato da eventuali api future - vedi apiService
-        let info = ContestoSito.getPageInfo(pageType);
+        const info = ContestoSito.getPageInfo(pageType);
 
-        switch (pageType) {
-            case PageType.Social:
-                content = await this.apiService.getSocial();
-                break;
-            case PageType.PrivacyPolicy:
-                content = await this.tryLoadPolicy('privacy', language);
-                break;
-            case PageType.CookiePolicy:
-                content = await this.tryLoadPolicy('cookie', language);
-                break;
-            case PageType.TermsOfService:
-                content = await this.tryLoadPolicy('TOS', language);
-                break;
-            case PageType.LegalNotice:
-                content = await this.tryLoadPolicy('legal', language);
-                break;
+        try {
+            switch (pageType) {
+                case PageType.Social:
+                    content = await this.apiService.getSocial();
+                    break;
+                case PageType.PrivacyPolicy:
+                    content = await this.tryLoadPolicy('privacy', language);
+                    break;
+                case PageType.CookiePolicy:
+                    content = await this.tryLoadPolicy('cookie', language);
+                    break;
+                case PageType.TermsOfService:
+                    content = await this.tryLoadPolicy('TOS', language);
+                    break;
+                case PageType.LegalNotice:
+                    content = await this.tryLoadPolicy('legal', language);
+                    break;
+            }
+        } catch {
+            // BaseApiService.handleError() ha già notificato l'utente via Swal.
+            // Restituiamo null content affinché il resolver si risolva sempre
+            // e il router completi la navigazione invece di cancellarla.
+            content = null;
         }
 
         return { content, info: info };
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
-        const path = `/assets/legal/${slug}.${lang}.md`;
-        const url = this.request ? new URL(path, this.request.url).toString() : path;
-
-        return await firstValueFrom(
-            this.http.get(url, { responseType: 'text' }).pipe(catchError(() => of(null)))
+        if (this.fileReader) return this.fileReader(slug, lang);
+        return firstValueFrom(
+            this.http.get(`/assets/legal/${slug}.${lang}.md`, { responseType: 'text' })
+                .pipe(catchError(() => of(null)))
         );
     }
 }

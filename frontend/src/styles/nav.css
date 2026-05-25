@@ -36,17 +36,11 @@ footer a {
     position: relative;
 }
 
+/* d-flex/align-items-center/justify-content-between/gap-1/user-select-none/border-0/
+   bg-transparent/text-decoration-none sono utility Bootstrap nell'HTML */
 .nav-disclosure-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.4rem;
     cursor: pointer;
     list-style: none;
-    border: 0;
-    background: transparent;
-    text-decoration: none;
-    user-select: none;
 }
 
 .nav-disclosure-summary::marker,
@@ -70,20 +64,18 @@ footer a {
     transform: rotate(225deg) translateY(-0.02rem);
 }
 
+/* list-style/overflow gestiti da list-unstyled e overflow-hidden nell'HTML */
 .nav-disclosure-menu {
     color: inherit;
-    list-style: none;
     margin: 0.35rem 0 0;
     padding: 0.35rem 0;
     min-width: 14rem;
     border-radius: 0.85rem;
     border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
-    overflow: hidden;
 }
 
 .nav-disclosure-menu li {
-    list-style: none;
     margin: 0;
 }
 

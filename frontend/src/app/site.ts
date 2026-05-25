@@ -1,5 +1,5 @@
-import { inject } from '@angular/core';
-import { buildSite } from './siteBuilder';
+
+import { buildSite } from './core/engine/siteBuilder';
 
 export type {
     SiteConfig,
@@ -7,7 +7,53 @@ export type {
     SitePageInput,
     SmokeSettings,
     SmokeSettingsInput
-} from './siteBuilder';
+} from './core/engine/siteBuilder';
+
+import type { SitePageInput as _SitePageInput } from './core/engine/siteBuilder';
+
+/**
+ * Genera il blocco di configurazione per le pagine legali e di policy.
+ * Centralizzare questa logica assicura che il template fornisca "by default"
+ * tutte le rotte necessarie per la conformità normativa (Privacy, Cookie, Termini, Legale).
+ * 
+ * @returns Un array di configurazioni `SitePageInput` destinate alla rotta padre `/legale`.
+ */
+function _createPolicy(): _SitePageInput[] {
+    // Estraiamo il loader lazy per evitare di duplicare la chiusura e l'istruzione di import() 4 volte.
+    // Questo aiuta il bundler di Angular a ottimizzare il chunking.
+    const loadPolicyComponent = () => import('./pages/policy/policy.component').then(m => m.PolicyComponent);
+
+    return [
+        {
+            path: 'privacy',
+            title: 'privacyPolicyMenu',
+            description: 'privacyPolicyDescrizione',
+            pageType: PageType.PrivacyPolicy,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'termini',
+            title: 'terminiPolicyMenu',
+            description: 'terminiPolicyDescrizione',
+            pageType: PageType.TermsOfService,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'cookie',
+            title: 'cookiePolicyMenu',
+            description: 'cookiePolicyDescrizione',
+            pageType: PageType.CookiePolicy,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'legal',
+            title: 'noteLegaliPolicyMenu',
+            description: 'noteLegaliPolicyDescrizione',
+            pageType: PageType.LegalNotice,
+            component: loadPolicyComponent,
+        }
+    ];
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // ENUM PageType — identita' di ogni pagina
@@ -27,12 +73,14 @@ export type {
 //   del codice che ancora lo usano. Con le stringhe lo scopri a runtime.
 //
 export enum PageType {
-    Home,
-    Social,
+    //IMPORTANTI
     PrivacyPolicy,
     CookiePolicy,
     TermsOfService,
     LegalNotice,
+    //PERSONALIZZABILI
+    Home,
+    Social,
     Impostazioni,
     GitHub,
 }
@@ -67,7 +115,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // description → meta description per SEO
     // colorTema          → colore principale del sito (hex). Determina automaticamente
     //                       il tono del testo (chiaro/scuro) e la CSS var --colorTema
-    // showFooter         → mostra/nascondi il footer
+    // showNav            → mostra/nascondi la navbar (default true)
+    // showFooter         → mostra/nascondi il footer (default true)
     // smoke              → effetto particellare di sfondo (omettilo per disabilitarlo)
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
@@ -75,7 +124,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         defaultLang: 'it',
         availableLanguages: ['it', 'en'],
         description: 'Template di base che serve per fare vedere le funzionalità base',
-        colorTema: '#131e54',
+        colorTema: '#131e55',
         showFooter: true,
         fixedTopHeader: true,
         smoke: {
@@ -104,7 +153,12 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     //
     // Campi opzionali:
     //   requiresAuth → true = richiede login (JWT), altrimenti redirect
-    //   showPanel    → false = pagina a tutto schermo (utile per landing)
+    //   layout       → { showPanel, showNav, showFooter } override per-pagina
+    //                  della shell (subordinati ai flag globali del sito)
+    //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
+    //                  per-pagina (vedi DEVELOPMENT.md "Meta SEO e SSR")
+    //   description  → chiave i18n o stringa per meta description + sitemap
+    //   renderMode   → 'server' (default) | 'client' (no SSR)
     //   data         → dati custom passati al componente via route.data
     //
     // Il componente DEVE estendere PageBaseComponent (fornisce translate,
@@ -114,64 +168,35 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.defineSitePages([
         {
             path: '',
-            title: 'home',
+            title: 'homeNav',
             pageType: PageType.Home,
             description: 'homeDesc',
+            otherSEO: {
+                ogImage: 'img4k',
+            },
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
         {
             path: 'social-feed',
-            title: 'social',
+            title: 'socialNav',
             pageType: PageType.Social,
             description: 'socialDesc',
-            renderMode: 'server',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-            showPanel: false,
+            layout: { showPanel: false },
         },
         {
-            path: 'legale',
+            path: 'policy',
             title: 'policies',
-            children: [
-                {
-                    path: 'privacy',
-                    title: 'privacypolicy',
-                    description: 'privacyPolicyDesc',
-                    pageType: PageType.PrivacyPolicy,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'termini',
-                    title: 'termsofservice',
-                    description: 'termsOfServiceDesc',
-                    pageType: PageType.TermsOfService,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'cookie',
-                    title: 'cookiepolicy',
-                    description: 'cookiePolicyDesc',
-                    pageType: PageType.CookiePolicy,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'legal',
-                    title: 'legalnotice',
-                    description: 'legalNoticeDesc',
-                    pageType: PageType.LegalNotice,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                }
-            ]
+            children: _createPolicy()
         },
         {
-            title: 'projectSources',
-            enabled: true,
+            title: 'githubDesc',
             pageType: PageType.GitHub,
             externalUrl: 'https://github.com/br1brown/Br1WebEngine'
         },
         {
             path: 'impostazioni',
-            title: 'settings',
-            enabled: true,
+            title: 'impostazioniNav',
             requiresAuth: true,
             pageType: PageType.Impostazioni,
             description: 'settingsDesc',
@@ -195,7 +220,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.configureHeaderNavigation(h => {
         h.addPage(PageType.Impostazioni);
 
-        h.addGroup('policies', g => {
+        h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);
@@ -207,7 +232,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 
     siteFondamentaBuilder.configureFooterNavigation(f => {
         f.addPage(PageType.GitHub);
-        f.addGroup('policies', g => {
+        f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);

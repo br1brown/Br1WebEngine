@@ -1,0 +1,13 @@
+.back-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+}
+
+@supports (bottom: env(safe-area-inset-bottom)) {
+    .back-to-top {
+        bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+        right: calc(2rem + env(safe-area-inset-right, 0px));
+    }
+}

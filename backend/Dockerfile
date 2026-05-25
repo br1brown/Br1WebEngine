@@ -23,7 +23,9 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 COPY --from=build /app/publish ./
 
-RUN adduser -D -u 1000 appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/uploads /app/db && \
+    adduser -D -u 1000 appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 ENV ASPNETCORE_ENVIRONMENT=Production

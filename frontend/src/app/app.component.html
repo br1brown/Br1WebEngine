@@ -1,11 +1,11 @@
 <a class="visually-hidden-focusable skip-link" href="#main-content">
-    {{ 'skipToContent' | translate }}
+    {{ 'saltaContenutoNav' | translate }}
 </a>
 
 <app-back-to-top />
 <app-cookie-banner />
 
-@if (smoke.enable) {
+@if (showSmoke()) {
     <app-smoke-effect [config]="smoke" />
 }
 
@@ -13,7 +13,7 @@
     <app-navbar />
 }
 
-<main id="main-content" class="container-fluid py-4">
+<main id="main-content" class="container-fluid py-4 flex-grow-1">
     <div class="row">
         @if (showPanel()) {
             <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
@@ -29,6 +29,6 @@
     </div>
 </main>
 
-@if (showFooter) {
+@if (showFooter()) {
     <app-footer />
 }

@@ -1,0 +1,31 @@
+@if (links().length > 0) {
+    <nav [attr.aria-label]="'footerNav' | translate">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="row justify-content-center">
+                @for (item of links(); track item.path) {
+                    <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3 text-start">
+                        @if (isGroup(item)) {
+                            <div>
+                                <span class="small fw-bold text-uppercase d-block mb-2">
+                                    {{ item.label | translate }}
+                                </span>
+                                <ul class="list-unstyled mb-0">
+                                    @for (sub of item.children; track sub.path) {
+                                        <li>
+                                            <app-nav-link [link]="sub" cssClass="d-block small py-2" />
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        } @else {
+                            <app-nav-link [link]="item" cssClass="d-block small py-2" />
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <hr />
+    </nav>
+}

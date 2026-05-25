@@ -81,8 +81,8 @@ Questo resta il file consumato da Docker Compose.
 | `FRONTEND_BASE_URL` | no | — | URL canonico pubblico del frontend |
 | `EXPOSE_BACKEND` | no | — | Impostata da `deploy.sh`: `yes` espone la porta backend sull'host |
 | `PUBLIC_TEST_PORT` | no | `8088` | Porta host usata dal reverse proxy del test pubblico |
-| `PUBLIC_TEST_BASE_URL` | no | `http://br1gaming.localhost:8088` | URL pubblico simulato per il test locale |
-| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `br1gaming.localhost` | Host inoltrato dal reverse proxy al frontend SSR |
+| `PUBLIC_TEST_BASE_URL` | no | `http://localhost:8088` | URL pubblico simulato per il test locale |
+| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `localhost` | Host inoltrato dal reverse proxy al frontend SSR |
 
 I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
 
@@ -102,7 +102,7 @@ Note pratiche:
 - Al primo avvio il frontend esegue `npm ci` nel container, quindi puo' metterci un po'
 - In sviluppo restano due container separati: uno per il frontend e uno per il backend
 
-## Produzione
+## Produzione e Sicurezza Blue/Green
 
 ```bash
 # Crea o modifica .env.param e backend/appsettings.json con i tuoi valori, poi:
@@ -116,6 +116,17 @@ In produzione:
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
+Lo script `./deploy.sh` utilizza una logica avanzata **"Pre-flight" (Blue/Green safety)** per garantirti zero downtime e prevenire errori fatali:
+1. **Build con Quality Check**: Compila le immagini Docker (eseguendo anche `npm run lint` per bloccare subito la build in caso di codice di bassa qualita').
+2. **Pre-flight Test**: Avvia i nuovi container su un ambiente isolato (su una porta temporanea e nascosta).
+3. **Validazione e Test Suite**: Attende che il server risponda con HTTP 200 (Healthcheck). Inoltre, esegue *automaticamente* tutta la suite di test (`run-all.sh`) sull'ambiente nascosto.
+4. **Scambio (Swap)**: Solo se l'healthcheck e i test passano con successo, il deploy procede rimpiazzando i container vecchi. Se c'e' un errore, il deploy si annulla e il sito in produzione resta online intatto.
+
+Se hai un'emergenza e devi eseguire un deploy saltando la suite di test completa (l'healthcheck base verra' comunque eseguito), puoi usare:
+```bash
+./deploy.sh --skip-tests
+```
+
 ## Test pubblico dietro reverse proxy
 
 Per riprodurre in locale la catena reale `browser -> reverse proxy -> frontend SSR -> backend` usa l'overlay dedicato:
@@ -126,7 +137,7 @@ docker compose -f docker-compose.yml -f docker-compose.public-test.yml up -d --b
 
 URL di test predefinito:
 
-- `http://br1gaming.localhost:8088`
+- `http://localhost:8088`
 
 Cosa simula davvero:
 
@@ -138,10 +149,9 @@ Cosa simula davvero:
 Smoke test utili:
 
 ```bash
-curl -i http://127.0.0.1:8088/health -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/avventura/poveri-maschi -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/generatori/incel -H "Host: br1gaming.localhost"
-curl -i http://127.0.0.1:8088/api/stories -H "Host: br1gaming.localhost"
+curl -i http://localhost:8088/health
+curl -i http://localhost:8088/
+curl -i http://localhost:8088/api/health
 ```
 
 Script pronti:
@@ -176,6 +186,7 @@ Nota: `BACKEND_PORT` controlla solo la porta pubblicata sull'host. Il container 
 ### Controlli all'avvio
 
 `deploy.sh` verifica che `COMPOSE_PROJECT_NAME` e `FRONTEND_PORT` siano impostati prima di avviare Docker.
+Lo script esegue anche un controllo intelligente sulle porte: legge le etichette (`com.docker.compose.project`) dei container Docker per capire se una porta occupata appartiene al tuo stesso progetto (che sta per essere aggiornato) o a un altro progetto, prevenendo conflitti incrociati.
 Con `--no-cache` forza la ricostruzione delle immagini partendo da zero.
 
 ## Comandi utili

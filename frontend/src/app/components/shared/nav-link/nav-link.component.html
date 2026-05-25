@@ -1,0 +1,20 @@
+@if (link().isExternal) {
+    <a [class]="cssClass()"
+       [href]="link().path"
+       target="_blank"
+       rel="noopener noreferrer"
+       (click)="onClick()">
+        {{ link().label | translate }}
+        <span class="visually-hidden"> ({{ 'apreNuovaSchedaNav' | translate }})</span>
+    </a>
+} @else if (isActive()) {
+    <span [class]="resolvedClass()" aria-current="page">
+        {{ link().label | translate }}
+    </span>
+} @else {
+    <a [class]="cssClass()"
+       [routerLink]="link().path"
+       (click)="onClick()">
+        {{ link().label | translate }}
+    </a>
+}

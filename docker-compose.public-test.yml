@@ -1,8 +1,8 @@
 services:
   frontend:
     environment:
-      FRONTEND_BASE_URL: "${PUBLIC_TEST_BASE_URL:-http://br1gaming.localhost:8088}"
-      NG_ALLOWED_HOSTS: "${PUBLIC_TEST_ALLOWED_HOSTS:-br1gaming.localhost}"
+      FRONTEND_BASE_URL: "${PUBLIC_TEST_BASE_URL:-http://localhost:8088}"
+      NG_ALLOWED_HOSTS: "${PUBLIC_TEST_ALLOWED_HOSTS:-localhost}"
 
   public-proxy:
     image: nginx:1.27-alpine

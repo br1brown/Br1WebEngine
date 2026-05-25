@@ -7,12 +7,13 @@
 #   ./deploy.sh --skip-post-deploy   Skip health checks after deployment
 #   ./deploy.sh --dev                Development mode
 #   ./deploy.sh --no-cache           Force clean Docker rebuild
-#   ./deploy.sh --test-public        Run isolated public tests (e.g., in CI)
+#   ./deploy.sh --test-public        Run isolated smoke test in CI (infra only)
 #   ./deploy.sh --help               Show this message
 #
 # Options for --test-public:
 #   --down-after                     Stop the test stack at the end
-#   --public-host HOST               Public host header (default: br1gaming.localhost)
+#   --run-tests                      Call scripts/test/run-all.sh after health check
+#   --public-host HOST               Public host header (default: localhost)
 #   --public-port PORT               Public reverse proxy port (default: 8088)
 #   --skip-invalid-host-check        Skip the negative host authorization check
 # =============================================================================
@@ -33,7 +34,8 @@ TEST_POST_DEPLOY=true
 # Variabili specifiche per i test pubblici
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
-PUBLIC_HOST="br1gaming.localhost"
+RUN_TESTS=true
+PUBLIC_HOST="localhost"
 PUBLIC_PORT="8088"
 
 # Parsing argomenti
@@ -44,11 +46,13 @@ while [[ $# -gt 0 ]]; do
         --test-public) TEST_PUBLIC=true; shift ;;
         --skip-post-deploy) TEST_POST_DEPLOY=false; shift ;;
         --down-after) DOWN_AFTER=true; shift ;;
+        --skip-tests) RUN_TESTS=false; shift ;;
+        --run-tests) RUN_TESTS=true; shift ;;
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
         *)
-            echo "  WARN unknown option ignored: $1" >&2
+            echo "  WARN opzione sconosciuta ignorata: $1" >&2
             shift
             ;;
     esac
@@ -162,36 +166,36 @@ sync_env_from_params() {
 ERRORS=0
 
 echo
-echo -e "${BOLD}Prerequisites${RESET}"
+echo -e "${BOLD}Prerequisiti${RESET}"
 
-command -v docker >/dev/null 2>&1 && ok "Docker found" || { echo -e "  ${RED}ERR${RESET} Docker not found" >&2; exit 1; }
-docker compose version >/dev/null 2>&1 && ok "docker compose found" || { echo -e "  ${RED}ERR${RESET} docker compose not found" >&2; exit 1; }
-[[ -f docker-compose.yml ]] && ok "docker-compose.yml present" || { echo -e "  ${RED}ERR${RESET} docker-compose.yml missing" >&2; exit 1; }
+command -v docker >/dev/null 2>&1 && ok "Docker trovato" || { echo -e "  ${RED}ERR${RESET} Docker non trovato" >&2; exit 1; }
+docker compose version >/dev/null 2>&1 && ok "docker compose trovato" || { echo -e "  ${RED}ERR${RESET} docker compose non trovato" >&2; exit 1; }
+[[ -f docker-compose.yml ]] && ok "docker-compose.yml presente" || { echo -e "  ${RED}ERR${RESET} docker-compose.yml mancante" >&2; exit 1; }
 
 echo
-echo -e "${BOLD}Configuration${RESET}"
+echo -e "${BOLD}Configurazione${RESET}"
 
 if [[ ! -f .env ]]; then
     if [[ -f .env.param ]]; then
         touch .env
-        ok ".env created"
+        ok ".env creato"
     else
         echo -e "  ${RED}ERR${RESET} .env.param non trovato!" >&2
         echo "  Crea un file .env.param con le tue configurazioni e riprova."
         exit 1
     fi
 fi
-ok ".env present"
+ok ".env presente"
 
 if [[ -f .env.param ]]; then
     sync_env_from_params
 else
-    warn ".env.param not present, using .env directly"
+    warn ".env.param non presente, utilizzo diretto di .env"
 fi
 
 if [[ "$DEV_MODE" == true ]]; then
     echo
-    echo -e "${BOLD}Development${RESET}"
+    echo -e "${BOLD}Sviluppo${RESET}"
     echo "  Frontend: http://localhost:$(env_get DEV_FRONTEND_PORT || echo 4200)"
     echo "  Backend:  http://localhost:$(env_get DEV_BACKEND_PORT || echo 5000)"
     echo
@@ -206,13 +210,13 @@ EXPOSE_BACKEND="$(env_get EXPOSE_BACKEND)"
 FRONTEND_BASE_URL="$(env_get FRONTEND_BASE_URL)"
 NG_ALLOWED_HOSTS="$(env_get NG_ALLOWED_HOSTS)"
 
-[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME missing in .env"
-[[ "$COMPOSE_PROJECT_NAME" == "CHANGE_ME" ]] && fail "COMPOSE_PROJECT_NAME is still CHANGE_ME"
-[[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contains invalid characters"
-[[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT missing in .env"
+[[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME mancante in .env"
+[[ "$COMPOSE_PROJECT_NAME" == "CHANGE_ME" ]] && fail "COMPOSE_PROJECT_NAME è ancora CHANGE_ME"
+[[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi"
+[[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT mancante in .env"
 
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "${BACKEND_PORT:-}" ]]; then
-    fail "EXPOSE_BACKEND=yes requires BACKEND_PORT"
+    fail "EXPOSE_BACKEND=yes richiede BACKEND_PORT"
 fi
 
 [[ -n "$COMPOSE_PROJECT_NAME" && "$COMPOSE_PROJECT_NAME" != "CHANGE_ME" ]] && ok "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
@@ -221,31 +225,31 @@ fi
 if [[ -n "$FRONTEND_BASE_URL" ]]; then
     ok "FRONTEND_BASE_URL=${FRONTEND_BASE_URL}"
 else
-    warn "FRONTEND_BASE_URL not set"
+    warn "FRONTEND_BASE_URL non impostato"
 fi
 
 if [[ -n "$NG_ALLOWED_HOSTS" ]]; then
     ok "NG_ALLOWED_HOSTS=${NG_ALLOWED_HOSTS}"
 else
-    warn "NG_ALLOWED_HOSTS not set"
+    warn "NG_ALLOWED_HOSTS non impostato"
 fi
 
 if (( ERRORS > 0 )); then
     echo
-    echo -e "  ${RED}ERR${RESET} Fix configuration before deploying" >&2
+    echo -e "  ${RED}ERR${RESET} Correggi la configurazione prima di fare il deploy" >&2
     exit 1
 fi
 
 compose_files=(-f docker-compose.yml)
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" ]]; then
     if [[ ! -f docker-compose.backend-exposed.yml ]]; then
-        warn "EXPOSE_BACKEND=yes but docker-compose.backend-exposed.yml not found, continuing without it"
+        warn "EXPOSE_BACKEND=yes ma docker-compose.backend-exposed.yml non trovato, continuo senza"
     else
         compose_files+=(-f docker-compose.backend-exposed.yml)
-        ok "Backend exposed on host port ${BACKEND_PORT:-8080}"
+        ok "Backend esposto sulla porta host ${BACKEND_PORT:-8080}"
     fi
 else
-    ok "Backend kept internal to Docker network"
+    ok "Backend mantenuto interno alla rete Docker"
 fi
 
 # =============================================================================
@@ -300,7 +304,7 @@ wait_for_http() {
         sleep "$delay_seconds"
     done
 
-    echo -e "  ${RED}ERR${RESET} Service did not return HTTP ${expected_status} for ${url}" >&2
+    echo -e "  ${RED}ERR${RESET} Il servizio non ha restituito HTTP ${expected_status} per ${url}" >&2
     return 1
 }
 
@@ -336,7 +340,7 @@ wait_backend_internal() {
         sleep "$delay_seconds"
     done
 
-    echo -e "  ${RED}ERR${RESET} backend internal /health did not become ready" >&2
+    echo -e "  ${RED}ERR${RESET} l'endpoint interno /health del backend non è diventato pronto" >&2
     return 1
 }
 
@@ -366,35 +370,46 @@ if [[ "$TEST_PUBLIC" == true ]]; then
 
     cleanup_test() {
         if [[ "$DOWN_AFTER" == true ]]; then
-            info "Stopping test stack..."
+            info "Arresto dello stack di test..."
             compose_test down
         fi
     }
     trap cleanup_test EXIT
 
-    info "Public browser URL: ${browser_url}"
-    info "Proxy test URL: ${public_base_url}"
+    info "URL browser pubblico: ${browser_url}"
+    info "URL proxy di test: ${public_base_url}"
 
     if [[ "$NO_CACHE" == true ]]; then
-        info "Building test stack with --no-cache"
+        info "Costruzione dello stack di test con --no-cache"
         compose_test build --no-cache
     else
-        info "Building test stack"
+        info "Costruzione dello stack di test"
         compose_test build
     fi
     compose_test up -d
 
-    info "Waiting for public proxy to respond..."
-    wait_for_http "${public_base_url}/health" "$PUBLIC_HOST" 200 && ok "Public proxy health returned HTTP 200" || exit 1
+    info "In attesa di risposta dal proxy pubblico..."
+    wait_for_http "${public_base_url}/health" "$PUBLIC_HOST" 200 && ok "Proxy pubblico ha restituito HTTP 200" || exit 1
 
     if [[ "${EXPOSE_BACKEND:-no}" == "yes" ]]; then
         mapfile -t backend_response < <(curl_plain "http://127.0.0.1:${BACKEND_PORT}/health")
-        assert_status "${backend_response[0]}" "200" "Exposed backend /health returned unexpected status" || exit 1
-        ok "Exposed backend /health returned HTTP 200"
+        assert_status "${backend_response[0]}" "200" "/health del backend esposto ha restituito uno stato inatteso" || exit 1
+        ok "/health del backend esposto ha restituito HTTP 200"
+    fi
+
+    if [[ "$RUN_TESTS" == true ]]; then
+        echo
+        echo -e "${BOLD}Test Suite${RESET}"
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "$browser_url" || {
+            echo
+            fail "Test suite fallita — correggere le violazioni prima del merge"
+            exit 1
+        }
     fi
 
     echo
-    ok 'Public Smoke Test completed successfully.'
+    ok 'Test pubblico completato con successo.'
     exit 0
 fi
 
@@ -403,22 +418,33 @@ fi
 # =============================================================================
 
 echo
-echo -e "${BOLD}Port check${RESET}"
+echo -e "${BOLD}Controllo porte${RESET}"
 
 check_port_conflict() {
     local port="$1"
     local conflicting
-    conflicting=$(docker ps --format "{{.Names}}\t{{.Ports}}" \
-        | grep -E "(0\.0\.0\.0|:::):${port}->" \
-        | grep -v "^${COMPOSE_PROJECT_NAME}-" || true)
+    # Estraiamo anche la label del progetto per un confronto preciso
+    conflicting=$(docker ps --format "{{.Names}}\t{{.Ports}}\t{{.Label \"com.docker.compose.project\"}}" \
+        | grep -E "(0\.0\.0\.0|:::):${port}->" || true)
+    
     if [[ -n "$conflicting" ]]; then
-        local container_name
+        local container_name project_label normalized_proj
         container_name=$(echo "$conflicting" | awk '{print $1}')
-        fail "Port ${port} already used by: ${container_name}"
-        echo "  Stop it with: docker stop ${container_name}" >&2
-        return 1
+        project_label=$(echo "$conflicting" | awk '{print $3}')
+        
+        # Docker Compose normalizza il nome progetto (es. rimuove maiuscole e caratteri speciali)
+        normalized_proj=$(echo "$COMPOSE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]//g')
+        
+        if [[ "$project_label" != "$normalized_proj" ]]; then
+            fail "Porta ${port} già in uso dal progetto '${project_label}' (container: ${container_name})"
+            echo "  Stai cercando di fare il deploy come '${COMPOSE_PROJECT_NAME}', ma la porta è occupata." >&2
+            echo "  Se è una vecchia versione, fermala con: docker stop ${container_name}" >&2
+            return 1
+        fi
+        ok "La porta ${port} è in uso da questo stesso progetto (verrà aggiornato senza problemi)"
+    else
+        ok "La porta ${port} è libera"
     fi
-    ok "Port ${port} is free"
 }
 
 check_port_conflict "${FRONTEND_PORT}"
@@ -428,20 +454,70 @@ fi
 
 if (( ERRORS > 0 )); then
     echo
-    echo -e "  ${RED}ERR${RESET} Fix port conflicts before deploying" >&2
+    echo -e "  ${RED}ERR${RESET} Risolvi i conflitti di porta prima di fare il deploy" >&2
     exit 1
 fi
 
 echo
-echo -e "${BOLD}Deploy${RESET}"
+echo -e "${BOLD}Deploy (Fase 1: Build)${RESET}"
 
 if [[ "$NO_CACHE" == true ]]; then
-    ok "Running clean Docker build"
+    ok "Esecuzione build Docker pulita"
     env docker compose "${compose_files[@]}" build --no-cache frontend backend
-    env docker compose "${compose_files[@]}" up -d
 else
-    env docker compose "${compose_files[@]}" up -d --build
+    env docker compose "${compose_files[@]}" build frontend backend
 fi
+
+echo
+echo -e "${BOLD}Pre-flight Test (Sicurezza Blue/Green)${RESET}"
+info "Avvio delle nuove immagini su un ambiente isolato per verificarle..."
+PREFLIGHT_PROJ="${COMPOSE_PROJECT_NAME}-preflight"
+PREFLIGHT_PORT=$((FRONTEND_PORT + 10000))
+
+# Avvia solo frontend e backend base, senza esporre il backend per evitare conflitti
+env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
+    docker compose -f docker-compose.yml up -d >/dev/null 2>&1
+
+info "Attesa healthcheck sul nuovo container (max 60s)..."
+if wait_for_http "http://127.0.0.1:${PREFLIGHT_PORT}/health" "" 200 30 2; then
+    ok "La nuova build è sana e funzionante (Healthcheck OK)!"
+    
+    if [[ "$RUN_TESTS" == true ]]; then
+        echo
+        echo -e "${BOLD}Esecuzione Test Suite (Pre-flight)${RESET}"
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if ! bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "http://127.0.0.1:${PREFLIGHT_PORT}"; then
+            echo
+            fail "TEST FALLITI! Il deploy è stato annullato."
+            echo "  Il sito attualmente in produzione NON è stato toccato ed è ancora online."
+            info "Pulizia ambiente isolato..."
+            env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
+                docker compose -f docker-compose.yml down -v >/dev/null 2>&1
+            exit 1
+        fi
+        ok "Tutti i test della suite sono stati superati!"
+    fi
+
+    info "Spegnimento ambiente isolato..."
+    env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
+        docker compose -f docker-compose.yml down -v >/dev/null 2>&1
+else
+    echo
+    fail "LA NUOVA BUILD È ROTTA! Il deploy è stato annullato."
+    echo "  Il sito attualmente in produzione NON è stato toccato ed è ancora online."
+    echo "  Controllo log del container fallito:"
+    env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
+        docker compose -f docker-compose.yml logs --tail 20
+    info "Pulizia ambiente isolato rotto..."
+    env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
+        docker compose -f docker-compose.yml down -v >/dev/null 2>&1
+    exit 1
+fi
+
+echo
+echo -e "${BOLD}Deploy (Fase 2: Scambio in Produzione)${RESET}"
+info "Aggiornamento dei container di produzione con le immagini validate..."
+env docker compose "${compose_files[@]}" up -d
 
 # =============================================================================
 # ESECUZIONE CONTROLLI POST-DEPLOY (Opzionale)
@@ -451,15 +527,15 @@ if [[ "$TEST_POST_DEPLOY" == true ]]; then
     echo
     echo -e "${BOLD}Test Post-Deploy${RESET}"
     
-    echo "  Checking frontend health on http://127.0.0.1:${FRONTEND_PORT}/health"
-    wait_for_http "http://127.0.0.1:${FRONTEND_PORT}/health" "" 200 && ok "Frontend /health returned HTTP 200" || exit 1
+    echo "  Controllo salute frontend su http://127.0.0.1:${FRONTEND_PORT}/health"
+    wait_for_http "http://127.0.0.1:${FRONTEND_PORT}/health" "" 200 && ok "Frontend /health ha restituito HTTP 200" || exit 1
 
     if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -n "${BACKEND_PORT:-}" ]]; then
-        echo "  Checking exposed backend health on http://127.0.0.1:${BACKEND_PORT}/health"
-        wait_for_http "http://127.0.0.1:${BACKEND_PORT}/health" "" 200 && ok "Backend /health returned HTTP 200 on exposed port" || exit 1
+        echo "  Controllo salute backend esposto su http://127.0.0.1:${BACKEND_PORT}/health"
+        wait_for_http "http://127.0.0.1:${BACKEND_PORT}/health" "" 200 && ok "Backend /health ha restituito HTTP 200 sulla porta esposta" || exit 1
     else
-        echo "  Checking backend internal health inside Docker"
-        wait_backend_internal && ok "Backend internal /health returned HTTP 200" || exit 1
+        echo "  Controllo salute backend interno in Docker"
+        wait_backend_internal && ok "Backend interno /health ha restituito HTTP 200" || exit 1
     fi
 fi
 
@@ -469,7 +545,7 @@ docker image prune -f --filter "dangling=true"
 ok "Immagini orfane rimosse per liberare spazio"
 
 echo
-echo -e "  ${GREEN}OK${RESET} Deploy completed"
-echo "  Logs:  docker compose -f docker-compose.yml logs -f"
-echo "  State: docker compose -f docker-compose.yml ps"
+echo -e "  ${GREEN}OK${RESET} Deploy completato"
+echo "  Log:   docker compose -f docker-compose.yml logs -f"
+echo "  Stato: docker compose -f docker-compose.yml ps"
 echo

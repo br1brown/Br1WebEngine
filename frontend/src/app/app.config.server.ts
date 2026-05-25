@@ -3,9 +3,18 @@ import { provideServerRendering } from '@angular/platform-server';
 import { provideServerRouting, RenderMode, type ServerRoute } from '@angular/ssr';
 import { appConfig } from './app.config';
 import { ContestoSito } from './site';
-import type { SiteRenderMode } from './siteBuilder';
-import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/services/base-api.service';
-import { serverEnv } from '../server-env';
+import type { SiteRenderMode } from './core/engine/siteBuilder';
+import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api.service';
+import { LEGAL_FILE_READER } from './pages/content.resolver';
+import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
+import { serverEnv } from './core/engine/server/server-env';
+import { PreviewCrypto } from './core/engine/server/preview-crypto.server';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+
+const serverDistFolder = dirname(fileURLToPath(import.meta.url));
+const browserDistFolder = resolve(serverDistFolder, '../browser');
 
 /** Funzione utility: pulisce i percorsi delle rotte per Angular (es: trasforma "/home" in "home") */
 const toAngularServerPath = (path: string): string =>
@@ -26,7 +35,7 @@ const serverRoutes: ServerRoute[] = [
     ...ContestoSito.serverRenderEntries.map(({ path, renderMode }) =>
         toServerRoute(path, renderMode)
     ),
-    /** Wildcard: tutto ci� che non � mappato esplicitamente viene gestito solo dal browser (Client Side) */
+    /** Wildcard: tutto ci che non  mappato esplicitamente viene gestito solo dal browser (Client Side) */
     {
         path: '**',
         renderMode: RenderMode.Client
@@ -49,6 +58,41 @@ const serverConfig: ApplicationConfig = {
         {
             provide: SSR_API_KEY,
             useValue: serverEnv.backendApiKey,
+        },
+        /**
+         * Cifratura sincrona del payload preview (Node.js crypto) — solo SSR.
+         * NOTA: useFactory è obbligatorio — useValue non propaga funzioni correttamente
+         * in Angular 19 SSR (i due bundle server.mjs e main.server.mjs hanno istanze
+         * di modulo separate; useFactory risolve il valore nel contesto DI corretto).
+         */
+        {
+            provide: SSR_PREVIEW_ENCRYPT_FN,
+            useFactory: () => (p: Record<string, string>) => PreviewCrypto.encrypt(p),
+        },
+        /**
+         * Origin canonico del frontend da FRONTEND_BASE_URL.
+         * Usato da PageMetaService come sorgente di verità per og:image: garantisce https://
+         * indipendentemente da come Angular ricostruisce document.URL dall'header proxy.
+         * useValue è sufficiente (stringa, non funzione).
+         */
+        {
+            provide: SSR_FRONTEND_ORIGIN,
+            useValue: serverEnv.frontendBaseUrl,
+        },
+        /** Legge i file .md delle policy da disco, evitando la chiamata HTTP loopback in SSR */
+        {
+            provide: LEGAL_FILE_READER,
+            useValue: async (slug: string, lang: string): Promise<string | null> => {
+                try {
+                    return await readFile(
+                        join(browserDistFolder, 'assets', 'legal', `${slug}.${lang}.md`),
+                        'utf-8'
+                    );
+                } catch {
+                    console.warn(`[LEGAL_FILE_READER] File non trovato: assets/legal/${slug}.${lang}.md`);
+                    return null;
+                }
+            },
         },
     ]
 };

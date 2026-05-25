@@ -5,4 +5,9 @@
 @import './styles/social.css';
 @import './styles/nav.css';
 
+/* SweetAlert2 — theme Bootstrap 5 (light + dark via [data-swal2-theme]).
+   La scelta della variante è fatta a runtime dal NotificationService in base
+   al themeTone (vedi loadThemedSwal). */
+@import 'sweetalert2/themes/bootstrap-5.css';
+
 /* QUI METTERE Stili specifici del progetto -> sovrascrive tutto */

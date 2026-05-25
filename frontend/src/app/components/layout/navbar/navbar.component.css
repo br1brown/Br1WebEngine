@@ -1,0 +1,143 @@
+:host {
+    display: block;
+}
+
+.navbar {
+    color: var(--bs-body-color);
+}
+
+.navbar .navbar-brand,
+.navbar .navbar-brand.nav-current-link {
+    color: inherit;
+}
+
+.navbar .navbar-brand:hover,
+.navbar .navbar-brand:focus-visible {
+    color: var(--bs-emphasis-color);
+}
+
+.nav-dropdown-item {
+    display: flex;
+    align-items: center;
+}
+
+.language-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 8.5rem;
+    margin-left: auto;
+}
+
+.language-picker-label {
+    display: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--bs-body-color) 82%, transparent);
+}
+
+.language-disclosure {
+    min-width: 5.5rem;
+}
+
+.language-disclosure-summary {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    min-height: 2.75rem;
+    min-width: 5.5rem;
+    justify-content: space-between;
+    /* text-transform: uppercase non serve — il contenuto è già | uppercase nel template */
+}
+
+.language-disclosure-menu {
+    min-width: 5.5rem;
+    right: 0;
+    left: auto;
+}
+
+.language-disclosure-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    /* text-transform: uppercase non serve — il contenuto è già | uppercase nel template */
+}
+
+.language-disclosure-button {
+    text-align: left;
+}
+
+@media (min-width: 768px) {
+    .language-disclosure-menu {
+        left: auto;
+        right: 0;
+        min-width: 5.5rem;
+        width: max-content;
+        max-width: min(14rem, calc(100vw - 1rem));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .language-picker {
+        display: grid;
+        gap: 0.45rem;
+        margin-left: 0;
+        width: 100%;
+        padding-top: 0.9rem;
+        border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    }
+
+    .language-picker-label {
+        display: block;
+    }
+
+    .language-disclosure,
+    .language-disclosure-summary {
+        width: 100%;
+    }
+
+    .language-disclosure-summary {
+        font-size: 0.95rem;
+        min-height: 2.5rem;
+        padding-inline: 0;
+    }
+
+    .language-disclosure-menu {
+        min-width: 0;
+        width: 100%;
+        right: auto;
+        left: 0;
+    }
+
+    .language-disclosure-link {
+        font-size: 0.95rem;
+    }
+
+    .navbar .language-disclosure-summary,
+    .navbar .language-disclosure-summary:hover,
+    .navbar .language-disclosure-summary:focus-visible {
+        background-color: transparent;
+    }
+
+    .navbar-collapse {
+        padding-top: 0.9rem;
+        gap: 1rem;
+    }
+
+    .navbar-nav {
+        gap: 0.35rem;
+    }
+
+    .nav-dropdown-item {
+        display: block;
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .language-disclosure-summary {
+        transition: none;
+    }
+}

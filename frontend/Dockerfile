@@ -13,6 +13,8 @@ COPY package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi
 
 COPY . .
+# Esegui il linter prima della build per bloccare deploy con codice errato
+RUN npm run lint
 RUN npm run build
 RUN npm prune --omit=dev
 

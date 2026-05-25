@@ -1,0 +1,122 @@
+name: Controlli Automatici di Tutto
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  backend:
+    name: Compila backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Compila
+        run: dotnet build backend/backend.csproj --configuration Release
+
+      - name: Controlla pacchetti vulnerabili
+        run: |
+          OUTPUT=$(dotnet list backend/backend.csproj package --vulnerable --include-transitive 2>&1)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -q "has the following vulnerable packages"; then
+            echo "::error::Trovati pacchetti NuGet vulnerabili. Esegui 'dotnet list package --vulnerable' localmente per i dettagli."
+            exit 1
+          fi
+
+  frontend:
+    name: Compila frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installa dipendenze
+        working-directory: frontend
+        run: npm ci
+
+      - name: Audit di sicurezza
+        working-directory: frontend
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: Analisi Lint
+        run: bash scripts/test/lint-check.sh
+
+      - name: Controllo dei tipi
+        run: bash scripts/test/tsc-check.sh
+
+      - name: Genera risorse statiche
+        working-directory: frontend
+        run: npm run generate:statics
+
+      - name: Genera icone
+        working-directory: frontend
+        run: npm run generate:icons
+
+      - name: Compila frontend
+        working-directory: frontend
+        run: npx ng build --configuration production
+
+  i18n:
+    name: Completezza i18n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Controlla simmetria chiavi di tutte le lingue
+        run: bash scripts/test/i18n-check.sh
+
+  live-tests:
+    name: Test live
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installa dipendenze
+        working-directory: frontend
+        run: npm ci
+
+      - name: Prepara ambiente
+        run: |
+          echo "COMPOSE_PROJECT_NAME=ci_test" > .env.param
+          echo "FRONTEND_PORT=3000" >> .env.param
+
+      - name: Avvia stack
+        run: bash deploy.sh --test-public
+
+      - name: Audit di accessibilità
+        run: bash scripts/test/a11y-test.sh http://localhost:8088
+
+      - name: Audit Lighthouse
+        run: bash scripts/test/lighthouse-test.sh http://localhost:8088
+
+      - name: Butta giù
+        if: always()
+        run: |
+          COMPOSE_PROJECT_NAME=ci_test \
+          docker compose -f docker-compose.yml -f docker-compose.public-test.yml down
