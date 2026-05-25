@@ -35,7 +35,7 @@ export class CookieBannerComponent {
 
     readonly bannerText = computed(() => {
         const path = ContestoSito.getPath(PageType.CookiePolicy) ?? '';
-        const key = this.hasDetailedCategories() ? 'cookieBannerIntro' : 'cookieBannerText';
+        const key = this.hasDetailedCategories() ? 'introBannerCookie' : 'testoBannerCookie';
         return this.translate.translate(key, path);
     });
 

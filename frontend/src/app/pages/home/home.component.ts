@@ -100,12 +100,12 @@ export class HomeComponent extends PageBaseComponent<void> {
     // --- Context menu per immagini generate ---
     readonly imgContextMenuOptions = computed<ContextMenuOption[]>(() => [
         {
-            label: this.translate.translate('scarica'),
+            label: this.translate.translate('scaricaAzione'),
             icon: 'fa-solid fa-download',
             action: () => this.downloadHomeImage()
         },
         {
-            label: this.translate.translate('condividi'),
+            label: this.translate.translate('condividiAzione'),
             icon: 'fa-solid fa-share-nodes',
             action: () => this.shareHomeImage()
         }
@@ -115,12 +115,12 @@ export class HomeComponent extends PageBaseComponent<void> {
         const blob = this.qrBlob();
         return blob ? [
             {
-                label: this.translate.translate('scarica'),
+                label: this.translate.translate('scaricaAzione'),
                 icon: 'fa-solid fa-download',
                 action: () => void this.share.downloadBlob(blob, 'qrcode.png')
             },
             {
-                label: this.translate.translate('condividi'),
+                label: this.translate.translate('condividiAzione'),
                 icon: 'fa-solid fa-share-nodes',
                 action: () => void this.share.shareBlob(blob, 'qrcode.png', 'QR Code')
             }
@@ -148,6 +148,10 @@ config: ImgRenderConfig = {
 };
 
 // Template
+// Nota: $event negli output Angular non è un DOM event
+// (come in un click), ma il valore emesso direttamente
+// dalla directive — qui HTMLCanvasElement|null.
+// Ometti (canvasChange) se non ti serve il canvas raw.
 <img [imgRender]="config"
      (canvasChange)="canvas.set($event)"
      alt="Immagine generata">`,
@@ -160,6 +164,11 @@ config: QrConfig = {
 };
 
 // Template
+// Nota: $event negli output Angular non è un DOM event
+// (come in un click), ma il valore emesso direttamente
+// dalla directive — qui Blob|null o string|null.
+// Entrambi gli output sono opzionali: omettili se non
+// hai bisogno di download/condivisione o messaggi errore.
 <img [qrContent]="config"
      (blobChange)="blob.set($event)"
      (errorChange)="err.set($event)"
@@ -368,7 +377,7 @@ asset.getUrl('nomeAsset', 480)
             this.translate.translate('modalConfirmTitle'),
             this.translate.translate('modalConfirmBody')
         );
-        this.modalResult.set(this.translate.translate(confirmed ? 'confirmed' : 'cancelled'));
+        this.modalResult.set(this.translate.translate(confirmed ? 'confermatoStato' : 'annullatoStato'));
     }
 
     async showFormModal(): Promise<void> {
@@ -376,7 +385,7 @@ asset.getUrl('nomeAsset', 480)
             this.translate.translate('modalFormTitle'),
             this.translate.translate('modalFormNameLabel'),
             this.translate.translate('modalFormSubmit'),
-            this.translate.translate('annulla'),
+            this.translate.translate('annullaAzione'),
         );
         if (value !== null) {
             this.modalResult.set(`${this.translate.translate('modalResultSubmitted')}: ${value}`);
@@ -419,8 +428,8 @@ asset.getUrl('nomeAsset', 480)
 
     get apiStatus(): string {
         return this.translate.translate(
-            'apiStatus',
-            this.translate.translate('online')
+            'apiStato',
+            this.translate.translate('onlineStato')
         );
     }
 }

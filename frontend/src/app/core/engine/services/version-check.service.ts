@@ -118,11 +118,11 @@ export class VersionCheckService implements OnDestroy {
         this.updateShown = true;
 
         const confirmed = await this.notify.confirm(
-            this.translate.translate('nuovaVersioneTitle'),
-            this.translate.translate('nuovaVersioneDesc'),
+            this.translate.translate('nuovaVersioneTitoloStato'),
+            this.translate.translate('nuovaVersioneDescrizioneStato'),
             {
                 icon: 'info',
-                confirmText: this.translate.translate('aggiornaApp'),
+                confirmText: this.translate.translate('aggiornaAppAzione'),
                 allowOutsideClick: false, // Forza l'interazione per garantire che l'app si aggiorni
             }
         );

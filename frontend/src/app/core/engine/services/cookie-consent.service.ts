@@ -295,13 +295,13 @@ export class CookieConsentService {
      */
     listMarkdown(t: (key: string) => string): string {
         const rows: string[] = [];
-        rows.push(`| ${t('cookieListName')} | ${t('cookieListCategory')} | ${t('cookieListDescription')} |`);
+        rows.push(`| ${t('nomeListaCookie')} | ${t('categoriaListaCookie')} | ${t('descrizioneListaCookie')} |`);
         rows.push('|---|---|---|');
         if (ContestoSito.config.availableLanguages.length > 1) {
-            rows.push(`| \`lang\` | ${t('cookieCategoryTechnical')} | ${t('cookieListLangDesc')} |`);
+            rows.push(`| \`lang\` | ${t('tecniciCategoriaCookie')} | ${t('linguaDescrizioneListaCookie')} |`);
         }
         if (ContestoSito.config.isWebApp) {
-            rows.push(`| \`ngsw-worker.js\` | ${t('cookieCategoryTechnical')} | ${t('cookieListSWDesc')} |`);
+            rows.push(`| \`ngsw-worker.js\` | ${t('tecniciCategoriaCookie')} | ${t('swDescrizioneListaCookie')} |`);
         }
         for (const [rawKey, rawConfig] of Object.entries(COOKIE_MAP)) {
             const config = rawConfig as CookieConfig;

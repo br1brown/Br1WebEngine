@@ -2,6 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { ThemeService } from './theme.service';
 import { TranslateService } from './translate.service';
+import type { ProblemDetails } from './base-api.service';
 
 type SwalType = typeof import('sweetalert2').default;
 
@@ -79,7 +80,7 @@ export class NotificationService {
         const swal = this.loadThemedSwal();
         if (swal) {
             void swal.then(Swal =>
-                Swal.fire(this.translate.translate('ottimo') + '!', message, 'success').then(() => onClose?.())
+                Swal.fire(this.translate.translate('ottimoStato') + '!', message, 'success').then(() => onClose?.())
             );
         } else if (isPlatformBrowser(this.platformId)) {
             window.alert(message);
@@ -104,7 +105,7 @@ export class NotificationService {
     openLoading(message?: string): void {
         void this.loadThemedSwal()?.then(Swal =>
             Swal.fire({
-                title: message ?? this.translate.translate('caricamento'),
+                title: message ?? this.translate.translate('caricamentoStato'),
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
             })
@@ -132,8 +133,8 @@ export class NotificationService {
             text,
             icon: options?.icon ?? 'question',
             showCancelButton: true,
-            confirmButtonText: options?.confirmText ?? this.translate.translate('si'),
-            cancelButtonText: options?.cancelText ?? this.translate.translate('annulla'),
+            confirmButtonText: options?.confirmText ?? this.translate.translate('siAzione'),
+            cancelButtonText: options?.cancelText ?? this.translate.translate('annullaAzione'),
             allowOutsideClick: options?.allowOutsideClick ?? true,
         });
         return result.isConfirmed;
@@ -161,15 +162,15 @@ export class NotificationService {
             inputPlaceholder: inputLabel,
             inputValue: defaultValue ?? '',
             showCancelButton: true,
-            confirmButtonText: confirmText ?? this.translate.translate('si'),
-            cancelButtonText: cancelText ?? this.translate.translate('annulla'),
+            confirmButtonText: confirmText ?? this.translate.translate('siAzione'),
+            cancelButtonText: cancelText ?? this.translate.translate('annullaAzione'),
             inputValidator: (value: string) => {
                 if (validator) {
                     const res = validator(value);
                     return !res.isValid ? this.formatErrors(res.errors) : null;
                 }
                 if (!value) {
-                    return this.translate.translate('campoObbligatorio');
+                    return this.translate.translate('campoObbligatorioErrore');
                 }
                 return null;
             }
@@ -188,13 +189,13 @@ export class NotificationService {
                 title: config.title,
                 html: config.html,
                 showCancelButton: true,
-                confirmButtonText: config.confirmText ?? this.translate.translate('si'),
-                cancelButtonText: config.cancelText ?? this.translate.translate('annulla'),
+                confirmButtonText: config.confirmText ?? this.translate.translate('siAzione'),
+                cancelButtonText: config.cancelText ?? this.translate.translate('annullaAzione'),
                 showLoaderOnConfirm: config.showLoaderOnConfirm ?? false,
                 preConfirm: () => {
                     const popup = Swal.getPopup();
                     if (!popup) {
-                        Swal.showValidationMessage(this.translate.translate('erroreGenerico'));
+                        Swal.showValidationMessage(this.translate.translate('fallbackErrore'));
                         return false;
                     }
 
@@ -241,7 +242,7 @@ export class NotificationService {
     }
 
     private formatErrors(errors?: string[], html = false): string {
-        if (!errors?.length) return this.translate.translate('erroreGenerico');
+        if (!errors?.length) return this.translate.translate('fallbackErrore');
         return html ? errors.join('<br>') : errors.join('\n');
     }
 
@@ -287,7 +288,7 @@ export class NotificationService {
                     title,
                     html: ul,
                     icon: 'warning',
-                    confirmButtonText: this.translate.translate('chiudi'),
+                    confirmButtonText: this.translate.translate('chiudiAzione'),
                 });
             });
         } else if (isPlatformBrowser(this.platformId)) {
@@ -297,48 +298,63 @@ export class NotificationService {
 
     // --- ERRORI API ---
 
-    handleApiError(httpStatus: number, responseBody?: unknown): void {
-        if (httpStatus === 400 && typeof responseBody === 'object' && responseBody !== null && 'errors' in responseBody) {
+    handleApiError(
+        httpStatus: number, 
+        problem: ProblemDetails | null, 
+        overrideKeys?: { titleKey?: string, descKey?: string }
+    ): void {
+        // Gestione standard 400 Bad Request con errori di validazione
+        if (httpStatus === 400 && problem?.errors) {
             this.validationErrors(
-                this.translate.translate('errore400Info'),
-                (responseBody as { errors: string[] | Record<string, string[]> }).errors
+                this.translate.translate('errore400Titolo'),
+                problem.errors
             );
             return;
         }
 
-        const keyInfo = `errore${httpStatus}Info`;
-        const keyDesc = `errore${httpStatus}Desc`;
+        const keyInfo = overrideKeys?.titleKey ?? `errore${httpStatus}Titolo`;
+        const keyDesc = overrideKeys?.descKey ?? `errore${httpStatus}Descrizione`;
 
         let errorInfo = this.translate.translate(keyInfo);
         let errorMessage = this.translate.translate(keyDesc);
 
-        if (errorMessage === keyDesc) errorMessage = this.translate.translate('erroreImprevisto');
-        if (errorInfo === keyInfo) {
-            errorInfo = this.translate.translate('errore') + ' ' + httpStatus;
+        // Se `translate` restituisce esattamente la chiave in ingresso (es. "errore418Titolo"),
+        // significa che non esiste una traduzione definita nei file JSON per quello status code.
+        const hasSpecificTitle = errorInfo !== keyInfo;
+        const hasSpecificDesc = errorMessage !== keyDesc;
+
+        // Se non abbiamo una descrizione tradotta per questo status, usiamo quella di fallback
+        if (!hasSpecificDesc) errorMessage = this.translate.translate('erroreImprevisto');
+        
+        // Se non abbiamo un titolo tradotto, usiamo "Errore 418"
+        // Altrimenti, componiamo il titolo "404: Pagina non trovata"
+        if (!hasSpecificTitle) {
+            errorInfo = this.translate.translate('erroreGenerico') + ' ' + httpStatus;
         } else {
             errorInfo = httpStatus + ': ' + errorInfo;
         }
 
-        if (responseBody) {
-            if (typeof responseBody === 'object') {
-                const body = responseBody as Record<string, unknown>;
-                if (typeof body['detail'] === 'string') errorMessage = body['detail'];
-                if (typeof body['title'] === 'string') errorInfo = httpStatus + ': ' + body['title'];
-            } else if (typeof responseBody === 'string') {
-                try {
-                    const parsed = JSON.parse(responseBody) as { detail?: string; title?: string };
-                    if (parsed.detail) errorMessage = parsed.detail;
-                    if (parsed.title) errorInfo = httpStatus + ': ' + parsed.title;
-                } catch {
-                    if (httpStatus === 404 || httpStatus === 500) {
-                        errorMessage = this.translate.translate('erroreAPINonDisponibile');
-                    }
+        // Se il backend ha inviato un ProblemDetails valido, lo uniamo ai nostri fallback
+        if (problem) {
+            // Il dettaglio del backend vince se presente (solitamente è più specifico)
+            if (problem.detail) {
+                errorMessage = problem.detail;
+            }
+            
+            // Il titolo del backend viene usato solo se non abbiamo una traduzione specifica
+            if (problem.title) {
+                if (!hasSpecificTitle) {
+                    errorInfo = httpStatus + ': ' + problem.title;
+                } else {
+                    console.warn(`[API Warning] Ignorato titolo dal backend "${problem.title}" per HTTP ${httpStatus}. Usata traduzione locale.`);
                 }
             }
         } else if (httpStatus === 404 || httpStatus === 500) {
-            errorMessage = this.translate.translate('erroreAPINonDisponibile');
+            // Se non c'è body valido, i 404/500 hanno spesso bisogno di dire "API irraggiungibile"
+            errorMessage = this.translate.translate('apiNonRaggiungibileErrore');
         }
 
         this.error(errorInfo, errorMessage);
     }
 }
+

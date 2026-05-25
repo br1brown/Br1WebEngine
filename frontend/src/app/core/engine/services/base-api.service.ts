@@ -7,6 +7,19 @@ import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
 import { TokenService } from '../../services/auth.service';
 
+/** 
+ * Interfaccia basata sullo standard RFC 9457 (Problem Details for HTTP APIs)
+ * Molti framework moderni (ASP.NET Core, Spring, NestJS) usano questo formato.
+ */
+export interface ProblemDetails {
+    type?: string;
+    title?: string;
+    status?: number;
+    detail?: string;
+    instance?: string;
+    errors?: string[] | Record<string, string[]>;
+}
+
 /**
  * TOKEN DI INIEZIONE (Dependency Injection)
  * Utilizzati per configurare il comportamento del servizio in base all'ambiente (Browser vs SSR).
@@ -130,6 +143,25 @@ export abstract class BaseApiService {
         return headers;
     }
 
+    /** Estrae in modo sicuro i ProblemDetails (RFC 9457) dal body della risposta. */
+    protected extractProblemDetails(body: unknown): ProblemDetails | null {
+        if (!body) return null;
+
+        if (typeof body === 'string') {
+            try {
+                body = JSON.parse(body);
+            } catch {
+                return null;
+            }
+        }
+
+        if (typeof body === 'object' && body !== null) {
+            return body as ProblemDetails;
+        }
+
+        return null;
+    }
+
     /**
      * Gestione centralizzata degli errori HTTP.
      * Invia una notifica alla UI e propaga l'errore per logica specifica nei componenti.
@@ -138,7 +170,32 @@ export abstract class BaseApiService {
         /* Il try-catch garantisce il degrado grazioso: se NotificationService non riesce a mostrare
            l'errore (es. SweetAlert2 non ancora caricato), si cade su console.error senza bloccare il flusso. */
         try {
-            this.notify.handleApiError(error.status, error.error);
+            const problem = this.extractProblemDetails(error.error);
+            let overrideKeys: { titleKey?: string, descKey?: string } | undefined;
+
+            switch (error.status) {
+                case 401:
+                    overrideKeys = {
+                        titleKey: 'risorsa401Titolo',
+                        descKey: 'risorsa401Descrizione'
+                    };
+                    break;
+                case 403:
+                    overrideKeys = {
+                        titleKey: 'risorsa403Titolo',
+                        descKey: 'risorsa403Descrizione'
+                    };
+                    break;
+                case 404:
+                    overrideKeys = {
+                        titleKey: 'risorsa404Titolo',
+                        descKey: 'risorsa404Descrizione'
+                    };
+                    break;
+                // Qui l'API service può decidere altre chiavi in base allo status
+            }
+
+            this.notify.handleApiError(error.status, problem, overrideKeys);
         } catch {
             console.error('[API Error]', error.status, error.message);
         }

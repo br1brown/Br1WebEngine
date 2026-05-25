@@ -11,18 +11,58 @@ Per i pattern lato frontend → [`frontend/DEVELOPMENT.md`](../frontend/DEVELOPM
 
 ## Sommario
 
-- [Architettura in breve](#architettura-in-breve)
-- [Aggiungere un endpoint](#aggiungere-un-endpoint)
-- [Aggiungere un servizio](#aggiungere-un-servizio)
-- [Gestione degli errori](#gestione-degli-errori)
-- [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database)
-- [Endpoint protetti da login JWT](#endpoint-protetti-da-login-jwt)
-- [Configurazione (appsettings.json)](#configurazione-appsettingsjson)
-- [Content store](#content-store)
-- [Login condizionale (JWT)](#login-condizionale-jwt)
-- [Servizi registrati](#servizi-registrati)
+- [1. Architettura e Sviluppo Base](#1-architettura-e-sviluppo-base)
+  - [Architettura in breve](#architettura-in-breve)
+    - [Struttura delle cartelle](#struttura-delle-cartelle)
+    - [Perché le classi base dell'engine?](#perché-le-classi-base-dell'engine?)
+    - [API esposte (esempi del template)](#api-esposte-esempi-del-template)
+    - [Flusso di una richiesta](#flusso-di-una-richiesta)
+    - [Ordine della pipeline HTTP (critico — non invertire)](#ordine-della-pipeline-http-critico-—-non-invertire)
+  - [Configurazione (appsettings.json)](#configurazione-appsettingsjson)
+    - [Sezione Security](#sezione-security)
+    - [Sezione Localization](#sezione-localization)
+    - [Aggiungere una nuova sezione di configurazione](#aggiungere-una-nuova-sezione-di-configurazione)
+  - [Aggiungere un endpoint](#aggiungere-un-endpoint)
+    - [Scegliere la classe base del controller](#scegliere-la-classe-base-del-controller)
+    - [Passo 1 — Definire il DTO di risposta in `Models/`](#passo-1-—-definire-il-dto-di-risposta-in-`models/`)
+    - [Passo 2 — Aggiungere il metodo a `IContentStore`](#passo-2-—-aggiungere-il-metodo-a-`icontentstore`)
+    - [Passo 3 — Aggiungere il metodo al servizio in `Services/`](#passo-3-—-aggiungere-il-metodo-al-servizio-in-`services/`)
+    - [Passo 4 — Aggiungere l'endpoint al controller](#passo-4-—-aggiungere-l'endpoint-al-controller)
+    - [Aggiungere endpoint a un controller già configurato (forma compatta)](#aggiungere-endpoint-a-un-controller-già-configurato-forma-compatta)
+    - [Creare un nuovo controller](#creare-un-nuovo-controller)
+  - [Aggiungere un servizio](#aggiungere-un-servizio)
+    - [Registrare il servizio in Program.cs](#registrare-il-servizio-in-programcs)
+    - [Iniettarlo nel controller](#iniettarlo-nel-controller)
+  - [Servizi registrati](#servizi-registrati)
+    - [`AuthService` — API dell'engine](#`authservice`-—-api-dell'engine)
+    - [`UniversalLegalModel` — struttura](#`universallegalmodel`-—-struttura)
+- [2. Sicurezza e Autenticazione](#2-sicurezza-e-autenticazione)
+  - [Sicurezza (Middleware e Autenticazione API First)](#sicurezza-middleware-e-autenticazione-api-first)
+    - [`ApiKeyAuthentication` (Il biglietto d'ingresso)](#`apikeyauthentication`-il-biglietto-d'ingresso)
+    - [`SecurityHeadersMiddleware` (CSP & Hardening)](#`securityheadersmiddleware`-csp-&-hardening)
+  - [Gestione degli errori](#gestione-degli-errori)
+    - [Eccezioni disponibili](#eccezioni-disponibili)
+    - [Aggiungere un nuovo tipo di errore](#aggiungere-un-nuovo-tipo-di-errore)
+    - [Pattern completo in un controller](#pattern-completo-in-un-controller)
+  - [Login condizionale (JWT)](#login-condizionale-jwt)
+  - [Endpoint protetti da login JWT](#endpoint-protetti-da-login-jwt)
+    - [Tipi del login](#tipi-del-login)
+    - [Implementare il login (AuthController)](#implementare-il-login-authcontroller)
+    - [Rate Limiting Integrato](#rate-limiting-integrato)
+    - [Quando il caso semplice non basta: login con database e hash](#quando-il-caso-semplice-non-basta:-login-con-database-e-hash)
+- [3. Storage e Dati](#3-storage-e-dati)
+  - [Content store](#content-store)
+    - [Dati inclusi nel template](#dati-inclusi-nel-template)
+  - [Sostituire FileContentStore con un database](#sostituire-filecontentstore-con-un-database)
+    - [1. Implementare `IContentStore`](#1-implementare-`icontentstore`)
+    - [2. Registrare il DbContext e la nuova implementazione in Program.cs](#2-registrare-il-dbcontext-e-la-nuova-implementazione-in-programcs)
+    - [3. Aggiungere la connection string in appsettings.json](#3-aggiungere-la-connection-string-in-appsettingsjson)
+
 
 ---
+
+
+# 1. Architettura e Sviluppo Base
 
 ## Architettura in breve
 
@@ -141,6 +181,104 @@ Dopo `UseTemplateSecurity()`, `Program.cs` aggiunge nell'ordine:
 **Nota CORS vs AllowAnyOrigin:** `CorsOrigins` vuoto = `AllowAnyOrigin` deliberato per API pubbliche.
 La protezione reale è l'API key (`X-Api-Key`), indipendente dall'origine.
 Valorizzare `Security.CorsOrigins` solo per domini admin separati o multi-tenant.
+
+---
+
+## Configurazione (appsettings.json)
+
+**Dove si trova il file:** `backend/appsettings.json` nella radice del progetto backend. Tutte le configurazioni di sicurezza, autenticazione e localizzazione si trovano qui.
+
+### Sezione Security
+
+```json
+{
+  "Security": {
+    "ApiKeys": [ "chiave-segreta-api" ],
+    "CorsOrigins": [],
+    "BehindProxy": false,
+    "Headers": {
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff"
+    },
+    "Token": {
+      "SecretKey": "",
+      "ExpirationSeconds": 3000
+    }
+  }
+}
+```
+
+| Campo | Obbligatorio | Tipo | Default | Note |
+|---|---|---|---|---|
+| `ApiKeys` | sì | `string[]` | `[]` | Chiavi accettate nell'header `X-Api-Key`; array vuoto = nessuna richiesta autorizzata |
+| `CorsOrigins` | no | `string[]` | `[]` | Origini CORS consentite; array vuoto = `AllowAnyOrigin` (la protezione reale è l'API key) |
+| `BehindProxy` | no | `bool` | `false` | `true` attiva `ForwardedHeaders` per leggere l'IP reale da `X-Forwarded-For` (necessario dietro nginx/reverse proxy) |
+| `Headers` | no | `Dictionary<string,string>` | `{}` | Header HTTP extra aggiunti a ogni risposta dal `SecurityHeadersMiddleware` |
+| `Token.SecretKey` | no | `string` | `""` | Vuota = JWT disabilitato; < 32 caratteri = eccezione all'avvio del server |
+| `Token.ExpirationSeconds` | no | `int` | `3000` | Durata del token in secondi (~50 minuti) |
+
+Se `Token.SecretKey` è vuota, `LoginEnabled` è `false`: il controller `AuthController` e `ProtectedController` non vengono registrati automaticamente dal `TemplateControllerFeatureProvider`. Non serve commentare o rimuovere i controller: basta non configurare la SecretKey.
+
+### Sezione Localization
+
+```json
+{
+  "Localization": {
+    "DefaultLanguage": "it",
+    "SupportedLanguages": ["it", "en"]
+  }
+}
+```
+
+La lingua di ogni richiesta viene letta dall'header `Accept-Language` inviato dal frontend Angular. Il middleware `RequestLocalization` la imposta come `CultureInfo.CurrentUICulture` prima che la richiesta arrivi al controller. I servizi leggono direttamente `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName` — non gestiscono la lingua manualmente.
+
+### Aggiungere una nuova sezione di configurazione
+
+Il pattern in tre file: un modello tipizzato, la registrazione in `Program.cs`, l'uso nel servizio.
+
+```csharp
+// backend/Models/Configuration/MieOpzioni.cs
+// Il modello tipizzato per la sezione di configurazione.
+// I valori di default qui corrispondono a quelli "sicuri" se appsettings.json non ha quella sezione.
+public class MieOpzioni
+{
+    public string ParametroA { get; set; } = string.Empty;
+    public int ParametroB { get; set; } = 10;
+}
+```
+
+```csharp
+// backend/Program.cs — aggiungere nella sezione configurazione
+builder.Services.Configure<MieOpzioni>(
+    builder.Configuration.GetSection("MieOpzioni"));
+```
+
+```csharp
+// backend/Services/MioService.cs — usare nel servizio tramite IOptions<T>
+using Microsoft.Extensions.Options;
+
+public class MioService
+{
+    private readonly MieOpzioni _opzioni;
+
+    // IOptions<T> viene iniettato automaticamente dal DI.
+    // _opzioni.Value contiene i valori letti da appsettings.json.
+    public MioService(IOptions<MieOpzioni> opzioni)
+    {
+        _opzioni = opzioni.Value;
+    }
+}
+```
+
+```json
+// backend/appsettings.json — aggiungere la sezione corrispondente
+{
+  "MieOpzioni": {
+    "ParametroA": "valore",
+    "ParametroB": 42
+  }
+}
+```
 
 ---
 
@@ -517,6 +655,71 @@ public class BaseController : EngineApiController
 
 ---
 
+## Servizi registrati
+
+Questi servizi sono registrati in `Program.cs` e disponibili tramite iniezione in tutta l'applicazione.
+
+| Servizio | Namespace | Lifetime | Ruolo |
+|---|---|---|---|
+| `FileContentStore` | `Backend.Infrastructure` | Singleton | Implementazione di `IContentStore`; legge da `backend/data/*.json` |
+| `SiteService` | `Backend.Services` | Scoped | Logica di business del progetto; dipende da `IContentStore` |
+| `AuthService` | `Backend.Services` | Singleton (condizionale) | Generazione token JWT (engine); registrato solo se `LoginEnabled = true` |
+
+### `AuthService` — API dell'engine
+
+`AuthService` è parte dell'engine e disponibile in tutti i controller che estendono `EngineAuthController` tramite la proprietà protetta `Auth`. Non si usa direttamente nei servizi applicativi: serve solo al controller di login per generare il token.
+
+```csharp
+// Firma del metodo disponibile tramite Auth.GenerateToken() nei controller che estendono EngineAuthController.
+// Genera un token JWT firmato (HMAC-SHA256) con ruolo "Authenticated" sempre incluso.
+// additionalClaims: claim extra facoltativi (es. userId, tenantId, email).
+string GenerateToken(IEnumerable<Claim>? additionalClaims = null)
+```
+
+### `UniversalLegalModel` — struttura
+
+Modello del template per i dati legali e anagrafici dell'organizzazione. Restituito da `IContentStore.GetProfileAsync()` e usato come base nei progetti figli. Tutti i campi sono nullable — il modello può essere valorizzato parzialmente.
+
+```csharp
+// Namespace: Backend.Models.Legal
+class UniversalLegalModel {
+    string?                    RagioneSociale
+    string?                    PartitaIva
+    string?                    CodiceFiscale
+    Address?                   SedeLegale        // Via, Civico, Cap, Citta, Provincia, Nazione
+    ContactInfo?               Contatti          // Telefono, Email, Pec
+    CompanyDetails?            DatiSocietari     // RegistroImprese, NumeroRea, CapitaleSociale,
+                                                 // CapitaleInteramenteVersato, IsSocioUnico,
+                                                 // InLiquidazione, CodiceSdi
+    Dictionary<string,string>? Social            // nome logico → URL
+    Dictionary<string,string>? MetadatiAggiuntivi // campi custom liberi per il progetto figlio
+}
+```
+
+Il campo `MetadatiAggiuntivi` è il punto di estensione previsto per dati extra senza modificare il modello base.
+
+
+---
+
+
+# 2. Sicurezza e Autenticazione
+
+## Sicurezza (Middleware e Autenticazione API First)
+
+L'Engine implementa difese di livello enterprise nativamente nella pipeline HTTP, svincolando i controller da responsabilità di sicurezza tediose.
+
+### `ApiKeyAuthentication` (Il biglietto d'ingresso)
+Il backend è protetto da un handler custom di autenticazione `ApiKeyHandler` basato sull'header `X-Api-Key`. Questo funge da **prima linea di difesa**:
+- Blocca qualsiasi richiesta sprovvista di una chiave valida configurata in `Security:ApiKeys`.
+- Salta astutamente la validazione per le richieste HTTP `OPTIONS`, consentendo al browser di eseguire correttamente il preflight CORS senza schiantarsi.
+Questo garantisce che il server non sprechi risorse (né esegua codice JWT o DB) se il client non è nemmeno autorizzato a parlargli.
+
+### `SecurityHeadersMiddleware` (CSP & Hardening)
+Per difendere il frontend da vulnerabilità (come XSS o Clickjacking), l'Engine inietta automaticamente su **TUTTE** le risposte HTTP gli header di sicurezza definiti in `appsettings.json` (es. `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`).
+> **Nota Architetturale**: L'iniezione avviene agganciandosi a `HttpResponse.OnStarting()`. Questo assicura che gli header vengano inviati *anche* sulle risposte d'errore (401, 500) generate da altri middleware successivi o dall'`ApiExceptionHandler`, blindando l'intera app a prescindere dal routing.
+
+---
+
 ## Gestione degli errori
 
 **La regola fondamentale:** non costruire mai risposte di errore manualmente nei controller. Non usare `return BadRequest(...)`, `return NotFound(...)` o simili. Lanciare un'eccezione della gerarchia `ApiException`: il middleware `ApiExceptionHandler` la intercetta automaticamente e restituisce un payload ProblemDetails (RFC 9457) con il codice HTTP corretto.
@@ -585,83 +788,17 @@ public async Task<IActionResult> Get(string slug)
 
 ---
 
-## Sostituire FileContentStore con un database
+## Login condizionale (JWT)
 
-`IContentStore` è il contratto di accesso ai dati. L'implementazione attuale (`FileContentStore`) legge da file JSON in `backend/data/`. Passare a un database reale richiede solo di creare una nuova classe che implementa la stessa interfaccia — nessun altro file del progetto va modificato, perché controller e servizi dipendono da `IContentStore`, non dall'implementazione concreta.
+Il sistema JWT si attiva o disattiva in base a una sola condizione: il valore di `Security.Token.SecretKey` in `appsettings.json`. Questo design permette di avere un'applicazione completamente pubblica (solo API key) senza dover modificare il codice.
 
-> **Dove mettere i file runtime persistenti (SQLite, JSON mutabili):** usa `backend/db/`, che è montato come volume Docker (`db-data:/app/db`). Il suo contenuto sopravvive ai rebuild e ai `docker compose down` senza `-v`. La cartella `backend/data/` è invece **baked nell'immagine**: perfetta per contenuto gestito via git (irl.json, social.json), ma non adatta per file che il container scrive o che non vuoi sovrascrivere ad ogni deploy.
+| Condizione | Effetto |
+|---|---|
+| `SecretKey` vuota | `LoginEnabled = false`: nessun `AuthService`, nessun middleware JWT, nessun overhead. `AuthController` e `ProtectedController` non vengono registrati dal `TemplateControllerFeatureProvider` |
+| `SecretKey` valorizzata | `LoginEnabled = true`: `AuthService` singleton registrato, middleware JWT Bearer attivo, policy `RequireLogin` applicabile |
+| `SecretKey` < 32 caratteri | Il server lancia un'eccezione all'avvio (HMAC-SHA256 richiede chiavi sufficientemente lunghe per essere sicuro) |
 
-### 1. Implementare `IContentStore`
-
-**Dove creare il file:** `backend/Store/DbContentStore.cs`. La nuova classe deve implementare tutti i metodi definiti in `IContentStore`.
-
-```csharp
-// backend/Store/DbContentStore.cs
-using Backend.Models.Legal;
-
-namespace Backend.Infrastructure;
-
-public class DbContentStore : IContentStore
-{
-    private readonly MioDbContext _db;
-
-    // Il DbContext viene iniettato dal sistema DI di ASP.NET, come qualsiasi altro servizio.
-    public DbContentStore(MioDbContext db)
-    {
-        _db = db;
-    }
-
-    public async Task<UniversalLegalModel> GetProfileAsync(string language)
-    {
-        // Esempio: cerca il profilo nella lingua richiesta, o fallback sull'italiano.
-        var profilo = await _db.Profili
-            .FirstOrDefaultAsync(p => p.Lingua == language)
-            ?? await _db.Profili.FirstOrDefaultAsync(p => p.Lingua == "it");
-
-        if (profilo == null)
-            throw new NotFoundException("profilo");
-
-        return profilo.ToUniversalLegalModel();
-    }
-
-    public async Task<Dictionary<string, string>> GetSocialAsync()
-    {
-        return await _db.Social
-            .ToDictionaryAsync(s => s.Nome, s => s.Url);
-    }
-}
-```
-
-### 2. Registrare il DbContext e la nuova implementazione in Program.cs
-
-**Dove modificare:** `backend/Program.cs`, sezione `SERVIZI APPLICATIVI`. Sostituire la registrazione di `FileContentStore` con quella di `DbContentStore`.
-
-```csharp
-// backend/Program.cs — sezione "SERVIZI APPLICATIVI"
-// Registrare il DbContext con la connection string da appsettings.json:
-builder.Services.AddDbContext<MioDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
-
-// Sostituire questa riga:
-//   builder.Services.AddSingleton<IContentStore, FileContentStore>();
-// con:
-builder.Services.AddScoped<IContentStore, DbContentStore>();
-// (DbContentStore usa il DbContext che è Scoped, quindi non può essere Singleton)
-```
-
-Nessun altro file va modificato. Controller e servizi dipendono da `IContentStore`, che ora il DI risolve con `DbContentStore`.
-
-### 3. Aggiungere la connection string in appsettings.json
-
-**Dove modificare:** `backend/appsettings.json`.
-
-```json
-{
-  "ConnectionStrings": {
-    "Default": "Server=localhost;Database=MioDb;Trusted_Connection=True;"
-  }
-}
-```
+Il token JWT viene generato da `Auth.GenerateToken()` (disponibile in `AuthController` tramite `EngineAuthController`) e restituito al frontend. Il frontend Angular lo conserva in `sessionStorage` (sopravvive al refresh della pagina, si cancella alla chiusura del tab). Le richieste successive lo inviano nell'header `Authorization: Bearer <token>`, che il middleware JWT Bearer valida automaticamente.
 
 ---
 
@@ -766,14 +903,18 @@ if (request.Username != username || request.Pwd != password)
 return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
 ```
 
-Per aggiungere claim personalizzati al token (es. un ruolo da passare al frontend):
+Per aggiungere claim personalizzati al token (es. un ruolo o un tenant Id da passare al frontend), basta usare l'overload di `GenerateToken`:
 
 ```csharp
 using System.Security.Claims;
 
-var claims = new List<Claim> { new Claim("role", "admin") };
+var claims = new List<Claim> { new Claim("role", "admin"), new Claim("tenant", "123") };
 return Ok(new LoginResult(true, Token: Auth.GenerateToken(claims)));
 ```
+Questa **Iniezione Dinamica dei Claims** permette di espandere enormemente le potenzialità del token senza mai dover toccare l'Engine nativo `AuthService`.
+
+### Rate Limiting Integrato
+Hai notato l'attributo `[EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]`? Il template ha un rate limiter pronto all'uso sull'endpoint di login per prevenire attacchi di *Brute Force*. Se un client tenta troppi login in un intervallo di tempo ristretto, il server risponde automaticamente con un `429 Too Many Requests` senza scomodare il controller.
 
 Il token JWT viene configurato in `appsettings.json` (vedi sotto).
 
@@ -938,103 +1079,11 @@ Console.WriteLine(hash);
 
 ---
 
-## Configurazione (appsettings.json)
-
-**Dove si trova il file:** `backend/appsettings.json` nella radice del progetto backend. Tutte le configurazioni di sicurezza, autenticazione e localizzazione si trovano qui.
-
-### Sezione Security
-
-```json
-{
-  "Security": {
-    "ApiKeys": [ "chiave-segreta-api" ],
-    "CorsOrigins": [],
-    "BehindProxy": false,
-    "Headers": {
-      "X-Frame-Options": "DENY",
-      "X-Content-Type-Options": "nosniff"
-    },
-    "Token": {
-      "SecretKey": "",
-      "ExpirationSeconds": 3000
-    }
-  }
-}
-```
-
-| Campo | Obbligatorio | Tipo | Default | Note |
-|---|---|---|---|---|
-| `ApiKeys` | sì | `string[]` | `[]` | Chiavi accettate nell'header `X-Api-Key`; array vuoto = nessuna richiesta autorizzata |
-| `CorsOrigins` | no | `string[]` | `[]` | Origini CORS consentite; array vuoto = `AllowAnyOrigin` (la protezione reale è l'API key) |
-| `BehindProxy` | no | `bool` | `false` | `true` attiva `ForwardedHeaders` per leggere l'IP reale da `X-Forwarded-For` (necessario dietro nginx/reverse proxy) |
-| `Headers` | no | `Dictionary<string,string>` | `{}` | Header HTTP extra aggiunti a ogni risposta dal `SecurityHeadersMiddleware` |
-| `Token.SecretKey` | no | `string` | `""` | Vuota = JWT disabilitato; < 32 caratteri = eccezione all'avvio del server |
-| `Token.ExpirationSeconds` | no | `int` | `3000` | Durata del token in secondi (~50 minuti) |
-
-Se `Token.SecretKey` è vuota, `LoginEnabled` è `false`: il controller `AuthController` e `ProtectedController` non vengono registrati automaticamente dal `TemplateControllerFeatureProvider`. Non serve commentare o rimuovere i controller: basta non configurare la SecretKey.
-
-### Sezione Localization
-
-```json
-{
-  "Localization": {
-    "DefaultLanguage": "it",
-    "SupportedLanguages": ["it", "en"]
-  }
-}
-```
-
-La lingua di ogni richiesta viene letta dall'header `Accept-Language` inviato dal frontend Angular. Il middleware `RequestLocalization` la imposta come `CultureInfo.CurrentUICulture` prima che la richiesta arrivi al controller. I servizi leggono direttamente `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName` — non gestiscono la lingua manualmente.
-
-### Aggiungere una nuova sezione di configurazione
-
-Il pattern in tre file: un modello tipizzato, la registrazione in `Program.cs`, l'uso nel servizio.
-
-```csharp
-// backend/Models/Configuration/MieOpzioni.cs
-// Il modello tipizzato per la sezione di configurazione.
-// I valori di default qui corrispondono a quelli "sicuri" se appsettings.json non ha quella sezione.
-public class MieOpzioni
-{
-    public string ParametroA { get; set; } = string.Empty;
-    public int ParametroB { get; set; } = 10;
-}
-```
-
-```csharp
-// backend/Program.cs — aggiungere nella sezione configurazione
-builder.Services.Configure<MieOpzioni>(
-    builder.Configuration.GetSection("MieOpzioni"));
-```
-
-```csharp
-// backend/Services/MioService.cs — usare nel servizio tramite IOptions<T>
-using Microsoft.Extensions.Options;
-
-public class MioService
-{
-    private readonly MieOpzioni _opzioni;
-
-    // IOptions<T> viene iniettato automaticamente dal DI.
-    // _opzioni.Value contiene i valori letti da appsettings.json.
-    public MioService(IOptions<MieOpzioni> opzioni)
-    {
-        _opzioni = opzioni.Value;
-    }
-}
-```
-
-```json
-// backend/appsettings.json — aggiungere la sezione corrispondente
-{
-  "MieOpzioni": {
-    "ParametroA": "valore",
-    "ParametroB": 42
-  }
-}
-```
 
 ---
+
+
+# 3. Storage e Dati
 
 ## Content store
 
@@ -1067,59 +1116,83 @@ Per sostituire la sorgente dati (es. database) basta implementare `IContentStore
 
 ---
 
-## Login condizionale (JWT)
+## Sostituire FileContentStore con un database
 
-Il sistema JWT si attiva o disattiva in base a una sola condizione: il valore di `Security.Token.SecretKey` in `appsettings.json`. Questo design permette di avere un'applicazione completamente pubblica (solo API key) senza dover modificare il codice.
+`IContentStore` è il contratto di accesso ai dati. L'implementazione attuale (`FileContentStore`) legge da file JSON in `backend/data/`. Passare a un database reale richiede solo di creare una nuova classe che implementa la stessa interfaccia — nessun altro file del progetto va modificato, perché controller e servizi dipendono da `IContentStore`, non dall'implementazione concreta.
 
-| Condizione | Effetto |
-|---|---|
-| `SecretKey` vuota | `LoginEnabled = false`: nessun `AuthService`, nessun middleware JWT, nessun overhead. `AuthController` e `ProtectedController` non vengono registrati dal `TemplateControllerFeatureProvider` |
-| `SecretKey` valorizzata | `LoginEnabled = true`: `AuthService` singleton registrato, middleware JWT Bearer attivo, policy `RequireLogin` applicabile |
-| `SecretKey` < 32 caratteri | Il server lancia un'eccezione all'avvio (HMAC-SHA256 richiede chiavi sufficientemente lunghe per essere sicuro) |
+> **Dove mettere i file runtime persistenti (SQLite, JSON mutabili):** usa `backend/db/`, che è montato come volume Docker (`db-data:/app/db`). Il suo contenuto sopravvive ai rebuild e ai `docker compose down` senza `-v`. La cartella `backend/data/` è invece **baked nell'immagine**: perfetta per contenuto gestito via git (irl.json, social.json), ma non adatta per file che il container scrive o che non vuoi sovrascrivere ad ogni deploy.
 
-Il token JWT viene generato da `Auth.GenerateToken()` (disponibile in `AuthController` tramite `EngineAuthController`) e restituito al frontend. Il frontend Angular lo conserva in `sessionStorage` (sopravvive al refresh della pagina, si cancella alla chiusura del tab). Le richieste successive lo inviano nell'header `Authorization: Bearer <token>`, che il middleware JWT Bearer valida automaticamente.
+### 1. Implementare `IContentStore`
 
----
-
-## Servizi registrati
-
-Questi servizi sono registrati in `Program.cs` e disponibili tramite iniezione in tutta l'applicazione.
-
-| Servizio | Namespace | Lifetime | Ruolo |
-|---|---|---|---|
-| `FileContentStore` | `Backend.Infrastructure` | Singleton | Implementazione di `IContentStore`; legge da `backend/data/*.json` |
-| `SiteService` | `Backend.Services` | Scoped | Logica di business del progetto; dipende da `IContentStore` |
-| `AuthService` | `Backend.Services` | Singleton (condizionale) | Generazione token JWT (engine); registrato solo se `LoginEnabled = true` |
-
-### `AuthService` — API dell'engine
-
-`AuthService` è parte dell'engine e disponibile in tutti i controller che estendono `EngineAuthController` tramite la proprietà protetta `Auth`. Non si usa direttamente nei servizi applicativi: serve solo al controller di login per generare il token.
+**Dove creare il file:** `backend/Store/DbContentStore.cs`. La nuova classe deve implementare tutti i metodi definiti in `IContentStore`.
 
 ```csharp
-// Firma del metodo disponibile tramite Auth.GenerateToken() nei controller che estendono EngineAuthController.
-// Genera un token JWT firmato (HMAC-SHA256) con ruolo "Authenticated" sempre incluso.
-// additionalClaims: claim extra facoltativi (es. userId, tenantId, email).
-string GenerateToken(IEnumerable<Claim>? additionalClaims = null)
-```
+// backend/Store/DbContentStore.cs
+using Backend.Models.Legal;
 
-### `UniversalLegalModel` — struttura
+namespace Backend.Infrastructure;
 
-Modello del template per i dati legali e anagrafici dell'organizzazione. Restituito da `IContentStore.GetProfileAsync()` e usato come base nei progetti figli. Tutti i campi sono nullable — il modello può essere valorizzato parzialmente.
+public class DbContentStore : IContentStore
+{
+    private readonly MioDbContext _db;
 
-```csharp
-// Namespace: Backend.Models.Legal
-class UniversalLegalModel {
-    string?                    RagioneSociale
-    string?                    PartitaIva
-    string?                    CodiceFiscale
-    Address?                   SedeLegale        // Via, Civico, Cap, Citta, Provincia, Nazione
-    ContactInfo?               Contatti          // Telefono, Email, Pec
-    CompanyDetails?            DatiSocietari     // RegistroImprese, NumeroRea, CapitaleSociale,
-                                                 // CapitaleInteramenteVersato, IsSocioUnico,
-                                                 // InLiquidazione, CodiceSdi
-    Dictionary<string,string>? Social            // nome logico → URL
-    Dictionary<string,string>? MetadatiAggiuntivi // campi custom liberi per il progetto figlio
+    // Il DbContext viene iniettato dal sistema DI di ASP.NET, come qualsiasi altro servizio.
+    public DbContentStore(MioDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<UniversalLegalModel> GetProfileAsync(string language)
+    {
+        // Esempio: cerca il profilo nella lingua richiesta, o fallback sull'italiano.
+        var profilo = await _db.Profili
+            .FirstOrDefaultAsync(p => p.Lingua == language)
+            ?? await _db.Profili.FirstOrDefaultAsync(p => p.Lingua == "it");
+
+        if (profilo == null)
+            throw new NotFoundException("profilo");
+
+        return profilo.ToUniversalLegalModel();
+    }
+
+    public async Task<Dictionary<string, string>> GetSocialAsync()
+    {
+        return await _db.Social
+            .ToDictionaryAsync(s => s.Nome, s => s.Url);
+    }
 }
 ```
 
-Il campo `MetadatiAggiuntivi` è il punto di estensione previsto per dati extra senza modificare il modello base.
+### 2. Registrare il DbContext e la nuova implementazione in Program.cs
+
+**Dove modificare:** `backend/Program.cs`, sezione `SERVIZI APPLICATIVI`. Sostituire la registrazione di `FileContentStore` con quella di `DbContentStore`.
+
+```csharp
+// backend/Program.cs — sezione "SERVIZI APPLICATIVI"
+// Registrare il DbContext con la connection string da appsettings.json:
+builder.Services.AddDbContext<MioDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+
+// Sostituire questa riga:
+//   builder.Services.AddSingleton<IContentStore, FileContentStore>();
+// con:
+builder.Services.AddScoped<IContentStore, DbContentStore>();
+// (DbContentStore usa il DbContext che è Scoped, quindi non può essere Singleton)
+```
+
+Nessun altro file va modificato. Controller e servizi dipendono da `IContentStore`, che ora il DI risolve con `DbContentStore`.
+
+### 3. Aggiungere la connection string in appsettings.json
+
+**Dove modificare:** `backend/appsettings.json`.
+
+```json
+{
+  "ConnectionStrings": {
+    "Default": "Server=localhost;Database=MioDb;Trusted_Connection=True;"
+  }
+}
+```
+
+---
+

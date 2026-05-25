@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
      [attr.data-bs-theme]="theme.themeTone()"
-     [attr.aria-label]="'mainNavLabel' | translate">
+     [attr.aria-label]="'principaleNav' | translate">
     <div class="container-fluid">
         @if (isRouteActive(homePath)) {
         <span class="navbar-brand nav-current-link"
@@ -14,7 +14,7 @@
                 (click)="toggleMenu()"
                 aria-controls="navbar-menu"
                 [attr.aria-expanded]="menuOpen()"
-                [attr.aria-label]="'toggleNavigation' | translate">
+                [attr.aria-label]="'toggleNav' | translate">
             <span class="navbar-toggler-icon"></span>
         </button>
         }
@@ -43,16 +43,16 @@
 
             @if (languages().length > 1) {
             <div class="language-picker ms-md-auto mt-3 mt-md-0">
-                <span class="language-picker-label">{{ 'selezionaLingua' | translate }}</span>
+                <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
                 <details class="nav-disclosure language-disclosure"
                          (toggle)="onDisclosureToggle($event)">
                     <summary class="nav-link nav-disclosure-summary language-disclosure-summary d-flex align-items-center justify-content-between gap-1 user-select-none border-0 bg-transparent text-decoration-none"
-                             [attr.aria-label]="'selezionaLingua' | translate">
+                             [attr.aria-label]="'selezionaLinguaAzione' | translate">
                         <span class="nav-disclosure-label">{{ translate.currentLang() | uppercase }}</span>
                         <span class="nav-disclosure-caret" aria-hidden="true"></span>
                     </summary>
                     <ul class="nav-disclosure-menu language-disclosure-menu theme-bg list-unstyled overflow-hidden"
-                        [attr.aria-label]="'selezionaLingua' | translate">
+                        [attr.aria-label]="'selezionaLinguaAzione' | translate">
                         @for (lingua of languages(); track lingua) {
                         <li>
                             @if (lingua === translate.currentLang()) {

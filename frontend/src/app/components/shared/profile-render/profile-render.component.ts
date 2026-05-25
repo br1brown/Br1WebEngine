@@ -45,32 +45,32 @@ export class ProfileRenderComponent {
 
         return this.compactSections([
             {
-                titleKey: 'contatti',
+                titleKey: 'contattiAzienda',
                 items: this.compactItems([
-                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSociale')),
-                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegale')),
-                    this.createLinkItem(this.label('telefono'), profile.contatti?.telefono, 'tel:'),
-                    this.createLinkItem(this.label('PEC'), profile.contatti?.pec, 'mailto:'),
-                    this.createLinkItem(this.label('mail'), profile.contatti?.email, 'mailto:'),
-                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegale'], this.label('rappresentanteLegale')),
-                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContatto'], this.label('orariContatto'), 'mt-3'),
+                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSocialeAzienda')),
+                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegaleAzienda')),
+                    this.createLinkItem(this.label('telefonoAzienda'), profile.contatti?.telefono, 'tel:'),
+                    this.createLinkItem(this.label('pecAzienda'), profile.contatti?.pec, 'mailto:'),
+                    this.createLinkItem(this.label('emailAzienda'), profile.contatti?.email, 'mailto:'),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegaleAzienda'], this.label('rappresentanteLegaleAzienda')),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContattoAzienda'], this.label('orariContattoAzienda'), 'mt-3'),
                 ]),
             },
             {
-                titleKey: 'dati_societari',
+                titleKey: 'datiSocietariAzienda',
                 items: this.compactItems([
-                    this.createCodeItem(this.label('partitaiva'), profile.partitaIva),
-                    this.createCodeItem(this.label('codiceFiscale'), profile.codiceFiscale),
-                    this.createTextItem(profile.datiSocietari?.registroImprese, this.label('registroimprese')),
-                    this.createCodeItem(this.label('numerorea'), profile.datiSocietari?.numeroRea),
-                    this.createTextItem(this.formatCurrency(profile.datiSocietari?.capitaleSociale), this.label('capitaleSociale')),
+                    this.createCodeItem(this.label('partitaIvaAzienda'), profile.partitaIva),
+                    this.createCodeItem(this.label('codiceFiscaleAzienda'), profile.codiceFiscale),
+                    this.createTextItem(profile.datiSocietari?.registroImprese, this.label('registroImpreseAzienda')),
+                    this.createCodeItem(this.label('numeroReaAzienda'), profile.datiSocietari?.numeroRea),
+                    this.createTextItem(this.formatCurrency(profile.datiSocietari?.capitaleSociale), this.label('capitaleSocialeAzienda')),
                     this.createTextItem(
                         this.formatBoolean(profile.datiSocietari?.capitaleInteramenteVersato),
-                        this.label('capitaleInteramenteVersato'),
+                        this.label('capitaleVersatoAzienda'),
                     ),
-                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.isSocioUnico), this.label('isSocioUnico')),
-                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.inLiquidazione), this.label('inLiquidazione')),
-                    this.createCodeItem(this.label('codicesdi'), profile.datiSocietari?.codiceSdi),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.isSocioUnico), this.label('socioUnicoAzienda')),
+                    this.createTextItem(this.formatBoolean(profile.datiSocietari?.inLiquidazione), this.label('inLiquidazioneAzienda')),
+                    this.createCodeItem(this.label('codiceSdiAzienda'), profile.datiSocietari?.codiceSdi),
                 ]),
             },
         ]);
@@ -112,7 +112,7 @@ export class ProfileRenderComponent {
 
     private formatBoolean(value: boolean | null | undefined): string | null {
         if (typeof value !== 'boolean') return null;
-        return this.translate.translate(value ? 'si' : 'no');
+        return this.translate.translate(value ? 'siAzione' : 'noAzione');
     }
 
     private formatCurrency(value: number | null | undefined): string | null {

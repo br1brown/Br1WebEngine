@@ -12,22 +12,22 @@
                             <hr class="mt-0 mb-0">
                             <details class="cookie-category">
                                 <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">
-                                    {{ 'cookieCategoryTechnical' | translate }}
-                                    <span class="small border rounded-pill px-2 py-1 opacity-75 text-nowrap flex-shrink-0">{{ 'cookieBannerRequired' | translate }}</span>
+                                    {{ 'tecniciCategoriaCookie' | translate }}
+                                    <span class="small border rounded-pill px-2 py-1 opacity-75 text-nowrap flex-shrink-0">{{ 'obbligatorioBannerCookie' | translate }}</span>
                                 </summary>
-                                <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryTechnicalDesc' | translate }}</p>
+                                <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
                             </details>
                         }
                         @if (cookieConsent.isAnalyticsNeeded()) {
                             <hr class="mt-0 mb-0">
                             <div class="d-flex align-items-center gap-3">
                                 <details class="cookie-category flex-grow-1">
-                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'cookieCategoryAnalytics' | translate }}</summary>
-                                    <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryAnalyticsDesc' | translate }}</p>
+                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
+                                    <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
                                 </details>
                                 <div class="form-check form-switch mb-0 flex-shrink-0">
                                     <input class="form-check-input" type="checkbox" role="switch"
-                                           [attr.aria-label]="'cookieCategoryAnalytics' | translate"
+                                           [attr.aria-label]="'analyticsCategoriaCookie' | translate"
                                            [checked]="pendingAnalytics()"
                                            (change)="pendingAnalytics.set($any($event.target).checked)">
                                 </div>
@@ -37,12 +37,12 @@
                             <hr class="mt-0 mb-0">
                             <div class="d-flex align-items-center gap-3">
                                 <details class="cookie-category flex-grow-1">
-                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'cookieCategoryProfiling' | translate }}</summary>
-                                    <p class="small opacity-75 mb-0 mt-1">{{ 'cookieCategoryProfilingDesc' | translate }}</p>
+                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
+                                    <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
                                 </details>
                                 <div class="form-check form-switch mb-0 flex-shrink-0">
                                     <input class="form-check-input" type="checkbox" role="switch"
-                                           [attr.aria-label]="'cookieCategoryProfiling' | translate"
+                                           [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
                                            [checked]="pendingProfiling()"
                                            (change)="pendingProfiling.set($any($event.target).checked)">
                                 </div>
@@ -59,20 +59,20 @@
                         [class.flex-fill]="hasMixedCategories()"
                         type="button"
                         (click)="reject()">
-                    {{ 'cookieBannerReject' | translate }}
+                    {{ 'rifiutaTuttiBannerCookie' | translate }}
                 </button>
                 <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
                         [class.flex-fill]="hasMixedCategories()"
                         type="button"
                         (click)="accept()">
-                    {{ 'cookieBannerAccept' | translate }}
+                    {{ 'accettaTuttiBannerCookie' | translate }}
                 </button>
                 <button class="btn btn-success fw-semibold text-nowrap rounded-pill"
                         [class.flex-fill]="hasMixedCategories()"
                         [hidden]="!hasMixedCategories()"
                         type="button"
                         (click)="saveSelected()">
-                    {{ 'cookieBannerSave' | translate }}
+                    {{ 'salvaBannerCookie' | translate }}
                 </button>
             </div>
         </div>
@@ -80,7 +80,7 @@
 } @else {
     <button class="cookie-reopen-btn surface-elevated fab rounded-circle d-flex align-items-center justify-content-center fs-5" type="button"
             (click)="reopen()"
-            [attr.aria-label]="'cookieSettingsLabel' | translate">
+            [attr.aria-label]="'impostazioniCookie' | translate">
         <i class="fa-solid fa-cookie-bite"></i>
     </button>
 }

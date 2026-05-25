@@ -1091,6 +1091,16 @@ export function buildSite(
     const sitemap = processPages(sitePages);
 
     /**
+     * Se la pagina indicata per il redirect dell'AuthGuard è disabilitata (o inesistente),
+     * viene scartata da processPages e non finisce nella pageMap.
+     * In questo caso, resettiamo la configurazione a null per evitare redirect verso 404.
+     */
+    const finalConfig = siteConfig as SiteConfig;
+    if (finalConfig.pageForAuthGuard && !pageMap.has(finalConfig.pageForAuthGuard)) {
+        finalConfig.pageForAuthGuard = null;
+    }
+
+    /**
      * Risolve una lista di item raw di navigazione in NavLink[] finali.
      *
      * - Riferimenti a pagine (PageType): risolve il path dalla mappa pageMap

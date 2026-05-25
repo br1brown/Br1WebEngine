@@ -23,7 +23,7 @@ export function injectCurrentUrl() {
 /**
  * Guard di autenticazione: protegge le rotte che hanno il flag `requiresAuth`.
  */
-const authGuard: CanActivateFn = () => {
+const authGuard: CanActivateFn = (route) => {
     const t = inject(TranslateService);
     const authService = inject(AuthService);
     const notifaction = inject(NotificationService);
@@ -33,18 +33,24 @@ const authGuard: CanActivateFn = () => {
         return true;
     }
 
-    // La notifica non deve bloccare il redirect: il servizio carica SweetAlert2 in lazy mode.
-    void notifaction.error(t.translate('errore401Info'), t.translate('errore401Desc'));
+    // Mostriamo sempre la notifica (modale o toast) per spiegare all'utente PERCHÉ è stato interrotto.
+    // Essendo in una SPA, la modale rimarrà aperta anche durante e dopo il redirect,
+    // così l'utente leggerà il messaggio con la pagina di Login sullo sfondo.
+    void notifaction.error(t.translate('errore401Titolo'), t.translate('errore401Descrizione'));
 
     const redirectPage = ContestoSito.config.pageForAuthGuard;
     if (redirectPage != null) {
         const path = ContestoSito.getPath(redirectPage);
         if (path) {
-            return router.createUrlTree([path]);
+            // Redirigiamo alla pagina di login indicata, passando il vecchio pageType
+            return router.createUrlTree([path], {
+                queryParams: { returnPageType: route.data['pageType'] }
+            });
         }
     }
 
-    return router.createUrlTree(['/error/401']);
+    // Se redirectPage è nullo: blocchiamo la navigazione e restiamo fermi
+    return false;
 };
 
 /**
@@ -122,7 +128,7 @@ function buildErrorRoutes(): Routes {
     routes.push(
         {
             path: 'error/:errorCode',
-            title: 'errore',
+            title: 'genericoErrore',
             loadComponent: () => import('./pages/error/error.component').then(m => m.ErrorComponent),
             data: { showPanel: false }
         },

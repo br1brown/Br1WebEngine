@@ -9,6 +9,52 @@ export type {
     SmokeSettingsInput
 } from './core/engine/siteBuilder';
 
+import type { SitePageInput as _SitePageInput } from './core/engine/siteBuilder';
+
+/**
+ * Genera il blocco di configurazione per le pagine legali e di policy.
+ * Centralizzare questa logica assicura che il template fornisca "by default"
+ * tutte le rotte necessarie per la conformità normativa (Privacy, Cookie, Termini, Legale).
+ * 
+ * @returns Un array di configurazioni `SitePageInput` destinate alla rotta padre `/legale`.
+ */
+function _createPolicy(): _SitePageInput[] {
+    // Estraiamo il loader lazy per evitare di duplicare la chiusura e l'istruzione di import() 4 volte.
+    // Questo aiuta il bundler di Angular a ottimizzare il chunking.
+    const loadPolicyComponent = () => import('./pages/policy/policy.component').then(m => m.PolicyComponent);
+
+    return [
+        {
+            path: 'privacy',
+            title: 'privacyPolicyMenu',
+            description: 'privacyPolicyDescrizione',
+            pageType: PageType.PrivacyPolicy,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'termini',
+            title: 'terminiPolicyMenu',
+            description: 'terminiPolicyDescrizione',
+            pageType: PageType.TermsOfService,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'cookie',
+            title: 'cookiePolicyMenu',
+            description: 'cookiePolicyDescrizione',
+            pageType: PageType.CookiePolicy,
+            component: loadPolicyComponent,
+        },
+        {
+            path: 'legal',
+            title: 'noteLegaliPolicyMenu',
+            description: 'noteLegaliPolicyDescrizione',
+            pageType: PageType.LegalNotice,
+            component: loadPolicyComponent,
+        }
+    ];
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // ENUM PageType — identita' di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
@@ -78,7 +124,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         defaultLang: 'it',
         availableLanguages: ['it', 'en'],
         description: 'Template di base che serve per fare vedere le funzionalità base',
-        colorTema: '#131e54',
+        colorTema: '#131e55',
         showFooter: true,
         fixedTopHeader: true,
         smoke: {
@@ -122,7 +168,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.defineSitePages([
         {
             path: '',
-            title: 'home',
+            title: 'homeNav',
             pageType: PageType.Home,
             description: 'homeDesc',
             otherSEO: {
@@ -132,54 +178,25 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         },
         {
             path: 'social-feed',
-            title: 'social',
+            title: 'socialNav',
             pageType: PageType.Social,
             description: 'socialDesc',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
             layout: { showPanel: false },
         },
         {
-            path: 'legale',
+            path: 'policy',
             title: 'policies',
-            children: [
-                {
-                    path: 'privacy',
-                    title: 'privacypolicy',
-                    description: 'privacyPolicyDesc',
-                    pageType: PageType.PrivacyPolicy,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'termini',
-                    title: 'termsofservice',
-                    description: 'termsOfServiceDesc',
-                    pageType: PageType.TermsOfService,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'cookie',
-                    title: 'cookiepolicy',
-                    description: 'cookiePolicyDesc',
-                    pageType: PageType.CookiePolicy,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                },
-                {
-                    path: 'legal',
-                    title: 'legalnotice',
-                    description: 'legalNoticeDesc',
-                    pageType: PageType.LegalNotice,
-                    component: () => import('./pages/policy/policy.component').then(m => m.PolicyComponent),
-                }
-            ]
+            children: _createPolicy()
         },
         {
-            title: 'projectSources',
+            title: 'githubDesc',
             pageType: PageType.GitHub,
             externalUrl: 'https://github.com/br1brown/Br1WebEngine'
         },
         {
             path: 'impostazioni',
-            title: 'settings',
+            title: 'impostazioniNav',
             requiresAuth: true,
             pageType: PageType.Impostazioni,
             description: 'settingsDesc',
@@ -203,7 +220,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.configureHeaderNavigation(h => {
         h.addPage(PageType.Impostazioni);
 
-        h.addGroup('policies', g => {
+        h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);
@@ -215,7 +232,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
 
     siteFondamentaBuilder.configureFooterNavigation(f => {
         f.addPage(PageType.GitHub);
-        f.addGroup('policies', g => {
+        f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);

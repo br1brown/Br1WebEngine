@@ -10,7 +10,7 @@ import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
                  role="status"
                  aria-live="polite">
                 <div class="spinner-border" aria-hidden="true"></div>
-                <span class="visually-hidden">{{ 'caricamento' | translate }}</span>
+                <span class="visually-hidden">{{ 'caricamentoStato' | translate }}</span>
             </div>
         } @else {
             <ng-content />
