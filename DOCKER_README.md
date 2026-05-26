@@ -157,7 +157,7 @@ curl -i http://localhost:8088/api/health
 Script pronti:
 
 ```bash
-./deploy.sh --test-public --down-after
+./deploy.sh --uptest --down-after
 ```
 
 Per cambiare dominio/porta simulati senza toccare i file:

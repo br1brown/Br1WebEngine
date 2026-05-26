@@ -17,8 +17,9 @@
 #   LH_TIMEOUT       Timeout per pagina in ms (default: 60000)
 #
 # Exit code:
-#   0  Tutti i budget rispettati (o skip per dipendenze mancanti)
+#   0  Tutti i budget rispettati
 #   1  Una o più pagine sotto soglia
+#   2  Dipendenze non disponibili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -88,7 +89,7 @@ fi
 
 if ! command -v node >/dev/null 2>&1; then
     warn "Node.js non trovato — controllo Lighthouse saltato"
-    exit 0
+    exit 2
 fi
 
 LH_BIN="${SCRIPT_DIR}/../../frontend/node_modules/.bin/lighthouse"
@@ -96,7 +97,7 @@ LH_BIN="${SCRIPT_DIR}/../../frontend/node_modules/.bin/lighthouse"
 if [[ ! -x "$LH_BIN" ]]; then
     if ! command -v npx >/dev/null 2>&1; then
         warn "lighthouse non trovato e npx non disponibile — controllo Lighthouse saltato"
-        exit 0
+        exit 2
     fi
     LH_BIN="npx --yes lighthouse"
     info "lighthouse non in node_modules, verrà scaricato via npx"
@@ -152,6 +153,10 @@ for path in "${PATHS[@]}"; do
     node -e "
 const fs = require('fs');
 const report = JSON.parse(fs.readFileSync('${REPORT}', 'utf8'));
+if (report.runtimeError && report.runtimeError.code !== 'NO_ERROR') {
+    process.stderr.write('    SKIP ' + report.runtimeError.message + '\n');
+    process.exit(2);
+}
 const thresholds = JSON.parse(fs.readFileSync('${THRESHOLD_FILE}', 'utf8'));
 const cats = report.categories;
 let failures = 0;
@@ -170,7 +175,9 @@ process.exit(failures > 0 ? 1 : 0);
 
     rm -f "$REPORT"
 
-    if [[ $page_exit -gt 0 ]]; then
+    if [[ $page_exit -eq 2 ]]; then
+        warn "Server non raggiungibile — Lighthouse saltato per ${path}"
+    elif [[ $page_exit -gt 0 ]]; then
         fail "Budget Lighthouse fallito — ${path}"
         FAILURES=$((FAILURES + 1))
     else

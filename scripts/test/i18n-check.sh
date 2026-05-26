@@ -15,6 +15,7 @@
 # Exit code:
 #   0  Tutti i file presenti e chiavi sincronizzate
 #   1  File mancanti o chiavi non allineate
+#   2  Node.js non disponibile — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -37,7 +38,7 @@ fi
 
 if ! command -v node >/dev/null 2>&1; then
     warn "Node.js non trovato — controllo i18n saltato"
-    exit 0
+    exit 2
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,13 +57,33 @@ fi
 # Aggiungere o rimuovere una lingua da site.ts cambia automaticamente
 # quali file vengono verificati, senza toccare questo script.
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+
 mapfile -t LANGS < <(
     cd "$FRONTEND_DIR" && npx tsx -e "
 import { ContestoSito } from './src/app/site';
 const langs = ContestoSito.config.availableLanguages || [ContestoSito.config.defaultLang || 'it'];
 langs.forEach(l => console.log(l));
-"
+" 2>/dev/null
 )
+
+# Fallback: se tsx non riesce (es. import circolare Angular), estrae le lingue
+# direttamente dal sorgente con node puro — nessuna dipendenza dal runtime Angular.
+# Usa SITE_TS che è già stato convertito con cygpath se necessario.
+if [[ ${#LANGS[@]} -lt 1 ]]; then
+    mapfile -t LANGS < <(
+        node -e "
+const fs = require('fs');
+const src = fs.readFileSync('${SITE_TS}', 'utf8');
+const multi = src.match(/availableLanguages\s*:\s*\[([^\]]+)\]/);
+if (multi) {
+    const langs = (multi[1].match(/[a-z]{2}(?:-[A-Z]{2})?/g) || []);
+    if (langs.length) { langs.forEach(l => console.log(l)); process.exit(0); }
+}
+const single = src.match(/defaultLang\s*:\s*['\"]([a-z]{2}(?:-[A-Z]{2})?)['\"]/)
+if (single) { console.log(single[1]); }
+" 2>/dev/null
+    )
+fi
 
 if [[ ${#LANGS[@]} -lt 1 ]]; then
     fail "Nessuna lingua trovata in site.ts — impossibile proseguire"

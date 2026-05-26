@@ -18,8 +18,9 @@
 #   A11Y_TIMEOUT                Timeout per pagina in ms (default: 30000)
 #
 # Exit code:
-#   0  Nessuna violazione trovata (o skip per dipendenze mancanti)
+#   0  Nessuna violazione trovata
 #   1  Una o più violazioni WCAG trovate
+#   2  Dipendenze non disponibili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -87,7 +88,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ─── prereq: node ─────────────────────────────────────────────────────────────
 if ! command -v node >/dev/null 2>&1; then
     warn "Node.js non trovato — accessibility check saltato"
-    exit 0
+    exit 2
 fi
 
 # ─── localizza pa11y (preferisce node_modules, poi npx) ──────────────────────
@@ -97,7 +98,7 @@ PA11Y_CONFIG="${SCRIPT_DIR}/pa11y.json"
 if [[ ! -x "$PA11Y_BIN" ]]; then
     if ! command -v npx >/dev/null 2>&1; then
         warn "pa11y non trovato e npx non disponibile — accessibility check saltato"
-        exit 0
+        exit 2
     fi
     PA11Y_BIN="npx --yes pa11y"
     info "pa11y non in node_modules, verrà scaricato via npx"

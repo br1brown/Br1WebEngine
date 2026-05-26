@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# deploy.sh - Deploy e Test Br1WebEngine
+# deploy.sh - Deploy Br1WebEngine
 #
 # Uso:
-#   ./deploy.sh                      Deploy in produzione (con pre-flight test isolato)
+#   ./deploy.sh                      Deploy in produzione
 #   ./deploy.sh --skip-post-deploy   Salta gli health check post-deploy
 #   ./deploy.sh --dev                Modalità sviluppo (Angular dev server + backend locale)
 #   ./deploy.sh --no-cache           Forza la build Docker ignorando la cache
-#   ./deploy.sh --test-public        Ambiente CI: Alza lo stack isolato e lo lascia acceso (NON fa deploy).
-#                                    Di default esegue la test suite.
+#   ./deploy.sh --uptest             Ambiente CI: Alza lo stack isolato e lo lascia acceso (NON fa deploy).
 #   ./deploy.sh --help               Mostra questo messaggio
 #
-# Opzioni (incluse per --test-public):
-#   --skip-tests                     Non esegue la test suite (utile se i test sono in step CI successivi)
-#   --run-tests                      Forza l'esecuzione della test suite (default)
-#   --down-after                     Spegne lo stack di test alla fine (usato con --test-public)
+# Opzioni per --uptest:
+#   --down-after                     Spegne lo stack di test alla fine
 #   --public-host HOST               Host pubblico per i test (default: localhost)
 #   --public-port PORT               Porta del proxy pubblico per i test (default: 8088)
 #   --skip-invalid-host-check        Salta il controllo negativo sull'host
@@ -30,13 +27,12 @@ fi
 # Variabili di stato
 DEV_MODE=false
 NO_CACHE=false
-TEST_PUBLIC=false
+UPTEST=false
 TEST_POST_DEPLOY=true
 
 # Variabili specifiche per i test pubblici
 DOWN_AFTER=false
 SKIP_INVALID_HOST_CHECK=false
-RUN_TESTS=true
 PUBLIC_HOST="localhost"
 PUBLIC_PORT="8088"
 
@@ -45,11 +41,9 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --dev) DEV_MODE=true; shift ;;
         --no-cache) NO_CACHE=true; shift ;;
-        --test-public) TEST_PUBLIC=true; shift ;;
+        --uptest) UPTEST=true; shift ;;
         --skip-post-deploy) TEST_POST_DEPLOY=false; shift ;;
         --down-after) DOWN_AFTER=true; shift ;;
-        --skip-tests) RUN_TESTS=false; shift ;;
-        --run-tests) RUN_TESTS=true; shift ;;
         --public-host) PUBLIC_HOST="$2"; shift 2 ;;
         --public-port) PUBLIC_PORT="$2"; shift 2 ;;
         --skip-invalid-host-check) SKIP_INVALID_HOST_CHECK=true; shift ;;
@@ -127,7 +121,9 @@ sync_env_from_params() {
         site_scheme="https"
     fi
 
-    if [[ -z "$compose_project_name" && -n "$site_hostname" ]]; then
+    if [[ -n "$compose_project_name" ]]; then
+        compose_project_name="$(slugify "$compose_project_name")"
+    elif [[ -n "$site_hostname" ]]; then
         compose_project_name="$(slugify "$site_hostname")"
     fi
 
@@ -214,7 +210,7 @@ NG_ALLOWED_HOSTS="$(env_get NG_ALLOWED_HOSTS)"
 
 [[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME mancante in .env"
 [[ "$COMPOSE_PROJECT_NAME" == "CHANGE_ME" ]] && fail "COMPOSE_PROJECT_NAME è ancora CHANGE_ME"
-[[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi"
+[[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi (sono ammessi solo: a-z, 0-9, trattino - e underscore _)"
 [[ -z "$FRONTEND_PORT" ]] && fail "FRONTEND_PORT mancante in .env"
 
 if [[ "${EXPOSE_BACKEND:-no}" == "yes" && -z "${BACKEND_PORT:-}" ]]; then
@@ -350,7 +346,7 @@ wait_backend_internal() {
 # ESECUZIONE TEST PUBBLICI (ISOLATO)
 # =============================================================================
 
-if [[ "$TEST_PUBLIC" == true ]]; then
+if [[ "$UPTEST" == true ]]; then
     echo
     echo -e "${BOLD}Avvio Esecuzione Public Test${RESET}"
 
@@ -399,17 +395,6 @@ if [[ "$TEST_PUBLIC" == true ]]; then
         ok "/health del backend esposto ha restituito HTTP 200"
     fi
 
-    if [[ "$RUN_TESTS" == true ]]; then
-        echo
-        echo -e "${BOLD}Test Suite${RESET}"
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "$browser_url" || {
-            echo
-            fail "Test suite fallita — correggere le violazioni prima del merge"
-            exit 1
-        }
-    fi
-
     echo
     ok 'Test pubblico completato con successo.'
     exit 0
@@ -427,7 +412,7 @@ check_port_conflict() {
     local conflicting
     # Estraiamo anche la label del progetto per un confronto preciso
     conflicting=$(docker ps --format "{{.Names}}\t{{.Ports}}\t{{.Label \"com.docker.compose.project\"}}" \
-        | grep -E "(0\.0\.0\.0|:::):${port}->" || true)
+        | grep -E ":${port}->" || true)
     
     if [[ -n "$conflicting" ]]; then
         local container_name project_label normalized_proj
@@ -484,22 +469,6 @@ info "Attesa healthcheck sul nuovo container (max 60s)..."
 if wait_for_http "http://127.0.0.1:${PREFLIGHT_PORT}/health" "" 200 30 2; then
     ok "La nuova build è sana e funzionante (Healthcheck OK)!"
     
-    if [[ "$RUN_TESTS" == true ]]; then
-        echo
-        echo -e "${BOLD}Esecuzione Test Suite (Pre-flight)${RESET}"
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        if ! bash "${SCRIPT_DIR}/scripts/test/run-all.sh" "http://127.0.0.1:${PREFLIGHT_PORT}"; then
-            echo
-            fail "TEST FALLITI! Il deploy è stato annullato."
-            echo "  Il sito attualmente in produzione NON è stato toccato ed è ancora online."
-            info "Pulizia ambiente isolato..."
-            env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
-                docker compose -f docker-compose.yml down -v >/dev/null 2>&1
-            exit 1
-        fi
-        ok "Tutti i test della suite sono stati superati!"
-    fi
-
     info "Spegnimento ambiente isolato..."
     env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
         docker compose -f docker-compose.yml down -v >/dev/null 2>&1

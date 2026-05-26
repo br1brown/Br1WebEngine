@@ -11,6 +11,7 @@
 # Exit code:
 #   0  Nessun errore di tipo
 #   1  Uno o più errori TypeScript
+#   2  Node.js non disponibile — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -26,7 +27,7 @@ FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 
 if ! command -v node >/dev/null 2>&1; then
     echo "  WARN Node.js non trovato — controllo tsc saltato"
-    exit 0
+    exit 2
 fi
 
 cd "$FRONTEND_DIR"

@@ -11,6 +11,7 @@
 # Exit code:
 #   0  Nessun errore ESLint
 #   1  Una o più violazioni
+#   2  npm non disponibile — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -23,6 +24,11 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+
+if ! command -v npm >/dev/null 2>&1; then
+    echo "  WARN npm non trovato — controllo ESLint saltato"
+    exit 2
+fi
 
 cd "$FRONTEND_DIR"
 

@@ -107,7 +107,7 @@ jobs:
           echo "FRONTEND_PORT=3000" >> .env.param
 
       - name: Avvia stack
-        run: bash deploy.sh --test-public --skip-tests
+        run: bash deploy.sh --uptest
 
       - name: Audit di accessibilità
         run: bash scripts/test/a11y-test.sh http://localhost:8088
