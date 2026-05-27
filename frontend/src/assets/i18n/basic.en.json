@@ -109,7 +109,7 @@
   "obbligatorioBannerCookie": "Required",
   "impostazioniCookie": "Cookie settings",
   "tecniciCategoriaCookie": "Technical cookies",
-  "tecniciDescrizioneCategoriaCookie": "Required for the site to function correctly (e.g. language preference). Cannot be disabled.",
+  "tecniciDescrizioneCategoriaCookie": "Required for the site to function correctly (e.g. language preference).",
   "analyticsCategoriaCookie": "Analytics",
   "analyticsDescrizioneCategoriaCookie": "Help us understand how the site is used, in aggregated and anonymous form.",
   "profilazioneCategoriaCookie": "Profiling",

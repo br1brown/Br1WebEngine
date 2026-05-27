@@ -26,6 +26,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { join } from 'path';
 import { ContestoSito } from '../../../site';
+import { ThemeService } from '../services/theme.service';
 import { SitemapEntry, SitePage, isParentPage, isExternalPage } from '../siteBuilder';
 
 const ROOT = join(__dirname, '../../../../../');
@@ -111,24 +112,29 @@ function updateIndexHtml(): void {
     const appName = escapeHtml(ContestoSito.config.appName);
     const description = escapeHtml(ContestoSito.config.description);
     const lang = escapeHtml(ContestoSito.config.defaultLang);
-    const themeColor = escapeHtml(ContestoSito.config.colorTema);
+    // 'default' è sicuro per qualsiasi tema: apple-mobile-web-app-status-bar-style
+    // non supporta media queries e non può adattarsi all'OS preference a runtime.
+    const iosStatusBar = 'default';
 
     let html = readFileSync(INDEX, 'utf8');
 
-    html = replaceTag(html, /<html\s+lang="[^"]*">/, `<html lang="${lang}">`, '<html lang>');
+    // Regex flessibile: matcha <html> con qualsiasi combinazione di attributi, riscrive solo lang.
+    html = replaceTag(html, /<html\b[^>]*>/, `<html lang="${lang}">`, '<html lang>');
     html = replaceTag(html, /<title>[^<]*<\/title>/, `<title>${appName}</title>`, '<title>');
 
     const defaultImageUrl = `${BASE_URL}/icons/icon-512x512.png`;
     const updatedTime = getLastCommitDate();
 
+    // <meta name="theme-color"> è omesso: viene iniettato dinamicamente per-request
+    // da ThemeService.buildThemeColorMeta() nel middleware SSR di server.ts,
+    // con varianti light/dark via media attribute.
     const allMeta: ['name' | 'property', string, string][] = [
         ['name', 'app-version', ContestoSito.config.version],
         ['property', 'og:updated_time', updatedTime],
         ['name', 'description', description],
         ['name', 'apple-mobile-web-app-title', appName],
-        ['name', 'apple-mobile-web-app-status-bar-style', 'default'],
+        ['name', 'apple-mobile-web-app-status-bar-style', iosStatusBar],
         ['name', 'application-name', appName],
-        ['name', 'theme-color', themeColor],
         ['name', 'twitter:title', appName],
         ['name', 'twitter:description', description],
         ['name', 'twitter:image', defaultImageUrl],
@@ -172,13 +178,17 @@ function updateIndexHtml(): void {
 
 function updateManifest(): void {
     const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, unknown>;
+    const palette = ThemeService.computePalette(ContestoSito.config.colorTema);
 
     manifest['name'] = ContestoSito.config.appName;
     manifest['short_name'] = ContestoSito.config.appName;
     manifest['description'] = ContestoSito.config.description;
     manifest['lang'] = ContestoSito.config.defaultLang;
-    manifest['theme_color'] = ContestoSito.config.colorTema;
-    manifest['background_color'] = ContestoSito.config.colorTema;
+    // theme_color: colore WCAG-safe del brand per il chrome del browser nella schermata Home
+    manifest['theme_color'] = palette.colorPrimary;
+    // background_color: sfondo splash screen — usa colorBase del tone naturale
+    // per una transizione fluida dallo splash all'app
+    manifest['background_color'] = palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk;
     manifest['version'] = ContestoSito.config.version;
 
     writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');

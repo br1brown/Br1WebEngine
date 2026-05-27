@@ -2,10 +2,20 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { TranslateService } from './translate.service';
 import { ContestoSito } from '../../../site';
-import { COOKIE_MAP, CookieCategory, type CookieKey, type CookieConfig } from '../../services/cookie-registry';
-
-export { CookieCategory } from '../../services/cookie-registry';
+import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
 export type { CookieKey } from '../../services/cookie-registry';
+export enum CookieCategory {
+    Technical = 'tecnici',
+    Analytics = 'analytics',
+    Profiling = 'profilazione',
+}
+
+export interface CookieConfig {
+    category: CookieCategory;
+    descriptionKey?: string;
+}
+
+
 
 /**
  * Controlla se il consenso tecnico è stato già salvato in localStorage.
@@ -357,34 +367,40 @@ export class CookieConsentService {
 
     readonly legal = {
         /**
-         * Genera un elenco puntato Markdown con le categorie di cookie presenti nel sito.
-         * Restituisce stringa vuota se non ci sono categorie.
-         *
-         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         * Restituisce le categorie dei cookie presenti nel sito in formato strutturato,
+         * con le etichette già tradotte tramite la funzione passata.
          */
-        listCategoriesMarkdown: (t: (key: string) => string): string => {
-            const categories = new Set<string>();
+        getCategories: (t: (key: string) => string): { key: CookieCategory; name: string; description: string }[] => {
+            const categories: { key: CookieCategory; name: string; description: string }[] = [];
             if (this.isTechnicalNeeded()) {
-                categories.add(`**${t('tecniciCategoriaCookie')}**: ${t('tecniciDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Technical,
+                    name: t('tecniciCategoriaCookie'),
+                    description: t('tecniciDescrizioneCategoriaCookie')
+                });
             }
             if (this.isAnalyticsNeeded()) {
-                categories.add(`**${t('analyticsCategoriaCookie')}**: ${t('analyticsDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Analytics,
+                    name: t('analyticsCategoriaCookie'),
+                    description: t('analyticsDescrizioneCategoriaCookie')
+                });
             }
             if (this.isProfilingNeeded()) {
-                categories.add(`**${t('profilazioneCategoriaCookie')}**: ${t('profilazioneDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Profiling,
+                    name: t('profilazioneCategoriaCookie'),
+                    description: t('profilazioneDescrizioneCategoriaCookie')
+                });
             }
-
-            return Array.from(categories).map(c => `- ${c}`).join('\n');
+            return categories;
         },
 
         /**
-         * Genera una tabella Markdown con i cookie presenti nel sito.
-         * Restituisce stringa vuota se non ci sono cookie da mostrare.
-         *
-         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         * Restituisce l'elenco dei cookie attivi nel sito in formato strutturato,
+         * con etichette e descrizioni già tradotte tramite la funzione passata.
          */
-        listMarkdown: (t: (key: string) => string): string => {
-
+        getCookies: (t: (key: string) => string): { name: string; category: string; categoryKey: CookieCategory; description: string }[] => {
             const allCookies: Record<string, CookieConfig> = {
                 ...COOKIE_MAP,
             };
@@ -403,25 +419,22 @@ export class CookieConsentService {
                 };
             }
 
-            const rows: string[] = [];
-
-            rows.push(`| ${t('nomeListaCookie')} | ${t('categoriaListaCookie')} | ${t('descrizioneListaCookie')} |`);
-            rows.push('|---|---|---|');
-
+            const list: { name: string; category: string; categoryKey: CookieCategory; description: string }[] = [];
 
             for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
                 const category = config.category;
                 const desc = config.descriptionKey ? t(config.descriptionKey) : '';
                 const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
 
-                rows.push(
-                    `| \`${fullKey}\` | ${t(`${category}CategoriaCookie`)} | ${desc} |`
-                );
+                list.push({
+                    name: fullKey,
+                    category: t(`${category}CategoriaCookie`),
+                    categoryKey: category,
+                    description: desc
+                });
             }
 
-            if (rows.length <= 2) return '';
-
-            return rows.join('\n');
+            return list;
         }
     };
 }

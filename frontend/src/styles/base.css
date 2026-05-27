@@ -7,14 +7,14 @@
  *
  * Token di colore:
  *   --colorTema          Colore principale del brand (impostato runtime)
- *   --colorBase          Sfondo body (20% bianco + tema)
- *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA
+ *   --colorBase          Sfondo body
+ *   --colorPrimary       Variante scura/WCAG-safe per bottoni/CTA (4.5:1 su bianco)
  *   --colorPrimaryRgb    Versione RGB di --colorPrimary (per Bootstrap opacity)
  *   --colorPrimaryText   Testo su sfondo --colorPrimary (#fff o #000 per a11y)
- *   --colorLink          Colore link, di default currentColor
+ *   --colorLink          Colore link tone-adaptive (Lt: scuro su bianco, Dk: chiaro su scuro)
  *   --colorSurface       Sfondo pannelli/card
  *   --colorSurfaceHover  Sfondo pannelli on hover
- *   --colorSurfaceBorder Bordo pannelli
+ *   --colorSurfaceBorder Bordo pannelli (≥ 3:1 WCAG 1.4.11)
  *   --colorSurfaceText   Testo su --colorSurface
  *
  * Token di focus (WCAG 2.4.7 / 2.4.11):
@@ -29,40 +29,35 @@
  * ─────────────────────────────────────────────────────────────────────────── */
 
 /* §5 — Variabili CSS tema. Convenzione: --colorXxx (Italian camelCase).
-   ThemeService imposta a runtime: --colorTema, --fontFamily, --colorPrimary,
-   --colorPrimaryRgb, --colorPrimaryText. I valori qui in :root sono i default
-   usati prima dell'hydration / in SSR. L'algoritmo adattivo lato TS può
-   restituire un --colorPrimary più scuro del default su temi chiari, per
-   garantire contrasto WCAG ≥4.5:1 col testo bianco dei bottoni primary. */
+   ThemeService imposta i valori a runtime tramite inline style su <html>
+   (priorità massima). I valori qui in :root sono i fallback pre-idratazione /
+   no-JS, coperti anche da <style id="theme-init"> iniettato da server.ts per-request. */
 :root {
     --fontFamily: inherit;
     --colorTema: #212529;
-    --colorBase: color-mix(in srgb, var(--colorTema), white 20%);
-    /* Default match con --colorTema #212529: 40% black mix = ~#141619 */
+    --colorBase: #1a1d20;
     --colorPrimary: #141619;
     --colorPrimaryRgb: 20, 22, 25;
-    --colorLink: currentColor;
-    --colorSurface: color-mix(in srgb, var(--colorTema), white 24%);
-    --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 30%);
-    --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
-    --colorSurfaceText: color-mix(in srgb, white 94%, var(--colorTema) 6%);
+    --colorPrimaryText: #ffffff;
+    --colorLink: #141619;
+    --colorSurface: #1e2124;
+    --colorSurfaceHover: #24282c;
+    --colorSurfaceBorder: #2e3338;
+    --colorSurfaceText: #e9ecef;
 
     /* Focus tokens — WCAG 2.4.7 / 2.4.11 */
-    --focusRingColor: var(--colorPrimary, #141619);
+    /* --focusRingColor usa --colorLink: stesso token tone-adaptive del link,
+       così focus ring e link hanno coerenza cromatica e contrasto garantito. */
+    --focusRingColor: var(--colorLink, #141619);
     --focusRingWidth: 3px;
     --focusRingOffset: 2px;
-}
-
-:root[data-theme-tone='light'] {
-    color-scheme: light;
-    --colorSurface: color-mix(in srgb, var(--colorTema), white 92%);
-    --colorSurfaceHover: color-mix(in srgb, var(--colorTema), white 84%);
-    --colorSurfaceBorder: color-mix(in srgb, var(--colorTema), black 14%);
-    --colorSurfaceText: color-mix(in srgb, var(--colorTema), black 82%);
-}
-
-:root[data-theme-tone='dark'] {
-    color-scheme: dark;
+    /* Bootstrap body-color-rgb — usato da utility rgba() di Bootstrap 5.3 */
+    --bs-body-color-rgb: 233, 236, 239;
+    /* Link lt/dk fallback — ThemeService sovrascrive questi a runtime */
+    --colorLinkLt: #141619;
+    --colorLinkDk: #a8b4c8;
+    --colorNavBg: #212529;
+    --colorNavText: #ffffff;
 }
 
 /* ── Focus-visible policy globale (WCAG 2.4.7 / 2.4.11) ────────────────────
@@ -98,18 +93,76 @@ body {
     text-decoration-color: currentColor;
 }
 
-/* Mappatura --bs-primary → tema corrente.
-   ThemeService imposta solo --colorPrimary / --colorPrimaryRgb su :root: sono
-   variabili "nostre" che Bootstrap non ridefinisce mai. Qui le inoltriamo a
-   --bs-primary in tutti gli scope dove Bootstrap rigenera i suoi default —
-   :root, [data-bs-theme=light] e [data-bs-theme=dark]: senza ripetere il
-   mapping nei sotto-temi, i discendenti di un <div data-bs-theme="light">
-   ricadrebbero sul blu Bootstrap di default. */
+/* Mappatura token → variabili Bootstrap.
+   ThemeService imposta queste via inline style su <html> (priorità massima).
+   Questo blocco CSS è il fallback per i discendenti con data-bs-theme proprio
+   (es. <div data-bs-theme="light"> dentro un tema globale dark) che Bootstrap
+   reinizializza coi suoi default — senza questo override cadrebbero sui valori
+   statici Bootstrap. I valori var(--color*) si risolvono sempre correttamente
+   perché ThemeService/theme-init li ha già impostati su :root. */
 :root,
 [data-bs-theme="light"],
 [data-bs-theme="dark"] {
-    --bs-primary: var(--colorPrimary);
-    --bs-primary-rgb: var(--colorPrimaryRgb);
+    --bs-primary:                  var(--colorPrimary);
+    --bs-primary-rgb:              var(--colorPrimaryRgb);
+    --bs-secondary:                var(--colorSecondary);
+    --bs-border-color:             var(--colorSurfaceBorder);
+    --bs-emphasis-color:           var(--colorHeading);
+    --bs-emphasis-color-rgb:       var(--colorHeadingRgb);
+    --bs-heading-color:            var(--colorHeading);
+    --bs-secondary-bg:             var(--colorMutedBg);
+    --bs-tertiary-bg:              var(--colorSubtleBg);
+    --bs-secondary-color:          var(--colorMutedText);
+    /* Subtle/emphasis — .alert-*, .bg-*-subtle, .text-*-emphasis */
+    --bs-primary-bg-subtle:        var(--colorPrimaryBgSubtle);
+    --bs-primary-border-subtle:    var(--colorPrimaryBorderSubtle);
+    --bs-primary-text-emphasis:    var(--colorPrimaryTextEmphasis);
+    --bs-secondary-bg-subtle:      var(--colorSecondaryBgSubtle);
+    --bs-secondary-border-subtle:  var(--colorSecondaryBorderSubtle);
+    --bs-secondary-text-emphasis:  var(--colorSecondaryTextEmphasis);
+}
+
+/* Correzione subtheme: le variabili --color* tone-adattive su :root si risolvono
+   con il tone corrente dell'OS. Quando un elemento figlio ha [data-bs-theme="light"]
+   (es. pannello forzato-chiaro dentro pagina dark), il ponte sopra mapperebbe
+   --bs-heading-color → var(--colorHeading) = valore scuro = testo bianco su bianco.
+   I blocchi qui sotto usano le varianti Lt/Dk esposte da ThemeService, che sono fisse
+   e garantiscono il valore corretto indipendentemente dal tone globale. */
+:root,
+[data-bs-theme="light"] {
+    --bs-link-color:          var(--colorLinkLt);
+    --bs-link-hover-color:    color-mix(in srgb, var(--colorLinkLt), black 15%);
+    --focusRingColor:         var(--colorLinkLt);
+    --bs-body-bg:             var(--colorBaseLt);
+    --bs-body-color:          var(--colorSurfaceTextLt);
+    --bs-body-color-rgb:      var(--colorSurfaceTextRgbLt);
+    --bs-emphasis-color:      var(--colorHeadingLt);
+    --bs-emphasis-color-rgb:  var(--colorHeadingRgbLt);
+    --bs-heading-color:       var(--colorHeadingLt);
+    --bs-border-color:        var(--colorSurfaceBorderLt);
+    --bs-secondary-bg:        var(--colorMutedBgLt);
+    --bs-tertiary-bg:         var(--colorSubtleBgLt);
+    --bs-secondary-color:     var(--colorMutedTextLt);
+    --colorNavBg:             var(--colorNavBgLt);
+    --colorNavText:           var(--colorNavTextLt);
+}
+
+[data-bs-theme="dark"] {
+    --bs-link-color:          var(--colorLinkDk);
+    --bs-link-hover-color:    color-mix(in srgb, var(--colorLinkDk), white 15%);
+    --focusRingColor:         var(--colorLinkDk);
+    --bs-body-bg:             var(--colorBaseDk);
+    --bs-body-color:          var(--colorSurfaceTextDk);
+    --bs-body-color-rgb:      var(--colorSurfaceTextRgbDk);
+    --bs-emphasis-color:      var(--colorHeadingDk);
+    --bs-emphasis-color-rgb:  var(--colorHeadingRgbDk);
+    --bs-heading-color:       var(--colorHeadingDk);
+    --bs-border-color:        var(--colorSurfaceBorderDk);
+    --bs-secondary-bg:        var(--colorMutedBgDk);
+    --bs-tertiary-bg:         var(--colorSubtleBgDk);
+    --bs-secondary-color:     var(--colorMutedTextDk);
+    --colorNavBg:             var(--colorNavBgDk);
+    --colorNavText:           var(--colorNavTextDk);
 }
 
 /* I bottoni .btn-primary / .btn-outline-primary hanno --bs-btn-* hardcoded al
@@ -142,35 +195,25 @@ body {
     --bs-btn-disabled-border-color: var(--bs-primary);
 }
 
-/* ── Token colori semantici accessibili ──────────────────────────────────────
-   secondary, info e warning di Bootstrap hanno colori statici (hex fissi nel
-   CSS compilato) che falliscono WCAG 4.5:1 in almeno uno dei due temi.
-   Definiamo token propri — come già fatto per --colorPrimary — e mappiamo i
-   --bs-btn-* su di essi una volta sola. I valori variano per tema (dark/light). */
-
-/* Light (default + qualsiasi scope Bootstrap light): valori scuri ≥ 4.5:1 su
-   sfondo chiaro. Lo stesso pattern di Bootstrap per i token semantici:
-   `:root` e `[data-bs-theme='light']` condividono i valori light; il dark scope
-   li sovrascrive; un nested [data-bs-theme='light'] (es. panelForcedLight) li
-   ristabilisce per i discendenti anche quando la pagina è globalmente dark. */
-:root,
-[data-bs-theme='light'] {
-    --colorSecondary:     #495057;   /* 8.1:1 su bianco */
-    --colorSecondaryText: #fff;
-    --colorInfo:          #00819b;   /* 4.6:1 su bianco */
-    --colorInfoText:      #fff;
-    --colorWarning:       #967100;   /* 4.6:1 su bianco */
-    --colorWarningText:   #fff;
-}
-
-/* Dark Bootstrap scope: colori chiari per ≥ 4.5:1 su sfondo scuro (#212529). */
-[data-bs-theme='dark'] {
-    --colorSecondary:     #adb5bd;   /* 6.1:1 su #212529 */
-    --colorSecondaryText: #212529;
-    --colorInfo:          #0dcaf0;   /* 6.4:1 su sfondo scuro */
-    --colorInfoText:      #212529;
-    --colorWarning:       #ffc107;   /* 7.7:1 su sfondo scuro */
-    --colorWarningText:   #212529;
+/* ── Token colori semantici ──────────────────────────────────────────────────
+   I valori --colorSecondary, --colorInfo, --colorSuccess, --colorWarning,
+   --colorDanger e i rispettivi *Text sono calcolati da ThemeService.computePalette()
+   in OKLCH, scalano con la vibranza del brand e garantiscono WCAG 4.5:1 in
+   entrambi i toni. ThemeService li inietta via inline style; generate-theme.ts
+   li bake in index.html per la fase pre-idratazione.
+   Non servono più valori hardcoded qui — i default sotto sono solo fallback
+   last-resort per ambienti senza JS e senza theme-init. */
+:root {
+    --colorSecondary:     #495057;
+    --colorSecondaryText: #ffffff;
+    --colorInfo:          #0058cc;
+    --colorInfoText:      #ffffff;
+    --colorSuccess:       #1a7a3c;
+    --colorSuccessText:   #ffffff;
+    --colorWarning:       #8a5c00;
+    --colorWarningText:   #ffffff;
+    --colorDanger:        #b91c1c;
+    --colorDangerText:    #ffffff;
 }
 
 .btn-outline-secondary {
@@ -199,6 +242,32 @@ body {
     --bs-btn-disabled-border-color: var(--colorInfo);
 }
 
+.btn-outline-success {
+    --bs-btn-color:               var(--colorSuccess);
+    --bs-btn-border-color:        var(--colorSuccess);
+    --bs-btn-hover-bg:            var(--colorSuccess);
+    --bs-btn-hover-color:         var(--colorSuccessText);
+    --bs-btn-hover-border-color:  var(--colorSuccess);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorSuccess), #000 12%);
+    --bs-btn-active-color:        var(--colorSuccessText);
+    --bs-btn-active-border-color: var(--colorSuccess);
+    --bs-btn-disabled-color:      var(--colorSuccess);
+    --bs-btn-disabled-border-color: var(--colorSuccess);
+}
+
+.btn-outline-danger {
+    --bs-btn-color:               var(--colorDanger);
+    --bs-btn-border-color:        var(--colorDanger);
+    --bs-btn-hover-bg:            var(--colorDanger);
+    --bs-btn-hover-color:         var(--colorDangerText);
+    --bs-btn-hover-border-color:  var(--colorDanger);
+    --bs-btn-active-bg:           color-mix(in srgb, var(--colorDanger), #000 12%);
+    --bs-btn-active-color:        var(--colorDangerText);
+    --bs-btn-active-border-color: var(--colorDanger);
+    --bs-btn-disabled-color:      var(--colorDanger);
+    --bs-btn-disabled-border-color: var(--colorDanger);
+}
+
 .btn-outline-warning {
     --bs-btn-color:               var(--colorWarning);
     --bs-btn-border-color:        var(--colorWarning);
@@ -219,7 +288,22 @@ body {
 /* Riempimento dello sfondo tema */
 .theme-bg {
     background-color: var(--colorTema);
-    color: var(--bs-body-color);
+    color: var(--colorTemaText);
+}
+
+.navbar.theme-bg,
+.site-footer.theme-bg {
+    background-color: var(--colorNavBg);
+    color: var(--colorNavText);
+}
+
+.navbar.theme-bg {
+    border-bottom: 2.5px solid var(--colorTema);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.site-footer.theme-bg {
+    border-top: 2.5px solid var(--colorTema);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {
@@ -249,7 +333,6 @@ body {
 .content-panel.panel-light {
     --colorSurface: color-mix(in srgb, white 96%, var(--colorTema) 4%);
     --colorSurfaceHover: color-mix(in srgb, white 90%, var(--colorTema) 10%);
-    --colorSurfaceBorder: rgba(0, 0, 0, 0.12);
     --colorSurfaceText: #212529;
     background-color: rgba(255, 255, 255, 0.82);
     border-color: rgba(255, 255, 255, 0.38);
@@ -260,7 +343,6 @@ body {
 .content-panel.panel-dark {
     --colorSurface: rgba(15, 23, 42, 0.92);
     --colorSurfaceHover: rgba(30, 41, 59, 0.96);
-    --colorSurfaceBorder: rgba(255, 255, 255, 0.16);
     --colorSurfaceText: #f8f9fa;
     background-color: rgba(15, 23, 42, 0.78);
     border-color: rgba(255, 255, 255, 0.16);
@@ -327,11 +409,6 @@ code {
     .zoom-on-hover:hover { transform: scale(1.5); }
 }
 
-/* WCAG 2.1 AA - contrasto migliorato per text-body-secondary */
-.text-body-secondary {
-    color: #595f66 !important;
-}
-
 /* Surface elevata — utility per overlay che galleggiano sopra la pagina
    (cookie banner, context menu, FAB, modali custom future). Volutamente
    NEUTRA: usa --bs-body-bg invece del colore tema, così gli overlay non
@@ -353,7 +430,7 @@ code {
    ombra con inner ring theme-aware, opacità di riposo, hover/focus state.
    L'inner ring usa currentColor così funziona su sfondi scuri o chiari:
    chi monta il .fab garantisce un `color` con buon contrasto rispetto al
-   `background-color` (es. .theme-bg lo fa via --bs-body-color). */
+   `background-color` (es. .theme-bg usa --colorTemaText, garantito 4.5:1 su --colorTema). */
 .fab {
     width: 3rem;
     height: 3rem;
@@ -384,6 +461,19 @@ code {
         width: 3.25rem;
         height: 3.25rem;
         opacity: 1;
+    }
+}
+
+/* WCAG 2.1 SC 1.4.3 — Forced Colors (Windows High Contrast Mode).
+   In questo contesto il browser sovrascrive colori custom con system colors.
+   Garantiamo che focus ring e link usino i token di sistema corretti invece
+   dei nostri hex, che verrebbero forzati a valori imprevedibili. */
+@media (forced-colors: active) {
+    :focus-visible {
+        outline-color: Highlight;
+    }
+    :where(a:not(.btn)) {
+        color: LinkText;
     }
 }
 

@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from '../../../app.config';
 import { ContestoSito } from '../../../site';
+import { ThemeService } from '../services/theme.service';
 import { ImgBuilderService } from '../services/img-builder.service';
 import { FontConfig } from '../../../../styles/font-config';
 import { PreviewCrypto } from './preview-crypto.server';
@@ -17,6 +18,7 @@ import {
     writeResponseToNodeResponse
 } from '@angular/ssr/node';
 import { serverEnv } from './server-env';
+import { API_PREFIX } from '../../../app.config';
 
 /** Estrae le variabili d'ambiente validate dal file di configurazione server */
 const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
@@ -33,6 +35,30 @@ const assetFilesDir = serverEnv.assetsDir
 
 /** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
+
+/**
+ * Post-processa l'HTML SSR: aggiorna gli attributi tone su <html> e inietta
+ * il <style> con le vars del tema (delegato a ThemeService.buildThemeStyleTag).
+ */
+function injectTheme(html: string): string {
+    const colorTema = ContestoSito.config.colorTema;
+    const naturalTone = ThemeService.computeThemeTone(colorTema);
+
+    html = html.replace(/<html\b([^>]*)>/, (_, attrs: string) => {
+        const cleaned = attrs
+            .replace(/\s*data-bs-theme="[^"]*"/g, '')
+            .replace(/\s*data-theme-tone="[^"]*"/g, '')
+            .trim();
+        return `<html${cleaned ? ' ' + cleaned : ''} data-bs-theme="${naturalTone}" data-theme-tone="${naturalTone}">`;
+    });
+
+    html = html.replace(/<style id="theme-init">[\s\S]*?<\/style>\n?\s*/g, '');
+    html = html.replace(/<meta name="theme-color"[^>]*>\n?\s*/g, '');
+    const headTags = ThemeService.buildThemeHeadTags(colorTema);
+    html = html.replace('</head>', () => headTags + '\n</head>');
+
+    return html;
+}
 /** Crea la cartella di cache se non esiste (recursive evita errori se mancano i padri) */
 mkdirSync(cacheDir, { recursive: true });
 
@@ -236,8 +262,8 @@ app.use((request, response, next) => {
     });
 });
 
-/** Proxy manuale: /api/* â†’ backend, stripping il prefisso /api */
-app.use('/api', async (req: Request, res: Response) => {
+/** Proxy manuale: /api/* → backend, stripping il prefisso /api */
+app.use(API_PREFIX, async (req: Request, res: Response) => {
     const url = `${backendOrigin}${req.url}`;
     const headers: Record<string, string> = { 'x-api-key': backendApiKey };
 
@@ -487,7 +513,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                         anchorCenterY: iconTop + iconSize / 2,
                         maxRight: OG_W - padding,
                         title: normalizedTitle,
-                        bgColor: ContestoSito.config.colorTema,
+                        bgColor: ThemeService.computePalette(ContestoSito.config.colorTema).colorPrimary,
                         fontSize: 40,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
@@ -556,21 +582,28 @@ app.use(
 );
 
 /** Catch-all: ogni richiesta non risolta dai file o dalla CDN viene passata al motore Angular SSR */
-app.use((request, response, next) => {
-    angularApp
-        .handle(request)
-        .then((renderedResponse) => {
-            if (renderedResponse) {
-                /** Le risposte SSR non devono essere cachate da proxy intermedi:
-                 *  contengono HTML dinamico e potrebbero in futuro includere dati personalizzati. */
-                response.setHeader('Cache-Control', 'no-cache');
-                /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
-                return writeResponseToNodeResponse(renderedResponse, response);
-            }
-            next(); // Se Angular non ha una rotta corrispondente, passa al 404 di Express
-            return;
-        })
-        .catch(next);
+app.use(async (request, response, next) => {
+    try {
+        const renderedResponse = await angularApp.handle(request);
+        if (!renderedResponse) { next(); return; }
+
+        /** Le risposte SSR non devono essere cachate da proxy intermedi */
+        response.setHeader('Cache-Control', 'no-cache');
+
+        const contentType = renderedResponse.headers.get('content-type') ?? '';
+        if (!contentType.includes('text/html')) {
+            return writeResponseToNodeResponse(renderedResponse, response);
+        }
+
+        /** Inietta il tema CSS nell'HTML prima di inviarlo al browser */
+        const html = injectTheme(await renderedResponse.text());
+        renderedResponse.headers.forEach((value, key) => {
+            if (key.toLowerCase() !== 'content-length') response.setHeader(key, value);
+        });
+        response.status(renderedResponse.status).send(html);
+    } catch (err) {
+        next(err);
+    }
 });
 
 /** Avvio del server se il file Ã¨ eseguito come modulo principale (node server.mjs) */

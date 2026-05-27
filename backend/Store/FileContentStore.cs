@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -18,6 +19,7 @@ namespace Backend.Infrastructure;
 public class FileContentStore : IContentStore
 {
     private readonly string _dataPath;
+    private readonly ConcurrentDictionary<string, string> _fileCache = new();
 
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -53,7 +55,7 @@ public class FileContentStore : IContentStore
     /// </remarks>
     public async Task<UniversalLegalModel> GetProfileAsync(string language)
     {
-        var json = await ReadFileAsync("irl");
+        var json = await ReadStaticFileAsync("irl");
         return LocalizedJsonDeserializer.Deserialize<UniversalLegalModel>(json, language, "it");
     }
 
@@ -65,26 +67,36 @@ public class FileContentStore : IContentStore
     /// </returns>
     public async Task<Dictionary<string, string>> GetSocialAsync()
     {
-        var json = await ReadFileAsync("social");
+        var json = await ReadStaticFileAsync("social");
         return JsonSerializer.Deserialize<Dictionary<string, string>>(json, _jsonOptions)
             ?? throw new DecodingException();
     }
 
     /// <summary>
-    /// Legge il contenuto testuale di un file JSON dalla cartella dati.
+    /// Legge il contenuto testuale di un file JSON dalla cartella dati, con cache in memoria.
     /// </summary>
+    /// <remarks>
+    /// Il risultato viene memorizzato al primo accesso e riutilizzato per tutta la vita del processo.
+    /// Le classi derivate possono chiamare questo metodo per aggiungere nuovi file JSON
+    /// senza dover reimplementare la logica di caching.
+    /// </remarks>
     /// <param name="name">Nome logico del file senza estensione, ad esempio <c>social</c> o <c>irl</c>.</param>
     /// <returns>Il contenuto completo del file richiesto.</returns>
     /// <exception cref="NotFoundException">
     /// Sollevata quando il file richiesto non esiste nella cartella <c>data</c>.
     /// </exception>
-    private async Task<string> ReadFileAsync(string name)
+    private async Task<string> ReadStaticFileAsync(string name)
     {
+        if (_fileCache.TryGetValue(name, out var cached))
+            return cached;
+
         var filePath = Path.Combine(_dataPath, $"{name}.json");
         if (!File.Exists(filePath))
             throw new NotFoundException(name);
 
-        return await File.ReadAllTextAsync(filePath);
+        var content = await File.ReadAllTextAsync(filePath);
+        _fileCache.TryAdd(name, content);
+        return content;
     }
 
     /// <summary>

@@ -24,6 +24,9 @@ import { ContestoSito } from './site';
  */
 export const ALLOWED_WIDTHS = [125, 320, 512, 480, 640, 768, 1024, 1080, 1366, 1600, 1920] as const;
 
+/** Prefisso del proxy API: unica fonte di verità per server.ts (proxy Express) e il DI Angular (browser) */
+export const API_PREFIX = '/api';
+
 /**
  * Tipo derivato dalla whitelist per l'utilizzo nei parametri dei componenti/servizi.
  */
@@ -52,7 +55,8 @@ export const appConfig: ApplicationConfig = {
         provideAppInitializer(async () => {
             const translateService = inject(TranslateService);
             const authService = inject(AuthService);
-            // L'injection basta per attivare la logica del tema fin da subito
+            // Istanzia ThemeService subito così il listener prefersReducedMotion
+            // è attivo prima che i componenti inizino a leggerne il signal.
             inject(ThemeService);
 
             // I titoli delle pagine nelle route sono chiavi di traduzione
@@ -73,7 +77,7 @@ export const appConfig: ApplicationConfig = {
         }),
         {
             provide: SSR_API_PREFIX,
-            useValue: '/api',
+            useValue: API_PREFIX,
         },
     ]
 };

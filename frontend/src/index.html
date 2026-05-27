@@ -3,6 +3,17 @@
 <head>
     <meta charset="utf-8">
     <title>Template</title>
+    <!-- Anti-flash: imposta data-bs-theme prima che Bootstrap carichi qualsiasi stile.
+         Esecuzione sincrona → nessun ciclo di rendering con tone sbagliato.
+         _applyPalette (afterNextRender) confermerà lo stesso valore → nessun repaint. -->
+    <script>
+      (function () {
+        var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        var el = document.documentElement;
+        el.setAttribute('data-bs-theme', t);
+        el.setAttribute('data-theme-tone', t);
+      }());
+    </script>
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="index, follow">
@@ -16,7 +27,7 @@
     <meta property="og:site_name" content="Template">
     <meta property="og:locale" content="it">
     <meta property="og:image" content="https://example.com/icons/icon-512x512.png">
-    <meta property="og:updated_time" content="2026-05-25">
+    <meta property="og:updated_time" content="2026-05-26">
 
     <!-- Meta Twitter di base, sincronizzati da scripts/generate-statics.ts -->
     <meta name="twitter:card" content="summary_large_image">
@@ -34,7 +45,6 @@
     <link rel="icon" type="image/png" href="icons/icon-192x192.png">
     <link rel="apple-touch-icon" href="icons/icon-512x512.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <meta name="theme-color" content="#131e55">
 </head>
 <body>
     <app-root></app-root>

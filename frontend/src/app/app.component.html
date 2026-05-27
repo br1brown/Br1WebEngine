@@ -17,8 +17,8 @@
     <div class="row">
         @if (showPanel()) {
             <div class="col-12 col-lg-10 offset-lg-1 shadow rounded content-panel"
-                 [class.panel-light]="theme.panelForcedLight()"
-                 [attr.data-bs-theme]="theme.panelBootstrapTheme()">
+                 [class.panel-light]="theme.panelForcedLight"
+                 [attr.data-bs-theme]="theme.panelBootstrapTheme">
                 <router-outlet />
             </div>
         } @else {

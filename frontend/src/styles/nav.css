@@ -1,17 +1,15 @@
 /* nav.css — Stili condivisi di navigazione.
 
-   Globale (non scoped) perche' le classi `.nav-link`, `.nav-disclosure*`
-   compaiono in piu' componenti standalone (navbar, footer, nav-dropdown,
-   nav-link): con la view encapsulation di Angular gli stili scoped sul
-   contenitore non raggiungono le classi rese dai figli. */
+   Globale (non scoped) perche' le classi usate (`.nav-link`, `.nav-dropdown-toggle`,
+   `.dropdown-item`) compaiono in componenti standalone separati: con la view
+   encapsulation di Angular gli stili scoped sul contenitore non raggiungerebbero
+   le classi rese dai figli. */
 
-/* I link nel footer ereditano il colore del contesto: stessa motivazione
-   degli .nav-link sopra — i <a> vengono renderizzati dentro <app-nav-link>
-   / <app-profile-render>, quindi un `footer a` scoped al componente footer
-   non li raggiunge e Bootstrap forzerebbe --bs-link-color-rgb (blu). */
 footer a {
     color: inherit;
 }
+
+/* ── Link e stato attivo ──────────────────────────────────────────── */
 
 .nav-link,
 .nav-current-link {
@@ -32,24 +30,28 @@ footer a {
     cursor: default;
 }
 
-.nav-disclosure {
-    position: relative;
-}
+/* ── Pulsante trigger dropdown ────────────────────────────────────── */
 
-/* d-flex/align-items-center/justify-content-between/gap-1/user-select-none/border-0/
-   bg-transparent/text-decoration-none sono utility Bootstrap nell'HTML */
-.nav-disclosure-summary {
+/* Button reset + layout flex. Non usiamo .dropdown-toggle di Bootstrap
+   perché aggiunge un ::after caret CSS che sostituiamo con .nav-dropdown-caret */
+.nav-dropdown-toggle {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    padding: 0;
+    text-align: left;
     cursor: pointer;
-    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
 }
 
-.nav-disclosure-summary::marker,
-.nav-disclosure-summary::-webkit-details-marker {
-    display: none;
-    content: '';
+.nav-dropdown-toggle:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
 }
 
-.nav-disclosure-caret {
+.nav-dropdown-caret {
     flex: 0 0 auto;
     width: 0.55rem;
     height: 0.55rem;
@@ -60,65 +62,53 @@ footer a {
     transition: transform 0.2s ease;
 }
 
-.nav-disclosure[open] > .nav-disclosure-summary .nav-disclosure-caret {
+.dropdown.show > .nav-dropdown-toggle .nav-dropdown-caret {
     transform: rotate(225deg) translateY(-0.02rem);
 }
 
-/* list-style/overflow gestiti da list-unstyled e overflow-hidden nell'HTML */
-.nav-disclosure-menu {
-    color: inherit;
-    margin: 0.35rem 0 0;
-    padding: 0.35rem 0;
-    min-width: 14rem;
+/* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
+
+/* Il dropdown desktop galleggia sopra la pagina: usa colori surface (body bg/text)
+   anziché il colore navbar, e aggiunge ombra per dare senso di elevazione. */
+.navbar .dropdown-menu {
+    margin-top: 0.35rem;
     border-radius: 0.85rem;
-    border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+    background-color: var(--colorSurface);
+    color: var(--colorSurfaceText);
+    border-color: var(--colorSurfaceBorder);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px color-mix(in srgb, var(--colorSurfaceBorder) 60%, transparent);
 }
 
-.nav-disclosure-menu li {
-    margin: 0;
-}
-
-.nav-disclosure-link {
-    display: block;
+/* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color
+   (spesso blu); qui ereditiamo dal tema. */
+.navbar .dropdown-item {
     position: relative;
     padding: 0.7rem 1rem;
-    color: inherit;
-    text-decoration: none;
     line-height: 1.35;
     font-weight: 500;
-}
-
-.nav-disclosure-menu .nav-disclosure-link {
     color: inherit;
+    white-space: normal;
 }
 
-.nav-disclosure-button {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.nav-disclosure-link:hover,
-.nav-disclosure-link:focus-visible {
+.navbar .dropdown-item:hover,
+.navbar .dropdown-item:focus-visible {
     background-color: color-mix(in srgb, currentColor 10%, transparent);
     color: inherit;
     outline: none;
 }
 
-.nav-disclosure-link.active,
-.nav-current-link.nav-disclosure-link {
+/* Bootstrap .dropdown-item.active usa --bs-dropdown-link-active-bg (primary).
+   Lo sostituiamo con il nostro stile: bold + sfondo tenue + barra laterale. */
+.navbar .dropdown-item.active,
+.navbar .nav-current-link.dropdown-item {
     background-color: color-mix(in srgb, currentColor 18%, transparent);
     color: inherit;
     font-weight: 700;
     padding-left: 1.35rem;
 }
 
-.nav-disclosure-link.active::before,
-.nav-current-link.nav-disclosure-link::before {
+.navbar .dropdown-item.active::before,
+.navbar .nav-current-link.dropdown-item::before {
     content: '';
     position: absolute;
     left: 0.7rem;
@@ -129,112 +119,112 @@ footer a {
     background-color: currentColor;
 }
 
-.nav-disclosure.active > .nav-disclosure-summary,
-.nav-disclosure[open] > .nav-disclosure-summary {
+/* Toggle underline quando un figlio è la rotta corrente o il menu è aperto */
+.navbar .dropdown.active > .nav-dropdown-toggle,
+.navbar .dropdown.show > .nav-dropdown-toggle {
     font-weight: 700;
     text-decoration: underline;
     text-decoration-thickness: 0.14rem;
     text-underline-offset: 0.2rem;
+    color: inherit;
 }
 
-.nav-disclosure-summary:focus-visible,
-.nav-disclosure-link:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
+/* ── Colori navbar ────────────────────────────────────────────────── */
 
-/* Quando il blocco di navigazione e' dentro una .navbar i link ereditano
-   il colore di Bootstrap variant; gli stati attivo / hover spostano sul
-   colore "enfasi" del tema. */
 .navbar .nav-link,
 .navbar .nav-current-link,
-.navbar .nav-disclosure-summary {
+.navbar .nav-dropdown-toggle {
     color: inherit;
 }
 
 .navbar .nav-link:hover,
 .navbar .nav-link:focus-visible,
-.navbar .nav-disclosure-summary:hover,
-.navbar .nav-disclosure-summary:focus-visible {
-    color: var(--bs-emphasis-color);
+.navbar .nav-dropdown-toggle:hover,
+.navbar .nav-dropdown-toggle:focus-visible {
+    color: inherit;
 }
 
 .navbar .nav-link.active,
-.navbar .nav-current-link.nav-link,
-.navbar .nav-disclosure.active > .nav-disclosure-summary,
-.navbar .nav-disclosure[open] > .nav-disclosure-summary {
-    color: var(--bs-emphasis-color);
+.navbar .nav-current-link.nav-link {
+    color: inherit;
+}
+
+/* ── Animazione apertura dropdown (desktop) ───────────────────────
+   Bootstrap toglie display:none solo quando aggiunge .show — l'exit
+   non è animabile in CSS puro senza JS extra. Animiamo l'entrance. */
+@keyframes navDropdownEnter {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 @media (min-width: 768px) {
-    .nav-disclosure-menu {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        z-index: 1000;
+    .navbar .dropdown-menu.show {
+        animation: navDropdownEnter 0.15s ease both;
     }
 }
+
+/* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 767.98px) {
     .nav-link,
     .nav-current-link,
-    .nav-disclosure-summary {
+    .nav-dropdown-toggle {
         min-height: 2.75rem;
     }
 
-    .nav-disclosure {
+    .navbar .dropdown {
         display: block;
         width: 100%;
     }
 
-    .nav-disclosure-summary {
+    .nav-dropdown-toggle {
         width: 100%;
         padding: 0.7rem 0;
-        border-radius: 0;
-        background-color: transparent;
+        justify-content: space-between;
     }
 
-    .nav-disclosure-label {
-        flex: 1 1 auto;
-    }
-
-    .nav-disclosure-menu {
-        min-width: 0;
-        margin: 0.1rem 0 0;
+    /* Mobile: Bootstrap standard (display:none/block), stili desktop azzerati */
+    .navbar .dropdown-menu {
+        position: static;
+        margin-top: 0;
         padding: 0 0 0 0.95rem;
         border-radius: 0;
         border: none;
         box-shadow: none;
         background-color: transparent;
+        color: inherit;
     }
 
-    .nav-disclosure-link {
+    .navbar .dropdown-item {
         padding: 0.5rem 0;
         font-weight: 400;
-        border-radius: 0;
     }
 
-    .nav-disclosure-link.active,
-    .nav-current-link.nav-disclosure-link {
+    .navbar .dropdown-item.active,
+    .navbar .nav-current-link.dropdown-item {
         background-color: transparent;
         font-weight: 700;
         padding-left: 0;
     }
 
-    .nav-disclosure-link.active::before,
-    .nav-current-link.nav-disclosure-link::before {
+    .navbar .dropdown-item.active::before,
+    .navbar .nav-current-link.dropdown-item::before {
         display: none;
     }
 
-    .nav-disclosure-link:hover,
-    .nav-disclosure-link:focus-visible {
+    .navbar .dropdown-item:hover,
+    .navbar .dropdown-item:focus-visible {
         background-color: transparent;
         text-decoration: underline;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .nav-disclosure-caret {
+    .nav-dropdown-caret {
         transition: none;
+    }
+    /* Desktop: nessuna animazione entrance */
+    .navbar .dropdown-menu.show {
+        animation: none;
     }
 }

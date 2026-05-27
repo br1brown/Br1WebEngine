@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, isDevMode, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UpperCasePipe } from '@angular/common';
 import { NavigationEnd, Router } from '@angular/router';
@@ -12,15 +12,11 @@ import { NavDropdownComponent } from '../../shared/nav-dropdown/nav-dropdown.com
 import { PageDirective } from '../../../core/engine/directives/page.directive';
 import { ContestoSito, PageType } from '../../../site';
 import { NavLink } from '../../../core/engine/siteBuilder';
+import { AssetDirective } from '../../../core/engine/directives/asset.directive';
 
-/**
- * Navbar principale del sito.
- *
- * Il menu header viene letto dal modello centrale del sito.
- */
 @Component({
     selector: 'app-navbar',
-    imports: [TranslatePipe, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective],
+    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective],
     templateUrl: './navbar.component.html',
     styleUrl: './navbar.component.css'
 })
@@ -35,11 +31,21 @@ export class NavbarComponent {
     readonly menuItems = ContestoSito.menuNav;
     protected readonly PageType = PageType;
     readonly fixTop = ContestoSito.config.fixedTopHeader;
+    readonly showBrandIcon = ContestoSito.config.showBrandIcon;
     readonly languages = this.translate.availableLangs;
     readonly menuOpen = signal(false);
+    protected readonly openDropdownIndex = signal(-1);
+    protected readonly langOpen = signal(false);
     private readonly currentUrl = injectCurrentUrl();
 
     constructor() {
+        if (isDevMode() && this.menuItems.length > 6) {
+            console.warn(
+                `[Navbar] ${this.menuItems.length} voci di primo livello nel menu (max consigliato: 6). ` +
+                `Su desktop rischiano di andare a capo; su mobile richiedono scroll. ` +
+                `Raggruppa le voci in dropdown per ridurre il numero di item orizzontali.`
+            );
+        }
         this.router.events
             .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
             .subscribe(() => this.closeNavigation());
@@ -61,24 +67,22 @@ export class NavbarComponent {
         return Array.isArray(item.children) && item.children.length > 0;
     }
 
-    onNavigationLinkClick(): void {
-        this.closeNavigation();
+    isNavDropdownOpen(i: number): boolean {
+        return this.openDropdownIndex() === i;
     }
 
-    onDisclosureToggle(event: Event): void {
-        // event.target è stabile anche dopo il re-emit via output.emit()
-        // (currentTarget puo' essere null quando l'evento esce dal componente figlio)
-        const current = event.target as HTMLDetailsElement | null;
-        if (!current?.open) {
-            return;
-        }
+    onNavDropdownToggle(i: number): void {
+        this.langOpen.set(false);
+        this.openDropdownIndex.update(cur => cur === i ? -1 : i);
+    }
 
-        const dropdowns = this.elRef.nativeElement.querySelectorAll('details[open]') as NodeListOf<HTMLDetailsElement>;
-        dropdowns.forEach(dropdown => {
-            if (dropdown !== current) {
-                dropdown.open = false;
-            }
-        });
+    toggleLang(): void {
+        this.openDropdownIndex.set(-1);
+        this.langOpen.update(v => !v);
+    }
+
+    onNavigationLinkClick(): void {
+        this.closeNavigation();
     }
 
     @HostListener('document:click', ['$event'])
@@ -93,19 +97,17 @@ export class NavbarComponent {
         this.closeNavigation();
     }
 
+    getFlagClass(_lang: string): string {
+        return 'fa-solid fa-globe';
+    }
+
     private closeNavigation(): void {
         this.menuOpen.set(false);
         this.closeAllDropdowns();
     }
 
     private closeAllDropdowns(): void {
-        const dropdowns = this.elRef.nativeElement.querySelectorAll('details[open]') as NodeListOf<HTMLDetailsElement>;
-        dropdowns.forEach(dropdown => dropdown.removeAttribute('open'));
-    }
-
-    getFlagClass(_lang: string): string {
-        // FontAwesome Free non ha le bandiere delle singole nazioni.
-        // Usiamo un'icona generica come il mappamondo o la lingua.
-        return 'fa-solid fa-globe';
+        this.openDropdownIndex.set(-1);
+        this.langOpen.set(false);
     }
 }

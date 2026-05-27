@@ -333,13 +333,13 @@
                             <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
 
                             <div class="d-flex flex-wrap gap-2 mb-3">
-                                <button class="btn btn-outline-info" (click)="showAlert()">
+                                <button class="btn btn-outline-primary" (click)="showAlert()">
                                     <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
                                 </button>
                                 <button class="btn btn-outline-warning" (click)="showConfirm()">
                                     <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
                                 </button>
-                                <button class="btn btn-outline-primary" (click)="showFormModal()">
+                                <button class="btn btn-outline-info" (click)="showFormModal()">
                                     <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
                                 </button>
                             </div>
@@ -385,14 +385,14 @@
                     <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
                     <div class="d-flex gap-2 flex-wrap mb-3">
                         <span class="badge theme-token-badge"
-                              [style.backgroundColor]="theme.colorTema()"
-                              [style.color]="theme.colorTemaText()">
-                            colorTema: {{ theme.colorTema() }}
+                              [style.backgroundColor]="theme.colorTema"
+                              [style.color]="theme.colorTemaText">
+                            colorTema: {{ theme.colorTema }}
                         </span>
                         <span class="badge theme-token-badge"
-                              [style.backgroundColor]="theme.colorPrimary()"
-                              [style.color]="theme.colorPrimaryText()">
-                            colorPrimary: {{ theme.colorPrimary() }}
+                              [style.backgroundColor]="theme.colorPrimary"
+                              [style.color]="theme.colorPrimaryText">
+                            colorPrimary: {{ theme.colorPrimary }}
                         </span>
                     </div>
                     <hr class="my-2">

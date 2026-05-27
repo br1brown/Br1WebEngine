@@ -1180,31 +1180,48 @@ Nel template, due modi equivalenti:
 
 ### ThemeService
 
-Imposta una sola variabile CSS (`,colorTema`) e calcola in modo reattivo tutto il resto:
+Riceve un solo hex (`colorTema` da `site.ts`) e genera una palette completa in spazio OKLCH. Tutta la logica di contrasto WCAG è in TypeScript — nessun calcolo delegato al browser.
 
-| Signal / metodo | Cosa restituisce |
-|--|--|
-| `colorTema` | Colore hex corrente (scrivibile per switchare tema a runtime) |
-| `colorTemaText` | `#000000` o `#ffffff`, contrasto massimo WCAG sul tema |
-| `colorPrimary` | Tema + 40% nero, usato per pulsanti e accenti |
-| `colorPrimaryText` | Testo leggibile su `colorPrimary` |
-| `isDarkTextPreferred` | `true` se il tema è sufficientemente chiaro |
+Ogni proprietà pubblica è documentata con JSDoc inline nel sorgente. Riepilogo delle proprietà esposte:
 
-I metodi statici (`ThemeService.prefersDarkText`, `getReadableTextColor`, `mixHexColors`) sono puri e importabili anche da Node/server.ts senza istanziare Angular.
+| Proprietà | Tipo | CSS var | Note |
+|--|--|--|--|
+| `colorTema` | `string` | `--colorTema` | Colore brand esatto da `site.ts` |
+| `colorTemaText` | `'#000' \| '#fff'` | `--colorTemaText` | Contrasto massimo su `--colorTema` |
+| `colorPrimary` | `string` | `--colorPrimary` | Variante scurita del brand, WCAG 4.5:1 su bianco — bottoni e CTA |
+| `colorPrimaryText` | `'#000' \| '#fff'` | `--colorPrimaryText` | Testo leggibile su `--colorPrimary` |
+| `colorPrimaryRgb` | `string` | `--colorPrimaryRgb` | Tripla RGB, per `rgba()` Bootstrap |
+| `isDarkTextPreferred` | `boolean` | — | `true` se il brand è chiaro (testo scuro sopra) |
+| `panelForcedLight` | `boolean` | — | `true` se `forcedLightPanel: true` in `site.ts` |
+| `panelBootstrapTheme` | `'light' \| null` | — | Passare a `[attr.data-bs-theme]` sul pannello |
+| `themeTone()` | `Signal<'light'\|'dark'>` | `data-theme-tone` | Reattivo alla preferenza OS in tempo reale |
+| `prefersReducedMotion()` | `Signal<boolean>` | — | Reattivo a `prefers-reduced-motion` |
 
-`ImgBuilderService` e `QrCodeService` leggono `colorPrimary()` e `colorPrimaryText()` come default colori, nessuna configurazione aggiuntiva per avere coerenza visiva e contrasto WCAG.
+`computePalette()` è statico e puro: usabile da Node, `server.ts` e script di build senza istanziare Angular. Genera oltre 70 token (superfici, semantici, subtle/emphasis per Bootstrap) con contrasto WCAG garantito in entrambi i toni.
 
-### Sistema CSS con color-mix()
+I metodi statici (`hexToOklch`, `oklchToHex`, `calcContrastRatio`, `findCompliantColor`, `mixHexColors`, ecc.) sono tutti importabili senza dipendenze Angular.
 
-`ThemeService` imposta solo `--colorTema`. Tutte le variabili derivate vengono calcolate dal browser:
+`ImgBuilderService` e `QrCodeService` leggono `colorPrimary` e `colorPrimaryText` come default — nessuna configurazione aggiuntiva per avere coerenza visiva e contrasto WCAG.
 
-```css
---colorBase:          color-mix(in srgb, var(--colorTema), white 20%);
---colorPrimary:       color-mix(in srgb, var(--colorTema), black 40%);
---colorSurface:       color-mix(in srgb, var(--colorTema), white 24%);
---colorSurfaceHover:  color-mix(in srgb, var(--colorTema), white 30%);
---colorSurfaceBorder: color-mix(in srgb, var(--colorTema), white 38%);
---colorSurfaceText:   color-mix(in srgb, white 94%, var(--colorTema) 6%);
+### Palette OKLCH e SSR
+
+`ThemeService.buildThemeHeadTags(colorTema)` produce un blocco `<style id="theme-init">` con tutte le variabili CSS pre-calcolate e due `@media (prefers-color-scheme)` per l'adattamento OS. Il server lo inietta per ogni request — le CSS custom properties (`--colorBase`, `--colorSurface`, ecc.) commutano istantaneamente grazie ai media block, senza nessun calcolo a runtime nel browser.
+
+Il `data-bs-theme` su `<html>` (necessario per il sistema di varianti Bootstrap) viene impostato da un **blocking inline script** in `<head>` prima che il browser disegni il primo frame, eliminando il flash di tono sbagliato:
+
+```
+site.ts: colorTema: '#131e55'
+    ↓
+computePalette()  →  73+ token OKLCH (superfici, link, semantici, subtle…)
+    ↓
+server.ts         →  <style id="theme-init"> iniettato nell'<head> SSR
+                      (CSS vars + @media prefers-color-scheme → zero flash di colore)
+    ↓
+index.html <head> →  script sincrono: legge prefers-color-scheme, imposta
+                      data-bs-theme e data-theme-tone su <html> prima del paint
+    ↓
+ThemeService      →  afterNextRender: conferma inline style su <html>
+                      (stessa preferenza OS → nessun repaint visibile)
 ```
 
 Il pannello contenuti si adatta automaticamente al tono (scuro/chiaro). Varianti forzabili con `.panel-light` e `.panel-dark`.
@@ -1741,26 +1758,29 @@ border:     1px solid var(--colorSurfaceBorder);
 outline:    var(--focusRingWidth) solid var(--focusRingColor);
 ```
 
-I token garantiscono che i rapporti di contrasto WCAG siano calcolati centralmente in `ThemeService` e propagati automaticamente tramite `color-mix()` in `base.css`. Usare valori hex hardcoded bypassa questo sistema e può rompere il contrasto in modalità scura o con temi personalizzati.
+I token garantiscono che i rapporti di contrasto WCAG siano calcolati centralmente in `ThemeService.computePalette()` e iniettati via `<style id="theme-init">` (SSR) e inline style su `<html>` (client). Usare valori hex hardcoded bypassa questo sistema e può rompere il contrasto in modalità scura o con temi personalizzati.
 
-Token disponibili (definiti in `src/styles/base.css`):
+Token disponibili nei componenti (iniettati da `ThemeService`, fallback in `src/styles/base.css`):
 
 | Token | Uso |
 |---|---|
-| `--colorTema` | Colore brand principale |
-| `--colorPrimary` | Variante WCAG-safe per bottoni/CTA |
+| `--colorTema` | Colore brand da `site.ts` — sfondo navbar/footer |
+| `--colorTemaText` | `#fff` o `#000`, testo garantito su `--colorTema` |
+| `--colorPrimary` | Variante WCAG 4.5:1 su bianco — bottoni, CTA |
 | `--colorPrimaryText` | Testo leggibile su `--colorPrimary` |
+| `--colorBase` | Sfondo body (tono OS-adattivo) |
 | `--colorSurface` | Sfondo pannelli/card |
+| `--colorSurfaceHover` | Sfondo pannelli on hover |
+| `--colorSurfaceBorder` | Bordo pannelli (≥ 3:1 WCAG 1.4.11) |
 | `--colorSurfaceText` | Testo su `--colorSurface` |
-| `--colorSurfaceBorder` | Bordo pannelli |
-| `--colorSecondary` | Colore secondario adattivo (chiaro su dark, scuro su light) — WCAG AA |
-| `--colorSecondaryText` | Testo su sfondo `--colorSecondary` |
-| `--colorInfo` | Colore info adattivo — WCAG AA |
-| `--colorInfoText` | Testo su sfondo `--colorInfo` |
-| `--colorWarning` | Colore warning adattivo — WCAG AA |
-| `--colorWarningText` | Testo su sfondo `--colorWarning` |
-| `--colorLink` | Colore link |
-| `--focusRingColor` | Colore anello di focus |
+| `--colorLink` | Link tone-adattivo (OS-aware) |
+| `--colorSecondary` | Colore secondario WCAG AA — OS-adattivo (variante muted del brand) |
+| `--colorSecondaryText` | Testo su `--colorSecondary` |
+| `--colorHeading` | Headings/`<strong>` — quasi nero/bianco con tinta brand |
+| `--colorMutedBg` | Sfondo muted (disabled inputs, table-striped) |
+| `--colorSubtleBg` | Sfondo subtle (table alternato, placeholder) |
+| `--colorMutedText` | Testo muted WCAG 4.5:1 (`.text-muted`) |
+| `--focusRingColor` | Colore anello di focus (= `--colorLink`) |
 | `--focusRingWidth` | Spessore anello di focus |
 | `--focusRingOffset` | Offset anello di focus |
 

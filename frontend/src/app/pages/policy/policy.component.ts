@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
-import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
+import { CookieConsentService, CookieCategory } from '../../core/engine/services/cookie-consent.service';
 import type { Profile } from '../../core/dto/profile.dto';
 
 type ProfileData = Record<string, string | undefined>;
@@ -15,32 +15,58 @@ type ProfileData = Record<string, string | undefined>;
 export class PolicyComponent extends PageBaseComponent<string> {
     private readonly cookieConsent = inject(CookieConsentService);
 
+    readonly CookieCategory = CookieCategory;
+
     /** null = non ancora caricato, {} = errore (previene retry), Record = dati disponibili */
     private readonly profileData = signal<ProfileData | null>(null);
 
-    readonly displayContent = computed(() => {
-        let content = this.pageContent() ?? '';
-        if (!content) return content;
+    readonly cookieCategories = computed(() =>
+        this.cookieConsent.legal.getCategories(k => this.translate.translate(k))
+    );
 
-        // {{cookieList}} — sincrono, reattivo al cambio lingua tramite pageContent()
-        if (content.includes('{{cookieList}}')) {
-            const table = this.cookieConsent.legal.listMarkdown(k => this.translate.translate(k));
-            content = content.replace(/\{\{cookieList\}\}/g, table);
-        }
+    readonly cookieList = computed(() =>
+        this.cookieConsent.legal.getCookies(k => this.translate.translate(k))
+    );
 
-        // {{cookieCategories}} — sincrono, reattivo al cambio lingua tramite pageContent()
-        if (content.includes('{{cookieCategories}}')) {
-            const list = this.cookieConsent.legal.listCategoriesMarkdown(k => this.translate.translate(k));
-            content = content.replace(/\{\{cookieCategories\}\}/g, list);
-        }
+    readonly segments = computed(() => {
+        const content = this.pageContent() ?? '';
+        if (!content) return [];
 
         // placeholder profilo — asincrono, risolti quando profileData è disponibile
+        let interpolated = content;
         const profile = this.profileData();
-        if (content.includes('{{') && profile) {
-            content = this.interpolate(content, profile);
+        if (interpolated.includes('{{') && profile) {
+            interpolated = this.interpolate(interpolated, profile);
         }
 
-        return content;
+        const result: ({ type: 'markdown'; content: string } | { type: 'categories' } | { type: 'cookieList' })[] = [];
+        let remaining = interpolated;
+
+        while (remaining) {
+            const catIdx = remaining.indexOf('{{cookieCategories}}');
+            const listIdx = remaining.indexOf('{{cookieList}}');
+
+            if (catIdx === -1 && listIdx === -1) {
+                result.push({ type: 'markdown', content: remaining });
+                break;
+            }
+
+            if (catIdx !== -1 && (listIdx === -1 || catIdx < listIdx)) {
+                if (catIdx > 0) {
+                    result.push({ type: 'markdown', content: remaining.slice(0, catIdx) });
+                }
+                result.push({ type: 'categories' });
+                remaining = remaining.slice(catIdx + '{{cookieCategories}}'.length);
+            } else {
+                if (listIdx > 0) {
+                    result.push({ type: 'markdown', content: remaining.slice(0, listIdx) });
+                }
+                result.push({ type: 'cookieList' });
+                remaining = remaining.slice(listIdx + '{{cookieList}}'.length);
+            }
+        }
+
+        return result;
     });
 
     constructor() {

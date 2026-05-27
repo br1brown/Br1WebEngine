@@ -113,10 +113,17 @@ export interface SiteConfig {
     showNav: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. */
+    showBrandIcon: boolean;
     /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
     isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
     smoke: SmokeSettings;
+    /**
+     * Se `true`, il pannello contenuti (`.content-panel`) è sempre chiaro
+     * indipendentemente dalla preferenza OS. Default: `true`.
+     */
+    forcedLightPanel: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
     pageForAuthGuard?: PageType | null;
 }
@@ -152,6 +159,8 @@ export interface SiteConfigInput {
     showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. Default: `true`. */
+    showBrandIcon?: boolean;
     /**
      * Abilita le funzionalità PWA: Service Worker, cache offline e aggiornamenti automatici.
      * Se `false`, il SW non viene registrato e `VersionCheckService` usa solo il polling manifest.
@@ -162,6 +171,13 @@ export interface SiteConfigInput {
     onlyPlainImage?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
     smoke?: SmokeSettingsInput;
+    /**
+     * Forza il pannello contenuti (`.content-panel`) sempre in modalità chiara,
+     * indipendentemente dalla preferenza OS dell'utente.
+     * Utile per temi scuri in cui si preferisce mantenere i contenuti testuali
+     * su sfondo bianco per massima leggibilità. Default: `true`.
+     */
+    forcedLightPanel?: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
     pageForAuthGuard?: PageType | null;
 }
@@ -901,8 +917,10 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+                showBrandIcon: siteConfigurationInput.showBrandIcon ?? true,
                 isWebApp: siteConfigurationInput.isWebApp ?? true,
                 onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
+                forcedLightPanel: siteConfigurationInput.forcedLightPanel ?? true,
                 smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
                 pageForAuthGuard: siteConfigurationInput.pageForAuthGuard ?? null
             };
