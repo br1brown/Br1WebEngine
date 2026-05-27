@@ -22,7 +22,8 @@
     "dev:ssr": "npm run build && cross-env ASSETS_DIR=src/assets/files node dist/app/server/server.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@angular/animations": "^19.0.0",

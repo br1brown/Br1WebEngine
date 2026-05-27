@@ -92,7 +92,7 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 # ─── localizza pa11y (preferisce node_modules, poi npx) ──────────────────────
-PA11Y_BIN="${SCRIPT_DIR}/frontend/node_modules/.bin/pa11y"
+PA11Y_BIN="${SCRIPT_DIR}/../../frontend/node_modules/.bin/pa11y"
 PA11Y_CONFIG="${SCRIPT_DIR}/pa11y.json"
 
 if [[ ! -x "$PA11Y_BIN" ]]; then

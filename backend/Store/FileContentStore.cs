@@ -43,9 +43,15 @@ public class FileContentStore : IContentStore
         _dataPath = Path.Combine(env.ContentRootPath, "data");
         _jsonOptions.Converters.Add(new JsonStringEnumConverter());
 
-        var langCodes = configuration.GetSection("Localization:SupportedLanguages").Get<string[]>() ?? ["it"];
+        // Si legge unicamente dalla configurazione, nessun fallback statico sull'italiano "it".
+        var langCodes = configuration.GetSection("Localization:SupportedLanguages").Get<string[]>()
+            ?? throw new InvalidOperationException("Configurazione mancante: 'Localization:SupportedLanguages' è obbligatorio.");
+
         _supportedLanguages = new HashSet<string>(langCodes.Select(l => l.ToLowerInvariant()), StringComparer.OrdinalIgnoreCase);
-        _defaultLanguage = configuration["Localization:DefaultLanguage"] ?? langCodes[0];
+
+        // Si legge unicamente dalla configurazione.
+        _defaultLanguage = configuration["Localization:DefaultLanguage"]
+            ?? throw new InvalidOperationException("Configurazione mancante: 'Localization:DefaultLanguage' è obbligatorio.");
     }
 
     /// <summary>
@@ -66,7 +72,7 @@ public class FileContentStore : IContentStore
     public async Task<UniversalLegalModel> GetProfileAsync(string language)
     {
         var json = await ReadStaticFileAsync("irl");
-        return LocalizedJsonDeserializer.Deserialize<UniversalLegalModel>(json, language, _supportedLanguages, _defaultLanguage);
+        return new LocalizedJsonDeserializer(_defaultLanguage).Deserialize<UniversalLegalModel>(json, language, _supportedLanguages);
     }
 
     /// <summary>
@@ -117,8 +123,14 @@ public class FileContentStore : IContentStore
     /// scegliere la lingua richiesta quando disponibile, ripiegare su una lingua di fallback
     /// e scartare nodi vuoti per evitare di serializzare oggetti o array privi di contenuto utile.
     /// </remarks>
-    private static class LocalizedJsonDeserializer
+    private class LocalizedJsonDeserializer
     {
+        private readonly string _defaultLanguage;
+        public LocalizedJsonDeserializer(string defaultLanguage)
+        {
+            _defaultLanguage = defaultLanguage;
+        }
+
         private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
         /// <summary>
@@ -128,13 +140,12 @@ public class FileContentStore : IContentStore
         /// <param name="json">Contenuto JSON sorgente.</param>
         /// <param name="language">Lingua richiesta.</param>
         /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
-        /// <param name="defaultLanguage">Lingua di default del sistema da usare come riserva.</param>
         /// <returns>Un'istanza del modello richiesto con soli campi utili e localizzati.</returns>
-        public static T Deserialize<T>(string json, string language, HashSet<string> supportedLanguages, string defaultLanguage)
+        public T Deserialize<T>(string json, string language, HashSet<string> supportedLanguages)
             where T : class
         {
             var root = JsonNode.Parse(json) ?? throw new DecodingException();
-            var resolved = ResolveNode(root, NormalizeLanguage(language, defaultLanguage), defaultLanguage, supportedLanguages);
+            var resolved = this.ResolveNode(root, NormalizeLanguage(language), supportedLanguages);
 
             return resolved?.Deserialize<T>(JsonOptions) ?? throw new DecodingException();
         }
@@ -143,12 +154,11 @@ public class FileContentStore : IContentStore
         /// Normalizza una lingua in un codice a due lettere compatibile con i file del template.
         /// </summary>
         /// <param name="language">Valore sorgente, ad esempio <c>it-IT,it;q=0.9</c>.</param>
-        /// <param name="defaultLanguage">Valore da usare se l'input non e' valido.</param>
         /// <returns>Il codice lingua normalizzato, ad esempio <c>it</c> o <c>en</c>.</returns>
-        private static string NormalizeLanguage(string? language, string defaultLanguage)
+        private string NormalizeLanguage(string? language)
         {
             if (string.IsNullOrWhiteSpace(language))
-                return defaultLanguage;
+                return this._defaultLanguage;
 
             // Un header Accept-Language tipico ha questo formato:
             //   "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
@@ -164,7 +174,7 @@ public class FileContentStore : IContentStore
 
             // Accetta il codice solo se è esattamente a 2 caratteri (es. "it", "en", "fr").
             // Valori anomali come stringhe vuote o tag non standard cadono sul fallback.
-            return normalized.Length == 2 ? normalized : defaultLanguage;
+            return normalized.Length == 2 ? normalized : this._defaultLanguage;
         }
 
         /// <summary>
@@ -187,16 +197,15 @@ public class FileContentStore : IContentStore
         /// </summary>
         /// <param name="node">Nodo da risolvere.</param>
         /// <param name="language">Lingua richiesta.</param>
-        /// <param name="defaultLanguage">Lingua di default.</param>
         /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
         /// <returns>Una copia del nodo risolto oppure <see langword="null"/> se il nodo e' vuoto.</returns>
-        private static JsonNode? ResolveNode(JsonNode? node, string language, string defaultLanguage, HashSet<string> supportedLanguages)
+        private JsonNode? ResolveNode(JsonNode? node, string language, HashSet<string> supportedLanguages)
         {
             return node switch
             {
                 null => null,
-                JsonObject obj => ResolveObject(obj, language, defaultLanguage, supportedLanguages),
-                JsonArray array => ResolveArray(array, language, defaultLanguage, supportedLanguages),
+                JsonObject obj => ResolveObject(obj, language, supportedLanguages),
+                JsonArray array => ResolveArray(array, language, supportedLanguages),
                 JsonValue value => IsEmptyValue(value) ? null : value.DeepClone(),
                 _ => node.DeepClone()
             };
@@ -207,19 +216,18 @@ public class FileContentStore : IContentStore
         /// </summary>
         /// <param name="obj">Oggetto da analizzare.</param>
         /// <param name="language">Lingua richiesta.</param>
-        /// <param name="defaultLanguage">Lingua di default.</param>
         /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
         /// <returns>
         /// Un nuovo oggetto contenente soltanto i campi significativi, oppure <see langword="null"/> se l'oggetto si svuota.
         /// </returns>
-        private static JsonNode? ResolveObject(JsonObject obj, string language, string defaultLanguage, HashSet<string> supportedLanguages)
+        private JsonNode? ResolveObject(JsonObject obj, string language, HashSet<string> supportedLanguages)
         {
             // CASO 1 — L'oggetto è un dizionario lingua→valore puro (es. { "it": "Ciao", "en": "Hello" }).
             // TryResolveLocalizedObject sceglie il ramo corretto e lo restituisce come nodo singolo.
             // Poi si chiama ricorsivamente ResolveNode sul valore scelto: quel valore potrebbe a sua
             // volta contenere oggetti localizzati annidati, quindi deve essere risolto allo stesso modo.
-            if (TryResolveLocalizedObject(obj, language, defaultLanguage, supportedLanguages, out var localizedValue))
-                return ResolveNode(localizedValue, language, defaultLanguage, supportedLanguages);
+            if (TryResolveLocalizedObject(obj, language, supportedLanguages, out var localizedValue))
+                return ResolveNode(localizedValue, language, supportedLanguages);
 
             // CASO 2 — L'oggetto ha chiavi di dominio normali (es. "name", "url", "items").
             // Si costruisce un nuovo oggetto copiando solo i campi che sopravvivono alla localizzazione.
@@ -228,7 +236,7 @@ public class FileContentStore : IContentStore
             foreach (var (key, value) in obj)
             {
                 // Risolve ogni campo figlio ricorsivamente (potrebbe contenere blocchi i18n annidati).
-                var resolvedValue = ResolveNode(value, language, defaultLanguage, supportedLanguages);
+                var resolvedValue = ResolveNode(value, language, supportedLanguages);
 
                 // Se il campo è diventato vuoto dopo la risoluzione (stringa "", array [],
                 // oggetto {} o null), viene saltato: non ha senso serializzarlo nel modello finale.
@@ -248,16 +256,15 @@ public class FileContentStore : IContentStore
         /// </summary>
         /// <param name="array">Array da processare.</param>
         /// <param name="language">Lingua richiesta.</param>
-        /// <param name="defaultLanguage">Lingua di default.</param>
         /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
         /// <returns>Un nuovo array filtrato oppure <see langword="null"/> se tutti gli elementi risultano vuoti.</returns>
-        private static JsonNode? ResolveArray(JsonArray array, string language, string defaultLanguage, HashSet<string> supportedLanguages)
+        private JsonNode? ResolveArray(JsonArray array, string language, HashSet<string> supportedLanguages)
         {
             var resolvedArray = new JsonArray();
 
             foreach (var item in array)
             {
-                var resolvedItem = ResolveNode(item, language, defaultLanguage, supportedLanguages);
+                var resolvedItem = ResolveNode(item, language, supportedLanguages);
                 if (IsEmptyNode(resolvedItem))
                     continue;
 
@@ -272,7 +279,6 @@ public class FileContentStore : IContentStore
         /// </summary>
         /// <param name="obj">Oggetto da verificare.</param>
         /// <param name="language">Lingua richiesta.</param>
-        /// <param name="defaultLanguage">Lingua di default.</param>
         /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
         /// <param name="localizedValue">
         /// Valore selezionato secondo l'ordine: lingua richiesta, default, primo valore non vuoto.
@@ -280,10 +286,9 @@ public class FileContentStore : IContentStore
         /// <returns>
         /// <see langword="true"/> se l'oggetto contiene solo chiavi lingua e puo' quindi essere trattato come localizzato.
         /// </returns>
-        private static bool TryResolveLocalizedObject(
+        private bool TryResolveLocalizedObject(
             JsonObject obj,
             string language,
-            string defaultLanguage,
             HashSet<string> supportedLanguages,
             out JsonNode? localizedValue)
         {
@@ -301,13 +306,13 @@ public class FileContentStore : IContentStore
             // Arrivati qui, tutte le chiavi sono tag lingua (es. "it", "en").
             // Sceglie il valore più adatto con priorità decrescente:
             //   1. obj[language]         → lingua richiesta (es. "it"): caso ideale.
-            //   2. obj[defaultLanguage] → lingua di riserva (es. "it"): se la richiesta non c'è.
+            //   2. obj[_defaultLanguage] → lingua di riserva (es. "it"): se la richiesta non c'è.
             //   3. FirstOrDefault(...)   → primo valore non vuoto trovato: ultimo tentativo
             //                             quando nemmeno il default è presente nel file.
             // L'operatore ?? cortocircuita: se il primo non è null si usa quello.
             localizedValue =
                 obj[language]
-                ?? obj[defaultLanguage]
+                ?? obj[this._defaultLanguage]
                 ?? obj.FirstOrDefault(property => !IsEmptyNode(property.Value)).Value;
 
             return true;
@@ -321,7 +326,7 @@ public class FileContentStore : IContentStore
         /// <returns>
         /// <see langword="true"/> se la lingua principale fa parte delle lingue supportate dell'app.
         /// </returns>
-        private static bool IsLanguageKey(string key, HashSet<string> supportedLanguages)
+        private bool IsLanguageKey(string key, HashSet<string> supportedLanguages)
         {
             // Divide la chiave sul trattino, ignorando parti vuote e spazi.
             // Esempi: "it" → ["it"]   |   "it-IT" → ["it", "IT"]   |   "name" → ["name"]

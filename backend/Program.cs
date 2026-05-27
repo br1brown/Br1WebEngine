@@ -1,7 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
+using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 using Backend.Models.Configuration;
 using Backend.Infrastructure;
 using Backend.Security;
@@ -31,6 +35,10 @@ builder.Services.AddScoped<SiteService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();
+
+// Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).
+// I controller iniettano IValidator<T> ed eseguono la validazione esplicitamente.
+builder.Services.AddValidatorsFromAssemblyContaining<Program>(ServiceLifetime.Singleton);
 
 builder.Services
     .AddControllers()
@@ -78,6 +86,29 @@ builder.Services.AddTemplateSecurity(security);
 
 // Health check — GET /health (senza autenticazione)
 builder.Services.AddHealthChecks();
+
+// ── OPENTELEMETRY ───────────────────────────────────────────────────
+//
+// Attivato solo se OpenTelemetry:Endpoint è valorizzato in appsettings.
+// Esporta trace e metriche verso il collector OTLP (es. Jaeger, Tempo, Datadog).
+// Se l'endpoint è vuoto l'app funziona senza telemetria, zero dipendenze esterne.
+//
+var otlpEndpoint = builder.Configuration["OpenTelemetry:Endpoint"];
+if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService(
+            serviceName: builder.Configuration["OpenTelemetry:ServiceName"] ?? "backend",
+            serviceVersion: builder.Configuration["OpenTelemetry:ServiceVersion"] ?? "1.0.0"))
+        .WithTracing(tracing => tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlpEndpoint)))
+        .WithMetrics(metrics => metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlpEndpoint)));
+}
 
 var app = builder.Build();
 

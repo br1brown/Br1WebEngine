@@ -2,7 +2,8 @@ import express, { type Request, type Response } from 'express';
 import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { createHash, randomBytes } from 'node:crypto';
 import sharp from 'sharp';
 import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from '../../../app.config';
@@ -15,7 +16,6 @@ import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
     isMainModule,
-    writeResponseToNodeResponse
 } from '@angular/ssr/node';
 import { serverEnv } from './server-env';
 import { API_PREFIX } from '../../../app.config';
@@ -36,29 +36,6 @@ const assetFilesDir = serverEnv.assetsDir
 /** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
 
-/**
- * Post-processa l'HTML SSR: aggiorna gli attributi tone su <html> e inietta
- * il <style> con le vars del tema (delegato a ThemeService.buildThemeStyleTag).
- */
-function injectTheme(html: string): string {
-    const colorTema = ContestoSito.config.colorTema;
-    const naturalTone = ThemeService.computeThemeTone(colorTema);
-
-    html = html.replace(/<html\b([^>]*)>/, (_, attrs: string) => {
-        const cleaned = attrs
-            .replace(/\s*data-bs-theme="[^"]*"/g, '')
-            .replace(/\s*data-theme-tone="[^"]*"/g, '')
-            .trim();
-        return `<html${cleaned ? ' ' + cleaned : ''} data-bs-theme="${naturalTone}" data-theme-tone="${naturalTone}">`;
-    });
-
-    html = html.replace(/<style id="theme-init">[\s\S]*?<\/style>\n?\s*/g, '');
-    html = html.replace(/<meta name="theme-color"[^>]*>\n?\s*/g, '');
-    const headTags = ThemeService.buildThemeHeadTags(colorTema);
-    html = html.replace('</head>', () => headTags + '\n</head>');
-
-    return html;
-}
 /** Crea la cartella di cache se non esiste (recursive evita errori se mancano i padri) */
 mkdirSync(cacheDir, { recursive: true });
 
@@ -179,24 +156,20 @@ const angularApp = new AngularNodeAppEngine({
 });
 
 /**
- * Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne.
+ * CSP base (senza nonce): usato da htmlSecurityHeaders per tutti gli asset statici.
  *
- * PerchÃ© 'unsafe-inline' resta:
- * - script-src: Angular SSR con withEventReplay() (in app.config.ts) emette
- *   uno <script id="ng-event-dispatch-contract"> inline e un piccolo bootstrap
- *   inline che captura gli eventi pre-hydration. Per stringere a 'self'
- *   secco bisognerebbe rimuovere withEventReplay (perdendo il replay degli
- *   eventi pre-hydration) o iniettare un nonce per richiesta e configurarlo
- *   nel builder Angular. La build genera anche un onload="this.media='all'"
- *   inline per il preload degli stylesheet â€” disattivabile con
- *   optimization.styles.inlineCritical=false in angular.json (costo: CSS
- *   render-blocking, FCP leggermente peggiore).
- * - style-src: ViewEncapsulation.Emulated inietta <style> a runtime per i
- *   componenti, e le template usano comunemente style="..." attributi.
+ * script-src: non contiene 'unsafe-inline'. Il catch-all Angular genera un nonce
+ * per-request e lo sostituisce a {SCRIPT_NONCE_PLACEHOLDER} prima di inviare l'HTML.
+ * Angular (via CSP_NONCE in app.config.server.ts) stampa il nonce su tutti gli
+ * <script> inline che withEventReplay() emette: compatibile senza 'unsafe-inline'.
+ *
+ * style-src: mantiene 'unsafe-inline' perché Angular usa style="..." attribute
+ * bindings ([style.x]) ovunque nei template; i nonce non coprono gli attributi
+ * inline (solo <style> block), quindi 'unsafe-inline' è necessario per gli stili.
  */
 const defaultCsp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -206,13 +179,16 @@ const defaultCsp = [
     "form-action 'self'",
 ].join('; ');
 
-/** Header di sicurezza standard applicati a tutte le risposte HTML */
+/** CSP per file statici (assets, index.csr.html): placeholder sostituito con 'unsafe-inline' */
+const staticCsp = defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', "'unsafe-inline'");
+
+/** Header di sicurezza standard applicati a tutte le risposte non-API */
 const htmlSecurityHeaders: [string, string][] = [
     ['X-Frame-Options', 'SAMEORIGIN'],
     ['X-Content-Type-Options', 'nosniff'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
     ['Permissions-Policy', 'camera=(), microphone=(), geolocation=()'],
-    ['Content-Security-Policy', defaultCsp],
+    ['Content-Security-Policy', staticCsp],
 ];
 
 /** Nasconde l'uso di Express per rendere piÃ¹ difficile il fingerprinting del server */
@@ -278,8 +254,6 @@ app.use(API_PREFIX, async (req: Request, res: Response) => {
     if (host) headers['x-forwarded-host'] = host;
 
     try {
-        const { Readable } = await import('node:stream');
-
         /** Streaming del body: niente buffering in RAM per upload anche grossi */
         let body: ReadableStream<Uint8Array> | undefined;
         if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -581,26 +555,58 @@ app.use(
     })
 );
 
-/** Catch-all: ogni richiesta non risolta dai file o dalla CDN viene passata al motore Angular SSR */
-app.use(async (request, response, next) => {
+/**
+ * In dev (ng serve) il bundle server è importato come modulo dal dev server di Angular,
+ * non eseguito come processo principale. isMainModule() lo rileva:
+ * - false → dev: niente nonce, script-src usa 'unsafe-inline' (HMR/live-reload lo richiedono)
+ * - true  → prod (node server.mjs): nonce per-request via requestContext
+ */
+const isDevMode = !isMainModule(import.meta.url);
+
+/**
+ * Catch-all: ogni richiesta non risolta viene passata al motore Angular SSR.
+ *
+ * Streaming: la risposta viene inoltrata direttamente senza bufferizzare l'HTML.
+ * Il tema è già iniettato da Angular durante il rendering (provideAppInitializer
+ * in app.config.server.ts), quindi non serve il post-processing regex di injectTheme.
+ *
+ * CSP nonce per-request (solo prod): un nonce casuale rimpiazza '{SCRIPT_NONCE_PLACEHOLDER}'
+ * nella policy. Il nonce viene passato ad Angular via requestContext (REQUEST_CONTEXT token
+ * in app.config.server.ts) che lo stampa su tutti gli <script> inline che emette in SSR.
+ * In dev il placeholder viene sostituito con 'unsafe-inline' per compatibilità con HMR.
+ */
+app.use(async (request: Request, response: Response, next) => {
+    const nonce = isDevMode ? null : randomBytes(16).toString('base64url');
+
     try {
-        const renderedResponse = await angularApp.handle(request);
+        const renderedResponse = await angularApp.handle(
+            request,
+            nonce ? { nonce } : undefined,
+        );
         if (!renderedResponse) { next(); return; }
 
-        /** Le risposte SSR non devono essere cachate da proxy intermedi */
+        response.status(renderedResponse.status);
         response.setHeader('Cache-Control', 'no-cache');
 
-        const contentType = renderedResponse.headers.get('content-type') ?? '';
-        if (!contentType.includes('text/html')) {
-            return writeResponseToNodeResponse(renderedResponse, response);
-        }
-
-        /** Inietta il tema CSS nell'HTML prima di inviarlo al browser */
-        const html = injectTheme(await renderedResponse.text());
+        // Inoltra gli header Angular, escludendo quelli che gestiamo noi
         renderedResponse.headers.forEach((value, key) => {
-            if (key.toLowerCase() !== 'content-length') response.setHeader(key, value);
+            const lk = key.toLowerCase();
+            if (lk === 'cache-control' || lk === 'content-security-policy' || lk === 'content-length') return;
+            response.setHeader(key, value);
         });
-        response.status(renderedResponse.status).send(html);
+
+        // CSP: in prod nonce per-request, in dev 'unsafe-inline' (richiesto da HMR)
+        const scriptSrc = nonce ? `'nonce-${nonce}'` : "'unsafe-inline'";
+        response.setHeader('Content-Security-Policy',
+            defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', scriptSrc));
+
+        // Streaming diretto: nessun buffer RAM — la risposta arriva al browser man mano che Angular la produce
+        if (renderedResponse.body) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            Readable.fromWeb(renderedResponse.body as any).pipe(response);
+        } else {
+            response.end();
+        }
     } catch (err) {
         next(err);
     }
