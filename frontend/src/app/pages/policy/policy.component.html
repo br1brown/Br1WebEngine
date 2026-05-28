@@ -1,8 +1,61 @@
 <article>
     <div class="p-3">
-        @if (displayContent()) {
-            <div [innerHTML]="displayContent() | markdown"></div>
+        @if (pageContent()) {
+            @for (seg of segments(); track $index) {
+                @if (seg.type === 'markdown') {
+                    <div [innerHTML]="seg.content | markdown"></div>
+                } @else if (seg.type === 'categories') {
+                    <div class="cookie-categories-grid">
+                        @for (cat of cookieCategories(); track cat.key) {
+                            <div class="card category-card h-100 shadow-sm">
+                                <div class="card-body p-4">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="category-icon-wrapper me-3 d-flex align-items-center justify-content-center">
+                                            @switch (cat.key) {
+                                                @case (CookieCategory.Technical) {
+                                                    <i class="fa-solid fa-shield-halved text-success fs-4"></i>
+                                                }
+                                                @case (CookieCategory.Analytics) {
+                                                    <i class="fa-solid fa-chart-line text-info fs-4"></i>
+                                                }
+                                                @case (CookieCategory.Profiling) {
+                                                    <i class="fa-solid fa-user-gear text-warning fs-4"></i>
+                                                }
+                                            }
+                                        </div>
+                                        <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
+                                    </div>
+                                    <p class="card-text text-muted small mb-0">{{ cat.description }}</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } @else if (seg.type === 'cookieList') {
+                    <div class="cookie-list-group">
+                        @for (cookie of cookieList(); track cookie.name) {
+                            <div class="cookie-item bg-white">
+                                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <code class="cookie-name-badge">{{ cookie.name }}</code>
+                                        <span class="badge category-badge-pill px-3 py-1 rounded-pill"
+                                              [class.bg-success-subtle]="cookie.categoryKey === CookieCategory.Technical"
+                                              [class.text-success-emphasis]="cookie.categoryKey === CookieCategory.Technical"
+                                              [class.bg-info-subtle]="cookie.categoryKey === CookieCategory.Analytics"
+                                              [class.text-info-emphasis]="cookie.categoryKey === CookieCategory.Analytics"
+                                              [class.bg-warning-subtle]="cookie.categoryKey === CookieCategory.Profiling"
+                                              [class.text-warning-emphasis]="cookie.categoryKey === CookieCategory.Profiling">
+                                            {{ cookie.category }}
+                                        </span>
+                                    </div>
+                                </div>
+                                @if (cookie.description) {
+                                    <p class="cookie-desc small mb-0 mt-2">{{ cookie.description }}</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
         }
     </div>
-
 </article>

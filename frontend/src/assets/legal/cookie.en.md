@@ -4,7 +4,7 @@
 Cookies are small text files stored on your device to enhance your browsing experience.
 
 ## How we use cookies
-This website uses the following categories of cookies, managed dynamically based on active features and your consent:
+This website uses the following categories of cookies, managed based on your consent:
 
 {{cookieCategories}}
 

@@ -8,7 +8,8 @@
  *
  * Cosa fa:
  *   1. Aggiorna appName in frontend/src/app/site.ts
- *   2. Rinomina App.sln → NomeProgetto.sln
+ *   2. Aggiorna COMPOSE_PROJECT_NAME in .env.param
+ *   3. Rinomina App.sln → NomeProgetto.sln
  */
 
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'fs';
@@ -26,6 +27,17 @@ function ask(question) {
         rl.close();
         resolve(answer.trim());
     }));
+}
+
+/**
+ * "Mercatino App" → "mercatino-app"
+ * "MyCoolSite"    → "mycoolsite"
+ */
+function toSlug(s) {
+    return s.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
 }
 
 /**
@@ -72,9 +84,11 @@ async function main() {
 
     const displayName = rawName.trim();        // "Mercatino App"  → mostrato all'utente
     const pascalName  = toPascal(rawName);     // "MercatinoApp"   → per il file .sln
+    const slugName    = toSlug(rawName);       // "mercatino-app"  → COMPOSE_PROJECT_NAME
 
     console.log(`\n  Nome visualizzato : ${displayName}`);
     console.log(`  Nome file .sln    : ${pascalName}.sln`);
+    console.log(`  COMPOSE_PROJECT_NAME: ${slugName}`);
     console.log('');
 
     // ── 1. appName in site.ts ────────────────────────────────────────────
@@ -86,7 +100,17 @@ async function main() {
         )
     );
 
-    // ── 2. Rinomina App.sln ──────────────────────────────────────────────
+    // ── 2. project.name in br1engine.json ───────────────────────────────
+    editFile(
+        join(ROOT, 'br1engine.json'),
+        src => {
+            const cfg = JSON.parse(src);
+            cfg.project = { ...cfg.project, name: displayName };
+            return JSON.stringify(cfg, null, 2) + '\n';
+        }
+    );
+
+    // ── 3. Rinomina App.sln ──────────────────────────────────────────────
     const slnOld = join(ROOT, 'App.sln');
     const slnNew = join(ROOT, `${pascalName}.sln`);
 
@@ -110,6 +134,13 @@ async function main() {
    • version      → imposta la versione iniziale del tuo progetto
    • description  → scrivi la descrizione del tuo progetto
    • colorTema    → imposta il colore principale del brand
+
+ Prossimi passi in br1engine.json:
+   • frontend.hostname    → dominio del sito (es. miodominio.it)
+   • frontend.port        → porta esposta dal container
+   • Security.ApiKeys[0]  → chiave API condivisa (minimo 32 char in prod)
+   • Security.CorsOrigins → ["https://tuodominio.it"] se usi un hostname
+   • Security.BehindProxy → true se stai dietro un reverse proxy
 ──────────────────────────────────────────
 `);
 }

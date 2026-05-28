@@ -113,10 +113,17 @@ export interface SiteConfig {
     showNav: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. */
+    showBrandIcon: boolean;
     /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
     isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
     smoke: SmokeSettings;
+    /**
+     * Se `true`, il pannello contenuti (`.content-panel`) è sempre chiaro
+     * indipendentemente dalla preferenza OS. Default: `true`.
+     */
+    forcedLightPanel: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
     pageForAuthGuard?: PageType | null;
 }
@@ -132,8 +139,8 @@ export interface SiteConfigInput {
     appName: string;
     /** Versione dell'applicazione (es. "1.2.0"). Usata per rilevare aggiornamenti. */
     version?: string;
-    /** Lingua predefinita del sito. */
-    defaultLang: string;
+    /** Lingua predefinita. Se omessa, usa 'it' — il valore reale viene da LOCALE_CONFIG. */
+    defaultLang?: string;
     /**
      * Lingue tra cui l'utente può scegliere.
      * Se omesso, il sito è monolingua (solo defaultLang).
@@ -152,6 +159,8 @@ export interface SiteConfigInput {
     showNav?: boolean;
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
+    /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. Default: `true`. */
+    showBrandIcon?: boolean;
     /**
      * Abilita le funzionalità PWA: Service Worker, cache offline e aggiornamenti automatici.
      * Se `false`, il SW non viene registrato e `VersionCheckService` usa solo il polling manifest.
@@ -162,6 +171,13 @@ export interface SiteConfigInput {
     onlyPlainImage?: boolean;
     /** Configurazione parziale dell'effetto smoke. */
     smoke?: SmokeSettingsInput;
+    /**
+     * Forza il pannello contenuti (`.content-panel`) sempre in modalità chiara,
+     * indipendentemente dalla preferenza OS dell'utente.
+     * Utile per temi scuri in cui si preferisce mantenere i contenuti testuali
+     * su sfondo bianco per massima leggibilità. Default: `true`.
+     */
+    forcedLightPanel?: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (se null o non impostata fa redirect a /error/401) */
     pageForAuthGuard?: PageType | null;
 }
@@ -872,7 +888,9 @@ export function buildSite(
                 // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-            const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
+            const defaultLang = siteConfigurationInput.defaultLang
+                ? normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang')
+                : 'it';
 
             /**
              * Normalizza availableLanguages:
@@ -901,8 +919,10 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+                showBrandIcon: siteConfigurationInput.showBrandIcon ?? true,
                 isWebApp: siteConfigurationInput.isWebApp ?? true,
                 onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
+                forcedLightPanel: siteConfigurationInput.forcedLightPanel ?? true,
                 smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
                 pageForAuthGuard: siteConfigurationInput.pageForAuthGuard ?? null
             };
@@ -1037,7 +1057,6 @@ export function buildSite(
             if (siteConfig && cookiePolicyType !== undefined && page.pageType === cookiePolicyType) {
                 const noCookies =
                     !siteConfig.isWebApp
-                    && siteConfig.availableLanguages.length <= 1
                     && Object.keys(COOKIE_MAP).length === 0;
                 if (noCookies) return [];
             }

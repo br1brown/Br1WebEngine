@@ -1,49 +1,163 @@
 /**
- * Variabili d'ambiente lette una volta sola al boot del server Node
- * Unica sorgente di verità per server.ts e app.config.server.ts
+ * Configurazione dell'ambiente Node SSR, letta una volta al boot.
+ * Unica sorgente di verità per server.ts e app.config.server.ts.
+ *
+ * Le sezioni sono valutate in modo lazy: l'import del modulo non legge
+ * nessuna variabile d'ambiente, così il build Angular può importare questo
+ * file durante la route extraction senza richiedere le variabili runtime.
+ *
+ * La validazione delle variabili obbligatorie avviene in server.ts prima
+ * di avviare il listener Express, non qui: questo consente al processo di
+ * build di completarsi normalmente e all'errore di emergere solo all'avvio
+ * reale del server Node.
  */
 
-const parseAllowedHosts = (value: string | undefined): string[] =>
-    (value ?? '')
-        .split(',')
-        .map((host) => host.trim())
-        .filter((host) => host.length > 0);
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// ── Lettura br1engine.json ────────────────────────────────────────────────────
+//
+// BR1_SETTINGS_PATH (env var) → path esplicito (Docker: /app/br1engine.json)
+// Fallback 1: br1engine.json nella cwd (Docker dev)
+// Fallback 2: ../br1engine.json rispetto alla cwd (dev locale: cwd=frontend/)
+
+function loadBr1Settings(): Record<string, unknown> {
+    const candidates = [
+        process.env['BR1_SETTINGS_PATH'],
+        resolve(process.cwd(), 'br1engine.json'),
+        resolve(process.cwd(), '../br1engine.json'),
+    ].filter((p): p is string => Boolean(p));
+
+    for (const p of candidates) {
+        try {
+            if (existsSync(p)) {
+                return JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
+            }
+        } catch { /* prova il prossimo */ }
+    }
+    return {};
+}
+
+/** Forma tipizzata dei campi di br1engine.json letti da questo modulo.
+ *  Partial: i campi possono mancare se br1engine.json è incompleto o assente. */
+interface Br1Json {
+    Security?: { ApiKeys?: string[] };
+    frontend?: { hostname?: string; port?: number };
+}
+
+let _br1: Record<string, unknown> | undefined;
+function br1(): Br1Json {
+    return (_br1 ??= loadBr1Settings()) as Br1Json;
+}
+
+/** Accesso diretto all'intero br1engine.json — utile per leggere Custom.*  */
+export function getBr1Settings(): Record<string, unknown> {
+    return _br1 ??= loadBr1Settings();
+}
+
+// ── Interfacce ────────────────────────────────────────────────────────────────
+
+/** Configurazione della connessione al backend ASP.NET Core. */
+export interface BackendEnv {
+    /** Origine del backend, es. "http://backend:8080". Impostata da BACKEND_ORIGIN. */
+    readonly origin: string;
+    /** Chiave API condivisa per l'header X-Api-Key. Impostata da BACKEND_API_KEY. */
+    readonly apiKey: string;
+}
+
+/** Parametri operativi del server Node/Express. */
+export interface NodeServerEnv {
+    /** Porta di ascolto. Impostata da PORT (default: 3000). */
+    readonly port: number;
+    /** Valore per Express `trust proxy`. Impostato da TRUST_PROXY. */
+    readonly trustProxy: string;
+    /** Timeout ms per le chiamate proxy al backend. Impostato da PROXY_TIMEOUT_MS (default: 30000). */
+    readonly proxyTimeout: number;
+    /** Host autorizzati per le richieste SSR. Impostato da NG_ALLOWED_HOSTS (lista separata da virgole). */
+    readonly allowedHosts: readonly string[];
+}
+
+/** Configurazione del sito e funzionalità opzionali. */
+export interface SiteEnv {
+    /** URL canonico del sito, es. "https://tuodominio.it". Impostato da FRONTEND_BASE_URL. */
+    readonly baseUrl: string;
+    /** Percorso cartella asset caricati dall'utente. Impostato da ASSETS_DIR. */
+    readonly assetsDir: string;
+    /** Chiave per cifrare i payload di preview social. Impostato da PREVIEW_CRYPTO_SECRET.
+     *  Se vuota, viene usato il fallback pubblico `appName:version`. */
+    readonly previewCryptoSecret: string;
+}
+
+/** Configurazione completa dell'ambiente server Node, tipizzata e raggruppata per area. */
+export interface ServerEnv {
+    readonly backend: BackendEnv;
+    readonly server: NodeServerEnv;
+    readonly site: SiteEnv;
+}
+
+// ── Helper ────────────────────────────────────────────────────────────────────
 
 const parsePositiveInt = (value: string | undefined, fallback: number): number => {
     const n = Number(value);
     return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-export const serverEnv = {
-    /** Porta su cui girerà il server Node: usa PORT dall'ambiente o il default 3000 */
-    port: parsePositiveInt(process.env['PORT'], 3000),
+const parseAllowedHosts = (value: string | undefined): readonly string[] =>
+    (value ?? '')
+        .split(',')
+        .map((host) => host.trim())
+        .filter((host) => host.length > 0);
 
-    /** Indirizzo del backend: rimuove lo slash finale se presente per evitare URL malformati (es. //api) */
-    backendOrigin: (process.env['BACKEND_ORIGIN'] ?? 'http://backend:8080').replace(/\/$/, ''),
+// ── Configurazione lazy per sezione ──────────────────────────────────────────
+//
+// Ogni sezione è un getter: la lettura delle variabili d'ambiente avviene
+// solo al primo accesso alla sezione, non all'import del modulo.
+// Il risultato viene memorizzato per evitare letture ripetute.
 
-    /** Chiave segreta per le chiamate dal server al backend */
-    backendApiKey: process.env['BACKEND_API_KEY'] ?? 'frontend',
+let _backend: BackendEnv | undefined;
+let _server: NodeServerEnv | undefined;
+let _site: SiteEnv | undefined;
 
-    /** Chiave segreta personalizzata per cifrare i payload di preview social. Se assente, usa il fallback pubblico appName:version */
-    previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
-
-    /** Tempo massimo di attesa per le risposte del proxy prima di andare in timeout */
-    proxyTimeout: parsePositiveInt(process.env['PROXY_TIMEOUT_MS'], 30_000),
-
-    /** Percorso della cartella contenente i file statici (immagini, ecc.) caricati dall'utente */
-    assetsDir: process.env['ASSETS_DIR'] ?? '',
-
-    /** URL canonico del frontend, usato per logging e diagnostica operativa */
-    frontendBaseUrl: process.env['FRONTEND_BASE_URL'] ?? '',
-
-    /** Host autorizzati per Angular SSR, letti esclusivamente dall'ambiente */
-    allowedHosts: parseAllowedHosts(process.env['NG_ALLOWED_HOSTS']),
-
-    /**
-     * Configurazione di Express `trust proxy`. Default: 'loopback, linklocal,
-     * uniquelocal' — copre il loopback locale e le subnet private (incluso il
-     * bridge Docker) usate dal reverse proxy davanti al container.
-     * Sovrascrivibile via env per setup diversi.
-     */
-    trustProxy: process.env['TRUST_PROXY'] ?? 'loopback, linklocal, uniquelocal',
+export const serverEnv: ServerEnv = {
+    get backend(): BackendEnv {
+        return _backend ??= {
+            origin: (process.env['BACKEND_ORIGIN'] ?? '').replace(/\/$/, ''),
+            // BACKEND_ORIGIN è sempre un env var (URL Docker-interno, non config utente)
+            apiKey: br1().Security?.ApiKeys?.[0] ?? process.env['BACKEND_API_KEY'] ?? '',
+        };
+    },
+    get server(): NodeServerEnv {
+        const hostname = br1().frontend?.hostname ?? '';
+        return _server ??= {
+            port:         parsePositiveInt(process.env['PORT'], br1().frontend?.port ?? 3000),
+            trustProxy:   process.env['TRUST_PROXY'] ?? 'loopback, linklocal, uniquelocal',
+            proxyTimeout: parsePositiveInt(process.env['PROXY_TIMEOUT_MS'], 30_000),
+            allowedHosts: parseAllowedHosts(process.env['NG_ALLOWED_HOSTS'] || hostname),
+        };
+    },
+    get site(): SiteEnv {
+        const hostname = br1().frontend?.hostname ?? '';
+        return _site ??= {
+            baseUrl:             process.env['FRONTEND_BASE_URL'] || (hostname ? `https://${hostname}` : ''),
+            assetsDir:           process.env['ASSETS_DIR'] ?? '',
+            previewCryptoSecret: process.env['PREVIEW_CRYPTO_SECRET'] ?? '',
+        };
+    },
 };
+
+/**
+ * Verifica che le variabili d'ambiente obbligatorie siano impostate.
+ * Da chiamare in server.ts prima di avviare il listener Express,
+ * non all'import del modulo: il build Angular non le richiede.
+ */
+export function assertRequiredEnv(): void {
+    const missing = (
+        [
+            ['BACKEND_ORIGIN',    serverEnv.backend.origin],
+            ['Security.ApiKeys[0]', serverEnv.backend.apiKey],
+        ] as const
+    ).filter(([, v]) => !v).map(([name]) => name);
+
+    if (missing.length > 0)
+        throw new Error(`[server-env] Configurazione obbligatoria mancante: ${missing.join(', ')}`);
+}

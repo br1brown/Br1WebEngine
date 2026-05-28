@@ -1,7 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
+using FluentValidation;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 using Backend.Models.Configuration;
 using Backend.Infrastructure;
 using Backend.Security;
@@ -9,18 +13,33 @@ using Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// br1engine.json è l'unica sorgente di verità per la configurazione del deployment.
+// Dev: cwd=backend/ → ../br1engine.json raggiunge la root del repo
+// Docker: cwd=/app, file montato come /app/br1engine.json → br1engine.json (stesso dir)
+builder.Configuration.AddJsonFile("../br1engine.json", optional: true, reloadOnChange: false);
+builder.Configuration.AddJsonFile("br1engine.json", optional: true, reloadOnChange: false);
+
 // ── CONFIGURAZIONE ──────────────────────────────────────────────────
 //
-// Le opzioni di sicurezza vengono lette da appsettings.json (sezione "Security")
-// e rese disponibili sia come IOptions<SecurityOptions> (via DI) sia come
-// istanza diretta per la configurazione dei servizi qui sotto.
+// Ogni sezione di appsettings.json viene registrata come IOptions<T> (DI)
+// e letta una volta come istanza diretta per la configurazione dei servizi.
 //
 builder.Services.Configure<SecurityOptions>(
     builder.Configuration.GetSection("Security"));
+builder.Services.Configure<LocalizationOptions>(
+    builder.Configuration.GetSection("Localization"));
+builder.Services.Configure<OpenTelemetryOptions>(
+    builder.Configuration.GetSection("OpenTelemetry"));
 
 var security = builder.Configuration
     .GetSection("Security")
     .Get<SecurityOptions>() ?? new SecurityOptions();
+var localization = builder.Configuration
+    .GetSection("Localization")
+    .Get<LocalizationOptions>() ?? new LocalizationOptions();
+var otlp = builder.Configuration
+    .GetSection("OpenTelemetry")
+    .Get<OpenTelemetryOptions>() ?? new OpenTelemetryOptions();
 
 // ── SERVIZI APPLICATIVI ─────────────────────────────────────────────
 // IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
@@ -31,6 +50,10 @@ builder.Services.AddScoped<SiteService>();
 
 if (security.LoginEnabled)
     builder.Services.AddSingleton<AuthService>();
+
+// Registra tutti i validator FluentValidation dell'assembly corrente (Validation/).
+// I controller iniettano IValidator<T> ed eseguono la validazione esplicitamente.
+builder.Services.AddValidatorsFromAssemblyContaining<Program>(ServiceLifetime.Singleton);
 
 builder.Services
     .AddControllers()
@@ -49,19 +72,14 @@ builder.Services
 
 // ── LOCALIZZAZIONE ──────────────────────────────────────────────────
 //
-// Le lingue supportate vengono lette da appsettings.json (sezione "Localization").
+// Le lingue supportate vengono lette da LocalizationOptions (già registrato).
 // La lingua della richiesta viene poi risolta dall'header Accept-Language
 // inviato dal frontend (impostato dall'interceptor Angular).
 //
-var langCodes = builder.Configuration
-    .GetSection("Localization:SupportedLanguages")
-    .Get<string[]>() ?? ["it"];
-var defaultLang = builder.Configuration["Localization:DefaultLanguage"] ?? langCodes[0];
-
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
-    var supported = langCodes.Select(l => new CultureInfo(l)).ToArray();
-    options.DefaultRequestCulture = new RequestCulture(defaultLang);
+    var supported = localization.SupportedLanguages.Select(l => new CultureInfo(l)).ToArray();
+    options.DefaultRequestCulture = new RequestCulture(localization.DefaultLanguage);
     options.SupportedCultures = supported;
     options.SupportedUICultures = supported;
     options.ApplyCurrentCultureToResponseHeaders = true;
@@ -78,6 +96,28 @@ builder.Services.AddTemplateSecurity(security);
 
 // Health check — GET /health (senza autenticazione)
 builder.Services.AddHealthChecks();
+
+// ── OPENTELEMETRY ───────────────────────────────────────────────────
+//
+// Attivato solo se OpenTelemetry:Endpoint è valorizzato in appsettings.
+// Esporta trace e metriche verso il collector OTLP (es. Jaeger, Tempo, Datadog).
+// Se l'endpoint è vuoto l'app funziona senza telemetria, zero dipendenze esterne.
+//
+if (!string.IsNullOrWhiteSpace(otlp.Endpoint))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService(
+            serviceName: otlp.ServiceName,
+            serviceVersion: otlp.ServiceVersion))
+        .WithTracing(tracing => tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlp.Endpoint)))
+        .WithMetrics(metrics => metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter(opts => opts.Endpoint = new Uri(otlp.Endpoint)));
+}
 
 var app = builder.Build();
 

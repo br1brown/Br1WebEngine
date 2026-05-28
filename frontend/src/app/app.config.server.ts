@@ -1,4 +1,5 @@
-import { ApplicationConfig, mergeApplicationConfig } from '@angular/core';
+import { ApplicationConfig, CSP_NONCE, REQUEST_CONTEXT, TransferState, mergeApplicationConfig, inject, provideAppInitializer } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { provideServerRendering } from '@angular/platform-server';
 import { provideServerRouting, RenderMode, type ServerRoute } from '@angular/ssr';
 import { appConfig } from './app.config';
@@ -7,8 +8,10 @@ import type { SiteRenderMode } from './core/engine/siteBuilder';
 import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api.service';
 import { LEGAL_FILE_READER } from './pages/content.resolver';
 import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
-import { serverEnv } from './core/engine/server/server-env';
+import { ThemeService } from './core/engine/services/theme.service';
+import { serverEnv, getBr1Settings } from './core/engine/server/server-env';
 import { PreviewCrypto } from './core/engine/server/preview-crypto.server';
+import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/locale-config.token';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
@@ -52,13 +55,62 @@ const serverConfig: ApplicationConfig = {
         /** Inietta l'URL del backend: il server ha bisogno dell'indirizzo completo */
         {
             provide: SSR_BACKEND_ORIGIN,
-            useValue: serverEnv.backendOrigin,
+            useValue: serverEnv.backend.origin,
         },
         /** Inietta la chiave API */
         {
             provide: SSR_API_KEY,
-            useValue: serverEnv.backendApiKey,
+            useValue: serverEnv.backend.apiKey,
         },
+        /**
+         * CSP nonce per-request: passato da Express come requestContext nel catch-all SSR.
+         * Angular usa questo valore per stampare nonce="..." su tutti gli <script> inline
+         * che genera durante il rendering SSR, eliminando il bisogno di 'unsafe-inline'
+         * per script-src. In dev (ng serve) il contesto è null → nonce null → no stamping.
+         */
+        {
+            provide: CSP_NONCE,
+            useFactory: () => {
+                const ctx = inject(REQUEST_CONTEXT, { optional: true }) as { nonce?: string } | null;
+                return ctx?.nonce ?? null;
+            },
+        },
+        /**
+         * Iniezione tema nella DOM SSR: eseguita una volta per request prima che Angular
+         * serializzzi la pagina. Sostituisce il post-processing regex di injectTheme() in
+         * server.ts, permettendo lo streaming diretto senza bufferizzare l'intera risposta.
+         */
+        provideAppInitializer(() => {
+            const doc = inject(DOCUMENT);
+            const { colorTema } = ContestoSito.config;
+            const palette = ThemeService.computePalette(colorTema);
+            const tone = palette.naturalTone;
+
+            // Attributi Bootstrap dark/light su <html>
+            doc.documentElement.setAttribute('data-bs-theme', tone);
+            doc.documentElement.setAttribute('data-theme-tone', tone);
+
+            // <meta name="theme-color"> light + dark per la barra del browser / PWA
+            for (const [media, content] of [
+                ['(prefers-color-scheme:light)', palette.colorBaseLt],
+                ['(prefers-color-scheme:dark)', palette.colorBaseDk],
+            ] as const) {
+                const meta = doc.createElement('meta');
+                meta.setAttribute('name', 'theme-color');
+                meta.setAttribute('media', media);
+                meta.setAttribute('content', content);
+                doc.head.appendChild(meta);
+            }
+
+            // <style id="theme-init"> con CSS vars per entrambi i toni: iniettato prima
+            // di qualsiasi render component così Bootstrap legge le variabili correttamente.
+            const style = doc.createElement('style');
+            style.setAttribute('id', 'theme-init');
+            const styleHtml = ThemeService.buildThemeStyleTag(colorTema);
+            const openTag = '<style id="theme-init">';
+            style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);
+            doc.head.appendChild(style);
+        }),
         /**
          * Cifratura sincrona del payload preview (Node.js crypto) — solo SSR.
          * NOTA: useFactory è obbligatorio — useValue non propaga funzioni correttamente
@@ -77,7 +129,7 @@ const serverConfig: ApplicationConfig = {
          */
         {
             provide: SSR_FRONTEND_ORIGIN,
-            useValue: serverEnv.frontendBaseUrl,
+            useValue: serverEnv.site.baseUrl,
         },
         /** Legge i file .md delle policy da disco, evitando la chiamata HTTP loopback in SSR */
         {
@@ -93,6 +145,20 @@ const serverConfig: ApplicationConfig = {
                     return null;
                 }
             },
+        },
+        {
+            provide: LOCALE_CONFIG,
+            useFactory: (transferState: TransferState): LocaleConfig => {
+                const s = getBr1Settings();
+                const loc = s['Localization'] as Record<string, unknown> | undefined;
+                const config: LocaleConfig = {
+                    defaultLang:        (loc?.['DefaultLanguage']    as string   | undefined) ?? 'it',
+                    availableLanguages: (loc?.['SupportedLanguages'] as string[] | undefined) ?? ['it'],
+                };
+                transferState.set(LOCALE_STATE_KEY, config);
+                return config;
+            },
+            deps: [TransferState],
         },
     ]
 };

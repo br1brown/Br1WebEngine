@@ -3,10 +3,20 @@
      [attr.aria-label]="'principaleNav' | translate">
     <div class="container-fluid">
         @if (isRouteActive(homePath)) {
-        <span class="navbar-brand nav-current-link"
-              aria-current="page">{{ appName }}</span>
+        <span class="navbar-brand nav-current-link d-flex align-items-center gap-2"
+              aria-current="page">
+            @if (showBrandIcon) {
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            }
+            {{ appName }}
+        </span>
         } @else {
-        <a class="navbar-brand" [appPage]="PageType.Home">{{ appName }}</a>
+        <a class="navbar-brand d-flex align-items-center gap-2" [appPage]="PageType.Home">
+            @if (showBrandIcon) {
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            }
+            {{ appName }}
+        </a>
         }
 
         @if (menuItems.length > 0 || languages().length > 1) {
@@ -22,11 +32,12 @@
         <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
             @if (menuItems.length > 0) {
             <ul class="navbar-nav">
-                @for (item of menuItems; track item.path) {
+                @for (item of menuItems; track item.path; let i = $index) {
                 @if (isGroup(item)) {
                 <li class="nav-item nav-dropdown-item">
                     <app-nav-dropdown [item]="item"
-                                      (toggle)="onDisclosureToggle($event)"
+                                      [open]="isNavDropdownOpen(i)"
+                                      (toggle)="onNavDropdownToggle(i)"
                                       (linkClick)="onNavigationLinkClick()" />
                 </li>
                 } @else {
@@ -44,29 +55,33 @@
             @if (languages().length > 1) {
             <div class="language-picker ms-md-auto mt-3 mt-md-0">
                 <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
-                <details class="nav-disclosure language-disclosure"
-                         (toggle)="onDisclosureToggle($event)">
-                    <summary class="nav-link nav-disclosure-summary language-disclosure-summary d-flex align-items-center justify-content-between gap-1 user-select-none border-0 bg-transparent text-decoration-none"
-                             [attr.aria-label]="'selezionaLinguaAzione' | translate">
-                        <span class="nav-disclosure-label">
+                <div class="dropdown language-dropdown" [class.show]="langOpen()">
+                    <button type="button"
+                            class="nav-link nav-dropdown-toggle language-toggle"
+                            [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                            aria-haspopup="true"
+                            [attr.aria-expanded]="langOpen()"
+                            (click)="toggleLang()">
+                        <span class="nav-dropdown-label">
                             <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
                             {{ translate.currentLang() | uppercase }}
                         </span>
-                        <span class="nav-disclosure-caret" aria-hidden="true"></span>
-                    </summary>
-                    <ul class="nav-disclosure-menu language-disclosure-menu theme-bg list-unstyled overflow-hidden"
-                        [attr.aria-label]="'selezionaLinguaAzione' | translate">
+                        <span class="nav-dropdown-caret" aria-hidden="true"></span>
+                    </button>
+                    <ul class="dropdown-menu language-dropdown-menu list-unstyled"
+                        [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                        [class.show]="langOpen()">
                         @for (lingua of languages(); track lingua) {
                         <li>
                             @if (lingua === translate.currentLang()) {
-                            <span class="nav-disclosure-link nav-current-link active language-disclosure-link d-flex align-items-center justify-content-between"
+                            <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
                                   aria-current="true">
                                 {{ lingua | uppercase }}
                                 <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
                             </span>
                             } @else {
                             <button type="button"
-                                    class="nav-disclosure-link nav-disclosure-button language-disclosure-link"
+                                    class="dropdown-item language-link"
                                     (click)="setLanguage(lingua)">
                                 {{ lingua | uppercase }}
                             </button>
@@ -74,12 +89,12 @@
                         </li>
                         }
                     </ul>
-                </details>
+                </div>
             </div>
             }
         </div>
     </div>
 </nav>
 @if (fixTop) {
-<div class="mt-5"></div>
+<div aria-hidden="true" class="navbar-spacer"></div>
 }

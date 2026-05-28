@@ -1,11 +1,21 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
-import { TranslateService } from './translate.service';
+import { Injectable, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { ContestoSito } from '../../../site';
-import { COOKIE_MAP, CookieCategory, type CookieKey, type CookieConfig } from '../../services/cookie-registry';
-
-export { CookieCategory } from '../../services/cookie-registry';
+import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
+import { LOCALE_CONFIG } from '../locale-config.token';
 export type { CookieKey } from '../../services/cookie-registry';
+export enum CookieCategory {
+    Technical = 'tecnici',
+    Analytics = 'analytics',
+    Profiling = 'profilazione',
+}
+
+export interface CookieConfig {
+    category: CookieCategory;
+    descriptionKey?: string;
+}
+
+
 
 /**
  * Controlla se il consenso tecnico è stato già salvato in localStorage.
@@ -40,7 +50,7 @@ export function isTechnicalConsentGiven(): boolean {
 export class CookieConsentService {
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-    private readonly injector = inject(Injector);
+    private readonly localeConfig = inject(LOCALE_CONFIG);
 
     private readonly appSlug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
     private readonly consentKey = `cookie-consent-${this.appSlug}`;
@@ -51,13 +61,14 @@ export class CookieConsentService {
     // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
     // isTechnicalNeeded include anche lingua built-in (multilingua) e SW (isWebApp).
     //
-    // @remarks isTechnicalNeeded usa injector.get(TranslateService) anziché
-    // inject() nel costruttore per spezzare la dipendenza circolare:
-    // CookieConsentService → TranslateService → CookieConsentService.
-    // @warning NON sostituire con inject(TranslateService) nel costruttore.
+    // Usa localeConfig.availableLanguages (lista raw da br1engine.json) — non la lista
+    // post-probeLanguages di TranslateService, che può essere ridotta se un file JSON
+    // manca. La decisione sul cookie deve riflettere la configurazione dichiarata,
+    // non l'esito dei file probe: altrimenti un file mancante fa sparire silenziosamente
+    // il banner e blocca il salvataggio del consenso in un loop.
 
     readonly isTechnicalNeeded = computed(() =>
-        this.injector.get(TranslateService).availableLangs().length > 1
+        this.localeConfig.availableLanguages.length > 1
         || ContestoSito.config.isWebApp
         || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical)
     );
@@ -100,10 +111,11 @@ export class CookieConsentService {
                 if (analyticsStored !== null) this._analyticsAccepted.set(analyticsStored === '1');
                 if (profilingStored !== null) this._profilingAccepted.set(profilingStored === '1');
 
-                // isTechnicalNeeded() NON va chiamata qui (causa NG0200 via injector.get).
-                // Replica la stessa logica usando ContestoSito e COOKIE_MAP direttamente.
+                // isTechnicalNeeded() non va chiamata qui: è un computed e al momento della
+                // costruzione i signal di Angular non sono ancora stabilizzati. Si replica
+                // la stessa logica usando LOCALE_CONFIG e COOKIE_MAP direttamente.
                 const isTechnicalNeededNow =
-                    ContestoSito.config.availableLanguages.length > 1
+                    this.localeConfig.availableLanguages.length > 1
                     || ContestoSito.config.isWebApp
                     || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical);
                 const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Analytics);
@@ -357,39 +369,45 @@ export class CookieConsentService {
 
     readonly legal = {
         /**
-         * Genera un elenco puntato Markdown con le categorie di cookie presenti nel sito.
-         * Restituisce stringa vuota se non ci sono categorie.
-         *
-         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         * Restituisce le categorie dei cookie presenti nel sito in formato strutturato,
+         * con le etichette già tradotte tramite la funzione passata.
          */
-        listCategoriesMarkdown: (t: (key: string) => string): string => {
-            const categories = new Set<string>();
+        getCategories: (t: (key: string) => string): { key: CookieCategory; name: string; description: string }[] => {
+            const categories: { key: CookieCategory; name: string; description: string }[] = [];
             if (this.isTechnicalNeeded()) {
-                categories.add(`**${t('tecniciCategoriaCookie')}**: ${t('tecniciDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Technical,
+                    name: t('tecniciCategoriaCookie'),
+                    description: t('tecniciDescrizioneCategoriaCookie')
+                });
             }
             if (this.isAnalyticsNeeded()) {
-                categories.add(`**${t('analyticsCategoriaCookie')}**: ${t('analyticsDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Analytics,
+                    name: t('analyticsCategoriaCookie'),
+                    description: t('analyticsDescrizioneCategoriaCookie')
+                });
             }
             if (this.isProfilingNeeded()) {
-                categories.add(`**${t('profilazioneCategoriaCookie')}**: ${t('profilazioneDescrizioneCategoriaCookie')}`);
+                categories.push({
+                    key: CookieCategory.Profiling,
+                    name: t('profilazioneCategoriaCookie'),
+                    description: t('profilazioneDescrizioneCategoriaCookie')
+                });
             }
-
-            return Array.from(categories).map(c => `- ${c}`).join('\n');
+            return categories;
         },
 
         /**
-         * Genera una tabella Markdown con i cookie presenti nel sito.
-         * Restituisce stringa vuota se non ci sono cookie da mostrare.
-         *
-         * @param t Funzione di traduzione — riceve una chiave i18n e restituisce il testo tradotto.
+         * Restituisce l'elenco dei cookie attivi nel sito in formato strutturato,
+         * con etichette e descrizioni già tradotte tramite la funzione passata.
          */
-        listMarkdown: (t: (key: string) => string): string => {
-
+        getCookies: (t: (key: string) => string): { name: string; category: string; categoryKey: CookieCategory; description: string }[] => {
             const allCookies: Record<string, CookieConfig> = {
                 ...COOKIE_MAP,
             };
 
-            if (ContestoSito.config.availableLanguages.length > 1) {
+            if (this.localeConfig.availableLanguages.length > 1) {
                 allCookies[CookieConsentService.LANG_KEY] = {
                     category: CookieCategory.Technical,
                     descriptionKey: 'linguaDescrizioneListaCookie',
@@ -403,25 +421,22 @@ export class CookieConsentService {
                 };
             }
 
-            const rows: string[] = [];
-
-            rows.push(`| ${t('nomeListaCookie')} | ${t('categoriaListaCookie')} | ${t('descrizioneListaCookie')} |`);
-            rows.push('|---|---|---|');
-
+            const list: { name: string; category: string; categoryKey: CookieCategory; description: string }[] = [];
 
             for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
                 const category = config.category;
                 const desc = config.descriptionKey ? t(config.descriptionKey) : '';
                 const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
 
-                rows.push(
-                    `| \`${fullKey}\` | ${t(`${category}CategoriaCookie`)} | ${desc} |`
-                );
+                list.push({
+                    name: fullKey,
+                    category: t(`${category}CategoriaCookie`),
+                    categoryKey: category,
+                    description: desc
+                });
             }
 
-            if (rows.length <= 2) return '';
-
-            return rows.join('\n');
+            return list;
         }
     };
 }

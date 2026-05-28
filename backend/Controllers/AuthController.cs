@@ -1,4 +1,5 @@
 using Backend.Security;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Backend.Services;
@@ -17,10 +18,16 @@ namespace Backend.Controllers;
 [Route("auth")]
 public class AuthController : EngineAuthController
 {
+    private readonly IValidator<LoginRequest> _validator;
+
     /// <summary>
-    /// Inizializza il controller con il servizio JWT e il logger dell'engine
+    /// Inizializza il controller con il servizio JWT, il logger e il validator FluentValidation.
     /// </summary>
-    public AuthController(AuthService auth, ILogger<AuthController> logger) : base(auth, logger) { }
+    public AuthController(AuthService auth, ILogger<AuthController> logger, IValidator<LoginRequest> validator)
+        : base(auth, logger)
+    {
+        _validator = validator;
+    }
 
     /// <summary>
     /// Endpoint di login. Nel template base e' un placeholder che risponde 501 Not Implemented.
@@ -29,9 +36,16 @@ public class AuthController : EngineAuthController
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
-    public ActionResult<LoginResult> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<LoginResult>> Login([FromBody] LoginRequest request)
     {
-        _ = request.Pwd;
+        var validation = await _validator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            foreach (var error in validation.Errors)
+                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+            return ValidationProblem();
+        }
+
         return StatusCode(
             StatusCodes.Status501NotImplemented,
             new LoginResult(false, Error: "Login applicativo non implementato nel template base."));

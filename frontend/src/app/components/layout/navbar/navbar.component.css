@@ -2,8 +2,36 @@
     display: block;
 }
 
+/* Segnaposto statico per compensare la navbar fixed-top: altezza fissa pari
+   all'altezza standard della barra (Bootstrap navbar md = ~3.5rem).
+   Non serve JS: il layout non reagisce al contenuto dinamico della barra. */
+.navbar-spacer {
+    height: 3.5rem;
+}
+
 .navbar {
-    color: var(--bs-body-color);
+    color: var(--colorNavText, var(--colorTemaText));
+    /* Bordo del toggler: allineato al testo navbar anziché al data-bs-theme Bootstrap */
+    --bs-navbar-toggler-border-color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 55%, transparent);
+}
+
+/* ── Hamburger icon ────────────────────────────────────────────────
+   Bootstrap sceglie il data URI SVG del toggler in base a data-bs-theme
+   (OS), ma il nostro sfondo è sempre il colore brand — non il bianco/nero
+   del tema sistema. Sostituiamo background-image con una CSS mask
+   colorata via --colorNavText: funziona per qualsiasi colore brand,
+   sia che l'utente usi tema chiaro che scuro. */
+.navbar-toggler-icon {
+    background-image: none;
+    background-color: var(--colorNavText, var(--colorTemaText));
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23000' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23000' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 1.5em;
+    mask-size: 1.5em;
 }
 
 .navbar .navbar-brand,
@@ -11,9 +39,15 @@
     color: inherit;
 }
 
-.navbar .navbar-brand:hover,
-.navbar .navbar-brand:focus-visible {
-    color: var(--bs-emphasis-color);
+.navbar a.navbar-brand:hover,
+.navbar a.navbar-brand:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+}
+
+.navbar-brand-icon {
+    height: 1.5em;
+    width: auto;
 }
 
 .nav-dropdown-item {
@@ -21,12 +55,13 @@
     align-items: center;
 }
 
+/* ── Selettore lingua ─────────────────────────────────────────────── */
+
 .language-picker {
     display: flex;
     align-items: center;
     gap: 0.65rem;
     min-width: 8.5rem;
-    margin-left: auto;
 }
 
 .language-picker-label {
@@ -35,45 +70,37 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--bs-body-color) 82%, transparent);
+    color: color-mix(in srgb, var(--colorNavText, var(--colorTemaText)) 82%, transparent);
 }
 
-.language-disclosure {
+.language-dropdown {
     min-width: 5.5rem;
 }
 
-.language-disclosure-summary {
+.language-toggle {
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     min-height: 2.75rem;
     min-width: 5.5rem;
     justify-content: space-between;
-    /* text-transform: uppercase non serve — il contenuto è già | uppercase nel template */
 }
 
-.language-disclosure-menu {
-    min-width: 5.5rem;
+/* Posizionato a destra: Bootstrap non lo fa senza Popper, lo gestiamo noi */
+.language-dropdown-menu {
     right: 0;
     left: auto;
+    min-width: 5.5rem;
 }
 
-.language-disclosure-link {
+.language-link {
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    /* text-transform: uppercase non serve — il contenuto è già | uppercase nel template */
-}
-
-.language-disclosure-button {
-    text-align: left;
 }
 
 @media (min-width: 768px) {
-    .language-disclosure-menu {
-        left: auto;
-        right: 0;
-        min-width: 5.5rem;
+    .language-dropdown-menu {
         width: max-content;
         max-width: min(14rem, calc(100vw - 1rem));
     }
@@ -83,7 +110,6 @@
     .language-picker {
         display: grid;
         gap: 0.45rem;
-        margin-left: 0;
         width: 100%;
         padding-top: 0.9rem;
         border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
@@ -93,37 +119,39 @@
         display: block;
     }
 
-    .language-disclosure,
-    .language-disclosure-summary {
+    .language-dropdown,
+    .language-toggle {
         width: 100%;
     }
 
-    .language-disclosure-summary {
+    .language-toggle {
         font-size: 0.95rem;
         min-height: 2.5rem;
         padding-inline: 0;
     }
 
-    .language-disclosure-menu {
-        min-width: 0;
-        width: 100%;
-        right: auto;
-        left: 0;
-    }
-
-    .language-disclosure-link {
+    .language-link {
         font-size: 0.95rem;
     }
 
-    .navbar .language-disclosure-summary,
-    .navbar .language-disclosure-summary:hover,
-    .navbar .language-disclosure-summary:focus-visible {
+    .navbar .language-toggle,
+    .navbar .language-toggle:hover,
+    .navbar .language-toggle:focus-visible {
         background-color: transparent;
     }
 
     .navbar-collapse {
         padding-top: 0.9rem;
         gap: 1rem;
+        overflow-x: hidden;
+    }
+
+    /* Scroll cap per tutti i mobile: il menu non sfora lo schermo e scorre internamente */
+    .navbar-collapse.show {
+        max-height: calc(100dvh - 3.5rem);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
     }
 
     .navbar-nav {
@@ -137,7 +165,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .language-disclosure-summary {
+    .language-toggle {
         transition: none;
     }
 }

@@ -4,7 +4,7 @@
 I cookie sono piccoli file di testo memorizzati sul dispositivo dell'utente per migliorare l'esperienza di navigazione.
 
 ## Come usiamo i cookie
-Questo sito utilizza le seguenti categorie di cookie, gestite in modo dinamico in base alle funzionalità attive e al tuo consenso:
+Questo sito utilizza le seguenti categorie di cookie, gestite in base al tuo consenso:
 
 {{cookieCategories}}
 

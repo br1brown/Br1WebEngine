@@ -26,7 +26,7 @@ export class PreviewCrypto {
     private static cachedKey: Buffer | null = null;
     private static getKey(): Buffer {
         if (!PreviewCrypto.cachedKey) {
-            const material = serverEnv.previewCryptoSecret || `${ContestoSito.config.appName}:${ContestoSito.config.version}`;
+            const material = serverEnv.site.previewCryptoSecret || `${ContestoSito.config.appName}:${ContestoSito.config.version}`;
             PreviewCrypto.cachedKey = createHash('sha256').update(material).digest();
         }
         return PreviewCrypto.cachedKey;

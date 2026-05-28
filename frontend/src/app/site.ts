@@ -121,8 +121,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
         version: '1.0.0',
-        defaultLang: 'it',
-        availableLanguages: ['it', 'en'],
+        // defaultLang e availableLanguages letti da br1engine.json via LOCALE_CONFIG (app.config.server.ts)
         description: 'Template di base che serve per fare vedere le funzionalità base',
         colorTema: '#131e55',
         showFooter: true,

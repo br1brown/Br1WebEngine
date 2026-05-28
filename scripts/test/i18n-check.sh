@@ -2,11 +2,11 @@
 # =============================================================================
 # i18n-check.sh  —  Verifica completezza file i18n per tutte le lingue
 #
-# Legge le lingue disponibili da ContestoSito.config.availableLanguages
-# (frontend/src/app/site.ts) e per ogni catalogo (basic, addon) verifica
-# che tutte le lingue abbiano esattamente gli stessi tasti.
+# Legge le lingue disponibili da br1engine.json (Localization.SupportedLanguages)
+# e per ogni catalogo (basic, addon) verifica che tutte le lingue abbiano
+# esattamente gli stessi tasti.
 #
-# Se domani viene aggiunta o rimossa una lingua da site.ts, il test si
+# Se domani viene aggiunta o rimossa una lingua da br1engine.json, il test si
 # adatta automaticamente senza modifiche allo script.
 #
 # Utilizzo:
@@ -42,51 +42,35 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SITE_TS="${SCRIPT_DIR}/../../frontend/src/app/site.ts"
 I18N_DIR="${SCRIPT_DIR}/../../frontend/src/assets/i18n"
 
 # Su Git Bash/Windows, Node.js è il binario nativo Win32 e non capisce i path
 # Unix-style /c/Users/... — li converte in C:/Users/... con cygpath -m.
 if node -e "process.exit(process.platform==='win32'?0:1)" 2>/dev/null && command -v cygpath >/dev/null 2>&1; then
-    SITE_TS="$(cygpath -m "$SITE_TS")"
     I18N_DIR="$(cygpath -m "$I18N_DIR")"
 fi
 
-# ─── Leggi le lingue da site.ts ──────────────────────────────────────────────
-# Fonte: ContestoSito.config.availableLanguages — non hardcoded.
-# Aggiungere o rimuovere una lingua da site.ts cambia automaticamente
+# ─── Leggi le lingue da br1engine.json ───────────────────────────────────────
+# Fonte: br1engine.json (Localization.SupportedLanguages) — unica sorgente di verità.
+# Aggiungere o rimuovere una lingua da br1engine.json cambia automaticamente
 # quali file vengono verificati, senza toccare questo script.
-FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+BR1_JSON="${SCRIPT_DIR}/../../br1engine.json"
+
+# Su Git Bash/Windows, converti il path
+if node -e "process.exit(process.platform==='win32'?0:1)" 2>/dev/null && command -v cygpath >/dev/null 2>&1; then
+    BR1_JSON="$(cygpath -m "$BR1_JSON")"
+fi
 
 mapfile -t LANGS < <(
-    cd "$FRONTEND_DIR" && npx tsx -e "
-import { ContestoSito } from './src/app/site';
-const langs = ContestoSito.config.availableLanguages || [ContestoSito.config.defaultLang || 'it'];
-langs.forEach(l => console.log(l));
+    node -e "
+const s = JSON.parse(require('fs').readFileSync('${BR1_JSON}', 'utf-8'));
+const langs = s.Localization?.SupportedLanguages || [s.Localization?.DefaultLanguage || 'it'];
+langs.forEach(l => process.stdout.write(l + '\n'));
 " 2>/dev/null
 )
 
-# Fallback: se tsx non riesce (es. import circolare Angular), estrae le lingue
-# direttamente dal sorgente con node puro — nessuna dipendenza dal runtime Angular.
-# Usa SITE_TS che è già stato convertito con cygpath se necessario.
 if [[ ${#LANGS[@]} -lt 1 ]]; then
-    mapfile -t LANGS < <(
-        node -e "
-const fs = require('fs');
-const src = fs.readFileSync('${SITE_TS}', 'utf8');
-const multi = src.match(/availableLanguages\s*:\s*\[([^\]]+)\]/);
-if (multi) {
-    const langs = (multi[1].match(/[a-z]{2}(?:-[A-Z]{2})?/g) || []);
-    if (langs.length) { langs.forEach(l => console.log(l)); process.exit(0); }
-}
-const single = src.match(/defaultLang\s*:\s*['\"]([a-z]{2}(?:-[A-Z]{2})?)['\"]/)
-if (single) { console.log(single[1]); }
-" 2>/dev/null
-    )
-fi
-
-if [[ ${#LANGS[@]} -lt 1 ]]; then
-    fail "Nessuna lingua trovata in site.ts — impossibile proseguire"
+    fail "Nessuna lingua trovata in br1engine.json — impossibile proseguire"
     exit 1
 fi
 
@@ -95,7 +79,7 @@ if [[ ${#LANGS[@]} -eq 1 ]]; then
     exit 0
 fi
 
-info "Lingue rilevate da site.ts: ${LANGS[*]}"
+info "Lingue rilevate da br1engine.json: ${LANGS[*]}"
 
 # Costruisce un array JSON bash-side: ["it","en"] → passato inline a Node
 langs_json=$(printf '"%s",' "${LANGS[@]}"); langs_json="[${langs_json%,}]"

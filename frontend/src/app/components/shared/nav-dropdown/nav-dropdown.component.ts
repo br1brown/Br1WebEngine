@@ -5,25 +5,6 @@ import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { NavLinkComponent } from '../nav-link/nav-link.component';
 import { NavLink } from '../../../core/engine/siteBuilder';
 
-/**
- * NAV DROPDOWN COMPONENT
- *
- * Atomo per il gruppo di navigazione tipo "dropdown" della navbar:
- * <details><summary> con label + caret e <ul> con i figli renderizzati
- * via <app-nav-link>.
- *
- * Si occupa internamente di calcolare l'`isActive` (true se uno dei
- * figli interni coincide con la rotta corrente) e di marcare la summary
- * con `aria-current="location"`.
- *
- * Espone due output:
- *   - `toggle` per consentire al contenitore (navbar) di coordinare la
- *     chiusura degli altri dropdown aperti
- *   - `linkClick` propagato dai figli per chiudere il menu mobile
- *
- * Estratto a parte per testarlo in isolamento (active-state, render dei
- * figli, propagazione eventi) senza dover montare l'intera navbar.
- */
 @Component({
     selector: 'app-nav-dropdown',
     standalone: true,
@@ -35,8 +16,9 @@ export class NavDropdownComponent {
     private readonly currentUrl = injectCurrentUrl();
 
     readonly item = input.required<NavLink & { children: NavLink[] }>();
+    readonly open = input(false);
 
-    readonly toggle = output<Event>();
+    readonly toggle = output<void>();
     readonly linkClick = output<void>();
 
     readonly isActive = computed(() => {

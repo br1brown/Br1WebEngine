@@ -159,8 +159,8 @@ export class ImgBuilderService {
      */
     private resolveOptions(opts: ImgBuildOptions): ImgBuildResolved {
         return {
-            bgColor: opts.bgColor ?? this.theme.colorTema(),
-            textColor: opts.textColor ?? this.theme.colorTemaText(),
+            bgColor: opts.bgColor ?? this.theme.colorPrimary,
+            textColor: opts.textColor ?? this.theme.colorPrimaryText,
             fontSize: opts.fontSize ?? 40,
             fontFamily: opts.fontFamily ?? FontConfig.DEFAULT_WEB_FONT,
             ratio: opts.ratio ?? '4:3',

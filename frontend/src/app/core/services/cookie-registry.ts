@@ -1,13 +1,4 @@
-export enum CookieCategory {
-    Technical = 'tecnici',
-    Analytics = 'analytics',
-    Profiling = 'profilazione',
-}
-
-export interface CookieConfig {
-    category: CookieCategory;
-    descriptionKey?: string;
-}
+import { CookieConfig } from "../engine/services/cookie-consent.service";
 
 /**
  * Registro unico dei cookie del progetto.

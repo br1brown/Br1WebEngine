@@ -15,12 +15,16 @@
 #   --public-host HOST               Host pubblico per i test (default: localhost)
 #   --public-port PORT               Porta del proxy pubblico per i test (default: 8088)
 #   --skip-invalid-host-check        Salta il controllo negativo sull'host
+#
+# Configurazione:
+#   Tutte le impostazioni vivono in br1engine.json (accanto a questo file).
+#   Le variabili necessarie a docker-compose vengono lette direttamente da br1engine.json.
 # =============================================================================
 
 set -euo pipefail
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
     exit 0
 fi
 
@@ -65,102 +69,6 @@ ok()   { echo -e "  ${GREEN}OK${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}WARN${RESET} $*"; }
 fail() { echo -e "  ${RED}ERR${RESET} $*" >&2; ERRORS=$((ERRORS + 1)); }
 
-env_get() {
-    local key="$1"
-    local line
-    line=$(grep -E "^[[:space:]]*${key}=" .env 2>/dev/null | tail -n 1 || true)
-    line="${line#*=}"
-    if [[ "$line" =~ ^\"(.*)\"$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
-    if [[ "$line" =~ ^\'(.*)\'$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
-    printf '%s\n' "$line"
-}
-
-env_set() {
-    local key="$1" val="$2" escaped
-    escaped="${val//\\/\\\\}"
-    escaped="${escaped//&/\\&}"
-    escaped="${escaped//|/\\|}"
-    if grep -qE "^${key}=" .env 2>/dev/null; then
-        sed -i "s|^${key}=.*|${key}=${escaped}|" .env
-    else
-        printf '%s=%s\n' "$key" "$val" >> .env
-    fi
-}
-
-param_get() {
-    local key="$1"
-    local line
-    line=$(grep -E "^[[:space:]]*${key}=" .env.param 2>/dev/null | tail -n 1 || true)
-    line="${line#*=}"
-    if [[ "$line" =~ ^\"(.*)\"$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
-    if [[ "$line" =~ ^\'(.*)\'$ ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; return; fi
-    printf '%s\n' "$line"
-}
-
-slugify() {
-    local value="$1"
-    value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
-    value="$(printf '%s' "$value" | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
-    printf '%s\n' "$value"
-}
-
-sync_env_from_params() {
-    local site_hostname site_scheme frontend_port expose_backend backend_port compose_project_name frontend_base_url backend_api_key
-
-    [[ -f .env.param ]] || return 0
-
-    site_hostname="$(param_get SITE_HOSTNAME)"
-    site_scheme="$(param_get SITE_SCHEME)"
-    frontend_port="$(param_get FRONTEND_PORT)"
-    expose_backend="$(param_get EXPOSE_BACKEND)"
-    backend_port="$(param_get BACKEND_PORT)"
-    compose_project_name="$(param_get COMPOSE_PROJECT_NAME)"
-    backend_api_key="$(param_get BACKEND_API_KEY)"
-
-    if [[ -z "$site_scheme" ]]; then
-        site_scheme="https"
-    fi
-
-    if [[ -n "$compose_project_name" ]]; then
-        compose_project_name="$(slugify "$compose_project_name")"
-    elif [[ -n "$site_hostname" ]]; then
-        compose_project_name="$(slugify "$site_hostname")"
-    fi
-
-    if [[ -n "$site_hostname" ]]; then
-        frontend_base_url="${site_scheme}://${site_hostname}"
-        env_set FRONTEND_BASE_URL "$frontend_base_url"
-        env_set NG_ALLOWED_HOSTS "$site_hostname"
-        ok ".env.param -> FRONTEND_BASE_URL=${frontend_base_url}"
-        ok ".env.param -> NG_ALLOWED_HOSTS=${site_hostname}"
-    fi
-
-    if [[ -n "$compose_project_name" ]]; then
-        env_set COMPOSE_PROJECT_NAME "$compose_project_name"
-        ok ".env.param -> COMPOSE_PROJECT_NAME=${compose_project_name}"
-    fi
-
-    if [[ -n "$frontend_port" ]]; then
-        env_set FRONTEND_PORT "$frontend_port"
-        ok ".env.param -> FRONTEND_PORT=${frontend_port}"
-    fi
-
-    if [[ -n "$expose_backend" ]]; then
-        env_set EXPOSE_BACKEND "$expose_backend"
-        ok ".env.param -> EXPOSE_BACKEND=${expose_backend}"
-    fi
-
-    if [[ -n "$backend_port" ]]; then
-        env_set BACKEND_PORT "$backend_port"
-        ok ".env.param -> BACKEND_PORT=${backend_port}"
-    fi
-
-    if [[ -n "$backend_api_key" ]]; then
-        env_set BACKEND_API_KEY "$backend_api_key"
-        ok ".env.param -> BACKEND_API_KEY configurata (***)"
-    fi
-}
-
 ERRORS=0
 
 echo
@@ -169,44 +77,48 @@ echo -e "${BOLD}Prerequisiti${RESET}"
 command -v docker >/dev/null 2>&1 && ok "Docker trovato" || { echo -e "  ${RED}ERR${RESET} Docker non trovato" >&2; exit 1; }
 docker compose version >/dev/null 2>&1 && ok "docker compose trovato" || { echo -e "  ${RED}ERR${RESET} docker compose non trovato" >&2; exit 1; }
 [[ -f docker-compose.yml ]] && ok "docker-compose.yml presente" || { echo -e "  ${RED}ERR${RESET} docker-compose.yml mancante" >&2; exit 1; }
+command -v node >/dev/null 2>&1 && ok "Node.js trovato" || { echo -e "  ${RED}ERR${RESET} Node.js non trovato (richiesto per leggere br1engine.json)" >&2; exit 1; }
+[[ -f br1engine.json ]] && ok "br1engine.json presente" || { echo -e "  ${RED}ERR${RESET} br1engine.json non trovato!" >&2; exit 1; }
 
 echo
 echo -e "${BOLD}Configurazione${RESET}"
 
-if [[ ! -f .env ]]; then
-    if [[ -f .env.param ]]; then
-        touch .env
-        ok ".env creato"
-    else
-        echo -e "  ${RED}ERR${RESET} .env.param non trovato!" >&2
-        echo "  Crea un file .env.param con le tue configurazioni e riprova."
-        exit 1
-    fi
-fi
-ok ".env presente"
+# Legge tutte le variabili necessarie da br1engine.json in un'unica chiamata Node
+_read_br1_vars() {
+    node --input-type=module --eval "
+import { readFileSync } from 'fs';
+const s = JSON.parse(readFileSync('br1engine.json', 'utf-8'));
+const slugify = n => String(n).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const h = (s.frontend?.hostname || '').trim();
+const lines = [
+    'COMPOSE_PROJECT_NAME=' + slugify(s.project?.name || 'app'),
+    'FRONTEND_PORT=' + String(s.frontend?.port || 3000),
+    'EXPOSE_BACKEND=' + (s.backend?.public ? 'yes' : 'no'),
+    'BACKEND_PORT=' + String(s.backend?.publicPort || ''),
+    'FRONTEND_BASE_URL=' + (h ? 'https://' + h : ''),
+    'NG_ALLOWED_HOSTS=' + h,
+];
+process.stdout.write(lines.join('\n') + '\n');
+"
+}
 
-if [[ -f .env.param ]]; then
-    sync_env_from_params
-else
-    warn ".env.param non presente, utilizzo diretto di .env"
-fi
+while IFS= read -r _line; do
+    [[ -z "$_line" ]] && continue
+    _key="${_line%%=*}"
+    _val="${_line#*=}"
+    export "$_key=$_val"
+done < <(_read_br1_vars)
+ok "Configurazione letta da br1engine.json"
 
 if [[ "$DEV_MODE" == true ]]; then
     echo
     echo -e "${BOLD}Sviluppo${RESET}"
-    echo "  Frontend: http://localhost:$(env_get DEV_FRONTEND_PORT || echo 4200)"
-    echo "  Backend:  http://localhost:$(env_get DEV_BACKEND_PORT || echo 5000)"
+    echo "  Frontend: http://localhost:4200"
+    echo "  Backend:  http://localhost:5000"
     echo
     docker compose up --build
     exit 0
 fi
-
-COMPOSE_PROJECT_NAME="$(env_get COMPOSE_PROJECT_NAME)"
-FRONTEND_PORT="$(env_get FRONTEND_PORT)"
-BACKEND_PORT="$(env_get BACKEND_PORT)"
-EXPOSE_BACKEND="$(env_get EXPOSE_BACKEND)"
-FRONTEND_BASE_URL="$(env_get FRONTEND_BASE_URL)"
-NG_ALLOWED_HOSTS="$(env_get NG_ALLOWED_HOSTS)"
 
 [[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME mancante in .env"
 [[ "$COMPOSE_PROJECT_NAME" == "CHANGE_ME" ]] && fail "COMPOSE_PROJECT_NAME è ancora CHANGE_ME"
@@ -234,7 +146,7 @@ fi
 
 if (( ERRORS > 0 )); then
     echo
-    echo -e "  ${RED}ERR${RESET} Correggi la configurazione prima di fare il deploy" >&2
+    echo -e "  ${RED}ERR${RESET} Correggi la configurazione in br1engine.json prima di fare il deploy" >&2
     exit 1
 fi
 
@@ -413,15 +325,15 @@ check_port_conflict() {
     # Estraiamo anche la label del progetto per un confronto preciso
     conflicting=$(docker ps --format "{{.Names}}\t{{.Ports}}\t{{.Label \"com.docker.compose.project\"}}" \
         | grep -E ":${port}->" || true)
-    
+
     if [[ -n "$conflicting" ]]; then
         local container_name project_label normalized_proj
         container_name=$(echo "$conflicting" | awk '{print $1}')
         project_label=$(echo "$conflicting" | awk '{print $3}')
-        
+
         # Docker Compose normalizza il nome progetto (es. rimuove maiuscole e caratteri speciali)
         normalized_proj=$(echo "$COMPOSE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]//g')
-        
+
         if [[ "$project_label" != "$normalized_proj" ]]; then
             fail "Porta ${port} già in uso dal progetto '${project_label}' (container: ${container_name})"
             echo "  Stai cercando di fare il deploy come '${COMPOSE_PROJECT_NAME}', ma la porta è occupata." >&2
@@ -468,7 +380,7 @@ env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOS
 info "Attesa healthcheck sul nuovo container (max 60s)..."
 if wait_for_http "http://127.0.0.1:${PREFLIGHT_PORT}/health" "" 200 30 2; then
     ok "La nuova build è sana e funzionante (Healthcheck OK)!"
-    
+
     info "Spegnimento ambiente isolato..."
     env COMPOSE_PROJECT_NAME="$PREFLIGHT_PROJ" FRONTEND_PORT="$PREFLIGHT_PORT" EXPOSE_BACKEND="no" \
         docker compose -f docker-compose.yml down -v >/dev/null 2>&1
@@ -497,7 +409,7 @@ env docker compose "${compose_files[@]}" up -d
 if [[ "$TEST_POST_DEPLOY" == true ]]; then
     echo
     echo -e "${BOLD}Test Post-Deploy${RESET}"
-    
+
     echo "  Controllo salute frontend su http://127.0.0.1:${FRONTEND_PORT}/health"
     wait_for_http "http://127.0.0.1:${FRONTEND_PORT}/health" "" 200 && ok "Frontend /health ha restituito HTTP 200" || exit 1
 

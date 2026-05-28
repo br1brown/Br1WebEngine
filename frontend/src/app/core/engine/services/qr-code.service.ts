@@ -91,7 +91,7 @@ export class QrCodeService {
 
     /** Genera un QR (PNG) usando i colori del tema globale. */
     async create(config: QrConfig): Promise<QrResponse> {
-        return this.createWithColors(config, this.theme.colorPrimaryText(), this.theme.colorPrimary());
+        return this.createWithColors(config, this.theme.colorPrimaryText, this.theme.colorPrimary);
     }
 
     /** 
@@ -109,7 +109,7 @@ export class QrCodeService {
 
     /** Genera la stringa SVG del QR Code con i colori del tema. */
     async toSVG(config: QrConfig): Promise<string | null> {
-        return this.toSVGWithColors(config, this.theme.colorPrimaryText(), this.theme.colorPrimary());
+        return this.toSVGWithColors(config, this.theme.colorPrimaryText, this.theme.colorPrimary);
     }
 
     /** Genera la stringa SVG del QR Code. Solo per uso nel browser. */

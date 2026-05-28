@@ -2,11 +2,13 @@ import express, { type Request, type Response } from 'express';
 import { dirname, resolve, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { createHash, randomBytes } from 'node:crypto';
 import sharp from 'sharp';
 import { lookup as mimeLookup } from 'mime-types';
 import { ALLOWED_WIDTHS } from '../../../app.config';
 import { ContestoSito } from '../../../site';
+import { ThemeService } from '../services/theme.service';
 import { ImgBuilderService } from '../services/img-builder.service';
 import { FontConfig } from '../../../../styles/font-config';
 import { PreviewCrypto } from './preview-crypto.server';
@@ -14,12 +16,14 @@ import {
     AngularNodeAppEngine,
     createNodeRequestHandler,
     isMainModule,
-    writeResponseToNodeResponse
 } from '@angular/ssr/node';
-import { serverEnv } from './server-env';
+import { serverEnv, assertRequiredEnv } from './server-env';
+import { API_PREFIX } from '../../../app.config';
 
-/** Estrae le variabili d'ambiente validate dal file di configurazione server */
-const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
+/** Alias sulle sezioni senza requireEnv, valutate al caricamento del modulo */
+const { server: nodeCfg, site } = serverEnv;
+// serverEnv.backend (BACKEND_ORIGIN, BACKEND_API_KEY) è acceduto lazily
+// dentro i middleware, mai al caricamento del modulo.
 
 /** Individua la cartella dove risiede il codice server eseguito da Node */
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
@@ -27,12 +31,13 @@ const serverDistFolder = dirname(fileURLToPath(import.meta.url));
 const browserDistFolder = resolve(serverDistFolder, '../browser');
 
 /** Definisce la sorgente dei file: usa ASSETS_DIR se impostata, altrimenti la cartella di build */
-const assetFilesDir = serverEnv.assetsDir
-    ? resolve(serverEnv.assetsDir)
+const assetFilesDir = site.assetsDir
+    ? resolve(site.assetsDir)
     : join(browserDistFolder, 'assets/files');
 
 /** Percorso della cache per le immagini processate da Sharp */
 const cacheDir = join(assetFilesDir, 'image-cache');
+
 /** Crea la cartella di cache se non esiste (recursive evita errori se mancano i padri) */
 mkdirSync(cacheDir, { recursive: true });
 
@@ -148,29 +153,25 @@ const TRUSTED_PROXY_HEADERS = [
 ] as const;
 /** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: serverEnv.allowedHosts,
+    allowedHosts: nodeCfg.allowedHosts,
     trustProxyHeaders: TRUSTED_PROXY_HEADERS,
 });
 
 /**
- * Policy di sicurezza: definisce permessi per script, immagini e connessioni esterne.
+ * CSP base (senza nonce): usato da htmlSecurityHeaders per tutti gli asset statici.
  *
- * PerchÃ© 'unsafe-inline' resta:
- * - script-src: Angular SSR con withEventReplay() (in app.config.ts) emette
- *   uno <script id="ng-event-dispatch-contract"> inline e un piccolo bootstrap
- *   inline che captura gli eventi pre-hydration. Per stringere a 'self'
- *   secco bisognerebbe rimuovere withEventReplay (perdendo il replay degli
- *   eventi pre-hydration) o iniettare un nonce per richiesta e configurarlo
- *   nel builder Angular. La build genera anche un onload="this.media='all'"
- *   inline per il preload degli stylesheet â€” disattivabile con
- *   optimization.styles.inlineCritical=false in angular.json (costo: CSS
- *   render-blocking, FCP leggermente peggiore).
- * - style-src: ViewEncapsulation.Emulated inietta <style> a runtime per i
- *   componenti, e le template usano comunemente style="..." attributi.
+ * script-src: non contiene 'unsafe-inline'. Il catch-all Angular genera un nonce
+ * per-request e lo sostituisce a {SCRIPT_NONCE_PLACEHOLDER} prima di inviare l'HTML.
+ * Angular (via CSP_NONCE in app.config.server.ts) stampa il nonce su tutti gli
+ * <script> inline che withEventReplay() emette: compatibile senza 'unsafe-inline'.
+ *
+ * style-src: mantiene 'unsafe-inline' perché Angular usa style="..." attribute
+ * bindings ([style.x]) ovunque nei template; i nonce non coprono gli attributi
+ * inline (solo <style> block), quindi 'unsafe-inline' è necessario per gli stili.
  */
 const defaultCsp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -180,13 +181,16 @@ const defaultCsp = [
     "form-action 'self'",
 ].join('; ');
 
-/** Header di sicurezza standard applicati a tutte le risposte HTML */
+/** CSP per file statici (assets, index.csr.html): placeholder sostituito con 'unsafe-inline' */
+const staticCsp = defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', "'unsafe-inline'");
+
+/** Header di sicurezza standard applicati a tutte le risposte non-API */
 const htmlSecurityHeaders: [string, string][] = [
     ['X-Frame-Options', 'SAMEORIGIN'],
     ['X-Content-Type-Options', 'nosniff'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
     ['Permissions-Policy', 'camera=(), microphone=(), geolocation=()'],
-    ['Content-Security-Policy', defaultCsp],
+    ['Content-Security-Policy', staticCsp],
 ];
 
 /** Nasconde l'uso di Express per rendere piÃ¹ difficile il fingerprinting del server */
@@ -196,7 +200,7 @@ app.disable('x-powered-by');
  * Lista ristretta (default: subnet private) per evitare che un client esterno
  * possa spoofare X-Forwarded-Host / X-Forwarded-For e bypassare l'allowlist.
  */
-app.set('trust proxy', serverEnv.trustProxy);
+app.set('trust proxy', nodeCfg.trustProxy);
 
 /** TEMP DEBUG: log ogni richiesta in ingresso con host e path */
 // app.use((req, _res, next) => {
@@ -215,20 +219,20 @@ app.get('/health', (_request, response) => {
 
 /** Rifiuta richieste pubbliche con host non autorizzato prima di raggiungere proxy o SSR */
 app.use((request, response, next) => {
-    if (serverEnv.allowedHosts.length === 0 || request.path === '/health') {
+    if (nodeCfg.allowedHosts.length === 0 || request.path === '/health') {
         next();
         return;
     }
 
     const requestHost = request.hostname.trim().toLowerCase();
-    const isAllowed = serverEnv.allowedHosts.some((host) => host.toLowerCase() === requestHost);
+    const isAllowed = nodeCfg.allowedHosts.some((host) => host.toLowerCase() === requestHost);
 
     if (isAllowed) {
         next();
         return;
     }
 
-    console.warn(`[debug-host-blocked] host="${requestHost}" not in allowedHosts=[${serverEnv.allowedHosts.join(',')}]`);
+    console.warn(`[debug-host-blocked] host="${requestHost}" not in allowedHosts=[${nodeCfg.allowedHosts.join(',')}]`);
     response.status(421).json({
         status: 421,
         title: 'Misdirected Request',
@@ -236,10 +240,10 @@ app.use((request, response, next) => {
     });
 });
 
-/** Proxy manuale: /api/* â†’ backend, stripping il prefisso /api */
-app.use('/api', async (req: Request, res: Response) => {
-    const url = `${backendOrigin}${req.url}`;
-    const headers: Record<string, string> = { 'x-api-key': backendApiKey };
+/** Proxy manuale: /api/* → backend, stripping il prefisso /api */
+app.use(API_PREFIX, async (req: Request, res: Response) => {
+    const url = `${serverEnv.backend.origin}${req.url}`;
+    const headers: Record<string, string> = { 'x-api-key': serverEnv.backend.apiKey };
 
     for (const h of ['content-type', 'authorization', 'accept', 'accept-language', 'range']) {
         const v = req.headers[h];
@@ -252,8 +256,6 @@ app.use('/api', async (req: Request, res: Response) => {
     if (host) headers['x-forwarded-host'] = host;
 
     try {
-        const { Readable } = await import('node:stream');
-
         /** Streaming del body: niente buffering in RAM per upload anche grossi */
         let body: ReadableStream<Uint8Array> | undefined;
         if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -266,7 +268,7 @@ app.use('/api', async (req: Request, res: Response) => {
             body,
             // duplex 'half' Ã¨ richiesto da undici quando body Ã¨ uno stream
             duplex: 'half',
-            signal: AbortSignal.timeout(proxyTimeout),
+            signal: AbortSignal.timeout(nodeCfg.proxyTimeout),
         } as RequestInit & { duplex?: 'half' });
 
         res.status(response.status);
@@ -487,7 +489,7 @@ async function renderPreviewWithImage(res: Response, ogImageId: string, title: s
                         anchorCenterY: iconTop + iconSize / 2,
                         maxRight: OG_W - padding,
                         title: normalizedTitle,
-                        bgColor: ContestoSito.config.colorTema,
+                        bgColor: ThemeService.computePalette(ContestoSito.config.colorTema).colorPrimary,
                         fontSize: 40,
                     });
                     composites.push({ input: Buffer.from(badgeSvg, 'utf-8'), left: 0, top: 0 });
@@ -555,33 +557,73 @@ app.use(
     })
 );
 
-/** Catch-all: ogni richiesta non risolta dai file o dalla CDN viene passata al motore Angular SSR */
-app.use((request, response, next) => {
-    angularApp
-        .handle(request)
-        .then((renderedResponse) => {
-            if (renderedResponse) {
-                /** Le risposte SSR non devono essere cachate da proxy intermedi:
-                 *  contengono HTML dinamico e potrebbero in futuro includere dati personalizzati. */
-                response.setHeader('Cache-Control', 'no-cache');
-                /** Converte la risposta web standard di Angular in una risposta compatibile con Node.js/Express */
-                return writeResponseToNodeResponse(renderedResponse, response);
-            }
-            next(); // Se Angular non ha una rotta corrispondente, passa al 404 di Express
-            return;
-        })
-        .catch(next);
+/**
+ * In dev (ng serve) il bundle server è importato come modulo dal dev server di Angular,
+ * non eseguito come processo principale. isMainModule() lo rileva:
+ * - false → dev: niente nonce, script-src usa 'unsafe-inline' (HMR/live-reload lo richiedono)
+ * - true  → prod (node server.mjs): nonce per-request via requestContext
+ */
+const isDevMode = !isMainModule(import.meta.url);
+
+/**
+ * Catch-all: ogni richiesta non risolta viene passata al motore Angular SSR.
+ *
+ * Streaming: la risposta viene inoltrata direttamente senza bufferizzare l'HTML.
+ * Il tema è già iniettato da Angular durante il rendering (provideAppInitializer
+ * in app.config.server.ts), quindi non serve il post-processing regex di injectTheme.
+ *
+ * CSP nonce per-request (solo prod): un nonce casuale rimpiazza '{SCRIPT_NONCE_PLACEHOLDER}'
+ * nella policy. Il nonce viene passato ad Angular via requestContext (REQUEST_CONTEXT token
+ * in app.config.server.ts) che lo stampa su tutti gli <script> inline che emette in SSR.
+ * In dev il placeholder viene sostituito con 'unsafe-inline' per compatibilità con HMR.
+ */
+app.use(async (request: Request, response: Response, next) => {
+    const nonce = isDevMode ? null : randomBytes(16).toString('base64url');
+
+    try {
+        const renderedResponse = await angularApp.handle(
+            request,
+            nonce ? { nonce } : undefined,
+        );
+        if (!renderedResponse) { next(); return; }
+
+        response.status(renderedResponse.status);
+        response.setHeader('Cache-Control', 'no-cache');
+
+        // Inoltra gli header Angular, escludendo quelli che gestiamo noi
+        renderedResponse.headers.forEach((value, key) => {
+            const lk = key.toLowerCase();
+            if (lk === 'cache-control' || lk === 'content-security-policy' || lk === 'content-length') return;
+            response.setHeader(key, value);
+        });
+
+        // CSP: in prod nonce per-request, in dev 'unsafe-inline' (richiesto da HMR)
+        const scriptSrc = nonce ? `'nonce-${nonce}'` : "'unsafe-inline'";
+        response.setHeader('Content-Security-Policy',
+            defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', scriptSrc));
+
+        // Streaming diretto: nessun buffer RAM — la risposta arriva al browser man mano che Angular la produce
+        if (renderedResponse.body) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            Readable.fromWeb(renderedResponse.body as any).pipe(response);
+        } else {
+            response.end();
+        }
+    } catch (err) {
+        next(err);
+    }
 });
 
-/** Avvio del server se il file Ã¨ eseguito come modulo principale (node server.mjs) */
+/** Avvio del server se il file è eseguito come modulo principale (node server.mjs) */
 if (isMainModule(import.meta.url)) {
-    app.listen(port, () => {
-        console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
-        console.log(`[frontend] Backend origin: ${backendOrigin}`);
-        console.log(`[frontend] Frontend base URL: ${serverEnv.frontendBaseUrl || '(not set)'}`);
+    assertRequiredEnv();
+    app.listen(nodeCfg.port, () => {
+        console.log(`[frontend] Node SSR server listening on http://localhost:${nodeCfg.port}`);
+        console.log(`[frontend] Backend origin: ${serverEnv.backend.origin}`);
+        console.log(`[frontend] Frontend base URL: ${site.baseUrl || '(not set)'}`);
         console.log(
-            `[frontend] NG_ALLOWED_HOSTS: ${serverEnv.allowedHosts.length > 0
-                ? serverEnv.allowedHosts.join(', ')
+            `[frontend] NG_ALLOWED_HOSTS: ${nodeCfg.allowedHosts.length > 0
+                ? nodeCfg.allowedHosts.join(', ')
                 : '(not set)'
             }`
         );

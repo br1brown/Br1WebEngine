@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Br1Engine Settings",
+  "description": "Configurazione centralizzata del progetto. Letto direttamente da deploy.sh (bash), dal backend ASP.NET Core (AddJsonFile) e dal frontend Node SSR (readFileSync). Modificare questo file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "project": {
+      "type": "object",
+      "description": "Metadati del progetto. Usati da deploy.sh per generare il nome del progetto Docker (slugificato).",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Nome visualizzato del progetto. Viene slugificato automaticamente per COMPOSE_PROJECT_NAME (es. 'Mercatino App' → 'mercatino-app').",
+          "examples": ["App", "Mercatino App", "MioProgetto"]
+        }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "description": "Configurazione del container frontend (Angular SSR + Node). Letta da deploy.sh per le variabili docker-compose.",
+      "additionalProperties": false,
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "Dominio pubblico del sito senza schema (es. 'miodominio.it'). Lasciare vuoto in sviluppo locale. Usato per FRONTEND_BASE_URL, NG_ALLOWED_HOSTS e per derivare Security.CorsOrigins.",
+          "examples": ["", "miodominio.it", "www.miodominio.it"]
+        },
+        "port": {
+          "type": "integer",
+          "description": "Porta esposta dal container frontend sull'host Docker. La porta interna del container Node SSR è sempre 3000; questa è la porta del mapping host:container.",
+          "default": 3000,
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "description": "Configurazione dell'esposizione del container backend. Il backend è normalmente interno alla rete Docker; abilitare 'public' solo per API pubbliche o deploy separato.",
+      "additionalProperties": false,
+      "properties": {
+        "public": {
+          "type": "boolean",
+          "description": "Se true, il backend viene esposto su una porta dell'host (richiede docker-compose.backend-exposed.yml). Default: false.",
+          "default": false
+        },
+        "publicPort": {
+          "type": ["integer", "null"],
+          "description": "Porta host su cui esporre il backend (usata solo se 'public: true').",
+          "examples": [null, 8080]
+        }
+      }
+    },
+    "Localization": {
+      "type": "object",
+      "description": "Configurazione localizzazione. Letta direttamente da ASP.NET Core tramite IOptions<LocalizationOptions>. Il frontend legge queste stesse chiavi da br1engine.json tramite server-env.ts al bootstrap del Node SSR.",
+      "additionalProperties": false,
+      "properties": {
+        "DefaultLanguage": {
+          "type": "string",
+          "description": "Lingua di default del sito. Deve essere un tag BCP-47 valido (ISO 639-1 o sottoinsieme). Deve essere inclusa in SupportedLanguages.",
+          "examples": ["it", "en", "de", "fr"]
+        },
+        "SupportedLanguages": {
+          "type": "array",
+          "description": "Lista di tutte le lingue supportate come tag BCP-47. Deve includere DefaultLanguage. Per siti monolingua: inserire solo la lingua default.",
+          "items": {
+            "type": "string",
+            "examples": ["it", "en", "de", "fr"]
+          },
+          "minItems": 1,
+          "examples": [["it"], ["it", "en"], ["it", "en", "de"]]
+        }
+      }
+    },
+    "Security": {
+      "type": "object",
+      "description": "Configurazione sicurezza. Letta direttamente da ASP.NET Core tramite IOptions<SecurityOptions>. Le chiavi usano la convenzione PascalCase di ASP.NET.",
+      "additionalProperties": false,
+      "properties": {
+        "ApiKeys": {
+          "type": "array",
+          "description": "Chiavi API accettate dal backend per le chiamate interne (header X-Api-Key). Il frontend Node SSR usa Security.ApiKeys[0] per autenticarsi al backend. In produzione usare una stringa casuale di almeno 32 caratteri.",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "examples": [["frontend"], ["supersecretkey32characters_minimum"]]
+        },
+        "CorsOrigins": {
+          "type": "array",
+          "description": "Origini CORS ammesse per il backend. In produzione impostare l'URL completo con schema (es. 'https://miodominio.it'). Lasciare vuoto in sviluppo locale (il backend è interno alla rete Docker).",
+          "items": { "type": "string" },
+          "examples": [[], ["https://miodominio.it"]]
+        },
+        "BehindProxy": {
+          "type": "boolean",
+          "description": "Indica se il backend è dietro un reverse proxy (es. nginx, Cloudflare). Se true, il backend legge l'IP reale da X-Forwarded-For. Impostare a true quando si usa frontend.hostname.",
+          "default": false
+        },
+        "Token": {
+          "type": "object",
+          "description": "Configurazione JWT per il sistema di login (usata solo se Security.LoginEnabled è true in appsettings.json).",
+          "additionalProperties": false,
+          "properties": {
+            "SecretKey": {
+              "type": "string",
+              "description": "Chiave segreta per firmare i JWT. Deve essere lunga almeno 32 caratteri in produzione. Lasciare vuota per disabilitare il login.",
+              "examples": ["", "supersecretjwtkeyatleast32characters"]
+            },
+            "ExpirationSeconds": {
+              "type": "integer",
+              "description": "Durata in secondi dei token JWT emessi. Default: 3000 (50 minuti).",
+              "default": 3000,
+              "minimum": 60
+            }
+          }
+        }
+      }
+    },
+    "OpenTelemetry": {
+      "type": "object",
+      "description": "Configurazione OpenTelemetry per tracing e metriche. Letta da ASP.NET Core tramite IOptions<OpenTelemetryOptions>. Se Endpoint è vuoto, la telemetria è disabilitata (zero dipendenze esterne).",
+      "additionalProperties": false,
+      "properties": {
+        "Endpoint": {
+          "type": "string",
+          "description": "Endpoint OTLP del collector (es. Jaeger, Grafana Tempo, Datadog). Lasciare vuoto per disabilitare la telemetria.",
+          "examples": ["", "http://jaeger:4318/v1/traces", "https://otel.datadoghq.com"]
+        },
+        "ServiceName": {
+          "type": "string",
+          "description": "Nome del servizio nei trace OpenTelemetry. Appare come 'service.name' nei sistemi di osservabilità.",
+          "default": "backend",
+          "examples": ["backend", "mio-progetto-api"]
+        },
+        "ServiceVersion": {
+          "type": "string",
+          "description": "Versione del servizio nei trace OpenTelemetry.",
+          "default": "1.0.0",
+          "examples": ["1.0.0", "2.3.1"]
+        }
+      }
+    },
+    "Custom": {
+      "type": "object",
+      "description": "Valori aggiuntivi liberi, leggibili da entrambi i progetti senza modificare script o codice infrastrutturale.\n\n- Backend (ASP.NET Core): ogni chiave è disponibile tramite IConfiguration[\"Custom:TuaChiave\"] o IConfiguration[\"Custom:Sezione:SottoChiave\"]. Supporta oggetti annidati arbitrari.\n- Frontend Node SSR: disponibile tramite getBr1Settings().Custom in server-env.ts.\n- Browser Angular: non disponibile direttamente (richiede trasferimento via TransferState o API).\n\nEsempio:\n  \"Custom\": {\n    \"FeatureFlags\": { \"NuovaFunzione\": true },\n    \"Analytics\": { \"TrackingId\": \"UA-XXXXX\" },\n    \"MaxUploadMb\": 10\n  }",
+      "additionalProperties": true
+    }
+  }
+}

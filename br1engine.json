@@ -1,0 +1,33 @@
+{
+  "$schema": "./br1engine.schema.json",
+  "project": {
+    "name": "App"
+  },
+  "frontend": {
+    "hostname": "",
+    "port": 3000
+  },
+  "backend": {
+    "public": false,
+    "publicPort": null
+  },
+  "Localization": {
+    "DefaultLanguage": "it",
+    "SupportedLanguages": ["it", "en"]
+  },
+  "Security": {
+    "ApiKeys": ["frontend"],
+    "CorsOrigins": [],
+    "BehindProxy": false,
+    "Token": {
+      "SecretKey": "",
+      "ExpirationSeconds": 3000
+    }
+  },
+  "OpenTelemetry": {
+    "Endpoint": "",
+    "ServiceName": "backend",
+    "ServiceVersion": "1.0.0"
+  },
+  "Custom": {}
+}

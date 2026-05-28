@@ -5,7 +5,8 @@
  * La configurazione del sito vive in `site.ts` ed e' condivisa con gli script di build.
  */
 
-import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -17,12 +18,16 @@ import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { isTechnicalConsentGiven } from './core/engine/services/cookie-consent.service';
 import { ContestoSito } from './site';
+import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/locale-config.token';
 
 /**
  * Whitelist delle larghezze consentite per l'ottimizzazione immagini.
  * Condivisa tra il frontend (AssetService) e il backend (server.ts).
  */
 export const ALLOWED_WIDTHS = [125, 320, 512, 480, 640, 768, 1024, 1080, 1366, 1600, 1920] as const;
+
+/** Prefisso del proxy API: unica fonte di verità per server.ts (proxy Express) e il DI Angular (browser) */
+export const API_PREFIX = '/api';
 
 /**
  * Tipo derivato dalla whitelist per l'utilizzo nei parametri dei componenti/servizi.
@@ -52,7 +57,8 @@ export const appConfig: ApplicationConfig = {
         provideAppInitializer(async () => {
             const translateService = inject(TranslateService);
             const authService = inject(AuthService);
-            // L'injection basta per attivare la logica del tema fin da subito
+            // Istanzia ThemeService subito così il listener prefersReducedMotion
+            // è attivo prima che i componenti inizino a leggerne il signal.
             inject(ThemeService);
 
             // I titoli delle pagine nelle route sono chiavi di traduzione
@@ -73,7 +79,28 @@ export const appConfig: ApplicationConfig = {
         }),
         {
             provide: SSR_API_PREFIX,
-            useValue: '/api',
+            useValue: API_PREFIX,
+        },
+        {
+            provide: LOCALE_CONFIG,
+            useFactory: (transferState: TransferState, doc: Document): LocaleConfig => {
+                // Caso normale (SSR): il server ha già serializzato la config in TransferState.
+                if (transferState.hasKey(LOCALE_STATE_KEY)) {
+                    return transferState.get(LOCALE_STATE_KEY, { defaultLang: 'it', availableLanguages: ['it'] });
+                }
+                // Fallback per ng serve e route RenderMode.Client navigate direttamente:
+                // generate-statics.ts scrive la config in <meta name="br1-locale"> da br1engine.json.
+                try {
+                    const content = doc.querySelector('meta[name="br1-locale"]')?.getAttribute('content');
+                    if (content) return JSON.parse(content) as LocaleConfig;
+                } catch { }
+                // Ultima risorsa: se index.html non è stato aggiornato da generate-statics.ts.
+                if (isDevMode()) {
+                    console.warn('[LOCALE_CONFIG] TransferState vuoto e <meta br1-locale> assente — usando fallback. Eseguire: npm run generate:statics');
+                }
+                return { defaultLang: 'it', availableLanguages: ['it'] };
+            },
+            deps: [TransferState, DOCUMENT],
         },
     ]
 };
