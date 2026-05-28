@@ -122,6 +122,10 @@ export interface PaletteTokens {
     colorNavBgDk: string;
     /** Testo navbar/footer dark: quasi bianco con leggera tinta brand (L=0.920). CSS: `--colorNavTextDk` */
     colorNavTextDk: string;
+    /** Bordo navbar/dropdown light: mix 15% text su bg. CSS: `--colorNavBorderLt` */
+    colorNavBorderLt: string;
+    /** Bordo navbar/dropdown dark: mix 15% text su bg. CSS: `--colorNavBorderDk` */
+    colorNavBorderDk: string;
 
     /**
      * Tono suggerito dal brand: `'light'` se il brand è sufficientemente chiaro da richiedere testo scuro,
@@ -350,6 +354,8 @@ export class ThemeService {
             // sopra si risolvono sempre dal tone corrente dell'OS; questi token fissi permettono
             // a [data-bs-theme="light/dark"] in base.css di usare il valore corretto
             // indipendentemente dal tone globale. Stesso pattern già usato per --colorLinkLt/Dk.
+            ['--colorSecondaryLt', p.colorSecondaryLt],
+            ['--colorSecondaryDk', p.colorSecondaryDk],
             ['--colorHeadingLt', p.colorHeadingLt],
             ['--colorHeadingDk', p.colorHeadingDk],
             ['--colorHeadingRgbLt', ThemeService.hexToRgbTriplet(p.colorHeadingLt)],
@@ -375,6 +381,9 @@ export class ThemeService {
             ['--colorNavBgDk', p.colorNavBgDk],
             ['--colorNavTextLt', p.colorNavTextLt],
             ['--colorNavTextDk', p.colorNavTextDk],
+            ['--colorNavBorder', lt ? p.colorNavBorderLt : p.colorNavBorderDk],
+            ['--colorNavBorderLt', p.colorNavBorderLt],
+            ['--colorNavBorderDk', p.colorNavBorderDk],
         ];
 
         for (const [prop, val] of vars) {
@@ -479,7 +488,8 @@ export class ThemeService {
                 `--colorSecondaryBorderSubtle:${s ? p.subtleSecondary.borderSubtleLt : p.subtleSecondary.borderSubtleDk};` +
                 `--colorSecondaryTextEmphasis:${s ? p.subtleSecondary.textEmphasisLt : p.subtleSecondary.textEmphasisDk};` +
                 `--colorNavBg:${s ? p.colorNavBgLt : p.colorNavBgDk};` +
-                `--colorNavText:${s ? p.colorNavTextLt : p.colorNavTextDk};`
+                `--colorNavText:${s ? p.colorNavTextLt : p.colorNavTextDk};` +
+                `--colorNavBorder:${s ? p.colorNavBorderLt : p.colorNavBorderDk};`
             );
         };
 
@@ -512,10 +522,14 @@ export class ThemeService {
             `--colorSubtleBgDk:${p.colorSubtleBgDk};` +
             `--colorMutedTextLt:${p.colorMutedTextLt};` +
             `--colorMutedTextDk:${p.colorMutedTextDk};` +
+            `--colorSecondaryLt:${p.colorSecondaryLt};` +
+            `--colorSecondaryDk:${p.colorSecondaryDk};` +
             `--colorNavBgLt:${p.colorNavBgLt};` +
             `--colorNavBgDk:${p.colorNavBgDk};` +
             `--colorNavTextLt:${p.colorNavTextLt};` +
-            `--colorNavTextDk:${p.colorNavTextDk};`;
+            `--colorNavTextDk:${p.colorNavTextDk};` +
+            `--colorNavBorderLt:${p.colorNavBorderLt};` +
+            `--colorNavBorderDk:${p.colorNavBorderDk};`;
 
         return (
             `<style id="theme-init">` +
@@ -620,6 +634,9 @@ export class ThemeService {
         const colorNavBgDk = ThemeService.oklchToHex(0.150, Math.min(C_t * 0.25, 0.030), H_t);
         const colorNavTextDk = ThemeService.oklchToHex(0.920, Math.min(C_t * 0.06, 0.010), H_t);
 
+        const colorNavBorderLt = ThemeService.mixHexColors(colorNavBgLt, colorNavTextLt, 0.15);
+        const colorNavBorderDk = ThemeService.mixHexColors(colorNavBgDk, colorNavTextDk, 0.15);
+
         return {
             colorTema,
             colorTemaText,
@@ -661,6 +678,8 @@ export class ThemeService {
             colorNavTextLt,
             colorNavBgDk,
             colorNavTextDk,
+            colorNavBorderLt,
+            colorNavBorderDk,
 
             naturalTone,
         };

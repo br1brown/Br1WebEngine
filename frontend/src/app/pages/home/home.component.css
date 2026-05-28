@@ -69,6 +69,11 @@
   overflow: auto;
 }
 
+.voice-badge {
+  background-color: #e9ecef;
+  color: #343a40;
+}
+
 .asset-preview-image {
   max-height: 90px;
 }

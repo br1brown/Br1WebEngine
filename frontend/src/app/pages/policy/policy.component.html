@@ -39,11 +39,11 @@
                                         <code class="cookie-name-badge">{{ cookie.name }}</code>
                                         <span class="badge category-badge-pill px-3 py-1 rounded-pill"
                                               [class.bg-success-subtle]="cookie.categoryKey === CookieCategory.Technical"
-                                              [class.text-success]="cookie.categoryKey === CookieCategory.Technical"
+                                              [class.text-success-emphasis]="cookie.categoryKey === CookieCategory.Technical"
                                               [class.bg-info-subtle]="cookie.categoryKey === CookieCategory.Analytics"
-                                              [class.text-info]="cookie.categoryKey === CookieCategory.Analytics"
+                                              [class.text-info-emphasis]="cookie.categoryKey === CookieCategory.Analytics"
                                               [class.bg-warning-subtle]="cookie.categoryKey === CookieCategory.Profiling"
-                                              [class.text-warning]="cookie.categoryKey === CookieCategory.Profiling">
+                                              [class.text-warning-emphasis]="cookie.categoryKey === CookieCategory.Profiling">
                                             {{ cookie.category }}
                                         </span>
                                     </div>

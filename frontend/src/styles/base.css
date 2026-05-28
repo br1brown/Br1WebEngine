@@ -334,6 +334,7 @@ body {
     --colorSurface: color-mix(in srgb, white 96%, var(--colorTema) 4%);
     --colorSurfaceHover: color-mix(in srgb, white 90%, var(--colorTema) 10%);
     --colorSurfaceText: #212529;
+    --colorSecondary: var(--colorSecondaryLt);
     background-color: rgba(255, 255, 255, 0.82);
     border-color: rgba(255, 255, 255, 0.38);
     color: #212529;

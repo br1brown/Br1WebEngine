@@ -6,14 +6,14 @@
         <span class="navbar-brand nav-current-link d-flex align-items-center gap-2"
               aria-current="page">
             @if (showBrandIcon) {
-            <img aria-hidden="true" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
             }
             {{ appName }}
         </span>
         } @else {
         <a class="navbar-brand d-flex align-items-center gap-2" [appPage]="PageType.Home">
             @if (showBrandIcon) {
-            <img aria-hidden="true" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
             }
             {{ appName }}
         </a>

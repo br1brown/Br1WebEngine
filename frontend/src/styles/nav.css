@@ -68,15 +68,15 @@ footer a {
 
 /* ── Override Bootstrap dropdown nel contesto navbar ─────────────── */
 
-/* Il dropdown desktop galleggia sopra la pagina: usa colori surface (body bg/text)
-   anziché il colore navbar, e aggiunge ombra per dare senso di elevazione. */
+/* Il dropdown desktop usa gli stessi colori della navbar, 
+   mantenendo l'ombra per dare senso di elevazione. */
 .navbar .dropdown-menu {
     margin-top: 0.35rem;
     border-radius: 0.85rem;
-    background-color: var(--colorSurface);
-    color: var(--colorSurfaceText);
-    border-color: var(--colorSurfaceBorder);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px color-mix(in srgb, var(--colorSurfaceBorder) 60%, transparent);
+    background-color: var(--colorNavBg);
+    color: var(--colorNavText);
+    border-color: var(--colorNavBorder);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--colorNavBorder);
 }
 
 /* Colore e padding degli item: Bootstrap userebbe --bs-dropdown-link-color

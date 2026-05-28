@@ -293,7 +293,7 @@
                                 </button>
 
                                 @if (speech.currentVoice()) {
-                                    <span class="badge text-bg-light border" [title]="('speechVoiceLabel' | translate)">
+                                    <span class="badge border voice-badge" [title]="('speechVoiceLabel' | translate)">
                                         <i class="fa-solid fa-robot me-1"></i>
                                         {{ speech.currentVoice()?.name }}
                                     </span>
