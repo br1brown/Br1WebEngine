@@ -151,9 +151,18 @@ const serverConfig: ApplicationConfig = {
             useFactory: (transferState: TransferState): LocaleConfig => {
                 const s = getBr1Settings();
                 const loc = s['Localization'] as Record<string, unknown> | undefined;
+                const normLang = (tag: unknown): string | null => {
+                    if (typeof tag !== 'string' || !tag.trim()) return null;
+                    try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
+                };
+                const defaultLang = normLang(loc?.['DefaultLanguage']) ?? 'it';
+                const rawLangs = loc?.['SupportedLanguages'] as string[] | undefined;
+                const availableLanguages = (rawLangs ?? [defaultLang])
+                    .map(normLang)
+                    .filter((l): l is string => l !== null);
                 const config: LocaleConfig = {
-                    defaultLang:        (loc?.['DefaultLanguage']    as string   | undefined) ?? 'it',
-                    availableLanguages: (loc?.['SupportedLanguages'] as string[] | undefined) ?? ['it'],
+                    defaultLang,
+                    availableLanguages: availableLanguages.length > 0 ? availableLanguages : [defaultLang],
                 };
                 transferState.set(LOCALE_STATE_KEY, config);
                 return config;

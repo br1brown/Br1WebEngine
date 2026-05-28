@@ -70,9 +70,13 @@ export class TranslateService {
 
     async loadTranslations(lang: string): Promise<void> {
         const resolved = this.resolveLanguage(lang);
-        const catalogs =
-            await this.fetchCatalogs(resolved)
-            ?? await this.fetchCatalogs(this.localeConfig.defaultLang)
+        const primary = await this.fetchCatalogs(resolved);
+        // Fallback al defaultLang solo se diverso da resolved — evita di scaricare
+        // gli stessi file due volte quando resolved è già la lingua di default.
+        const catalogs = primary
+            ?? (resolved !== this.localeConfig.defaultLang
+                ? await this.fetchCatalogs(this.localeConfig.defaultLang)
+                : undefined)
             ?? [];
         this.translations.set(Object.assign({}, ...catalogs));
     }

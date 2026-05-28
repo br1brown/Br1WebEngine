@@ -34,8 +34,17 @@ const ROOT = join(__dirname, '../../../../../');
 // Legge la configurazione locale da br1engine.json — unica sorgente di verità
 const _br1 = JSON.parse(readFileSync(join(ROOT, '../br1engine.json'), 'utf-8')) as Record<string, unknown>;
 const _loc = (_br1['Localization'] as Record<string, unknown>) ?? {};
-const BR1_DEFAULT_LANG       = (_loc['DefaultLanguage']    as string   | undefined) ?? 'it';
-const BR1_AVAILABLE_LANGS    = (_loc['SupportedLanguages'] as string[] | undefined) ?? [BR1_DEFAULT_LANG];
+
+const _normLang = (tag: unknown): string | null => {
+    if (typeof tag !== 'string' || !tag.trim()) return null;
+    try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
+};
+
+const BR1_DEFAULT_LANG    = _normLang(_loc['DefaultLanguage']) ?? 'it';
+const BR1_AVAILABLE_LANGS = ((_loc['SupportedLanguages'] as string[] | undefined) ?? [BR1_DEFAULT_LANG])
+    .map(_normLang)
+    .filter((l): l is string => l !== null)
+    .filter((v, i, a) => a.indexOf(v) === i); // deduplication
 
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');

@@ -1048,18 +1048,10 @@ export function buildSite(
              * La registriamo nella mappa e la aggiungiamo alla sitemap.
              */
 
-            /**
-             * Auto-disabilita la pagina cookie policy se non ci sono cookie da mostrare.
-             * Il lookup sull'enum è dinamico: se CookiePolicy viene rimosso dall'enum
-             * il cast a Record restituisce undefined e il blocco è no-op.
-             */
-            const cookiePolicyType = Object.entries(PageType).find(([key]) => key === 'CookiePolicy')?.[1]; // 'CookiePolicy' = chiave enum — aggiornare se rinominata
-            if (siteConfig && cookiePolicyType !== undefined && page.pageType === cookiePolicyType) {
-                const noCookies =
-                    !siteConfig.isWebApp
-                    && Object.keys(COOKIE_MAP).length === 0;
-                if (noCookies) return [];
-            }
+            // La visibilità del banner cookie e dei link alla policy è controllata a runtime
+            // da CookieConsentService.isNeeded() (che considera anche le lingue da LOCALE_CONFIG).
+            // Non si applica qui alcuna esclusione anticipata: siteBuilder non conosce il
+            // conteggio lingue runtime (viene da br1engine.json via LOCALE_CONFIG, non da site.ts).
 
             if (seenInternalPaths.has(fullPath)) {
                 throw new Error(

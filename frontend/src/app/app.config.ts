@@ -84,15 +84,27 @@ export const appConfig: ApplicationConfig = {
         {
             provide: LOCALE_CONFIG,
             useFactory: (transferState: TransferState, doc: Document): LocaleConfig => {
+                const normLang = (tag: unknown): string | null => {
+                    if (typeof tag !== 'string' || !tag.trim()) return null;
+                    try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
+                };
+                const normalize = (raw: LocaleConfig): LocaleConfig => {
+                    const defaultLang = normLang(raw.defaultLang) ?? 'it';
+                    const langs = (raw.availableLanguages ?? [defaultLang])
+                        .map(normLang)
+                        .filter((l): l is string => l !== null);
+                    return { defaultLang, availableLanguages: langs.length > 0 ? langs : [defaultLang] };
+                };
+
                 // Caso normale (SSR): il server ha già serializzato la config in TransferState.
                 if (transferState.hasKey(LOCALE_STATE_KEY)) {
-                    return transferState.get(LOCALE_STATE_KEY, { defaultLang: 'it', availableLanguages: ['it'] });
+                    return normalize(transferState.get(LOCALE_STATE_KEY, { defaultLang: 'it', availableLanguages: ['it'] }));
                 }
                 // Fallback per ng serve e route RenderMode.Client navigate direttamente:
                 // generate-statics.ts scrive la config in <meta name="br1-locale"> da br1engine.json.
                 try {
                     const content = doc.querySelector('meta[name="br1-locale"]')?.getAttribute('content');
-                    if (content) return JSON.parse(content) as LocaleConfig;
+                    if (content) return normalize(JSON.parse(content) as LocaleConfig);
                 } catch { }
                 // Ultima risorsa: se index.html non è stato aggiornato da generate-statics.ts.
                 if (isDevMode()) {
