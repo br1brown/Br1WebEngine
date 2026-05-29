@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { inject, Injectable, isDevMode, REQUEST, signal } from '@angular/core';
+import { inject, Injectable, isDevMode, REQUEST, signal, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { CookieConsentService } from './cookie-consent.service';
@@ -52,6 +52,15 @@ export class TranslateService {
 
     /** Lingue disponibili, come dichiarate in global-settings.json via LOCALE_CONFIG. */
     readonly availableLangs = signal<readonly string[]>(this.localeConfig.availableLanguages);
+
+    constructor() {
+        effect(() => {
+            // Se l'utente accetta i cookie tecnici in un secondo momento, salviamo la lingua corrente
+            if (this.consent.technicalAccepted() && this.hasInitializedLanguage && this.hasMultipleLanguages()) {
+                this.persistLanguage(this.currentLang());
+            }
+        });
+    }
 
     // ─── BCP-47 ───────────────────────────────────────────────────────────
 

@@ -18,8 +18,8 @@ export class CookieBannerComponent {
     readonly theme = inject(ThemeService);
     private readonly translate = inject(TranslateService);
 
-    /** Stato locale dei pending — inizializzati dal consenso già salvato, se presente. */
-    readonly pendingTechnical = signal(this.cookieConsent.technicalAccepted());
+    /** Stato locale dei pending — inizializzati dal consenso già salvato, o attivi di default alla prima apertura per i tecnici. */
+    readonly pendingTechnical = signal(this.cookieConsent.responded() ? this.cookieConsent.technicalAccepted() : true);
     readonly pendingAnalytics = signal(this.cookieConsent.analyticsAccepted());
     readonly pendingProfiling = signal(this.cookieConsent.profilingAccepted());
 

@@ -10,13 +10,18 @@
                     <div class="mt-3">
                         @if (cookieConsent.isTechnicalNeeded()) {
                             <hr class="mt-0 mb-0">
-                            <details class="cookie-category">
-                                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">
-                                    {{ 'tecniciCategoriaCookie' | translate }}
-                                    <span class="small border rounded-pill px-2 py-1 opacity-75 text-nowrap flex-shrink-0">{{ 'obbligatorioBannerCookie' | translate }}</span>
-                                </summary>
-                                <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
-                            </details>
+                            <div class="d-flex align-items-center gap-3">
+                                <details class="cookie-category flex-grow-1">
+                                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
+                                    <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
+                                </details>
+                                <div class="form-check form-switch mb-0 flex-shrink-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           [attr.aria-label]="'tecniciCategoriaCookie' | translate"
+                                           [checked]="pendingTechnical()"
+                                           (change)="pendingTechnical.set($any($event.target).checked)">
+                                </div>
+                            </div>
                         }
                         @if (cookieConsent.isAnalyticsNeeded()) {
                             <hr class="mt-0 mb-0">
