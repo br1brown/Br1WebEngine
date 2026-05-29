@@ -1,6 +1,7 @@
 /* social.css — Icone social. Colori gestiti dinamicamente via [style.background-color]. */
 
 .social-icon {
+    background-color: #333;
     width: 54px;
     height: 54px;
     margin: 6px;

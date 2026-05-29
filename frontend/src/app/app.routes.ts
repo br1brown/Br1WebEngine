@@ -6,6 +6,8 @@ import { ContestoSito } from './site';
 import { AuthService } from './core/services/auth.service';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage } from './core/engine/siteBuilder';
+import { NotificationService } from './core/engine/services/notification.service';
+import { TranslateService } from './core/engine/services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -24,6 +26,8 @@ export function injectCurrentUrl() {
 const authGuard: CanActivateFn = (route) => {
     const authService = inject(AuthService);
     const router = inject(Router);
+    const notification = inject(NotificationService);
+    const translate = inject(TranslateService);
 
     if (authService.isLoggedIn()) {
         return true;
@@ -43,7 +47,12 @@ const authGuard: CanActivateFn = (route) => {
         }
     }
 
-    // Se redirectPage è nullo: blocchiamo la navigazione e restiamo fermi
+    // Se redirectPage è nullo: non abbiamo una pagina di login dove mandare l'utente,
+    // quindi restiamo sulla pagina corrente e segnaliamo l'accesso negato con una modale.
+    notification.error(
+        translate.translate('errore401Titolo'),
+        translate.translate('errore401Descrizione')
+    );
     return false;
 };
 

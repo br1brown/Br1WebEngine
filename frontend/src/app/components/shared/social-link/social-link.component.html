@@ -1,7 +1,7 @@
 <a class="text-decoration-none text-reset d-inline-flex align-items-center gap-2 flex-column flex-sm-row social-link-hover" [href]="resolvedUrl()" target="_blank" rel="noopener noreferrer"
    [title]="displayLabel()"
    [attr.aria-label]="showLabel() ? null : displayLabel()">
-    <i [class]="'social-icon text-white bg-dark rounded-circle d-inline-flex align-items-center justify-content-center ' + icon()" [style.background-color]="brandColor()" aria-hidden="true"></i>
+    <i [class]="'social-icon text-white rounded-circle d-inline-flex align-items-center justify-content-center ' + icon()" [style.background-color]="brandColor()" aria-hidden="true"></i>
     @if (showLabel()) {
         <span class="social-label">{{ displayLabel() }}</span>
     }

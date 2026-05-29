@@ -15,7 +15,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0 h-100">
 
-                        <div class="col-12 col-lg-7 p-3">
+                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
                             <h2 class="card-title mb-1 h5">{{ 'markdownLabTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">{{ 'markdownLabDesc' | translate }}</p>
 
@@ -57,13 +57,15 @@
                             }
                         </div>
 
-                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-markdown">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-markdown"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.markdown"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-markdown">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-markdown"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.markdown"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>
@@ -76,7 +78,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0 h-100">
 
-                        <div class="col-12 col-lg-7 p-3">
+                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
                             <h2 class="card-title mb-1 h5">{{ 'imgBuilderTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">{{ 'imgBuilderDesc' | translate }}</p>
 
@@ -114,13 +116,15 @@
                             </div>
                         </div>
 
-                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-img">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-img"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.imgRender"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-img">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-img"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.imgRender"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>
@@ -138,7 +142,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0">
 
-                        <div class="col-12 col-lg-8 p-3">
+                        <div class="col-12 p-3" [class.col-lg-8]="auth.isLoggedIn()">
                             <h2 class="card-title mb-1 h5">{{ 'qrCodeTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">
                                 {{ 'qrCodeDesc' | translate }}
@@ -243,13 +247,15 @@
                             </div>
                         </div>
 
-                        <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-qr">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-qr"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.qrCode"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-qr">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-qr"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.qrCode"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>
@@ -268,7 +274,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0 h-100">
 
-                        <div class="col-12 col-lg-7 p-3">
+                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
                             <h2 class="card-title mb-1 h5">{{ 'speechDemoTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
 
@@ -305,13 +311,15 @@
                             }
                         </div>
 
-                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-speech">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-speech"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.speech"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-speech">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-speech"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.speech"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>
@@ -324,7 +332,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0 h-100">
 
-                        <div class="col-12 col-lg-7 p-3">
+                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
                             <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
                             <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
 
@@ -348,13 +356,15 @@
                             }
                         </div>
 
-                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-notify">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-notify"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.notify"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-notify">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-notify"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.notify"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>
@@ -390,12 +400,14 @@
                             colorPrimary: {{ theme.colorPrimary }}
                         </span>
                     </div>
-                    <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-theme">{{ 'usageCodeLabel' | translate }}</label>
-                    <textarea id="code-theme"
-                              class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
-                              readonly spellcheck="false"
-                              [value]="snippets.theme"></textarea>
+                    @if (auth.isLoggedIn()) {
+                        <hr class="my-2">
+                        <label class="small fw-semibold text-muted mb-2" for="code-theme">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-theme"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.theme"></textarea>
+                    }
                 </div>
             </div>
         </div>
@@ -414,12 +426,14 @@
                             <span class="badge bg-secondary">{{ lang }}</span>
                         }
                     </div>
-                    <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-i18n">{{ 'usageCodeLabel' | translate }}</label>
-                    <textarea id="code-i18n"
-                              class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
-                              readonly spellcheck="false"
-                              [value]="snippets.i18n"></textarea>
+                    @if (auth.isLoggedIn()) {
+                        <hr class="my-2">
+                        <label class="small fw-semibold text-muted mb-2" for="code-i18n">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-i18n"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.i18n"></textarea>
+                    }
                 </div>
             </div>
         </div>
@@ -446,12 +460,14 @@
                         <pre class="border rounded p-2 mb-3 api-result-output theme-demo-surface"><code>{{ socialResult() }}</code></pre>
                     }
 
-                    <hr class="my-2">
-                    <label class="small fw-semibold text-muted mb-2" for="code-api">{{ 'usageCodeLabel' | translate }}</label>
-                    <textarea id="code-api"
-                              class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
-                              readonly spellcheck="false"
-                              [value]="snippets.api"></textarea>
+                    @if (auth.isLoggedIn()) {
+                        <hr class="my-2">
+                        <label class="small fw-semibold text-muted mb-2" for="code-api">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-api"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea-sm"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.api"></textarea>
+                    }
                 </div>
             </div>
         </div>
@@ -462,7 +478,7 @@
                 <div class="card-body p-0">
                     <div class="row g-0">
 
-                        <div class="col-12 col-lg-7 p-3">
+                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
                             <h3 class="mb-2 h6">{{ 'assetResolverTitle' | translate }}</h3>
                             <p class="small text-muted mb-2">{{ 'assetResolverDesc' | translate }}</p>
 
@@ -502,13 +518,15 @@
                             }
                         </div>
 
-                        <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                            <label class="small fw-semibold text-muted mb-2" for="code-asset">{{ 'usageCodeLabel' | translate }}</label>
-                            <textarea id="code-asset"
-                                      class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                      readonly spellcheck="false"
-                                      [value]="snippets.asset"></textarea>
-                        </div>
+                        @if (auth.isLoggedIn()) {
+                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                                <label class="small fw-semibold text-muted mb-2" for="code-asset">{{ 'usageCodeLabel' | translate }}</label>
+                                <textarea id="code-asset"
+                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                          readonly spellcheck="false"
+                                          [value]="snippets.asset"></textarea>
+                            </div>
+                        }
 
                     </div>
                 </div>

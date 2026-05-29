@@ -11,6 +11,7 @@ import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { ShareService } from '../../core/engine/services/share.service';
 import { ThemeService } from '../../core/engine/services/theme.service';
 import { QrConfig } from '../../core/engine/services/qr-code.service';
+import { AuthService } from '../../core/services/auth.service';
 
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
@@ -42,6 +43,7 @@ export class HomeComponent extends PageBaseComponent<void> {
     readonly share = inject(ShareService);
     readonly appName = ContestoSito.config.appName;
     readonly speech = inject(SpeechService);
+    readonly auth = inject(AuthService);
 
     /** Canvas raw emesso dalla [imgRender] directive: serve a download/share. */
     readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
