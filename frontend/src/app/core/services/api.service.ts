@@ -1,7 +1,5 @@
 import { Injectable } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 import { Profile } from '../dto/profile.dto';
 import { LoginResult } from '../dto/api.dto';
 import { BaseApiService } from '../engine/services/base-api.service';
@@ -58,13 +56,10 @@ export class ApiService extends BaseApiService {
 
     /**
      * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
-     * Usa HttpClient direttamente: responseType 'blob' non e' compatibile con get<T>().
+     * Delega a api_get_blob della base: stessa risoluzione URL (SSR-aware), header e gestione errori.
      */
     getBlob(slug: string): Promise<Blob> {
-        return firstValueFrom(
-            this.http.get(API.blob(slug), { headers: this.build_api_Headers(), responseType: 'blob' })
-                .pipe(catchError(err => this.handleError(err)))
-        );
+        return this.api_get_blob(API.blob(slug));
     }
 
     /** Effettua il login inviando la password al backend. */

@@ -27,7 +27,7 @@
       "properties": {
         "hostname": {
           "type": "string",
-          "description": "Dominio pubblico del sito senza schema (es. 'miodominio.it'). Lasciare vuoto in sviluppo locale. Usato per FRONTEND_BASE_URL, NG_ALLOWED_HOSTS e per derivare Security.CorsOrigins.",
+          "description": "Dominio pubblico del sito senza schema (es. 'miodominio.it'). Usato per FRONTEND_BASE_URL, NG_ALLOWED_HOSTS e per derivare Security.CorsOrigins. Se vuoto (sviluppo locale o host non noto a priori), il frontend Node SSR usa allowedHosts=['*']: SSR pieno per qualsiasi host, parallelo del backend AllowAnyOrigin quando CorsOrigins è vuoto; la protezione resta l'API key + l'host check del reverse proxy. Valorizzarlo per restringere l'allowlist degli host SSR.",
           "examples": ["", "miodominio.it", "www.miodominio.it"]
         },
         "port": {

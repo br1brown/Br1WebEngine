@@ -81,6 +81,22 @@ export abstract class BaseApiService {
         );
     }
 
+    /**
+     * Esegue una GET che restituisce dati binari (immagini, PDF, ecc.).
+     * `responseType: 'blob'` non è compatibile con la firma generica di `api_get<T>`,
+     * quindi ha un metodo dedicato — ma passa comunque per `resolveUrl` e per gli
+     * header/gestione errori centralizzati come tutte le altre chiamate.
+     */
+    protected api_get_blob(url: string, params?: HttpParams): Promise<Blob> {
+        return firstValueFrom(
+            this.http.get(this.resolveUrl(url), {
+                headers: this.build_api_Headers(),
+                params,
+                responseType: 'blob'
+            }).pipe(catchError(err => this.handleError(err)))
+        );
+    }
+
     /** Esegue una richiesta POST inviando un body. */
     protected api_post<T>(url: string, body: unknown): Promise<T> {
         return firstValueFrom(

@@ -40,9 +40,9 @@ public static class SecurityExtensions
                 options =>
                 {
                     // Chiavi accettate, lette da Security.ApiKeys in global-settings.json.
-                    options.ValidKeys = new HashSet<string>(
-                        security.ApiKeys,
-                        StringComparer.OrdinalIgnoreCase);
+                    // Confronto ORDINALE (case-sensitive): una API key è un segreto,
+                    // ignorare il case ne dimezzerebbe l'entropia.
+                    options.ValidKeys = new HashSet<string>(security.ApiKeys, StringComparer.Ordinal);
                 });
 
         // ── JWT BEARER (condizionale) ───────────────────────────────────

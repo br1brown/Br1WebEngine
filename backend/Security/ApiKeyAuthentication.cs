@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
@@ -53,9 +55,9 @@ public static class SecurityDefaults
 public class ApiKeySchemeOptions : AuthenticationSchemeOptions
 {
 	/// <summary>
-	/// Collezione delle API key ammesse, confrontate in modo case-insensitive.
+	/// Collezione delle API key ammesse, confrontate in modo ordinale (case-sensitive).
 	/// </summary>
-	public HashSet<string> ValidKeys { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public HashSet<string> ValidKeys { get; set; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>
@@ -119,7 +121,10 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 			return Task.FromResult(AuthenticateResult.Fail("Header " + SecurityDefaults.ApiKeyHeaderName + " mancante."));
 
 		// Chiave non presente nella whitelist configurata.
-		if (!Options.ValidKeys.Contains(apiKey.Trim()))
+		// Confronto a tempo costante: FixedTimeEquals evita che il tempo di risposta
+		// dipenda da quanti caratteri iniziali combaciano, chiudendo il side-channel
+		// che permetterebbe di indovinare la chiave un byte alla volta.
+		if (!IsValidApiKey(apiKey.Trim()))
 			return Task.FromResult(AuthenticateResult.Fail("API key non valida."));
 
 		// Chiave valida: crea un'identita' minima che certifica il superamento
@@ -131,6 +136,27 @@ public class ApiKeyHandler : AuthenticationHandler<ApiKeySchemeOptions>
 		var authTicket = new AuthenticationTicket(principal, Scheme.Name);
 
 		return Task.FromResult(AuthenticateResult.Success(authTicket));
+	}
+
+	/// <summary>
+	/// Confronta la chiave presentata con quelle valide in tempo costante.
+	/// </summary>
+	/// <remarks>
+	/// Itera su TUTTE le chiavi senza interrompersi al primo match: un'uscita anticipata
+	/// reintrodurrebbe una dipendenza temporale dal numero di chiavi confrontate.
+	/// <see cref="CryptographicOperations.FixedTimeEquals"/> rende il confronto byte-per-byte
+	/// indipendente dalla posizione del primo carattere divergente.
+	/// </remarks>
+	private bool IsValidApiKey(string presented)
+	{
+		var presentedBytes = Encoding.UTF8.GetBytes(presented);
+		var match = false;
+		foreach (var key in Options.ValidKeys)
+		{
+			if (CryptographicOperations.FixedTimeEquals(presentedBytes, Encoding.UTF8.GetBytes(key)))
+				match = true;
+		}
+		return match;
 	}
 
 	/// <summary>

@@ -73,7 +73,9 @@ export interface NodeServerEnv {
     readonly trustProxy: string;
     /** Timeout ms per le chiamate proxy al backend. Impostato da PROXY_TIMEOUT_MS (default: 30000). */
     readonly proxyTimeout: number;
-    /** Host autorizzati per le richieste SSR. Impostato da NG_ALLOWED_HOSTS (lista separata da virgole). */
+    /** Host autorizzati per le richieste SSR. Impostato da NG_ALLOWED_HOSTS (lista separata
+     *  da virgole) o da frontend.hostname. Se nessuno dei due è valorizzato, fallback a ['*']
+     *  (vedi ALLOW_ANY_HOST): SSR pieno per qualsiasi host, parallelo del backend AllowAnyOrigin. */
     readonly allowedHosts: readonly string[];
 }
 
@@ -109,11 +111,28 @@ const parsePositiveInt = (value: string | undefined, fallback: number): number =
     return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-const parseAllowedHosts = (value: string | undefined): readonly string[] =>
-    (value ?? '')
+/** Sentinella wildcard di @angular/ssr: allowedHosts che contiene '*' → SSR per qualsiasi host
+ *  (con un singolo warning all'avvio). È il parallelo concettuale del backend `AllowAnyOrigin`. */
+const ALLOW_ANY_HOST: readonly string[] = ['*'];
+
+/**
+ * Parsa la lista host separata da virgole. Se il risultato è vuoto (né NG_ALLOWED_HOSTS né
+ * frontend.hostname forniscono valori), restituisce ['*'] anziché [].
+ *
+ * Motivo: con allowedHosts vuoto @angular/ssr NON apre a tutti — degrada a CSR e logga
+ * `ERROR: Bad Request` ad ogni richiesta (e dalla v22 risponderà 400 secco). Il vero
+ * "permetti qualsiasi host" è il wildcard '*', coerente con la scelta deliberata del backend
+ * di usare AllowAnyOrigin quando CorsOrigins è vuoto: la protezione resta l'API key + l'host
+ * check del reverse proxy (NPM) a monte. Per restringere, valorizzare NG_ALLOWED_HOSTS o
+ * frontend.hostname.
+ */
+const parseAllowedHosts = (value: string | undefined): readonly string[] => {
+    const hosts = (value ?? '')
         .split(',')
         .map((host) => host.trim())
         .filter((host) => host.length > 0);
+    return hosts.length > 0 ? hosts : ALLOW_ANY_HOST;
+};
 
 // ── Configurazione lazy per sezione ──────────────────────────────────────────
 //
