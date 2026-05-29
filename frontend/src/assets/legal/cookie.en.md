@@ -1,21 +1,13 @@
 # Cookie Policy
 
-## What are cookies
-Cookies are small text files stored on your device to enhance your browsing experience.
-
-## How we use cookies
-This website uses the following categories of cookies, managed based on your consent:
+This site uses the following categories of cookies subject to your authorization:
 
 {{cookieCategories}}
 
-All cookies used on this website are activated and stored **only with the user's explicit consent**, collected upon the first visit and adjustable at any time via the banner settings.
-
-The detailed list of cookies used on this website is provided below:
+We believe that the user should have total control over the data saved on their device. Below are the specific cookies that will be used if you give your consent, along with their respective categories:
 
 {{cookieList}}
 
+You can manage or revoke your preferences at any time through the site's banner.
 
-## Cookie control
-In addition to the preferences managed via the website's banner, you can configure or block cookies directly through your web browser settings (disable, delete, block third-party cookies).
-
-**Last revision:** May 25, 2026
+**Last updated:** May 25, 2026

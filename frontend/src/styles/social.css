@@ -1,16 +1,10 @@
 /* social.css — Icone social. Colori gestiti dinamicamente via [style.background-color]. */
 
 .social-icon {
-    color: #fff;
-    background-color: #333;
     width: 54px;
     height: 54px;
     margin: 6px;
-    border-radius: 50%;
     font-size: 1.375rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
     transition: transform 0.2s, opacity 0.2s;
     will-change: transform;

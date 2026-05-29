@@ -87,7 +87,6 @@ footer a {
     line-height: 1.35;
     font-weight: 500;
     color: inherit;
-    white-space: normal;
 }
 
 .navbar .dropdown-item:hover,
@@ -198,6 +197,7 @@ footer a {
     .navbar .dropdown-item {
         padding: 0.5rem 0;
         font-weight: 400;
+        white-space: normal;
     }
 
     .navbar .dropdown-item.active,

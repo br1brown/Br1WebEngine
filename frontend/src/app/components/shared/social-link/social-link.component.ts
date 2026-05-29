@@ -5,7 +5,8 @@ import { Component, computed, input } from '@angular/core';
     standalone: true,
     imports: [],
     templateUrl: './social-link.component.html',
-    styleUrl: './social-link.component.css'
+    styleUrl: './social-link.component.css',
+    host: { class: 'd-inline-block' }
 })
 export class SocialLinkComponent {
     readonly type = input.required<string>();

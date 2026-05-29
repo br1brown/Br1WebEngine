@@ -1,13 +1,4 @@
-:host {
-    display: block;
-}
 
-/* Segnaposto statico per compensare la navbar fixed-top: altezza fissa pari
-   all'altezza standard della barra (Bootstrap navbar md = ~3.5rem).
-   Non serve JS: il layout non reagisce al contenuto dinamico della barra. */
-.navbar-spacer {
-    height: 3.5rem;
-}
 
 .navbar {
     color: var(--colorNavText, var(--colorTemaText));

@@ -23,7 +23,7 @@ import { PageType } from '../../site';
     selector: 'app-error',
     imports: [TranslatePipe, PageDirective],
     templateUrl: './error.component.html',
-    styleUrl: './error.component.css'
+    host: { class: 'd-flex align-items-center justify-content-center', style: 'min-height: 60vh;' }
 })
 export class ErrorComponent {
     private readonly translate = inject(TranslateService);

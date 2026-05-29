@@ -25,7 +25,7 @@ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
     templateUrl: './app.component.html',
-    styleUrl: './app.component.css'
+    host: { class: 'd-flex flex-column min-vh-100' }
 })
 export class AppComponent {
     private readonly router = inject(Router);
@@ -33,8 +33,8 @@ export class AppComponent {
 
     readonly smoke = ContestoSito.config.smoke;
 
-    readonly showSmoke = computed(() => 
-        this.smoke.enable && !this.theme.prefersReducedMotion()
+    readonly showSmoke = computed(() =>
+        (this.showPanel()) && this.smoke.enable && !this.theme.prefersReducedMotion()
     );
 
     // Espone la route foglia corrente come signal, cosi' il layout globale

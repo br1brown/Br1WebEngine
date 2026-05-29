@@ -310,13 +310,7 @@ body {
     background-color: var(--colorBase);
 }
 
-/* Contenitore con scorrimento orizzontale */
-.horizontal-scroll {
-    overflow-x: auto;
-    white-space: nowrap;
-    display: flex;
-    scrollbar-width: none;
-}
+
 
 /* Pannello contenuti - si adatta automaticamente al contrasto con lo sfondo tema.
    Su temi scuri: pannello chiaro con testo scuro.
@@ -350,30 +344,7 @@ body {
     color: #f8f9fa;
 }
 
-/* Contenitore di sfondo (immagini di copertina) */
-.background-wrapper {
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    height: 200px;
-}
 
-.background-wrapper-content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-}
-
-.row {
-    padding: 0;
-    padding-top: 10px;
-}
 
 code {
     font-weight: bold;

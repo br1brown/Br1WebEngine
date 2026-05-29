@@ -78,9 +78,18 @@
   max-height: 90px;
 }
 
+.demo-code-textarea {
+  resize: none;
+  min-height: 200px;
+}
+
+.demo-code-textarea-sm {
+  resize: none;
+  min-height: 160px;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .demo-context-area {
     cursor: default;
   }
 }
-

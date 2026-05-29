@@ -17,7 +17,7 @@ interface SocialLinkVm {
     selector: 'app-footer',
     imports: [TranslatePipe, SocialLinkComponent, LoadingComponent, ProfileRenderComponent, FooterNavComponent],
     templateUrl: './footer.component.html',
-    styleUrl: './footer.component.css'
+    host: { class: 'd-block mt-auto' }
 })
 export class FooterComponent {
     private readonly api = inject(ApiService);

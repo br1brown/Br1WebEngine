@@ -18,7 +18,8 @@ import { AssetDirective } from '../../../core/engine/directives/asset.directive'
     selector: 'app-navbar',
     imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective],
     templateUrl: './navbar.component.html',
-    styleUrl: './navbar.component.css'
+    styleUrl: './navbar.component.css',
+    host: { class: 'd-block' }
 })
 export class NavbarComponent {
     readonly theme = inject(ThemeService);

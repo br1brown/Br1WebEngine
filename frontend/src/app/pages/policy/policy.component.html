@@ -5,39 +5,42 @@
                 @if (seg.type === 'markdown') {
                     <div [innerHTML]="seg.content | markdown"></div>
                 } @else if (seg.type === 'categories') {
-                    <div class="cookie-categories-grid">
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 my-3">
                         @for (cat of cookieCategories(); track cat.key) {
-                            <div class="card category-card h-100 shadow-sm">
-                                <div class="card-body p-4">
-                                    <div class="d-flex align-items-center mb-3">
-                                        <div class="category-icon-wrapper me-3 d-flex align-items-center justify-content-center">
-                                            @switch (cat.key) {
-                                                @case (CookieCategory.Technical) {
-                                                    <i class="fa-solid fa-shield-halved text-success fs-4"></i>
+                            <div class="col">
+                                <div class="card h-100 shadow-sm border-light">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="bg-light rounded p-3 me-3 d-flex align-items-center justify-content-center">
+                                                @switch (cat.key) {
+                                                    @case (CookieCategory.Technical) {
+                                                        <i class="fa-solid fa-shield-halved text-success fs-4"></i>
+                                                    }
+                                                    @case (CookieCategory.Analytics) {
+                                                        <i class="fa-solid fa-chart-line text-info fs-4"></i>
+                                                    }
+                                                    @case (CookieCategory.Profiling) {
+                                                        <i class="fa-solid fa-user-gear text-warning fs-4"></i>
+                                                    }
                                                 }
-                                                @case (CookieCategory.Analytics) {
-                                                    <i class="fa-solid fa-chart-line text-info fs-4"></i>
-                                                }
-                                                @case (CookieCategory.Profiling) {
-                                                    <i class="fa-solid fa-user-gear text-warning fs-4"></i>
-                                                }
-                                            }
+                                            </div>
+                                            <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
                                         </div>
-                                        <h5 class="card-title mb-0 fw-bold">{{ cat.name }}</h5>
+                                        <p class="card-text text-muted small mb-0">{{ cat.description }}</p>
                                     </div>
-                                    <p class="card-text text-muted small mb-0">{{ cat.description }}</p>
                                 </div>
                             </div>
                         }
                     </div>
                 } @else if (seg.type === 'cookieList') {
-                    <div class="cookie-list-group">
+                    <div class="list-group my-4 shadow-sm border-light">
                         @for (cookie of cookieList(); track cookie.name) {
-                            <div class="cookie-item bg-white">
+                            <div class="list-group-item bg-white p-4">
                                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <code class="cookie-name-badge">{{ cookie.name }}</code>
-                                        <span class="badge category-badge-pill px-3 py-1 rounded-pill"
+                                        <code>{{ cookie.name }}</code>
+                                        <span class="badge px-3 py-1 rounded-pill text-uppercase"
+                                              style="letter-spacing: 0.5px; font-size: 0.75rem;"
                                               [class.bg-success-subtle]="cookie.categoryKey === CookieCategory.Technical"
                                               [class.text-success-emphasis]="cookie.categoryKey === CookieCategory.Technical"
                                               [class.bg-info-subtle]="cookie.categoryKey === CookieCategory.Analytics"
@@ -49,7 +52,7 @@
                                     </div>
                                 </div>
                                 @if (cookie.description) {
-                                    <p class="cookie-desc small mb-0 mt-2">{{ cookie.description }}</p>
+                                    <p class="text-secondary small mb-0 mt-2 lh-base">{{ cookie.description }}</p>
                                 }
                             </div>
                         }
