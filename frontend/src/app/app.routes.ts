@@ -6,8 +6,6 @@ import { ContestoSito } from './site';
 import { AuthService } from './core/services/auth.service';
 import { contentLoaderResolver } from './pages/content.resolver';
 import { InternalSitePage, isInternalPage, isParentPage } from './core/engine/siteBuilder';
-import { NotificationService } from './core/engine/services/notification.service';
-import { TranslateService } from './core/engine/services/translate.service';
 
 export function injectCurrentUrl() {
     const router = inject(Router);
@@ -24,27 +22,23 @@ export function injectCurrentUrl() {
  * Guard di autenticazione: protegge le rotte che hanno il flag `requiresAuth`.
  */
 const authGuard: CanActivateFn = (route) => {
-    const t = inject(TranslateService);
     const authService = inject(AuthService);
-    const notifaction = inject(NotificationService);
     const router = inject(Router);
 
     if (authService.isLoggedIn()) {
         return true;
     }
 
-    // Mostriamo sempre la notifica (modale o toast) per spiegare all'utente PERCHÉ è stato interrotto.
-    // Essendo in una SPA, la modale rimarrà aperta anche durante e dopo il redirect,
-    // così l'utente leggerà il messaggio con la pagina di Login sullo sfondo.
-    void notifaction.error(t.translate('errore401Titolo'), t.translate('errore401Descrizione'));
-
+    // Utente non autenticato: lo mandiamo alla pagina di login passando il motivo come query
+    // param (`reason=auth`), così la pagina mostra un avviso inline invece di una modale.
+    // Conserviamo anche il pageType di partenza per tornarci automaticamente dopo il login.
     const redirectPage = ContestoSito.config.pageForAuthGuard;
     if (redirectPage != null) {
         const path = ContestoSito.getPath(redirectPage);
         if (path) {
             // Redirigiamo alla pagina di login indicata, passando il vecchio pageType
             return router.createUrlTree([path], {
-                queryParams: { returnPageType: route.data['pageType'] }
+                queryParams: { returnPageType: route.data['pageType'], reason: 'auth' }
             });
         }
     }

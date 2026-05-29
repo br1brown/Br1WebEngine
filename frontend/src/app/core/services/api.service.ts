@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
 import { Profile } from '../dto/profile.dto';
-import { LoginResult } from '../dto/api.dto';
+import { LoginRequest, LoginResult } from '../dto/api.dto';
 import { BaseApiService } from '../engine/services/base-api.service';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
@@ -14,8 +14,10 @@ const API = {
 
 /**
  * Client HTTP centralizzato. Ogni endpoint del backend ha un metodo pubblico dedicato.
- * La gestione errori e' automatica: BaseApiService.handleError() notifica l'utente via
- * NotificationService e ri-lancia l'errore per chi vuole gestire lo stato localmente.
+ * La gestione errori e' automatica per default: BaseApiService.handleError() notifica l'utente via
+ * NotificationService e ri-lancia un ApiError tipizzato per chi vuole gestire lo stato localmente.
+ * Passando { silent: true } la notifica automatica viene saltata e l'errore (ApiError) resta solo
+ * da gestire al chiamante: usarlo per i flussi con UI d'errore propria (es. il form di login).
  *
  * Per aggiungere un endpoint:
  *   1. Aggiungere il path nella costante API (sopra)
@@ -62,9 +64,14 @@ export class ApiService extends BaseApiService {
         return this.api_get_blob(API.blob(slug));
     }
 
-    /** Effettua il login inviando la password al backend. */
-    login(password: string): Promise<LoginResult> {
-        return this.api_post<LoginResult>(API.login, { pwd: password });
+    /**
+     * Effettua il login inviando le credenziali al backend.
+     * `silent: true`: niente notifica automatica — l'esito (anche l'errore) è gestito
+     * inline dal form di login tramite AuthService.
+     */
+    login(username: string, password: string): Promise<LoginResult> {
+        const request: LoginRequest = { username, pwd: password };
+        return this.api_post<LoginResult>(API.login, request, { silent: true });
     }
 
 }

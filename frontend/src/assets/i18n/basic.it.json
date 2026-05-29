@@ -128,5 +128,18 @@
   "footerNav": "Navigazione footer",
   "toggleNav": "Apri/chiudi navigazione",
   "principaleNav": "Navigazione principale",
-  "fallbackErrore": "Si è verificato un errore"
+  "fallbackErrore": "Si è verificato un errore",
+  "loginNav": "Login",
+  "loginDesc": "Accedi all'area riservata del sito.",
+  "loginTitolo": "Accesso",
+  "loginSottotitolo": "Inserisci la password per accedere all'area riservata.",
+  "loginUsernameLabel": "Nome utente",
+  "loginPasswordLabel": "Password",
+  "loginPasswordObbligatoria": "La password è obbligatoria.",
+  "loginPasswordMinLength": "La password deve contenere almeno 8 caratteri.",
+  "loginErroreGenerico": "Credenziali non valide. Riprova.",
+  "loginServizioNonDisponibile": "Il servizio di accesso non è al momento disponibile. Riprova più tardi.",
+  "loginRichiestoMotivo": "Accedi per continuare verso la pagina richiesta.",
+  "loginCaricamento": "Accesso in corso…",
+  "loginAzione": "Accedi"
 }

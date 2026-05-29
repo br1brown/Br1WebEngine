@@ -12,8 +12,14 @@ namespace Backend.Models;
 /// e la converte in un payload ProblemDetails (RFC 9457) con lo status code corretto.
 /// </para>
 /// <para>
+/// Il messaggio non e' una stringa fissa ma una <see cref="MessageKey"/>: l'handler la risolve
+/// nella lingua della richiesta tramite <c>IStringLocalizer&lt;SharedResource&gt;</c> (file .resx).
+/// Eventuali <see cref="MessageArgs"/> riempiono i segnaposto del testo (es. <c>{0}</c>).
+/// </para>
+/// <para>
 /// Ogni sottoclasse rappresenta uno scenario di errore specifico con il suo codice HTTP:
 /// <list type="bullet">
+/// <item><see cref="UnauthorizedException"/> (401) — credenziali assenti o non valide</item>
 /// <item><see cref="NotFoundException"/> (404) — la risorsa non esiste o non e' leggibile</item>
 /// <item><see cref="DataNotFoundException"/> (404) — i dati esistono ma sono vuoti</item>
 /// <item><see cref="DecodingException"/> (400) — il payload non e' decodificabile</item>
@@ -21,8 +27,8 @@ namespace Backend.Models;
 /// </list>
 /// </para>
 /// <para>
-/// Per aggiungere un nuovo tipo di errore, basta creare una nuova sottoclasse
-/// con il messaggio e lo status code desiderati. L'handler li gestira' automaticamente.
+/// Per aggiungere un nuovo tipo di errore: creare una sottoclasse che passa una chiave di risorsa
+/// e lo status code; aggiungere la chiave nei file <c>Resources/SharedResource*.resx</c>.
 /// </para>
 /// </remarks>
 public class ApiException : Exception
@@ -33,14 +39,47 @@ public class ApiException : Exception
     public int StatusCode { get; }
 
     /// <summary>
-    /// Inizializza l'eccezione con messaggio e codice HTTP associato.
+    /// Chiave di risorsa del messaggio, risolta per lingua dall'handler (file .resx).
     /// </summary>
-    /// <param name="message">Messaggio da esporre nel campo "detail" del Problem Details restituito al client.</param>
-    /// <param name="statusCode">Codice HTTP da usare nella risposta (es. 400, 404, 501).</param>
-    public ApiException(string message, int statusCode)
-        : base(message)
+    public string MessageKey { get; }
+
+    /// <summary>
+    /// Argomenti che riempiono i segnaposto del messaggio localizzato (es. <c>{0}</c>).
+    /// </summary>
+    public object[] MessageArgs { get; }
+
+    /// <summary>
+    /// Inizializza l'eccezione con la chiave del messaggio, lo status HTTP e gli argomenti.
+    /// </summary>
+    /// <param name="messageKey">Chiave di risorsa presente nei file SharedResource*.resx.</param>
+    /// <param name="statusCode">Codice HTTP da usare nella risposta (es. 400, 401, 404).</param>
+    /// <param name="args">Valori per i segnaposto del testo localizzato.</param>
+    public ApiException(string messageKey, int statusCode, params object[] args)
+        : base(messageKey)
     {
         StatusCode = statusCode;
+        MessageKey = messageKey;
+        MessageArgs = args;
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 401 per credenziali assenti, non valide o sessione non autenticata.
+/// </summary>
+/// <remarks>
+/// Uso tipico: <c>throw new UnauthorizedException("error_invalid_credentials")</c> quando la
+/// verifica delle credenziali in un controller di login fallisce. L'handler lo converte in un
+/// ProblemDetails 401, coerente con il resto della gerarchia.
+/// </remarks>
+public class UnauthorizedException : ApiException
+{
+    /// <summary>
+    /// Inizializza l'eccezione con la chiave del messaggio da mostrare.
+    /// </summary>
+    /// <param name="messageKey">Chiave di risorsa del motivo. Tenerla generica per non rivelare quale campo e' errato.</param>
+    public UnauthorizedException(string messageKey = "error_unauthorized")
+        : base(messageKey, 401)
+    {
     }
 }
 
@@ -48,8 +87,8 @@ public class ApiException : Exception
 /// Rappresenta un errore 404 per una risorsa richiesta ma non trovata o non leggibile.
 /// </summary>
 /// <remarks>
-/// Uso tipico: <c>throw new NotFoundException("profilo")</c> quando un file JSON
-/// o un record non esiste. Il messaggio risultante sara' "Impossibile leggere le informazioni profilo".
+/// Uso tipico: <c>throw new NotFoundException("profilo")</c> quando un file JSON o un record
+/// non esiste. Il nome della risorsa riempie il segnaposto del messaggio localizzato.
 /// </remarks>
 public class NotFoundException : ApiException
 {
@@ -58,7 +97,7 @@ public class NotFoundException : ApiException
     /// </summary>
     /// <param name="dataName">Descrizione della risorsa che non e' stato possibile leggere.</param>
     public NotFoundException(string dataName = "richieste")
-        : base($"Impossibile leggere le informazioni {dataName}", 404)
+        : base("error_not_found", 404, dataName)
     {
     }
 }
@@ -73,10 +112,10 @@ public class NotFoundException : ApiException
 public class DecodingException : ApiException
 {
     /// <summary>
-    /// Inizializza l'eccezione con il messaggio standard di errore di decodifica.
+    /// Inizializza l'eccezione con la chiave del messaggio di errore di decodifica.
     /// </summary>
     public DecodingException()
-        : base("Errore nella decodifica", 400)
+        : base("error_decoding", 400)
     {
     }
 }
@@ -91,10 +130,10 @@ public class DecodingException : ApiException
 public class DataNotFoundException : ApiException
 {
     /// <summary>
-    /// Inizializza l'eccezione con il messaggio standard di dato non disponibile.
+    /// Inizializza l'eccezione con la chiave del messaggio di dato non disponibile.
     /// </summary>
     public DataNotFoundException()
-        : base("Dati non trovati", 404)
+        : base("error_data_not_found", 404)
     {
     }
 }
@@ -109,10 +148,10 @@ public class DataNotFoundException : ApiException
 public class InvalidParametersException : ApiException
 {
     /// <summary>
-    /// Inizializza l'eccezione con il messaggio standard di parametri non validi.
+    /// Inizializza l'eccezione con la chiave del messaggio di parametri non validi.
     /// </summary>
     public InvalidParametersException()
-        : base("Parametri non validi o mancanti", 400)
+        : base("error_invalid_parameters", 400)
     {
     }
 }

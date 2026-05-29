@@ -128,5 +128,18 @@
   "footerNav": "Footer navigation",
   "toggleNav": "Toggle navigation",
   "principaleNav": "Main navigation",
-  "fallbackErrore": "An error occurred"
+  "fallbackErrore": "An error occurred",
+  "loginNav": "Login",
+  "loginDesc": "Sign in to access the restricted area.",
+  "loginTitolo": "Sign In",
+  "loginSottotitolo": "Enter your password to access the restricted area.",
+  "loginUsernameLabel": "Username",
+  "loginPasswordLabel": "Password",
+  "loginPasswordObbligatoria": "Password is required.",
+  "loginPasswordMinLength": "Password must be at least 8 characters long.",
+  "loginErroreGenerico": "Invalid credentials. Please try again.",
+  "loginServizioNonDisponibile": "The sign-in service is currently unavailable. Please try again later.",
+  "loginRichiestoMotivo": "Sign in to continue to the requested page.",
+  "loginCaricamento": "Signing in…",
+  "loginAzione": "Sign In"
 }

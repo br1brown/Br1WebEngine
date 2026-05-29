@@ -1,5 +1,9 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
+using Backend;
 using Backend.Models;
 
 namespace Backend.Security;
@@ -32,10 +36,9 @@ namespace Backend.Security;
 ///   costruzione manuale di <c>IActionResult</c> di errore.</item>
 /// <item>Il frontend riceve sempre lo stesso formato JSON (status + detail), che
 ///   <c>NotificationService</c> sa gia' come parsare e mostrare all'utente.
-///   Se il backend manda un messaggio specifico (es. "Profilo non trovato"),
-///   lo mostra cosi' com'e'. Se manda solo uno status code, il frontend cerca
-///   una traduzione i18n (es. <c>errore404Desc</c>). Come ultimo fallback,
-///   mostra un errore generico tradotto.</item>
+///   Il <c>detail</c> arriva gia' localizzato (l'handler risolve la chiave dell'eccezione
+///   nella lingua della richiesta via .resx). Se il frontend preferisce, puo' comunque
+///   ignorarlo e usare una propria traduzione i18n in base allo status code.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -48,14 +51,18 @@ namespace Backend.Security;
 public class ApiExceptionHandler : IExceptionHandler
 {
     private readonly IProblemDetailsService _problemDetails;
+    private readonly IStringLocalizer<SharedResource> _localizer;
 
     /// <summary>
-    /// Inizializza l'handler con il servizio ASP.NET che serializza i Problem Details.
+    /// Inizializza l'handler con il servizio ASP.NET che serializza i Problem Details
+    /// e il localizzatore dei messaggi d'errore.
     /// </summary>
     /// <param name="problemDetails">Servizio usato per scrivere la risposta di errore.</param>
-    public ApiExceptionHandler(IProblemDetailsService problemDetails)
+    /// <param name="localizer">Risolve la chiave dell'eccezione nella lingua della richiesta.</param>
+    public ApiExceptionHandler(IProblemDetailsService problemDetails, IStringLocalizer<SharedResource> localizer)
     {
         _problemDetails = problemDetails;
+        _localizer = localizer;
     }
 
     /// <summary>
@@ -87,6 +94,18 @@ public class ApiExceptionHandler : IExceptionHandler
         // (es. NotFoundException → 404, InvalidParametersException → 400)
         httpContext.Response.StatusCode = apiEx.StatusCode;
 
+        // La cultura della richiesta è async-local: impostata da UseRequestLocalization più in
+        // basso nella pipeline, non è in scope qui (l'eccezione è risalita oltre quel middleware).
+        // La leggiamo dalla IRequestCultureFeature, che resta sull'HttpContext, e la riapplichiamo
+        // prima di risolvere il messaggio così IStringLocalizer usa la lingua giusta.
+        var requestCulture = httpContext.Features.Get<IRequestCultureFeature>()?.RequestCulture;
+        if (requestCulture is not null)
+            CultureInfo.CurrentUICulture = requestCulture.UICulture;
+
+        // Se la chiave manca nei .resx, LocalizedString.Value restituisce la chiave formattata con
+        // gli argomenti: l'omissione resta visibile invece di crashare.
+        var detail = _localizer[apiEx.MessageKey, apiEx.MessageArgs];
+
         // Scrive il payload ProblemDetails JSON con lo status code e il messaggio.
         // Il frontend leggera' il campo "detail" per mostrare l'errore all'utente.
         return await _problemDetails.TryWriteAsync(new ProblemDetailsContext
@@ -95,7 +114,7 @@ public class ApiExceptionHandler : IExceptionHandler
             ProblemDetails = new ProblemDetails
             {
                 Status = apiEx.StatusCode,
-                Detail = apiEx.Message
+                Detail = detail.Value
             },
             Exception = exception
         });

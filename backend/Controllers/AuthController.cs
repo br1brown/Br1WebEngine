@@ -1,4 +1,5 @@
 using Backend.Security;
+using Backend.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -10,10 +11,10 @@ namespace Backend.Controllers;
 /// Controller concreto del progetto per l'autenticazione.
 /// </summary>
 /// <remarks>
-/// Eredita il placeholder di login dall'engine.
-/// Il template base risponde con 501 Not Implemented finche' non si implementa la verifica
-/// reale delle credenziali. Quando la password e' corretta, restituire
-/// <c>Ok(new LoginResult(true, Token: Auth.GenerateToken()))</c>.
+/// MVP: verifica credenziali fisse hardcoded e, se corrette, emette un token JWT via
+/// <see cref="EngineAuthController.Auth"/>. Sostituire la verifica con un Identity Provider o un DB
+/// in produzione. Le credenziali errate lanciano <see cref="Backend.Models.UnauthorizedException"/>,
+/// che l'handler converte in un ProblemDetails 401.
 /// </remarks>
 [Route("auth")]
 public class AuthController : EngineAuthController
@@ -30,9 +31,7 @@ public class AuthController : EngineAuthController
     }
 
     /// <summary>
-    /// Endpoint di login. Nel template base e' un placeholder che risponde 501 Not Implemented.
-    /// Sovrascrivere questo metodo per validare le credenziali e generare il token JWT
-    /// tramite <c>Auth.GenerateToken()</c>.
+    /// Endpoint di login. Valida le credenziali e restituisce un token JWT.
     /// </summary>
     [HttpPost("login")]
     [EnableRateLimiting(SecurityDefaults.LoginRateLimitPolicy)]
@@ -46,10 +45,19 @@ public class AuthController : EngineAuthController
             return ValidationProblem();
         }
 
-        return StatusCode(
-            StatusCodes.Status501NotImplemented,
-            new LoginResult(false, Error: "Login applicativo non implementato nel template base."));
-        // Esempio minimo quando il login va a buon fine:
-        // return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
+        // MVP: credenziali fisse. Sostituire con un Identity Provider o DB in produzione.
+        const string validUsername = "admin";
+        const string validPassword = "Password1!";
+
+        if (!string.Equals(request.Username, validUsername, StringComparison.OrdinalIgnoreCase)
+            || request.Pwd != validPassword)
+        {
+            Logger.LogWarning("Tentativo di login fallito per username '{Username}'.", request.Username);
+            // Chiave generica: non riveliamo se a sbagliare e' username o password. L'handler la localizza.
+            throw new UnauthorizedException("error_invalid_credentials");
+        }
+
+        Logger.LogInformation("Login riuscito per username '{Username}'.", request.Username);
+        return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
     }
 }

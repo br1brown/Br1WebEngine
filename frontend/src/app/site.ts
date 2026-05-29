@@ -155,7 +155,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     //   layout       → { showPanel, showNav, showFooter } override per-pagina
     //                  della shell (subordinati ai flag globali del sito)
     //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
-    //                  per-pagina (vedi DEVELOPMENT.md "Meta SEO e SSR")
+    //                  per-pagina (vedi README.md "Meta SEO e SSR")
     //   description  → chiave i18n o stringa per meta description + sitemap
     //   renderMode   → 'server' (default) | 'client' (no SSR)
     //   data         → dati custom passati al componente via route.data

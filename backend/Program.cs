@@ -90,6 +90,10 @@ builder.Services
 // La lingua della richiesta viene poi risolta dall'header Accept-Language
 // inviato dal frontend (impostato dall'interceptor Angular).
 //
+// AddLocalization abilita IStringLocalizer: i messaggi (validazione ed errori applicativi)
+// vivono nei file .resx sotto Resources/ e si risolvono per CurrentUICulture.
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
     var supported = localization.SupportedLanguages.Select(l => new CultureInfo(l)).ToArray();
@@ -136,7 +140,7 @@ if (!string.IsNullOrWhiteSpace(otlp.Endpoint))
 var app = builder.Build();
 
 // ── PIPELINE HTTP ───────────────────────────────────────────────────
-// L'ordine è critico. Vedi DEVELOPMENT.md → "Ordine della pipeline HTTP".
+// L'ordine è critico. Vedi README.md → "Ordine della pipeline HTTP".
 app.UseTemplateSecurity(security);
 
 app.UseRequestLocalization(

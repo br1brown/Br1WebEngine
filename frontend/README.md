@@ -38,6 +38,25 @@ export enum PageType { Home, AboutUs }
 ### 3. Niente Manipolazioni dirette del DOM (Salva l'Idratazione)
 Usa esclusivamente binding dichiarativi (`[class.hidden]="!isVisible()"`) e Template Refs. Usare `document.getElementById` romperà l'SSR lato server.
 
+### 4. CSS: Bootstrap First, Custom Solo Se Necessario
+Il progetto usa **Bootstrap 5** come sistema di design principale. Non scrivere CSS custom per cose che Bootstrap già copre.
+
+**Cosa va nel template HTML (classi Bootstrap):**
+- Layout e spacing (`d-flex`, `align-items-center`, `mb-3`, `gap-2`, `p-4`)
+- Tipografia (`fw-bold`, `text-muted`, `small`, `h4`, `lead`)
+- Form (`form-control`, `form-label`, `is-invalid`, `invalid-feedback`)
+- Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
+- Responsive (`col-md-6`, `d-none d-lg-block`)
+
+**Cosa va nel file `.css` del componente (solo ciò che Bootstrap non può esprimere):**
+- Posizionamento fisso con `safe-area-inset` (cookie banner, back-to-top)
+- Animazioni CSS (`@keyframes`, transizioni custom)
+- Effetti visivi avanzati (glassmorphism con `backdrop-filter`, gradienti complessi)
+- Override di tema via `color-mix()` e custom properties (`--color*`)
+- Layout a griglia complesso (`grid-template-rows: 0fr → 1fr` per accordion)
+
+**Componenti senza CSS:** Se un componente non ha bisogno di nulla di quanto sopra, *non creare il file `.css`*. Il footer, ad esempio, non ne ha uno — è 100% classi Bootstrap nel template.
+
 ---
 
 ## 🛠️ Developer Journey: Aggiungere una Pagina

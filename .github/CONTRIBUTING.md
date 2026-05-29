@@ -11,8 +11,8 @@ Br1WebEngine preferisce codice che sia facile da leggere, facile da eliminare e 
 ## Linee Guida per lo Sviluppo
 
 Prima di scrivere codice, ti preghiamo di leggere le guide di sviluppo interne:
-- [Guida allo Sviluppo Backend](backend/DEVELOPMENT.md)
-- [Guida allo Sviluppo Frontend](frontend/DEVELOPMENT.md)
+- [Guida allo Sviluppo Backend](../backend/README.md)
+- [Guida allo Sviluppo Frontend](../frontend/README.md)
 
 ### Regole d'Oro
 
@@ -26,7 +26,7 @@ Prima di scrivere codice, ti preghiamo di leggere le guide di sviluppo interne:
 1. Fai un fork della repository e crea il tuo branch partendo da `main`.
 2. Se hai aggiunto codice che dovrebbe essere testato, aggiungi i test.
 3. Assicurati che la test suite passi con successo.
-4. Aggiorna i file `DEVELOPMENT.md` se il tuo cambiamento altera significativamente il "Come si usa" dell'engine.
+4. Aggiorna i file `README.md` se il tuo cambiamento altera significativamente il "Come si usa" dell'engine.
 5. Invia una Pull Request compilando il template fornito.
 
 ## Segnalazioni di Problemi e Bug

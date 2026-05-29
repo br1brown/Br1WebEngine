@@ -9,7 +9,7 @@ namespace Backend.Security;
 
 /// <summary>
 /// Estensioni che registrano e applicano la sicurezza del template (defense in depth).
-/// L'ordine di registrazione e applicazione è fisso. Vedi DEVELOPMENT.md → "Pipeline HTTP".
+/// L'ordine di registrazione e applicazione è fisso. Vedi README.md → "Pipeline HTTP".
 /// </summary>
 public static class SecurityExtensions
 {

@@ -1,6 +1,9 @@
 import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ApiService } from './api.service';
+import { LoginRequest } from '../dto/api.dto';
+import { ApiError } from '../engine/services/base-api.service';
+import { TranslateService } from '../engine/services/translate.service';
 
 /**
  * TOKEN SERVICE
@@ -129,6 +132,7 @@ export class TokenService implements OnDestroy {
 export class AuthService {
     private readonly api = inject(ApiService);
     private readonly tokenService = inject(TokenService);
+    private readonly translate = inject(TranslateService);
 
     // Proxy verso le proprietà reattive del TokenService
     readonly isLoggedIn = this.tokenService.isLoggedIn;
@@ -136,20 +140,41 @@ export class AuthService {
 
     /**
      * Effettua il login inviando la password al backend.
-     * Se il login è valido, riceve un token e lo memorizza.
+     *
+     * La chiamata è `silent` (vedi ApiService.login): un errore arriva come `ApiError` e fa
+     * rigettare la promise. Lo intercettiamo e lo traduciamo in un messaggio per il form,
+     * scelto in base allo stato HTTP:
+     *   - 401 → credenziali non valide
+     *   - 404 / 0 (endpoint disattivato o server irraggiungibile) → servizio non disponibile
+     *   - altro → errore imprevisto
+     * In caso di successo salva il token e ritorna { valid: true }.
      */
-    async login(password: string): Promise<{ valid: boolean; error?: string }> {
-        const result = await this.api.login(password);
+    async login(request: LoginRequest): Promise<{ valid: boolean; error?: string }> {
+        try {
+            const result = await this.api.login(request.username, request.pwd);
 
-        if (result.valid && result.token) {
             // Se lo storage del token fallisce (es. token già scaduto dal server)
-            if (this.tokenService.store(result.token)) {
+            if (result.valid && result.token && this.tokenService.store(result.token)) {
                 return { valid: true };
             }
-            return { valid: false, error: 'Token non valido o scaduto.' };
+            return { valid: false, error: this.translate.translate('loginErroreGenerico') };
+        } catch (err) {
+            return { valid: false, error: this.mapLoginError(err) };
         }
+    }
 
-        return { valid: result.valid, error: result.error };
+    /** Traduce un ApiError di login nel messaggio da mostrare inline nel form. */
+    private mapLoginError(err: unknown): string {
+        if (err instanceof ApiError) {
+            switch (err.status) {
+                case 401:
+                    return this.translate.translate('loginErroreGenerico');
+                case 404:
+                case 0:
+                    return this.translate.translate('loginServizioNonDisponibile');
+            }
+        }
+        return this.translate.translate('erroreImprevisto');
     }
 
     /** Termina la sessione dell'utente. */

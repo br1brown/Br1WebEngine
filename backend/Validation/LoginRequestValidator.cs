@@ -1,4 +1,5 @@
 using Backend.Engine.Validation;
+using Microsoft.Extensions.Localization;
 
 namespace Backend.Validation;
 
@@ -9,4 +10,8 @@ namespace Backend.Validation;
 /// Eredita le regole base da <see cref="LoginRequestValidatorBase"/>.
 /// Aggiungere qui le regole specifiche del progetto (es. whitelist username, policy password).
 /// </remarks>
-public class LoginRequestValidator : LoginRequestValidatorBase { }
+public class LoginRequestValidator : LoginRequestValidatorBase
+{
+    /// <inheritdoc cref="LoginRequestValidator"/>
+    public LoginRequestValidator(IStringLocalizer<SharedResource> localizer) : base(localizer) { }
+}
