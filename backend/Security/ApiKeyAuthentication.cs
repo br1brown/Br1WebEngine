@@ -65,7 +65,7 @@ public class ApiKeySchemeOptions : AuthenticationSchemeOptions
 /// <para>
 /// Questo handler implementa il controllo del "biglietto d'ingresso". Ogni richiesta HTTP
 /// (tranne OPTIONS) deve presentare una chiave API valida, cioe' una stringa presente
-/// nell'array <c>Security.ApiKeys</c> di <c>appsettings.json</c>.
+/// nell'array <c>Security.ApiKeys</c> di <c>global-settings.json</c>.
 /// </para>
 /// <para>
 /// Le richieste <c>OPTIONS</c> vengono lasciate passare senza controllo. Questo e' necessario

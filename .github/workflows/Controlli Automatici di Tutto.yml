@@ -101,11 +101,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Prepara ambiente
-        run: |
-          echo "COMPOSE_PROJECT_NAME=ci_test" > .env.param
-          echo "FRONTEND_PORT=3000" >> .env.param
-
       - name: Avvia stack
         run: bash deploy.sh --uptest
 
@@ -118,5 +113,6 @@ jobs:
       - name: Butta giù
         if: always()
         run: |
-          COMPOSE_PROJECT_NAME=ci_test \
+          # Stesso project name che deploy.sh --uptest deriva da global-settings.json (slug di project.name "App").
+          COMPOSE_PROJECT_NAME=app \
           docker compose -f docker-compose.yml -f docker-compose.public-test.yml down

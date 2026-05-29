@@ -1,4 +1,4 @@
-import type { Type } from '@angular/core';
+import { InjectionToken, type Type } from '@angular/core';
 import { PageType } from '../../site';
 import type { PageBaseComponent } from '../../pages/page-base.component';
 import { COOKIE_MAP } from '../services/cookie-registry';
@@ -6,6 +6,9 @@ import { COOKIE_MAP } from '../services/cookie-registry';
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
 // ======================================================
+
+export const SITE_CONFIG = new InjectionToken<SiteConfig>('SITE_CONFIG');
+
 //
 // ARCHITETTURA DEL DSL
 //
@@ -99,10 +102,6 @@ export interface SiteConfig {
      * confrontata da `VersionCheckService` (polling + SwUpdate per la PWA).
      */
     version: string;
-    /** Lingua predefinita del sito. */
-    defaultLang: string;
-    /** Lingue tra cui l'utente può scegliere. Deve includere sempre defaultLang. */
-    availableLanguages: string[];
     /** Descrizione generale del sito o dell'applicazione. */
     description: string;
     /** Colore tema principale usato dalla UI. */
@@ -139,13 +138,6 @@ export interface SiteConfigInput {
     appName: string;
     /** Versione dell'applicazione (es. "1.2.0"). Usata per rilevare aggiornamenti. */
     version?: string;
-    /** Lingua predefinita del sito. */
-    defaultLang: string;
-    /**
-     * Lingue tra cui l'utente può scegliere.
-     * Se omesso, il sito è monolingua (solo defaultLang).
-     */
-    availableLanguages?: string[];
     /** Descrizione generale del sito o dell'applicazione. */
     description: string;
     /** Colore tema principale usato dalla UI. */
@@ -863,55 +855,15 @@ export function buildSite(
                 density: 10
             };
 
-            /**
-             * Normalizzazione della config:
-             * - valida ogni tag lingua secondo BCP 47 (RFC 5646) tramite Intl.getCanonicalLocales,
-             *   cosi' qualsiasi tag accettato qui e' garantito accettabile anche dal backend
-             * - garantisce che la lingua di default sia inclusa
-             * - rimuove eventuali duplicati nelle lingue
-             * - merge dei default smoke con i valori custom
-             */
-            const normalizeLang = (l: string | null | undefined, context: string): string => {
-                try {
-                    // Intl.getCanonicalLocales valida BCP 47 — stesso oracolo usato da Accept-Language e Intl.*
-                    const [canonical] = Intl.getCanonicalLocales(l ?? '');
-                    if (canonical) return canonical.toLowerCase();
-                } catch { /* tag malformato */ }
-                throw new Error(
-                    `[SiteBuilder] Tag lingua non valido in ${context}: "${l}". Usare un tag BCP 47 (es. "it", "en", "zh-Hant-TW").`
-                );
-            };
-
             const normalizeVersion = (v?: string) =>
                 // trim() rimuove spazi iniziali/finali accidentali
                 // replace() elimina qualsiasi carattere che non sia alfanumerico, punto, trattino o underscore
                 // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
                 typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-            const defaultLang = normalizeLang(siteConfigurationInput.defaultLang, 'siteConfig.defaultLang');
-
-            /**
-             * Normalizza availableLanguages:
-             * - valida ogni tag BCP-47
-             * - deduplicazione tramite Set
-             * - garantisce che defaultLang sia sempre inclusa
-             * - se omesso in input, il sito è monolingua (solo defaultLang)
-             */
-            const availableLanguages = [
-                ...new Set(
-                    (siteConfigurationInput.availableLanguages ?? [defaultLang])
-                        .map((l, i) => normalizeLang(l, `siteConfig.availableLanguages[${i}]`))
-                )
-            ];
-            if (!availableLanguages.includes(defaultLang)) {
-                availableLanguages.unshift(defaultLang);
-            }
-
             siteConfig = {
                 appName: siteConfigurationInput.appName,
                 version: normalizeVersion(siteConfigurationInput.version) || '1.0.0',
-                defaultLang,
-                availableLanguages,
                 description: siteConfigurationInput.description,
                 colorTema: siteConfigurationInput.colorTema,
                 showFooter: siteConfigurationInput.showFooter ?? true,
@@ -1046,19 +998,6 @@ export function buildSite(
              * La registriamo nella mappa e la aggiungiamo alla sitemap.
              */
 
-            /**
-             * Auto-disabilita la pagina cookie policy se non ci sono cookie da mostrare.
-             * Il lookup sull'enum è dinamico: se CookiePolicy viene rimosso dall'enum
-             * il cast a Record restituisce undefined e il blocco è no-op.
-             */
-            const cookiePolicyType = Object.entries(PageType).find(([key]) => key === 'CookiePolicy')?.[1]; // 'CookiePolicy' = chiave enum — aggiornare se rinominata
-            if (siteConfig && cookiePolicyType !== undefined && page.pageType === cookiePolicyType) {
-                const noCookies =
-                    !siteConfig.isWebApp
-                    && siteConfig.availableLanguages.length <= 1
-                    && Object.keys(COOKIE_MAP).length === 0;
-                if (noCookies) return [];
-            }
 
             if (seenInternalPaths.has(fullPath)) {
                 throw new Error(

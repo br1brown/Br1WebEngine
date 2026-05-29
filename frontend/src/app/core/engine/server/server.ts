@@ -17,11 +17,13 @@ import {
     createNodeRequestHandler,
     isMainModule,
 } from '@angular/ssr/node';
-import { serverEnv } from './server-env';
+import { serverEnv, assertRequiredEnv } from './server-env';
 import { API_PREFIX } from '../../../app.config';
 
-/** Estrae le variabili d'ambiente validate dal file di configurazione server */
-const { port, backendOrigin, backendApiKey, proxyTimeout } = serverEnv;
+/** Alias sulle sezioni senza requireEnv, valutate al caricamento del modulo */
+const { server: nodeCfg, site } = serverEnv;
+// serverEnv.backend (BACKEND_ORIGIN, BACKEND_API_KEY) è acceduto lazily
+// dentro i middleware, mai al caricamento del modulo.
 
 /** Individua la cartella dove risiede il codice server eseguito da Node */
 const serverDistFolder = dirname(fileURLToPath(import.meta.url));
@@ -29,8 +31,8 @@ const serverDistFolder = dirname(fileURLToPath(import.meta.url));
 const browserDistFolder = resolve(serverDistFolder, '../browser');
 
 /** Definisce la sorgente dei file: usa ASSETS_DIR se impostata, altrimenti la cartella di build */
-const assetFilesDir = serverEnv.assetsDir
-    ? resolve(serverEnv.assetsDir)
+const assetFilesDir = site.assetsDir
+    ? resolve(site.assetsDir)
     : join(browserDistFolder, 'assets/files');
 
 /** Percorso della cache per le immagini processate da Sharp */
@@ -151,7 +153,7 @@ const TRUSTED_PROXY_HEADERS = [
 ] as const;
 /** Motore Angular SSR ufficiale: gestisce il rendering delle pagine lato server */
 const angularApp = new AngularNodeAppEngine({
-    allowedHosts: serverEnv.allowedHosts,
+    allowedHosts: nodeCfg.allowedHosts,
     trustProxyHeaders: TRUSTED_PROXY_HEADERS,
 });
 
@@ -167,27 +169,36 @@ const angularApp = new AngularNodeAppEngine({
  * bindings ([style.x]) ovunque nei template; i nonce non coprono gli attributi
  * inline (solo <style> block), quindi 'unsafe-inline' è necessario per gli stili.
  */
-const defaultCsp = [
-    "default-src 'self'",
-    "script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    "connect-src 'self'",
-    "frame-ancestors 'self'",
-    "base-uri 'self'",
-    "form-action 'self'",
-].join('; ');
+/**
+ * Header di sicurezza letti da Security.Headers di global-settings.json (unica sorgente
+ * condivisa col backend). Fallback usato solo se il blocco manca dalla configurazione,
+ * così il server parte comunque protetto.
+ */
+const FALLBACK_SECURITY_HEADERS: Record<string, string> = {
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy':
+        "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+};
+
+const configuredHeaders = Object.keys(serverEnv.security.headers).length > 0
+    ? serverEnv.security.headers
+    : FALLBACK_SECURITY_HEADERS;
+
+const defaultCsp = configuredHeaders['Content-Security-Policy']
+    ?? FALLBACK_SECURITY_HEADERS['Content-Security-Policy'];
 
 /** CSP per file statici (assets, index.csr.html): placeholder sostituito con 'unsafe-inline' */
 const staticCsp = defaultCsp.replace('{SCRIPT_NONCE_PLACEHOLDER}', "'unsafe-inline'");
 
-/** Header di sicurezza standard applicati a tutte le risposte non-API */
+/** Header di sicurezza standard applicati a tutte le risposte non-API.
+ *  La CSP usa la variante static (placeholder→'unsafe-inline'); le risposte SSR
+ *  la sovrascrivono più sotto con il nonce per-request. */
 const htmlSecurityHeaders: [string, string][] = [
-    ['X-Frame-Options', 'SAMEORIGIN'],
-    ['X-Content-Type-Options', 'nosniff'],
-    ['Referrer-Policy', 'strict-origin-when-cross-origin'],
-    ['Permissions-Policy', 'camera=(), microphone=(), geolocation=()'],
+    ...Object.entries(configuredHeaders)
+        .filter(([name]) => name.toLowerCase() !== 'content-security-policy'),
     ['Content-Security-Policy', staticCsp],
 ];
 
@@ -198,7 +209,7 @@ app.disable('x-powered-by');
  * Lista ristretta (default: subnet private) per evitare che un client esterno
  * possa spoofare X-Forwarded-Host / X-Forwarded-For e bypassare l'allowlist.
  */
-app.set('trust proxy', serverEnv.trustProxy);
+app.set('trust proxy', nodeCfg.trustProxy);
 
 /** TEMP DEBUG: log ogni richiesta in ingresso con host e path */
 // app.use((req, _res, next) => {
@@ -217,20 +228,20 @@ app.get('/health', (_request, response) => {
 
 /** Rifiuta richieste pubbliche con host non autorizzato prima di raggiungere proxy o SSR */
 app.use((request, response, next) => {
-    if (serverEnv.allowedHosts.length === 0 || request.path === '/health') {
+    if (nodeCfg.allowedHosts.length === 0 || request.path === '/health') {
         next();
         return;
     }
 
     const requestHost = request.hostname.trim().toLowerCase();
-    const isAllowed = serverEnv.allowedHosts.some((host) => host.toLowerCase() === requestHost);
+    const isAllowed = nodeCfg.allowedHosts.some((host) => host.toLowerCase() === requestHost);
 
     if (isAllowed) {
         next();
         return;
     }
 
-    console.warn(`[debug-host-blocked] host="${requestHost}" not in allowedHosts=[${serverEnv.allowedHosts.join(',')}]`);
+    console.warn(`[debug-host-blocked] host="${requestHost}" not in allowedHosts=[${nodeCfg.allowedHosts.join(',')}]`);
     response.status(421).json({
         status: 421,
         title: 'Misdirected Request',
@@ -240,8 +251,8 @@ app.use((request, response, next) => {
 
 /** Proxy manuale: /api/* → backend, stripping il prefisso /api */
 app.use(API_PREFIX, async (req: Request, res: Response) => {
-    const url = `${backendOrigin}${req.url}`;
-    const headers: Record<string, string> = { 'x-api-key': backendApiKey };
+    const url = `${serverEnv.backend.origin}${req.url}`;
+    const headers: Record<string, string> = { 'x-api-key': serverEnv.backend.apiKey };
 
     for (const h of ['content-type', 'authorization', 'accept', 'accept-language', 'range']) {
         const v = req.headers[h];
@@ -266,7 +277,7 @@ app.use(API_PREFIX, async (req: Request, res: Response) => {
             body,
             // duplex 'half' Ã¨ richiesto da undici quando body Ã¨ uno stream
             duplex: 'half',
-            signal: AbortSignal.timeout(proxyTimeout),
+            signal: AbortSignal.timeout(nodeCfg.proxyTimeout),
         } as RequestInit & { duplex?: 'half' });
 
         res.status(response.status);
@@ -612,15 +623,16 @@ app.use(async (request: Request, response: Response, next) => {
     }
 });
 
-/** Avvio del server se il file Ã¨ eseguito come modulo principale (node server.mjs) */
+/** Avvio del server se il file è eseguito come modulo principale (node server.mjs) */
 if (isMainModule(import.meta.url)) {
-    app.listen(port, () => {
-        console.log(`[frontend] Node SSR server listening on http://localhost:${port}`);
-        console.log(`[frontend] Backend origin: ${backendOrigin}`);
-        console.log(`[frontend] Frontend base URL: ${serverEnv.frontendBaseUrl || '(not set)'}`);
+    assertRequiredEnv();
+    app.listen(nodeCfg.port, () => {
+        console.log(`[frontend] Node SSR server listening on http://localhost:${nodeCfg.port}`);
+        console.log(`[frontend] Backend origin: ${serverEnv.backend.origin}`);
+        console.log(`[frontend] Frontend base URL: ${site.baseUrl || '(not set)'}`);
         console.log(
-            `[frontend] NG_ALLOWED_HOSTS: ${serverEnv.allowedHosts.length > 0
-                ? serverEnv.allowedHosts.join(', ')
+            `[frontend] NG_ALLOWED_HOSTS: ${nodeCfg.allowedHosts.length > 0
+                ? nodeCfg.allowedHosts.join(', ')
                 : '(not set)'
             }`
         );

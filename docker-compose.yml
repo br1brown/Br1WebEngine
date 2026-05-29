@@ -13,9 +13,10 @@
 #
 # NOTA: specificare -f docker-compose.yml esclude docker-compose.override.yml (dev).
 #
-# VARIABILI OBBLIGATORIE (da .env):
-#   COMPOSE_PROJECT_NAME - identifica il progetto (naming volumi Docker, built-in)
-#   FRONTEND_PORT        - porta esposta del frontend
+# La configurazione proviene da global-settings.json, montato in entrambi i container.
+# Frontend e backend leggono direttamente il file JSON alla loro avvio.
+# deploy.sh legge global-settings.json per le poche variabili necessarie a docker-compose
+# (porta host, project name) e le passa come variabili d'ambiente inline.
 # =============================================================================
 
 services:
@@ -25,15 +26,15 @@ services:
       dockerfile: Dockerfile
       args:
         FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
+        DEFAULT_LANG: "${DEFAULT_LANG:-}"
+        SUPPORTED_LANGS: "${SUPPORTED_LANGS:-}"
     environment:
-      PORT: "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
-      BACKEND_ORIGIN: "${BACKEND_ORIGIN:-http://backend:8080}"
-      BACKEND_API_KEY: "${BACKEND_API_KEY:-frontend}"
-      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-}"
-      NG_ALLOWED_HOSTS: "${NG_ALLOWED_HOSTS:-}"
-      DIST_PATH: "app"
+      BACKEND_ORIGIN: "http://backend:8080"
+      GLOBAL_SETTINGS_PATH: /app/global-settings.json
     ports:
-      - "${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}:${FRONTEND_PORT:?ERRORE: impostare FRONTEND_PORT nel file .env}"
+      - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:${FRONTEND_PORT}"
+    volumes:
+      - ./global-settings.json:/app/global-settings.json:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -52,6 +53,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     volumes:
+      - ./global-settings.json:/app/global-settings.json:ro
       - uploads-data:/app/uploads
       - db-data:/app/db
     logging:

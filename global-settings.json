@@ -1,0 +1,40 @@
+{
+  "$schema": "./global-settings.schema.json",
+  "project": {
+    "name": "App"
+  },
+  "frontend": {
+    "hostname": "",
+    "port": 3000
+  },
+  "backend": {
+    "public": false,
+    "publicPort": null
+  },
+  "Localization": {
+    "DefaultLanguage": "it",
+    "SupportedLanguages": ["it", "en"]
+  },
+  "Security": {
+    "ApiKeys": ["frontend"],
+    "CorsOrigins": [],
+    "BehindProxy": false,
+    "Headers": {
+      "X-Frame-Options": "SAMEORIGIN",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+      "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    },
+    "Token": {
+      "SecretKey": "",
+      "ExpirationSeconds": 3000
+    }
+  },
+  "OpenTelemetry": {
+    "Endpoint": "",
+    "ServiceName": "backend",
+    "ServiceVersion": "1.0.0"
+  },
+  "Custom": {}
+}

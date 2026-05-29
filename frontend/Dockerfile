@@ -8,6 +8,13 @@ WORKDIR /app
 ARG FRONTEND_BASE_URL
 ENV FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
 
+# Localization congelata nel bundle a build-time (lingue, <html lang>, manifest).
+# Derivate da global-settings.json da deploy.sh: il file non è nel build context.
+ARG DEFAULT_LANG
+ARG SUPPORTED_LANGS
+ENV DEFAULT_LANG=${DEFAULT_LANG} \
+    SUPPORTED_LANGS=${SUPPORTED_LANGS}
+
 COPY package.json ./
 COPY package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install; fi

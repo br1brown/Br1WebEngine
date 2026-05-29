@@ -1,11 +1,13 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Backend.Models;
+using Backend.Models.Configuration;
 using Backend.Models.Legal;
 using Backend.Infrastructure;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Backend.Infrastructure;
 
@@ -35,23 +37,24 @@ public class FileContentStore : IContentStore
     /// <param name="env">
     /// Ambiente host usato per ricavare il percorso assoluto della cartella <c>data</c>.
     /// </param>
-    /// <param name="configuration">
-    /// Configurazione dell'applicazione usata per estrarre le lingue supportate.
+    /// <param name="localizationOptions">
+    /// Opzioni di localizzazione tipizzate (lingue supportate e lingua predefinita).
     /// </param>
-    public FileContentStore(IWebHostEnvironment env, IConfiguration configuration)
+    public FileContentStore(IWebHostEnvironment env, IOptions<LocalizationOptions> localizationOptions)
     {
         _dataPath = Path.Combine(env.ContentRootPath, "data");
         _jsonOptions.Converters.Add(new JsonStringEnumConverter());
 
-        // Si legge unicamente dalla configurazione, nessun fallback statico sull'italiano "it".
-        var langCodes = configuration.GetSection("Localization:SupportedLanguages").Get<string[]>()
-            ?? throw new InvalidOperationException("Configurazione mancante: 'Localization:SupportedLanguages' è obbligatorio.");
+        var loc = localizationOptions.Value;
 
-        _supportedLanguages = new HashSet<string>(langCodes.Select(l => l.ToLowerInvariant()), StringComparer.OrdinalIgnoreCase);
+        // CultureInfo.GetCultureInfo valida ogni codice secondo lo standard BCP-47 e lancia
+        // CultureNotFoundException al boot se un tag non è riconosciuto (es. "ita" invece di "it").
+        // TwoLetterISOLanguageName normalizza tag complessi (es. "it-IT" → "it") per il confronto con le chiavi JSON.
+        _supportedLanguages = new HashSet<string>(
+            loc.SupportedLanguages.Select(l => CultureInfo.GetCultureInfo(l).TwoLetterISOLanguageName),
+            StringComparer.OrdinalIgnoreCase);
 
-        // Si legge unicamente dalla configurazione.
-        _defaultLanguage = configuration["Localization:DefaultLanguage"]
-            ?? throw new InvalidOperationException("Configurazione mancante: 'Localization:DefaultLanguage' è obbligatorio.");
+        _defaultLanguage = CultureInfo.GetCultureInfo(loc.DefaultLanguage).TwoLetterISOLanguageName;
     }
 
     /// <summary>
@@ -151,30 +154,29 @@ public class FileContentStore : IContentStore
         }
 
         /// <summary>
-        /// Normalizza una lingua in un codice a due lettere compatibile con i file del template.
+        /// Normalizza una lingua in un codice a due lettere ISO 639-1 usando <see cref="CultureInfo"/>.
         /// </summary>
         /// <param name="language">Valore sorgente, ad esempio <c>it-IT,it;q=0.9</c>.</param>
-        /// <returns>Il codice lingua normalizzato, ad esempio <c>it</c> o <c>en</c>.</returns>
+        /// <returns>Il codice lingua normalizzato (es. <c>it</c>, <c>en</c>), o il default se non riconosciuto.</returns>
         private string NormalizeLanguage(string? language)
         {
             if (string.IsNullOrWhiteSpace(language))
-                return this._defaultLanguage;
+                return _defaultLanguage;
 
-            // Un header Accept-Language tipico ha questo formato:
-            //   "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
-            //
-            // Passo 1 — Split(',')[0] → prende solo la prima preferenza: "it-IT"
-            //           (l'utente indica la più desiderata per prima)
-            // Passo 2 — Trim()        → rimuove spazi accidentali attorno al tag
-            // Passo 3 — Split('-')[0] → estrae solo il codice lingua, senza il paese: "it"
-            //           (i file JSON usano chiavi brevi "it"/"en", non "it-IT"/"en-US")
-            // Passo 4 — Trim()        → sicurezza extra per spazi residui
-            // Passo 5 — ToLowerInvariant() → normalizza al minuscolo per il confronto con le chiavi JSON
-            var normalized = language.Split(',')[0].Trim().Split('-')[0].Trim().ToLowerInvariant();
+            // Accept-Language: "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
+            // Prende la prima preferenza e rimuove l'eventuale q-value prima del parsing.
+            var first = language.Split(',')[0].Trim().Split(';')[0].Trim();
 
-            // Accetta il codice solo se è esattamente a 2 caratteri (es. "it", "en", "fr").
-            // Valori anomali come stringhe vuote o tag non standard cadono sul fallback.
-            return normalized.Length == 2 ? normalized : this._defaultLanguage;
+            try
+            {
+                // CultureInfo valida il tag BCP-47 e normalizza: "it-IT" → TwoLetterISOLanguageName = "it".
+                // Lancia CultureNotFoundException per tag non riconosciuti (es. "xyz"), che cadono sul default.
+                return CultureInfo.GetCultureInfo(first).TwoLetterISOLanguageName;
+            }
+            catch (CultureNotFoundException)
+            {
+                return _defaultLanguage;
+            }
         }
 
         /// <summary>
@@ -319,26 +321,30 @@ public class FileContentStore : IContentStore
         }
 
         /// <summary>
-        /// Determina se una chiave ha il formato atteso per un codice lingua semplice o lingua-paese.
+        /// Determina se una chiave JSON rappresenta un tag lingua BCP-47 supportato dall'applicazione.
         /// </summary>
-        /// <param name="key">Chiave da verificare.</param>
-        /// <param name="supportedLanguages">Set delle lingue supportate dal sistema.</param>
+        /// <param name="key">Chiave da verificare, ad esempio <c>it</c>, <c>it-IT</c> o <c>name</c>.</param>
+        /// <param name="supportedLanguages">Set dei codici ISO 639-1 supportati (es. <c>it</c>, <c>en</c>).</param>
         /// <returns>
-        /// <see langword="true"/> se la lingua principale fa parte delle lingue supportate dell'app.
+        /// <see langword="true"/> se la chiave è un tag lingua riconosciuto da <see cref="CultureInfo"/>
+        /// e la sua lingua base fa parte delle lingue supportate dell'app.
         /// </returns>
-        private bool IsLanguageKey(string key, HashSet<string> supportedLanguages)
+        private static bool IsLanguageKey(string key, HashSet<string> supportedLanguages)
         {
-            // Divide la chiave sul trattino, ignorando parti vuote e spazi.
-            // Esempi: "it" → ["it"]   |   "it-IT" → ["it", "IT"]   |   "name" → ["name"]
-            var parts = key.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            if (parts.Length == 0)
+            if (string.IsNullOrWhiteSpace(key))
                 return false;
 
-            // Consideriamo la lingua principale (es. "it" da "it-IT").
-            // Se la lingua base fa parte delle lingue supportate dall'applicazione, allora è considerata una chiave di traduzione.
-            var baseLang = parts[0].ToLowerInvariant();
-            return supportedLanguages.Contains(baseLang);
+            try
+            {
+                // CultureInfo valida il tag BCP-47: "it" e "it-IT" sono validi, "name" o "url" lanciano CultureNotFoundException.
+                // TwoLetterISOLanguageName normalizza a "it" sia "it" che "it-IT".
+                var baseLang = CultureInfo.GetCultureInfo(key).TwoLetterISOLanguageName;
+                return supportedLanguages.Contains(baseLang);
+            }
+            catch (CultureNotFoundException)
+            {
+                return false;
+            }
         }
 
         /// <summary>

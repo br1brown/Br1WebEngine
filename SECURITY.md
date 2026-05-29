@@ -16,7 +16,7 @@ La segnalazione verrà esaminata e, se confermata, sarà menzionata nelle note d
 
 ## Funzionalità di sicurezza incluse nel template
 
-Il template include una pipeline di sicurezza pre-cablata. I progetti che derivano da Br1WebEngine la ereditano automaticamente — è sufficiente configurarla in `appsettings.json`.
+Il template include una pipeline di sicurezza pre-cablata. I progetti che derivano da Br1WebEngine la ereditano automaticamente — è sufficiente configurarla in `global-settings.json`.
 
 ### Backend
 
@@ -24,11 +24,14 @@ Il template include una pipeline di sicurezza pre-cablata. I progetti che deriva
 - **JWT** opzionale: attivato solo se `Security.Token.SecretKey` è valorizzato; vuoto, nessun middleware viene caricato
 - **CORS** con origini configurabili
 - **Rate limiting**: 100 req/min globali per IP, 5 req/min sull'endpoint di login
-- **Security headers** iniettati prima della risposta, presenti anche sugli errori (X-Frame-Options, CSP, X-Content-Type-Options, HSTS, Referrer-Policy, Permissions-Policy)
 - **Gestione errori strutturata**: le eccezioni escono come ProblemDetails RFC 9457, senza stack trace
+- **Security headers** applicati anche dal backend quando esposto (`backend.public`): legge gli stessi `Security.Headers` del frontend e li applica a tutte le risposte, così l'esposizione diretta è sicura a prescindere dal reverse proxy. Salta `Content-Security-Policy` (serve solo JSON, su cui la CSP non ha effetto nel browser)
+
+> Gli header di sicurezza rivolti al browser sono definiti **una sola volta** in `Security.Headers` di `global-settings.json` e condivisi dai due layer. Nel default il backend è interno alla rete Docker e parla solo col Node SSR, quindi è il frontend a proteggere il browser; ma se esponi il backend, anche lui applica gli stessi header.
 
 ### Frontend
 
+- **Security headers** applicati dal Node SSR su ogni risposta (è il layer rivolto al browser), letti da `Security.Headers`: `X-Frame-Options`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` restrittiva e **CSP con nonce per-request** sull'HTML in produzione (il placeholder `{SCRIPT_NONCE_PLACEHOLDER}` viene sostituito a ogni richiesta)
 - **XSS nel Markdown**: qualsiasi HTML raw nel sorgente viene ignorato dal renderer
 - **Path traversal** bloccato nel serving dei file (`/api/blob/{slug}`)
 - **JSON-LD**: i dati strutturati sono generati lato server da campi controllati — nessun input utente raggiunge il blocco `<script>`

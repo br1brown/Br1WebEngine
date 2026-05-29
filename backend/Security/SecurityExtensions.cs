@@ -17,7 +17,7 @@ public static class SecurityExtensions
     /// Registra autenticazione, autorizzazione, CORS, rate limiting e gestione errori.
     /// </summary>
     /// <param name="services">Collezione DI da configurare.</param>
-    /// <param name="security">Opzioni tipizzate lette da <c>appsettings.json</c>.</param>
+    /// <param name="security">Opzioni tipizzate lette da <c>global-settings.json</c>.</param>
     /// <returns>La stessa collezione servizi, per consentire il chaining della configurazione.</returns>
     public static IServiceCollection AddTemplateSecurity(
         this IServiceCollection services,
@@ -39,7 +39,7 @@ public static class SecurityExtensions
                 SecurityDefaults.ApiKeyAuthenticationScheme,
                 options =>
                 {
-                    // Chiavi accettate, lette da Security.ApiKeys in appsettings.json.
+                    // Chiavi accettate, lette da Security.ApiKeys in global-settings.json.
                     options.ValidKeys = new HashSet<string>(
                         security.ApiKeys,
                         StringComparer.OrdinalIgnoreCase);
@@ -167,7 +167,7 @@ public static class SecurityExtensions
     /// Aggiunge alla pipeline HTTP i middleware di sicurezza del template.
     /// </summary>
     /// <param name="app">Applicazione ASP.NET da configurare.</param>
-    /// <param name="security">Opzioni tipizzate lette da <c>appsettings.json</c>.</param>
+    /// <param name="security">Opzioni tipizzate lette da <c>global-settings.json</c>.</param>
     /// <returns>La stessa applicazione, per consentire il chaining della pipeline.</returns>
     public static WebApplication UseTemplateSecurity(
         this WebApplication app,
@@ -206,9 +206,31 @@ public static class SecurityExtensions
         // viene bloccato subito senza sprecare risorse sui middleware successivi.
         app.UseRateLimiter();
 
-        // Header di sicurezza su ogni risposta (anche errori e 429).
-        // Protegge da clickjacking, XSS, MIME sniffing e abuso API browser.
-        app.UseMiddleware<SecurityHeadersMiddleware>();
+        // Header di sicurezza rivolti al browser, definiti in Security.Headers di
+        // global-settings.json e condivisi col frontend Node SSR. Nel default il backend
+        // è interno e l'SSR è l'unico layer che parla col browser, ma quando backend.public
+        // è attivo il backend diventa raggiungibile dal browser: applicarli qui rende
+        // l'esposizione sicura a prescindere dal reverse proxy. Content-Security-Policy
+        // viene saltata: il backend serve solo JSON, su cui la CSP non ha effetto nel
+        // browser (e conterrebbe il placeholder per-nonce, gestito solo dall'SSR).
+        if (security.Headers.Count > 0)
+        {
+            var browserHeaders = security.Headers
+                .Where(h => !string.Equals(h.Key, "Content-Security-Policy", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            app.Use(async (context, next) =>
+            {
+                context.Response.OnStarting(() =>
+                {
+                    foreach (var (name, value) in browserHeaders)
+                        context.Response.Headers[name] = value;
+                    return Task.CompletedTask;
+                });
+                await next();
+            });
+        }
+
         app.UseHsts();
 
         // Gestione centralizzata errori: ApiException → ProblemDetails JSON.

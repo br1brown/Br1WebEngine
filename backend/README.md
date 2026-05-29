@@ -13,8 +13,8 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 ## 🚀 Le "Killer Feature" (Cosa l'Engine ti Fornisce)
 
 ### 1. Sicurezza Invalicabile (Defense in Depth)
-**Perché è così?** Configurare header, rate limiter e validazioni CORS manualmente su ogni progetto espone a rischi di dimenticanze fatali. 
-**Cosa fa l'Engine:** Ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login). CORS e Security Headers sono pre-applicati a livello di middleware.
+**Perché è così?** Configurare rate limiter e validazioni CORS manualmente su ogni progetto espone a rischi di dimenticanze fatali. 
+**Cosa fa l'Engine:** Ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login) e applica CORS a livello di middleware. Gli header di sicurezza rivolti al browser sono definiti una sola volta in `Security.Headers` di `global-settings.json` e condivisi col Node SSR del frontend: nel default il backend è interno alla rete Docker e serve solo JSON, ma se lo esponi (`backend.public`) applica gli stessi header (saltando la CSP, irrilevante su risposte JSON).
 
 ### 2. Errori Standardizzati (RFC 9457)
 **Perché è così?** I client frontend spesso impazziscono a parsare errori strutturati in 10 modi diversi. 
@@ -22,7 +22,7 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 
 ### 3. Routing Adattivo (JWT Opzionale)
 **Perché è così?** Non tutti i progetti hanno utenti e login. Avere codice di auth "dormiente" ma esposto è un rischio di sicurezza e inquina Swagger.
-**Cosa fa l'Engine:** Se imposti `Security:LoginEnabled = false` in `appsettings.json`, il `TemplateControllerFeatureProvider` interviene durante il boot di ASP.NET e **sradica fisicamente** i controller di autenticazione dalla memoria. Non esistono rotte spurie.
+**Cosa fa l'Engine:** Il login si attiva automaticamente solo quando valorizzi `Security.Token.SecretKey` in `global-settings.json` (≥32 caratteri); se la lasci vuota il `TemplateControllerFeatureProvider` interviene durante il boot di ASP.NET e **sradica fisicamente** i controller di autenticazione dalla memoria. Non esistono rotte spurie.
 
 ### 4. Il Database Fantasma (`FileContentStore`)
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.

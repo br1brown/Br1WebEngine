@@ -1,4 +1,4 @@
-import { CookieConfig } from "../engine/services/cookie-consent.service";
+import type { CookieConfig } from "../engine/services/cookie-consent.service";
 
 /**
  * Registro unico dei cookie del progetto.

@@ -53,9 +53,7 @@ export class ContentResolver {
 
     async loadResolved(pageType: PageType, lang?: string): Promise<ResolvedPage> {
 
-        let language = lang ?? this.translate.currentLang();
-        if (!language)
-            language = ContestoSito.config.defaultLang;
+        const language = lang ?? this.translate.currentLang();
 
         let content: unknown = null;
         const info = ContestoSito.getPageInfo(pageType);

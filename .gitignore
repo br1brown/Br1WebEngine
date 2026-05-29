@@ -37,8 +37,8 @@ yarn-error.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
-frontend/public/sitemap.xml
-frontend/public/icons/
+frontend/public/
+frontend/src/environments/environment.ts
 .claude
 frontend/src/assets/files/image-cache
 frontend/lh-report.json

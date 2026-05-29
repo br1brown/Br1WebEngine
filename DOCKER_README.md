@@ -4,37 +4,38 @@ Guida operativa per eseguire Br1WebEngine con Docker. Per architettura completa,
 
 ## Modello di utilizzo
 
-Il template Docker e' progettato per essere **riusabile su piu' progetti sulla stessa VPS**. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio file `.env` e una propria porta.
+Il template Docker e' progettato per essere **riusabile su piu' progetti sulla stessa VPS**. Ogni progetto derivato dal template viene eseguito in una propria cartella con un proprio `global-settings.json` e una propria porta.
 
 ### Inizializzazione (una sola volta dopo la clonazione)
 
-Compila `.env.param` con i valori del progetto (hostname, porta, ecc.) e `backend/appsettings.json` con i segreti (ApiKeys, Token.SecretKey, CorsOrigins).
+Tutta la configurazione vive in **`global-settings.json`** (accanto a `deploy.sh`), validato da `global-settings.schema.json` per l'autocomplete nell'editor. È l'unica sorgente di verità: lo leggono `deploy.sh` (bash, via Node), il backend ASP.NET Core (`AddJsonFile`) e il Node SSR del frontend (`readFileSync`). Imposta lì hostname, porta, `Security.ApiKeys`, `Security.Token.SecretKey`, `Security.CorsOrigins`, ecc.
 
 ### Avvio di un progetto derivato
 
 ```bash
-# Edita .env.param e backend/appsettings.json, poi:
+# Edita global-settings.json, poi:
 ./deploy.sh
 ```
 
-`deploy.sh` sincronizza `.env` a partire da `.env.param`, verifica la configurazione e avvia i container.
+`deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
 
 ### Esposizione dei servizi
 
-- Ogni progetto espone il frontend su una porta host dedicata (es. `http://IP:3000`, `http://IP:3001`)
-- Il backend puo' essere esposto aggiungendo `docker-compose.backend-exposed.yml`
+- Ogni progetto espone il frontend su una porta host dedicata (`frontend.port`, es. `http://IP:3000`, `http://IP:3001`)
+- Il backend puo' essere esposto impostando `backend.public: true` (richiede `docker-compose.backend-exposed.yml`)
 - Frontend e backend comunicano sempre tramite rete Docker interna
 
 ### Esempio: due progetti sulla stessa VPS
 
 ```text
-/home/deploy/progetto-a/.env   →  COMPOSE_PROJECT_NAME=progetto-a  FRONTEND_PORT=3000
-/home/deploy/progetto-b/.env   →  COMPOSE_PROJECT_NAME=progetto-b  FRONTEND_PORT=3001
+/home/deploy/progetto-a/global-settings.json   →  project.name "Progetto A"  frontend.port 3000
+/home/deploy/progetto-b/global-settings.json   →  project.name "Progetto B"  frontend.port 3001
 ```
 
 Risultato:
 - `http://IP:3000` → progetto-a
 - `http://IP:3001` → progetto-b
+- `COMPOSE_PROJECT_NAME` è derivato slugificando `project.name` (`Progetto A` → `progetto-a`)
 - Volumi separati: `progetto-a_uploads-data`, `progetto-b_uploads-data` (naming automatico Docker Compose)
 - Nessun conflitto di container
 
@@ -45,46 +46,30 @@ Risultato:
 - **`docker-compose.backend-exposed.yml`** — opzionale: espone il backend verso l'host su `BACKEND_PORT`
 - **`docker-compose.public-test.yml`** — overlay locale per simulare un reverse proxy pubblico davanti al frontend SSR
 
-## Variabili `.env.param`
+## Configurazione: `global-settings.json`
 
-Questo e' il file "umano" da modificare in produzione.
+Unico file da modificare. Le chiavi e i loro vincoli sono documentati in `global-settings.schema.json` (`description`, `examples`, default), quindi l'editor offre autocomplete e validazione.
 
-| Variabile | Obbligatoria | Default | Descrizione |
-|---|---|---|---|
-| `SITE_HOSTNAME` | si | -- | Hostname pubblico del sito |
-| `SITE_SCHEME` | no | `https` | Schema usato per derivare `FRONTEND_BASE_URL` |
-| `FRONTEND_PORT` | si | -- | Porta host del frontend |
-| `EXPOSE_BACKEND` | no | `no` | `yes` per esporre il backend sull'host |
-| `BACKEND_PORT` | no | `8080` | Porta host del backend, solo se esposto |
-| `COMPOSE_PROJECT_NAME` | no | derivato da `SITE_HOSTNAME` | Nome progetto Docker Compose |
+| Chiave | Default | Descrizione |
+|---|---|---|
+| `project.name` | `App` | Nome del progetto; slugificato in `COMPOSE_PROJECT_NAME` (`Mercatino App` → `mercatino-app`) |
+| `frontend.hostname` | `""` | Dominio pubblico senza schema (es. `miodominio.it`). Vuoto in locale. Deriva `FRONTEND_BASE_URL` e `NG_ALLOWED_HOSTS` |
+| `frontend.port` | `3000` | Porta host del frontend |
+| `backend.public` | `false` | `true` espone il backend sull'host (richiede `docker-compose.backend-exposed.yml`) |
+| `backend.publicPort` | `null` | Porta host del backend, solo se `public: true` |
+| `Localization.DefaultLanguage` | `it` | Lingua di default (tag BCP-47) |
+| `Localization.SupportedLanguages` | `["it","en"]` | Lingue supportate |
+| `Security.ApiKeys` | `["frontend"]` | Chiavi API del backend (header `X-Api-Key`); il frontend usa `[0]`. In prod ≥32 char |
+| `Security.CorsOrigins` | `[]` | Origini CORS ammesse. Vuoto in locale |
+| `Security.BehindProxy` | `false` | `true` quando si è dietro un reverse proxy (legge `X-Forwarded-For`) |
+| `Security.Token.SecretKey` | `""` | Segreto JWT (≥32 char): se valorizzato attiva il login. Vuoto = login disabilitato |
+| `Security.Token.ExpirationSeconds` | `3000` | Durata dei JWT emessi |
+| `OpenTelemetry.Endpoint` | `""` | Collector OTLP. Vuoto = telemetria disabilitata |
+| `Custom` | `{}` | Valori liberi leggibili da backend (`IConfiguration["Custom:..."]`) e Node SSR (`getBr1Settings().Custom`) |
 
-Da qui `deploy.sh` deriva automaticamente:
+`deploy.sh` deriva da questo file le poche variabili che servono a Docker Compose (`COMPOSE_PROJECT_NAME`, `FRONTEND_PORT`, `FRONTEND_BASE_URL`, `NG_ALLOWED_HOSTS`, esposizione backend) e le passa inline. Backend e Node SSR leggono invece il file montato direttamente.
 
-- `FRONTEND_BASE_URL`
-- `NG_ALLOWED_HOSTS`
-- `COMPOSE_PROJECT_NAME` se non specificato
-
-## Variabili `.env`
-
-Questo resta il file consumato da Docker Compose.
-
-| Variabile | Obbligatoria | Default | Descrizione |
-|---|---|---|---|
-| `COMPOSE_PROJECT_NAME` | si | — | Identifica il progetto; Docker Compose usa questo per nominare i volumi (built-in) |
-| `FRONTEND_PORT` | si | — | Porta host del frontend in produzione |
-| `BACKEND_PORT` | no | `8080` | Porta host del backend (usata solo con `backend-exposed.yml`) |
-| `BACKEND_ORIGIN` | no | `http://backend:8080` | Host backend per proxy Node e chiamate SSR |
-| `BACKEND_API_KEY` | no | `frontend` | API key iniettata dal proxy Node verso il backend |
-| `NG_ALLOWED_HOSTS` | no | derivato da `FRONTEND_BASE_URL` via `deploy.sh` | Host autorizzati da Angular SSR |
-| `DEV_FRONTEND_PORT` | no | `4200` | Porta frontend in sviluppo |
-| `DEV_BACKEND_PORT` | no | `5000` | Porta backend in sviluppo |
-| `FRONTEND_BASE_URL` | no | — | URL canonico pubblico del frontend |
-| `EXPOSE_BACKEND` | no | — | Impostata da `deploy.sh`: `yes` espone la porta backend sull'host |
-| `PUBLIC_TEST_PORT` | no | `8088` | Porta host usata dal reverse proxy del test pubblico |
-| `PUBLIC_TEST_BASE_URL` | no | `http://localhost:8088` | URL pubblico simulato per il test locale |
-| `PUBLIC_TEST_ALLOWED_HOSTS` | no | `localhost` | Host inoltrato dal reverse proxy al frontend SSR |
-
-I valori di produzione (ApiKeys, CorsOrigins, BehindProxy, Token.SecretKey) vanno in `backend/appsettings.json`, committato direttamente.
+`BACKEND_ORIGIN` (`http://backend:8080`) resta una variabile d'ambiente del compose: è l'indirizzo Docker-interno del backend, non una scelta di configurazione utente.
 
 ## Sviluppo
 
@@ -105,14 +90,14 @@ Note pratiche:
 ## Produzione e Sicurezza Blue/Green
 
 ```bash
-# Crea o modifica .env.param e backend/appsettings.json con i tuoi valori, poi:
+# Edita global-settings.json con i tuoi valori, poi:
 ./deploy.sh
 ```
 
 In produzione:
 
 - **Frontend** su `http://localhost:FRONTEND_PORT`
-- **Backend** solo interno per default (per esporlo, imposta `EXPOSE_BACKEND=yes` in `.env.param`)
+- **Backend** solo interno per default (per esporlo, imposta `backend.public: true` in `global-settings.json`)
 
 Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend sulla rete Docker interna, iniettando l'API key lato server.
 
@@ -122,9 +107,9 @@ Lo script `./deploy.sh` utilizza una logica avanzata **"Pre-flight" (Blue/Green 
 3. **Validazione e Test Suite**: Attende che il server risponda con HTTP 200 (Healthcheck). Inoltre, esegue *automaticamente* tutta la suite di test (`run-all.sh`) sull'ambiente nascosto.
 4. **Scambio (Swap)**: Solo se l'healthcheck e i test passano con successo, il deploy procede rimpiazzando i container vecchi. Se c'e' un errore, il deploy si annulla e il sito in produzione resta online intatto.
 
-Se hai un'emergenza e devi eseguire un deploy saltando la suite di test completa (l'healthcheck base verra' comunque eseguito), puoi usare:
+Se hai un'emergenza e devi eseguire un deploy saltando i test post-deploy (l'healthcheck base verra' comunque eseguito), puoi usare:
 ```bash
-./deploy.sh --skip-tests
+./deploy.sh --skip-post-deploy
 ```
 
 ## Test pubblico dietro reverse proxy
@@ -179,9 +164,9 @@ In quel caso il frontend dovrebbe loggare il rifiuto dell'host e smettere di com
 
 ### Esporre il backend
 
-Imposta `EXPOSE_BACKEND=yes` in `.env.param`. `deploy.sh` sincronizza il valore in `.env` per Docker Compose.
+Imposta `backend.public: true` (e `backend.publicPort`) in `global-settings.json`. `deploy.sh` ne deriva l'esposizione e applica l'overlay `docker-compose.backend-exposed.yml`.
 
-Nota: `BACKEND_PORT` controlla solo la porta pubblicata sull'host. Il container backend continua ad ascoltare internamente su `8080`, quindi l'overlay `docker-compose.backend-exposed.yml` mappa `BACKEND_PORT:8080`.
+Nota: la porta pubblicata controlla solo la porta sull'host. Il container backend continua ad ascoltare internamente su `8080`, quindi l'overlay `docker-compose.backend-exposed.yml` mappa `publicPort:8080`.
 
 ### Controlli all'avvio
 
@@ -221,7 +206,7 @@ docker compose exec backend sh
 | Compose usata | `docker-compose.yml` + `override` | `docker-compose.yml` |
 | Frontend | `ng serve` su `DEV_FRONTEND_PORT` | Node SSR su `FRONTEND_PORT` |
 | Backend | ASP.NET Core Development su `DEV_BACKEND_PORT` | ASP.NET Core Production su `8080` (interno) |
-| Configurazione backend | `appsettings.json` (ASPNETCORE_ENVIRONMENT=Development) | `appsettings.json` (ASPNETCORE_ENVIRONMENT=Production) |
+| Configurazione backend | `global-settings.json` (ASPNETCORE_ENVIRONMENT=Development) | `global-settings.json` (ASPNETCORE_ENVIRONMENT=Production) |
 | Container | 2 | 2 |
 
 ## Nota pratica

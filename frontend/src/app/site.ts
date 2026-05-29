@@ -1,5 +1,5 @@
-
 import { buildSite } from './core/engine/siteBuilder';
+import { CookieConsentService } from './core/engine/services/cookie-consent.service';
 
 export type {
     SiteConfig,
@@ -44,6 +44,7 @@ function _createPolicy(): _SitePageInput[] {
             description: 'cookiePolicyDescrizione',
             pageType: PageType.CookiePolicy,
             component: loadPolicyComponent,
+            enabled: CookieConsentService.hasCookiesConfigured(),
         },
         {
             path: 'legal',
@@ -121,8 +122,6 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     siteFondamentaBuilder.setSiteConfiguration({
         appName: 'Template',
         version: '1.0.0',
-        defaultLang: 'it',
-        availableLanguages: ['it', 'en'],
         description: 'Template di base che serve per fare vedere le funzionalità base',
         colorTema: '#131e55',
         showFooter: true,

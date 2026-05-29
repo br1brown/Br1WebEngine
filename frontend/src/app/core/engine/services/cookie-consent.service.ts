@@ -1,8 +1,9 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, Injector, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
-import { TranslateService } from './translate.service';
-import { ContestoSito } from '../../../site';
+import { Injectable, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
+import { LOCALE_CONFIG } from '../services/translate.service';
+import { environment } from '../../../../environments/environment';
+import { SITE_CONFIG } from '../siteBuilder';
 export type { CookieKey } from '../../services/cookie-registry';
 export enum CookieCategory {
     Technical = 'tecnici',
@@ -24,8 +25,18 @@ export interface CookieConfig {
  */
 export function isTechnicalConsentGiven(): boolean {
     try {
-        const slug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
-        return localStorage.getItem(`cookie-consent-${slug}-technical`) === '1';
+        // Fallback or read directly if possible, ma questo è fuori dal service.
+        // Possiamo provare a leggere tutti i cookie tecnici o basarci su un prefix generico,
+        // ma la logica richiedeva ContestoSito.config.appName. Per informazioni fuori dal DI, 
+        // usiamo un fallback generico o controlliamo le chiavi localStorage per "cookie-consent-*"
+        // Visto che questo viene usato prima del boot, possiamo iterare sulle chiavi:
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('cookie-consent-') && key.endsWith('-technical')) {
+                if (localStorage.getItem(key) === '1') return true;
+            }
+        }
+        return false;
     } catch {
         return false;
     }
@@ -50,9 +61,10 @@ export function isTechnicalConsentGiven(): boolean {
 export class CookieConsentService {
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
-    private readonly injector = inject(Injector);
+    private readonly localeConfig = inject(LOCALE_CONFIG);
+    private readonly siteConfig = inject(SITE_CONFIG);
 
-    private readonly appSlug = ContestoSito.config.appName.replaceAll(' ', '-').toLowerCase();
+    private readonly appSlug = this.siteConfig.appName.replaceAll(' ', '-').toLowerCase();
     private readonly consentKey = `cookie-consent-${this.appSlug}`;
     private readonly consentLogKey = `cookie-consent-log-${this.appSlug}`;
 
@@ -61,14 +73,15 @@ export class CookieConsentService {
     // Ogni computed guarda esclusivamente la propria fetta di COOKIE_MAP.
     // isTechnicalNeeded include anche lingua built-in (multilingua) e SW (isWebApp).
     //
-    // @remarks isTechnicalNeeded usa injector.get(TranslateService) anziché
-    // inject() nel costruttore per spezzare la dipendenza circolare:
-    // CookieConsentService → TranslateService → CookieConsentService.
-    // @warning NON sostituire con inject(TranslateService) nel costruttore.
+    // Usa localeConfig.availableLanguages (lista raw da global-settings.json) — non la lista
+    // post-probeLanguages di TranslateService, che può essere ridotta se un file JSON
+    // manca. La decisione sul cookie deve riflettere la configurazione dichiarata,
+    // non l'esito dei file probe: altrimenti un file mancante fa sparire silenziosamente
+    // il banner e blocca il salvataggio del consenso in un loop.
 
     readonly isTechnicalNeeded = computed(() =>
-        this.injector.get(TranslateService).availableLangs().length > 1
-        || ContestoSito.config.isWebApp
+        this.localeConfig.availableLanguages.length > 1
+        || this.siteConfig.isWebApp
         || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical)
     );
 
@@ -110,11 +123,12 @@ export class CookieConsentService {
                 if (analyticsStored !== null) this._analyticsAccepted.set(analyticsStored === '1');
                 if (profilingStored !== null) this._profilingAccepted.set(profilingStored === '1');
 
-                // isTechnicalNeeded() NON va chiamata qui (causa NG0200 via injector.get).
-                // Replica la stessa logica usando ContestoSito e COOKIE_MAP direttamente.
+                // isTechnicalNeeded() non va chiamata qui: è un computed e al momento della
+                // costruzione i signal di Angular non sono ancora stabilizzati. Si replica
+                // la stessa logica usando LOCALE_CONFIG e COOKIE_MAP direttamente.
                 const isTechnicalNeededNow =
-                    ContestoSito.config.availableLanguages.length > 1
-                    || ContestoSito.config.isWebApp
+                    this.localeConfig.availableLanguages.length > 1
+                    || this.siteConfig.isWebApp
                     || (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Technical);
                 const isAnalyticsNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Analytics);
                 const isProfilingNeededNow = (Object.values(COOKIE_MAP) as CookieConfig[]).some(c => c.category === CookieCategory.Profiling);
@@ -127,6 +141,23 @@ export class CookieConsentService {
                 if (anyStored && allAnswered) this.responded.set(true);
             } catch { }
         }
+    }
+
+    /**
+     * Controlla in modo statico se sono necessari i cookie per il sito.
+     * È usato da site.ts a build time / runtime precoce per determinare
+     * se abilitare o meno la pagina Cookie Policy.
+     */
+    static hasCookiesConfigured(): boolean {
+        // 1. Ci sono cookie espliciti di progetto?
+        if (Object.keys(COOKIE_MAP).length > 0) return true;
+
+        // 2. Multilingua o altre config nel file di environment generato?
+        if (environment.availableLanguages && environment.availableLanguages.length > 1) {
+            return true;
+        }
+
+        return false;
     }
 
     // ─── GESTIONE CONSENSO ──────────────────────────────────────────────
@@ -185,7 +216,7 @@ export class CookieConsentService {
                     profiling: this._profilingAccepted(),
                 },
                 timestamp: new Date().toISOString(),
-                version: ContestoSito.config.version,
+                version: this.siteConfig.version,
             }));
         } catch { }
         try { this.applyConsent(); } catch { }
@@ -208,7 +239,7 @@ export class CookieConsentService {
      * Nessuna operazione se isWebApp è false in site.ts.
      */
     private applyServiceWorker(): void {
-        if (!this.isBrowser || isDevMode() || !ContestoSito.config.isWebApp) return;
+        if (!this.isBrowser || isDevMode() || !this.siteConfig.isWebApp) return;
         if (this._technicalAccepted() && 'serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistration().then(existing => {
                 if (!existing) {
@@ -405,14 +436,14 @@ export class CookieConsentService {
                 ...COOKIE_MAP,
             };
 
-            if (ContestoSito.config.availableLanguages.length > 1) {
+            if (this.localeConfig.availableLanguages.length > 1) {
                 allCookies[CookieConsentService.LANG_KEY] = {
                     category: CookieCategory.Technical,
                     descriptionKey: 'linguaDescrizioneListaCookie',
                 };
             }
 
-            if (ContestoSito.config.isWebApp) {
+            if (this.siteConfig.isWebApp) {
                 allCookies[CookieConsentService.NGSW_WORKER] = {
                     category: CookieCategory.Technical,
                     descriptionKey: 'swDescrizioneListaCookie',

@@ -22,7 +22,7 @@
 // Necessario: carica il JIT compiler di Angular così i decoratori @Injectable
 // funzionano quando Node.js importa site.ts e il suo grafo di dipendenze.
 import '@angular/compiler';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { join } from 'path';
 import { ContestoSito } from '../../../site';
@@ -30,6 +30,51 @@ import { ThemeService } from '../services/theme.service';
 import { SitemapEntry, SitePage, isParentPage, isExternalPage } from '../siteBuilder';
 
 const ROOT = join(__dirname, '../../../../../');
+
+// Localization a build-time. Resta global-settings.json la sorgente di verità, ma
+// la lettura è env-first per il build dell'immagine Docker: lì il build context è
+// ./frontend e global-settings.json (nella root del repo) NON è nell'immagine, quindi
+// un readFileSync diretto crasherebbe con ENOENT. deploy.sh deriva DEFAULT_LANG e
+// SUPPORTED_LANGS dal file e li passa come build ARG (come già fa per FRONTEND_BASE_URL).
+// Su host/CI gli env non ci sono e si legge il file (guardato), per campo.
+function readFileLocalization(): Record<string, unknown> {
+    const candidates = [
+        process.env['GLOBAL_SETTINGS_PATH'],
+        join(ROOT, '../global-settings.json'), // host/CI: root del repo
+        join(ROOT, 'global-settings.json'),
+    ].filter((p): p is string => Boolean(p));
+
+    for (const p of candidates) {
+        try {
+            if (existsSync(p)) {
+                const s = JSON.parse(readFileSync(p, 'utf-8')) as Record<string, unknown>;
+                return (s['Localization'] as Record<string, unknown>) ?? {};
+            }
+        } catch { /* file illeggibile: prova il prossimo candidato */ }
+    }
+    return {};
+}
+
+const _fileLoc = readFileLocalization();
+
+const _normLang = (tag: unknown): string | null => {
+    if (typeof tag !== 'string' || !tag.trim()) return null;
+    try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
+};
+
+// Precedenza per campo: env (Docker) → file (host/CI) → default.
+// `||` e non `??`: un env var vuoto ("") non deve sovrascrivere il valore del file.
+const _defaultRaw   = process.env['DEFAULT_LANG'] || _fileLoc['DefaultLanguage'];
+const _supportedRaw = process.env['SUPPORTED_LANGS']
+    ? process.env['SUPPORTED_LANGS']!.split(',')
+    : (_fileLoc['SupportedLanguages'] as string[] | undefined);
+
+const DEFAULT_LANG    = _normLang(_defaultRaw) ?? 'it';
+const AVAILABLE_LANGS = (_supportedRaw ?? [DEFAULT_LANG])
+    .map(_normLang)
+    .filter((l): l is string => l !== null)
+    .filter((v, i, a) => a.indexOf(v) === i); // deduplication
+
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const SITEMAP = join(ROOT, 'public', 'sitemap.xml');
@@ -111,7 +156,7 @@ function getChangefreq(path: string): string {
 function updateIndexHtml(): void {
     const appName = escapeHtml(ContestoSito.config.appName);
     const description = escapeHtml(ContestoSito.config.description);
-    const lang = escapeHtml(ContestoSito.config.defaultLang);
+    const lang = escapeHtml(DEFAULT_LANG);
     // 'default' è sicuro per qualsiasi tema: apple-mobile-web-app-status-bar-style
     // non supporta media queries e non può adattarsi all'OS preference a runtime.
     const iosStatusBar = 'default';
@@ -146,6 +191,24 @@ function updateIndexHtml(): void {
         ['property', 'og:image', defaultImageUrl],
     ];
 
+    // Genera file TS con la configurazione della lingua per il frontend (invece di esporre JSON nel meta tag)
+    const generatedTsPath = join(ROOT, 'src', 'environments', 'environment.ts');
+    const generatedTsContent = `// FILE GENERATO AUTOMATICAMENTE DA scripts/generate-statics.ts
+// Non modificare manualmente. Sorgente di verità: global-settings.json
+
+export interface AppEnvironment {
+    defaultLang: string;
+    availableLanguages: string[];
+}
+
+export const environment: AppEnvironment = {
+    defaultLang: '${DEFAULT_LANG}',
+    availableLanguages: ${JSON.stringify(AVAILABLE_LANGS)}
+};
+`;
+    writeFileSync(generatedTsPath, generatedTsContent, 'utf8');
+    console.log('[statics] src/environments/environment.ts aggiornato');
+
     for (const [attr, key, value] of allMeta) {
         html = replaceMeta(html, attr, key, value);
     }
@@ -177,19 +240,34 @@ function updateIndexHtml(): void {
 // ── Aggiornamento manifest.webmanifest ────────────────────────────────────
 
 function updateManifest(): void {
-    const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Record<string, unknown>;
     const palette = ThemeService.computePalette(ContestoSito.config.colorTema);
 
-    manifest['name'] = ContestoSito.config.appName;
-    manifest['short_name'] = ContestoSito.config.appName;
-    manifest['description'] = ContestoSito.config.description;
-    manifest['lang'] = ContestoSito.config.defaultLang;
-    // theme_color: colore WCAG-safe del brand per il chrome del browser nella schermata Home
-    manifest['theme_color'] = palette.colorPrimary;
-    // background_color: sfondo splash screen — usa colorBase del tone naturale
-    // per una transizione fluida dallo splash all'app
-    manifest['background_color'] = palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk;
-    manifest['version'] = ContestoSito.config.version;
+    const manifest: Record<string, unknown> = {
+        name: ContestoSito.config.appName,
+        short_name: ContestoSito.config.appName,
+        description: ContestoSito.config.description,
+        lang: DEFAULT_LANG,
+        theme_color: palette.colorPrimary,
+        background_color: palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
+        display: "standalone",
+        scope: "./",
+        start_url: "./",
+        icons: [
+            {
+                src: "icons/icon-192x192.png",
+                sizes: "192x192",
+                type: "image/png",
+                purpose: "any"
+            },
+            {
+                src: "icons/icon-512x512.png",
+                sizes: "512x512",
+                type: "image/png",
+                purpose: "any maskable"
+            }
+        ],
+        version: ContestoSito.config.version
+    };
 
     writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');
     console.log(`[statics] manifest.webmanifest aggiornato`);
@@ -267,6 +345,11 @@ function updateRobots(): void {
 // ── Entry point ───────────────────────────────────────────────────────────
 
 function main(): void {
+    const publicDir = join(ROOT, 'public');
+    if (!existsSync(publicDir)) {
+        mkdirSync(publicDir, { recursive: true });
+    }
+
     updateIndexHtml();
     updateManifest();
     updateSitemap();

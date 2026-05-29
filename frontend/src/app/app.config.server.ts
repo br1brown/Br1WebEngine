@@ -1,4 +1,4 @@
-import { ApplicationConfig, CSP_NONCE, REQUEST_CONTEXT, mergeApplicationConfig, inject, provideAppInitializer } from '@angular/core';
+import { ApplicationConfig, CSP_NONCE, REQUEST_CONTEXT, TransferState, mergeApplicationConfig, inject, provideAppInitializer } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { provideServerRendering } from '@angular/platform-server';
 import { provideServerRouting, RenderMode, type ServerRoute } from '@angular/ssr';
@@ -9,8 +9,9 @@ import { SSR_BACKEND_ORIGIN, SSR_API_KEY } from './core/engine/services/base-api
 import { LEGAL_FILE_READER } from './pages/content.resolver';
 import { SSR_PREVIEW_ENCRYPT_FN, SSR_FRONTEND_ORIGIN } from './core/engine/services/page-meta.service';
 import { ThemeService } from './core/engine/services/theme.service';
-import { serverEnv } from './core/engine/server/server-env';
+import { serverEnv, getBr1Settings } from './core/engine/server/server-env';
 import { PreviewCrypto } from './core/engine/server/preview-crypto.server';
+import { LOCALE_CONFIG, LOCALE_STATE_KEY, type LocaleConfig } from './core/engine/services/translate.service';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
@@ -54,12 +55,12 @@ const serverConfig: ApplicationConfig = {
         /** Inietta l'URL del backend: il server ha bisogno dell'indirizzo completo */
         {
             provide: SSR_BACKEND_ORIGIN,
-            useValue: serverEnv.backendOrigin,
+            useValue: serverEnv.backend.origin,
         },
         /** Inietta la chiave API */
         {
             provide: SSR_API_KEY,
-            useValue: serverEnv.backendApiKey,
+            useValue: serverEnv.backend.apiKey,
         },
         /**
          * CSP nonce per-request: passato da Express come requestContext nel catch-all SSR.
@@ -128,7 +129,7 @@ const serverConfig: ApplicationConfig = {
          */
         {
             provide: SSR_FRONTEND_ORIGIN,
-            useValue: serverEnv.frontendBaseUrl,
+            useValue: serverEnv.site.baseUrl,
         },
         /** Legge i file .md delle policy da disco, evitando la chiamata HTTP loopback in SSR */
         {
@@ -144,6 +145,29 @@ const serverConfig: ApplicationConfig = {
                     return null;
                 }
             },
+        },
+        {
+            provide: LOCALE_CONFIG,
+            useFactory: (transferState: TransferState): LocaleConfig => {
+                const s = getBr1Settings();
+                const loc = s['Localization'] as Record<string, unknown> | undefined;
+                const normLang = (tag: unknown): string | null => {
+                    if (typeof tag !== 'string' || !tag.trim()) return null;
+                    try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }
+                };
+                const defaultLang = normLang(loc?.['DefaultLanguage']) ?? 'it';
+                const rawLangs = loc?.['SupportedLanguages'] as string[] | undefined;
+                const availableLanguages = (rawLangs ?? [defaultLang])
+                    .map(normLang)
+                    .filter((l): l is string => l !== null);
+                const config: LocaleConfig = {
+                    defaultLang,
+                    availableLanguages: availableLanguages.length > 0 ? availableLanguages : [defaultLang],
+                };
+                transferState.set(LOCALE_STATE_KEY, config);
+                return config;
+            },
+            deps: [TransferState],
         },
     ]
 };

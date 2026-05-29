@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backend.Models.Configuration;
 
 /// <summary>
-/// Raccoglie tutta la configurazione di sicurezza letta da <c>appsettings.json</c>.
+/// Raccoglie tutta la configurazione di sicurezza letta da <c>global-settings.json</c>.
 /// </summary>
 public class SecurityOptions
 {
@@ -20,6 +20,14 @@ public class SecurityOptions
     public string[] CorsOrigins { get; set; } = [];
 
     /// <summary>
+    /// Header di sicurezza rivolti al browser, definiti in <c>global-settings.json</c>
+    /// e condivisi con il frontend Node SSR. Il backend li applica solo quando viene
+    /// esposto pubblicamente (browser-reachable). La chiave <c>Content-Security-Policy</c>
+    /// viene ignorata dal backend: serve solo JSON, su cui la CSP non ha effetto.
+    /// </summary>
+    public Dictionary<string, string> Headers { get; set; } = new();
+
+    /// <summary>
     /// Configurazione del token JWT usato per il login applicativo.
     /// </summary>
     public TokenOptions Token { get; set; } = new();
@@ -31,11 +39,6 @@ public class SecurityOptions
     /// Se <c>false</c>, il rate limiter usa direttamente <c>RemoteIpAddress</c>.
     /// </summary>
     public bool BehindProxy { get; set; }
-
-    /// <summary>
-    /// Header HTTP di sicurezza da aggiungere a tutte le risposte.
-    /// </summary>
-    public Dictionary<string, string> Headers { get; set; } = [];
 
     /// <summary>
     /// Indica se il login JWT e' attivo.
@@ -67,7 +70,7 @@ public class TokenOptions
     /// <returns>Una <see cref="SymmetricSecurityKey"/> pronta per la firma o la validazione dei token.</returns>
     /// <exception cref="InvalidOperationException">
     /// Sollevata quando la <see cref="SecretKey"/> e' vuota o piu' corta del minimo richiesto da HMAC-SHA256.
-    /// La configurazione va corretta in <c>appsettings.json</c>: una chiave corta non viene piu' espansa
+    /// La configurazione va corretta in <c>global-settings.json</c>: una chiave corta non viene piu' espansa
     /// automaticamente, perche' avrebbe l'entropia della chiave originale e mascherererebbe segreti deboli.
     /// </exception>
     public SymmetricSecurityKey GetSigningKey()
@@ -81,7 +84,7 @@ public class TokenOptions
         if (keyBytes.Length < 32)
             throw new InvalidOperationException(
                 $"Security.Token.SecretKey troppo corta ({keyBytes.Length} byte). " +
-                "HMAC-SHA256 richiede almeno 32 byte: configurare una chiave piu' lunga in appsettings.json.");
+                "HMAC-SHA256 richiede almeno 32 byte: configurare una chiave piu' lunga in global-settings.json.");
 
         return new SymmetricSecurityKey(keyBytes);
     }
