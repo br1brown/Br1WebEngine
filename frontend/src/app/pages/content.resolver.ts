@@ -87,7 +87,12 @@ export class ContentResolver {
     }
 
     private async tryLoadPolicy(slug: string, lang: string): Promise<string | null> {
-        if (this.fileReader) return this.fileReader(slug, lang);
+        // SSR: legge da disco (dist/browser/assets/legal). Se manca — tipico in
+        // `ng serve`, dove quella cartella non esiste — ricade sull'HTTP come il browser.
+        if (this.fileReader) {
+            const fromDisk = await this.fileReader(slug, lang);
+            if (fromDisk !== null) return fromDisk;
+        }
         return firstValueFrom(
             this.http.get(`/assets/legal/${slug}.${lang}.md`, { responseType: 'text' })
                 .pipe(catchError(() => of(null)))

@@ -140,8 +140,12 @@ const serverConfig: ApplicationConfig = {
                         join(browserDistFolder, 'assets', 'legal', `${slug}.${lang}.md`),
                         'utf-8'
                     );
-                } catch {
-                    console.warn(`[LEGAL_FILE_READER] File non trovato: assets/legal/${slug}.${lang}.md`);
+                } catch (err) {
+                    // ENOENT è atteso in `ng serve` (nessun dist/browser): il resolver
+                    // ricade su HTTP, quindi non è un errore. Logghiamo solo il resto.
+                    if ((err as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+                        console.warn(`[LEGAL_FILE_READER] Lettura fallita per assets/legal/${slug}.${lang}.md`, err);
+                    }
                     return null;
                 }
             },
