@@ -85,4 +85,13 @@
   <data name="error_invalid_credentials" xml:space="preserve">
     <value>Credenziali non valide.</value>
   </data>
+  <data name="error_forbidden" xml:space="preserve">
+    <value>Non hai i permessi necessari per eseguire questa operazione.</value>
+  </data>
+  <data name="error_conflict" xml:space="preserve">
+    <value>{0} è già esistente o in conflitto con una risorsa esistente.</value>
+  </data>
+  <data name="error_service_unavailable" xml:space="preserve">
+    <value>Il servizio è temporaneamente non disponibile. Riprova più tardi.</value>
+  </data>
 </root>

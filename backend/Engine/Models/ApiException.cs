@@ -155,3 +155,61 @@ public class InvalidParametersException : ApiException
     {
     }
 }
+
+/// <summary>
+/// Rappresenta un errore 403 per accesso negato a un utente autenticato ma non autorizzato.
+/// </summary>
+/// <remarks>
+/// Diversa da <see cref="UnauthorizedException"/> (401): quella indica che l'utente non e'
+/// autenticato; questa indica che e' autenticato ma non ha i permessi per l'operazione richiesta.
+/// Uso tipico: un utente loggato tenta di accedere a una risorsa riservata a un ruolo superiore.
+/// </remarks>
+public class ForbiddenException : ApiException
+{
+    /// <summary>
+    /// Inizializza l'eccezione con la chiave del messaggio di accesso vietato.
+    /// </summary>
+    public ForbiddenException()
+        : base("error_forbidden", 403)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 409 per conflitti di stato sulla risorsa.
+/// </summary>
+/// <remarks>
+/// Uso tipico: tentativo di creare una risorsa gia' esistente, o aggiornamento
+/// su una versione obsoleta (ottimistic concurrency). Il nome della risorsa in conflitto
+/// riempie il segnaposto <c>{0}</c> del messaggio localizzato.
+/// </remarks>
+public class ConflictException : ApiException
+{
+    /// <summary>
+    /// Inizializza l'eccezione specificando il nome logico della risorsa in conflitto.
+    /// </summary>
+    /// <param name="resourceName">Descrizione della risorsa che ha generato il conflitto.</param>
+    public ConflictException(string resourceName = "risorsa")
+        : base("error_conflict", 409, resourceName)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 503 per servizi esterni temporaneamente non disponibili.
+/// </summary>
+/// <remarks>
+/// Uso tipico: un servizio di terze parti (email, pagamenti, SMS) non risponde o
+/// restituisce un errore. Segnala al client che l'operazione puo' essere ritentata piu' tardi,
+/// senza esporre dettagli tecnici dell'infrastruttura.
+/// </remarks>
+public class ServiceUnavailableException : ApiException
+{
+    /// <summary>
+    /// Inizializza l'eccezione con la chiave del messaggio di servizio non disponibile.
+    /// </summary>
+    public ServiceUnavailableException()
+        : base("error_service_unavailable", 503)
+    {
+    }
+}

@@ -70,11 +70,14 @@ Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione app
 | `DataNotFoundException()` | 404 | `error_data_not_found` | "Dati non trovati" |
 | `UnauthorizedException()` | 401 | `error_unauthorized` | "Non autorizzato" |
 | `UnauthorizedException("error_invalid_credentials")` | 401 | `error_invalid_credentials` | "Credenziali non valide." |
+| `ForbiddenException()` | 403 | `error_forbidden` | "Non hai i permessi necessari per eseguire questa operazione." |
+| `ConflictException("risorsa")` | 409 | `error_conflict` | "{0} è già esistente o in conflitto con una risorsa esistente." |
 | `DecodingException()` | 400 | `error_decoding` | "Errore nella decodifica" |
 | `InvalidParametersException()` | 400 | `error_invalid_parameters` | "Parametri non validi o mancanti" |
+| `ServiceUnavailableException()` | 503 | `error_service_unavailable` | "Il servizio è temporaneamente non disponibile. Riprova più tardi." |
 | qualsiasi altra eccezione | 500 | — | Risposta generica ASP.NET (nessun dettaglio esposto) |
 
-> `UnauthorizedException` accetta una chiave personalizzata come argomento. Usa `"error_unauthorized"` (generica) quando non vuoi rivelare se a sbagliare è username o password; usa `"error_invalid_credentials"` solo dove la distinzione è accettabile.
+> **401 vs 403**: `UnauthorizedException` (401) significa che l'utente non è autenticato. `ForbiddenException` (403) significa che è autenticato ma non ha i permessi — non confondere i due.
 
 **Formato della risposta al client:**
 ```json

@@ -85,4 +85,13 @@
   <data name="error_invalid_credentials" xml:space="preserve">
     <value>Invalid credentials.</value>
   </data>
+  <data name="error_forbidden" xml:space="preserve">
+    <value>You do not have permission to perform this operation.</value>
+  </data>
+  <data name="error_conflict" xml:space="preserve">
+    <value>{0} already exists or is in conflict with an existing resource.</value>
+  </data>
+  <data name="error_service_unavailable" xml:space="preserve">
+    <value>The service is temporarily unavailable. Please try again later.</value>
+  </data>
 </root>
