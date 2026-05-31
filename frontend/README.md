@@ -107,12 +107,88 @@ export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto
 }
 ```
 
+### (Opzionale) Passo 3b: Pagina Protetta da Login
+
+Se il componente deve essere accessibile solo agli utenti autenticati, aggiungi `requiresAuth: true` nella dichiarazione in `site.ts`. L'Engine fa tutto il resto: disattiva SSR per quella pagina, aggiunge l'auth guard e reindirizza gli utenti non loggati alla `pageForAuthGuard`.
+
+```typescript
+{
+    path: 'area-riservata',
+    pageType: PageType.AreaRiservata,
+    title: 'Area Riservata',
+    requiresAuth: true, // <-- sufficiente per proteggere la pagina
+    component: () => import('./pages/area-riservata/area-riservata.component')
+}
+```
+
+Nel componente puoi leggere i dati di sessione tramite `AuthService`:
+```typescript
+export default class AreaRiservataComponent extends PageBaseComponent {
+    private readonly auth = inject(AuthService);
+
+    readonly nomeUtente = computed(() => this.auth.session()?.displayName ?? '');
+}
+```
+
 ### Passo 4: Navigare in Sicurezza
 Per mettere un bottone che porta alla tua pagina, non usare `href="/nuova-pagina"`. Fai in modo che il framework calcoli la rotta esatta (e mantenga il link vivo anche se domani cambi l'URL in `site.ts`).
 ```html
 <!-- Cliccando calcolerà l'URL corretto a runtime -->
 <button (click)="navigateTo(PageType.MioNuovoComponente)">Vai!</button>
 ```
+
+---
+
+## 🔐 Sistema di Autenticazione (JWT)
+
+Il sistema di login è **opzionale** e si attiva configurando `Security.Token.SecretKey` nel backend. Sul frontend, si attiva impostando due proprietà in `setSiteConfiguration()` dentro `site.ts`:
+
+```typescript
+setSiteConfiguration({
+    showLoginInHeader: true,          // mostra il link Login/pulsante Logout nella navbar
+    pageForAuthGuard: PageType.Login, // pagina di login (dove redirigere utenti non autenticati)
+})
+```
+
+### Proteggere una Pagina
+
+In `defineSitePages()`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
+
+```typescript
+{
+    path: 'area-riservata',
+    pageType: PageType.AreaRiservata,
+    requiresAuth: true,
+    component: () => import('./pages/area-riservata/area-riservata.component')
+}
+```
+
+### Leggere la Sessione in una Pagina
+
+`AuthService` (iniettabile ovunque) espone segnali reattivi:
+
+```typescript
+readonly auth = inject(AuthService);
+
+// Reattivo: true/false a login/logout
+this.auth.isLoggedIn
+
+// Payload di sessione tipizzato (null se non loggati)
+this.auth.session() // → SessionInfo | null
+this.auth.session()?.displayName
+this.auth.session()?.roles
+```
+
+### Componenti Pronti all'Uso
+
+| Componente | Selector | Ruolo |
+| :--- | :--- | :--- |
+| `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
+| `UserNavComponent` | `user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
+
+### Ciclo di Vita del Token
+
+Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (engine, intoccabile) avvia un timer automatico che esegue il logout allo scadere dell'`exp` del JWT.
 
 ---
 
@@ -168,7 +244,7 @@ Oltre a `path`, `title` e `description`, ogni pagina in `defineSitePages()` acce
 }
 ```
 
-La configurazione globale del sito (`setSiteConfiguration`) accetta anche `smoke` per l'effetto particellare:
+La configurazione globale del sito (`setSiteConfiguration`) accetta anche `smoke` per l'effetto particellare e le opzioni di autenticazione:
 ```typescript
 smoke: {
     enable: true,
@@ -177,7 +253,11 @@ smoke: {
     maximumVelocity: 1.5,
     particleRadius: 3,
     density: 40,
-}
+},
+
+// Autenticazione JWT (opzionale — solo se il backend ha SecretKey configurata)
+showLoginInHeader: true,           // mostra link Login / pulsante Logout nella navbar
+pageForAuthGuard: PageType.Login,  // pagina verso cui redirigere utenti non autenticati
 ```
 
 ---

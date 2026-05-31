@@ -130,22 +130,73 @@ public class UsersController : EngineProtectedController
 
 ---
 
-## 🔐 Sessioni JWT (`SessionInfo` e `SessionPayload`)
+## 🔐 Sistema di Login e Sessioni JWT
 
-Quando il login è abilitato, il token JWT trasporta un payload tipizzato. L'Engine fornisce:
+Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (≥32 char) in `global-settings.json`. Se la chiave è vuota, i controller di autenticazione vengono rimossi fisicamente dalla memoria al boot.
 
-- **`SessionPayload`** — utility per costruire i claims da mettere nel JWT al momento del login.
-- **`SessionInfo`** — modello concreto con `UserId`, `DisplayName` e `Roles[]`; estratto dal token nei controller protetti tramite `User.GetSession<SessionInfo>()`.
+### Architettura del Payload di Sessione
 
-Esempio in un endpoint protetto:
+Il JWT trasporta un payload tipizzato nel claim `"session"`. L'Engine gestisce solo il meccanismo; la forma del payload la definisce il progetto.
+
+**Livelli del contratto:**
+
+| Tipo | Layer | Campi |
+| :--- | :--- | :--- |
+| `SessionBase` | Engine (intoccabile) | `UserId` |
+| `SessionInfo` | Progetto (personalizzabile) | `UserId` + `DisplayName` + `Roles[]` |
+
+Specchio frontend: `core/dto/session.dto.ts` (interfaccia `SessionInfo`) e `core/engine/models/session-base.model.ts` (interfaccia `SessionBase`). I due lati vanno tenuti in sincronia a mano — il contratto è piccolo e stabile, niente codegen.
+
+Per aggiungere un campo al payload di sessione, modificalo in entrambi i posti:
+```csharp
+// backend/Models/SessionInfo.cs
+public record SessionInfo : SessionBase {
+    public string DisplayName { get; init; } = "";
+    public string[] Roles { get; init; } = [];
+    public string Department { get; init; } = ""; // <-- aggiunto
+}
+```
+```typescript
+// frontend/src/app/core/dto/session.dto.ts
+export interface SessionInfo extends SessionBase {
+    displayName: string;
+    roles: string[];
+    department: string; // <-- aggiunto (camelCase: il backend serializza con opzioni Web)
+}
+```
+
+> Il JWT è leggibile dal client (Base64, non cifrato). Non mettere dati sensibili nel payload.
+
+### Emettere un Token (in `AuthController`)
+
+```csharp
+var session = new SessionInfo
+{
+    UserId = "utente-id",
+    DisplayName = "Mario Rossi",
+    Roles = new[] { "admin" }
+};
+return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
+```
+
+`AuthController` oggi usa credenziali fisse come MVP — **sostituire con Identity Provider o DB in produzione**.
+
+### Leggere la Sessione (in `ProtectedController`)
+
 ```csharp
 [HttpGet("ping")]
 public IActionResult Ping()
 {
-    var session = User.GetSession<SessionInfo>();
-    return Ok(session.DisplayName);
+    var session = User.GetSession<SessionInfo>(); // null se token assente o malformato
+    return Ok(new { status = "ok", session });
 }
 ```
+
+`User.GetSession<T>()` è un extension method su `ClaimsPrincipal` fornito dall'Engine. Per controller che devono solo verificare l'identità senza conoscere i campi di dominio, si può usare `User.GetSession<SessionBase>()`.
+
+### Logout
+
+Il JWT è stateless: il logout sul client (rimozione del token) non invalida il token sul backend, che resta tecnicamente valido fino alla scadenza (`exp`). Per la revoca immediata serve una denylist server-side — da implementare se il requisito è presente.
 
 ---
 
