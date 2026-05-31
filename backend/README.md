@@ -58,11 +58,51 @@ public class MyAuthController : EngineAuthController { }
 ```
 `EngineAuthController` è riservato agli endpoint che gestiscono il login. Viene soppresso automaticamente dal `TemplateControllerFeatureProvider` se `Security.Token.SecretKey` è vuoto.
 
-### 2. Usa FluentValidation per gli Input
-Non riempire i controller di `if (string.IsNullOrEmpty(model.Name)) throw ...`.
-Crea un validatore ereditando da `AbstractValidator<T>`. L'Engine lo auto-registra: se l'input è malformato, il middleware scarta la richiesta tornando 400 Bad Request formattato, prima ancora che il controller venga chiamato.
+### 2. Lancia Eccezioni, Non Costruire Risposte di Errore
 
-### 3. L'Engine è intoccabile
+Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione appropriata — il middleware la converte automaticamente in `ProblemDetails` (RFC 9457) con il codice HTTP corretto e il messaggio localizzato dal file `.resx`.
+
+| Eccezione | HTTP | Quando usarla |
+| :--- | :---: | :--- |
+| `NotFoundException("nome-risorsa")` | 404 | La risorsa non esiste o non è leggibile |
+| `DataNotFoundException()` | 404 | I dati esistono ma sono vuoti o non disponibili nella lingua richiesta |
+| `UnauthorizedException("chiave-messaggio")` | 401 | Credenziali mancanti o non valide |
+| `DecodingException()` | 400 | Il body o il file di dati non è decodificabile (JSON malformato, encoding errato) |
+| `InvalidParametersException()` | 400 | Parametri mancanti o non validi (alternativa esplicita a FluentValidation) |
+
+```csharp
+public async Task<UserResponseDto> ProcessUser(string id)
+{
+    var user = await _store.GetUserAsync(id);
+    if (user == null) throw new NotFoundException("utente");    // → 404
+    if (!user.IsActive) throw new UnauthorizedException();      // → 401
+    return user;
+}
+```
+
+Per aggiungere un tipo di errore custom: crea una sottoclasse di `ApiException` passando la chiave `.resx` e lo status code, poi aggiungi la chiave nei file `Resources/SharedResource*.resx`.
+
+### 3. Usa FluentValidation per gli Input
+Non riempire i controller di `if (string.IsNullOrEmpty(model.Name)) throw ...`.
+Crea un validatore ereditando da `AbstractValidator<T>`. L'Engine lo auto-registra: se l'input è malformato, il middleware scarta la richiesta tornando 400 Bad Request formattato (con la lista degli errori nel `ProblemDetails`), prima ancora che il controller venga chiamato.
+
+```csharp
+// Models/LoginRequest.cs
+public record LoginRequest(string Username, string Pwd);
+
+// Validators/LoginRequestValidator.cs (nome convenzionale: <Tipo>Validator)
+public class LoginRequestValidator : AbstractValidator<LoginRequest>
+{
+    public LoginRequestValidator()
+    {
+        RuleFor(x => x.Username).NotEmpty().MaximumLength(64);
+        RuleFor(x => x.Pwd).NotEmpty().MinimumLength(8);
+    }
+}
+// Nient'altro da fare: l'Engine registra automaticamente tutti gli AbstractValidator<T>
+```
+
+### 4. L'Engine è intoccabile
 Aggiungi in `Engine/` solo logiche universali e infrastrutturali astratte. Se stai scrivendo codice per un cliente specifico o una feature verticale, mettila fuori dall'Engine. 
 
 ---
@@ -79,14 +119,45 @@ public class UserResponseDto {
 }
 ```
 
-### Passo 2: Recupero Dati (IContentStore)
-`IContentStore` è già implementato da `FileContentStore` per i dati di configurazione del sito. I metodi esistenti sono:
+### Passo 2: Recupero Dati (IContentStore e `data/`)
+
+`IContentStore` è già implementato da `FileContentStore` per i dati del sito. I metodi esistenti sono:
 ```csharp
-Task<UniversalLegalModel> GetProfileAsync(string language); // dati legali/aziendali localizzati
-Task<Dictionary<string, string>> GetSocialAsync();          // URL social network
+Task<UniversalLegalModel> GetProfileAsync(string language); // dati aziendali localizzati (data/irl.json)
+Task<Dictionary<string, string>> GetSocialAsync();          // URL social network (data/social.json)
 ```
 
-Se la tua feature legge file JSON aggiuntivi dalla cartella `/data/`, aggiungi un nuovo metodo all'interfaccia e implementalo in `FileContentStore`.
+**Struttura di `data/irl.json`** (profilo aziendale):
+I valori che devono variare per lingua usano un oggetto `{"it": "...", "en": "..."}` — `FileContentStore` lo risolve automaticamente in base all'header `Accept-Language` della richiesta.
+```json
+{
+    "ragioneSociale": "Acme Srl",
+    "partitaIva": "IT12345678901",
+    "sedeLegale": {
+        "via": { "it": "Via Roma 1", "en": "1 Rome Street" },
+        "citta": "Milano"
+    },
+    "contatti": { "email": "info@acme.it" },
+    "metadatiAggiuntivi": {
+        "rappresentanteLegale": { "it": "Mario Rossi", "en": "Mario Rossi" }
+    }
+}
+```
+
+**Struttura di `data/social.json`** (link social network):
+Oggetto piatto `chiave → URL`. Tieni solo i social che il sito usa; quelli non presenti vengono ignorati.
+```json
+{
+    "instagram": "https://www.instagram.com/acme",
+    "linkedin": "https://www.linkedin.com/company/acme"
+}
+```
+
+**Aggiungere un nuovo file di dati**:
+1. Crea il JSON in `data/` (es. `data/products.json`)
+2. Aggiungi il metodo a `IContentStore` e implementalo in `FileContentStore`
+3. Inietta `IContentStore` nel tuo `Service` e delegagli la lettura
+
 ```csharp
 // IContentStore.cs
 Task<UserResponseDto> GetUserAsync(string id);

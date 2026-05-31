@@ -192,6 +192,102 @@ Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla ch
 
 ---
 
+## 🔔 NotificationService: Feedback all'Utente
+
+`NotificationService` (iniettato come `this.notify` in ogni `PageBaseComponent`) gestisce tutti i popup e toast via SweetAlert2, già stilato con il tema Bootstrap del template.
+
+| Metodo | Quando usarlo |
+| :--- | :--- |
+| `toast(msg, icon?)` | Notifica rapida in alto a destra (3 s, non bloccante). `icon`: `'success'` \| `'error'` \| `'info'` \| `'warning'` |
+| `success(msg, onClose?)` | Popup di conferma operazione riuscita |
+| `error(title, msg)` | Popup di errore con titolo esplicito |
+| `confirm(title, text, opts?)` | Modale Sì/No → restituisce `Promise<boolean>` |
+| `prompt(title, label, ...)` | Modale con input testuale → restituisce `Promise<string \| null>` |
+| `interact<T>(config)` | Modale con HTML custom, validazione e mappatura del risultato |
+| `openLoading(msg?)` / `closeLoading()` | Spinner bloccante (es. durante upload) |
+| `validationErrors(title, errors)` | Popup con lista di errori di validazione |
+| `handleApiError(status, problem, ...)` | Legge il `ProblemDetails` del backend e mostra il messaggio corretto; fallback automatico a i18n per i codici HTTP standard |
+
+```typescript
+// Toast di successo
+this.notify.toast('Salvato con successo');
+
+// Conferma prima di un'azione distruttiva
+const ok = await this.notify.confirm('Eliminare?', 'L\'operazione è irreversibile', { icon: 'warning' });
+if (!ok) return;
+
+// Spinner durante operazione asincrona
+this.notify.openLoading('Caricamento...');
+await this.api.getProfile();
+this.notify.closeLoading();
+
+// Gestione errore API (legge ProblemDetails RFC 9457)
+try { ... } catch (err) {
+    this.notify.handleApiError(err.status, err.problem);
+}
+```
+
+---
+
+## 🖼️ AssetService: Immagini e File
+
+`AssetService` (iniettato come `this.asset` in ogni `PageBaseComponent`) genera URL sicuri per le risorse multimediali.
+
+```typescript
+// URL di un asset gestito dal server (con resize on-the-fly)
+// width è un tipo configurabile in app.config (es. 320 | 640 | 1280)
+const url = this.asset.getUrl('id-immagine', 640);
+// → /cdn-cgi/asset?id=id-immagine&w=640
+
+// URL temporaneo per un Blob (es. file scaricato via api.getBlob())
+const blob = await this.api.getBlob('mio-documento');
+const { angularUrl } = this.asset.getUrlFromBlob(blob);
+// angularUrl è un SafeUrl già sanitizzato per Angular
+```
+
+I Blob URL vengono revocati automaticamente a ogni cambio pagina, quindi non perdono memoria.
+
+---
+
+## 🌍 Internazionalizzazione (i18n)
+
+Le traduzioni vivono in `public/assets/i18n/` in due cataloghi per lingua:
+
+| File | Ruolo |
+| :--- | :--- |
+| `basic.{lang}.json` | Stringhe dell'Engine (messaggi di errore, azioni comuni, stati) — non toccare |
+| `addon.{lang}.json` | Stringhe del **tuo progetto** — aggiungi qui le tue chiavi |
+
+**Aggiungere una lingua:**
+1. In `global-settings.json`: `"Localization.SupportedLanguages": ["it", "en", "fr"]`
+2. Creare `basic.fr.json` e `addon.fr.json` in `public/assets/i18n/`
+3. `i18n-check.sh` in CI verifica che nessuna chiave sia mancante
+
+**Usare le traduzioni nel codice:**
+```typescript
+// Nel componente (this.translate è già iniettato da PageBaseComponent)
+const testo = this.translate.translate('miaChiave');
+
+// Con segnaposto posizionali
+const msg = this.translate.translate('benvenuto', 'Mario'); // "Ciao {0}" → "Ciao Mario"
+```
+
+```html
+<!-- Nel template con la pipe -->
+{{ 'miaChiave' | translate }}
+{{ 'benvenuto' | translate:'Mario' }}
+```
+
+**Aggiungere una chiave** (esempio in `addon.it.json`):
+```json
+{
+    "titoloSezioneNotizie": "Le ultime notizie",
+    "benvenuto": "Benvenuto, {0}!"
+}
+```
+
+---
+
 ## 🌐 ApiService: Chiamare il Backend
 
 `ApiService` (iniettato come `this.api` in ogni `PageBaseComponent`) espone questi metodi:
