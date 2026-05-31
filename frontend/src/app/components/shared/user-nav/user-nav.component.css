@@ -1,0 +1,21 @@
+/* ── Logout ────────────────────────────────────────────────────────
+   È un'azione (chiama auth.logout()), non una rotta: resta un <button>
+   ma lo rendiamo visivamente identico a un nav-link, azzerando lo stile
+   nativo del bottone. */
+
+/* :host usa display: contents per non rompere il flusso flex della navbar */
+:host(.contents) {
+    display: contents;
+}
+
+.nav-logout-link {
+    background-color: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+}
+
+.nav-logout-link:hover,
+.nav-logout-link:focus-visible {
+    text-decoration: underline;
+}

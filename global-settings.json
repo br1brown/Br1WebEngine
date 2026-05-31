@@ -27,7 +27,7 @@
       "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     },
     "Token": {
-      "SecretKey": "",
+      "SecretKey": "dev-only-change-me-chiave-di-sviluppo-min-32-byte",
       "ExpirationSeconds": 3000
     }
   },

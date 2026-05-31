@@ -1,5 +1,5 @@
 import { buildSite } from './core/engine/siteBuilder';
-import { CookieConsentService } from './core/engine/services/cookie-consent.service';
+import { hasCookiesConfigured } from './core/engine/services/cookie/cookie-utils';
 
 export type {
     SiteConfig,
@@ -44,7 +44,7 @@ function _createPolicy(): _SitePageInput[] {
             description: 'cookiePolicyDescrizione',
             pageType: PageType.CookiePolicy,
             component: loadPolicyComponent,
-            enabled: CookieConsentService.hasCookiesConfigured(),
+            enabled: hasCookiesConfigured(),
         },
         {
             path: 'legal',
@@ -84,6 +84,7 @@ export enum PageType {
     Social,
     Impostazioni,
     GitHub,
+    Login,
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -126,6 +127,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         colorTema: '#131e55',
         showFooter: true,
         fixedTopHeader: true,
+        showLoginInHeader: true,
         smoke: {
             enable: true,
             color: '#b5d9ff',
@@ -133,7 +135,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             maximumVelocity: 120,
             particleRadius: 350,
             density: 18
-        }
+        },
+        pageForAuthGuard: PageType.Login
     });
 
     // ── ALBERO DELLE PAGINE ────────────────────────────────────────────
@@ -192,6 +195,13 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             title: 'githubDesc',
             pageType: PageType.GitHub,
             externalUrl: 'https://github.com/br1brown/Br1WebEngine'
+        },
+        {
+            path: 'login',
+            title: 'loginNav',
+            pageType: PageType.Login,
+            description: 'loginDesc',
+            component: () => import('./pages/login/login.component').then(m => m.LoginComponent)
         },
         {
             path: 'impostazioni',

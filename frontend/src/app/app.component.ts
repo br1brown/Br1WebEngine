@@ -5,11 +5,11 @@ import { filter, map } from 'rxjs';
 
 import { ContestoSito } from './site';
 import { ThemeService } from './core/engine/services/theme.service';
-import { FooterComponent } from './components/layout/footer/footer.component';
-import { NavbarComponent } from './components/layout/navbar/navbar.component';
-import { SmokeEffectComponent } from './components/layout/smoke-effect/smoke-effect.component';
-import { BackToTopComponent } from './components/shared/back-to-top/back-to-top.component';
-import { CookieBannerComponent } from './components/shared/cookie-banner/cookie-banner.component';
+import { FooterComponent } from './core/engine/components/footer/footer.component';
+import { NavbarComponent } from './core/engine/components/navbar/navbar.component';
+import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
+import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
+import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';

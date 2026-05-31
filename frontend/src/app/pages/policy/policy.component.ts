@@ -1,7 +1,9 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
 import { PageBaseComponent } from '../page-base.component';
-import { CookieConsentService, CookieCategory } from '../../core/engine/services/cookie-consent.service';
+import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
+import { CookieCategory } from '../../core/engine/services/cookie/cookie-type';
+import { PrintCookieService } from '../../core/engine/services/cookie/print-cookie.service';
 import type { Profile } from '../../core/dto/profile.dto';
 
 type ProfileData = Record<string, string | undefined>;
@@ -14,6 +16,7 @@ type ProfileData = Record<string, string | undefined>;
 })
 export class PolicyComponent extends PageBaseComponent<string> {
     private readonly cookieConsent = inject(CookieConsentService);
+    private readonly printCookie = inject(PrintCookieService);
 
     readonly CookieCategory = CookieCategory;
 
@@ -21,11 +24,11 @@ export class PolicyComponent extends PageBaseComponent<string> {
     private readonly profileData = signal<ProfileData | null>(null);
 
     readonly cookieCategories = computed(() =>
-        this.cookieConsent.legal.getCategories(k => this.translate.translate(k))
+        this.printCookie.getCategories(k => this.translate.translate(k))
     );
 
     readonly cookieList = computed(() =>
-        this.cookieConsent.legal.getCookies(k => this.translate.translate(k))
+        this.printCookie.getCookies(k => this.translate.translate(k))
     );
 
     readonly segments = computed(() => {

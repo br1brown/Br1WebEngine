@@ -1,0 +1,45 @@
+<form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="text-start" autocomplete="on">
+
+    <input type="text"
+           class="d-none"
+           formControlName="username"
+           autocomplete="username"
+           tabindex="-1"
+           aria-hidden="true" />
+
+    <div class="form-floating mb-3">
+        <input id="login-password"
+               type="password"
+               class="form-control"
+               formControlName="password"
+               autocomplete="current-password"
+               placeholder="Password"
+               [class.is-invalid]="loginForm.controls.password.touched && loginForm.controls.password.invalid" />
+        <label for="login-password">{{ 'loginPasswordLabel' | translate }}</label>
+
+        @if (loginForm.controls.password.touched) {
+        @if (loginForm.controls.password.hasError('required')) {
+        <div class="invalid-feedback">{{ 'loginPasswordObbligatoria' | translate }}</div>
+        }
+        @if (loginForm.controls.password.hasError('minlength')) {
+        <div class="invalid-feedback">{{ 'loginPasswordMinLength' | translate }}</div>
+        }
+        }
+    </div>
+
+    @if (errorMessage(); as msg) {
+    <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2" role="alert">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>{{ msg }}</span>
+    </div>
+    }
+
+    <button type="submit"
+            class="btn btn-primary w-100 py-2 mt-2"
+            [disabled]="isLoading()">
+        @if (isLoading()) {
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        }
+        {{ (isLoading() ? 'loginCaricamento' : 'loginAzione') | translate }}
+    </button>
+</form>

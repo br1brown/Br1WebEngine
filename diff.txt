@@ -1,0 +1,2241 @@
+diff --git a/backend/Controllers/AuthController.cs b/backend/Controllers/AuthController.cs
+index c69a855..f554148 100644
+--- a/backend/Controllers/AuthController.cs
++++ b/backend/Controllers/AuthController.cs
+@@ -58,6 +58,17 @@ public class AuthController : EngineAuthController
+         }
+ 
+         Logger.LogInformation("Login riuscito per username '{Username}'.", request.Username);
+-        return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
++
++        // Payload di sessione del progetto: serializzato nel claim "session" del token,
++        // poi rileggibile via User.GetSession<SessionInfo>() e lato frontend.
++        // Sostituire i valori demo con quelli reali (id utente, ruoli, ecc.).
++        var session = new SessionInfo
++        {
++            UserId = validUsername,        // campo universale (SessionBase)
++            DisplayName = "Amministratore",
++            Roles = new[] { "admin" }
++        };
++
++        return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
+     }
+ }
+diff --git a/backend/Controllers/ProtectedController.cs b/backend/Controllers/ProtectedController.cs
+index c474806..d12052f 100644
+--- a/backend/Controllers/ProtectedController.cs
++++ b/backend/Controllers/ProtectedController.cs
+@@ -1,4 +1,6 @@
+ using Microsoft.AspNetCore.Mvc;
++using Backend.Models;
++using Backend.Security;
+ 
+ namespace Backend.Controllers;
+ 
+@@ -17,5 +19,11 @@ public class ProtectedController : EngineProtectedController
+ 
+     /// <summary>Health check per endpoint protetti da JWT (utile anche per i test di integrazione).</summary>
+     [HttpGet("ping")]
+-    public IActionResult Ping() => Ok(new { status = "ok" });
++    public IActionResult Ping()
++    {
++        // Il middleware ha già validato il token: qui rileggiamo il payload di sessione
++        // che il progetto ha messo nel claim "session" durante il login.
++        var session = User.GetSession<SessionInfo>();
++        return Ok(new { status = "ok", session });
++    }
+ }
+diff --git a/backend/Models/ApiException.cs b/backend/Engine/Models/ApiException.cs
+similarity index 100%
+rename from backend/Models/ApiException.cs
+rename to backend/Engine/Models/ApiException.cs
+diff --git a/backend/Models/Configuration/LocalizationOptions.cs b/backend/Engine/Models/Configuration/LocalizationOptions.cs
+similarity index 100%
+rename from backend/Models/Configuration/LocalizationOptions.cs
+rename to backend/Engine/Models/Configuration/LocalizationOptions.cs
+diff --git a/backend/Models/Configuration/OpenTelemetryOptions.cs b/backend/Engine/Models/Configuration/OpenTelemetryOptions.cs
+similarity index 100%
+rename from backend/Models/Configuration/OpenTelemetryOptions.cs
+rename to backend/Engine/Models/Configuration/OpenTelemetryOptions.cs
+diff --git a/backend/Models/Configuration/SecurityOptions.cs b/backend/Engine/Models/Configuration/SecurityOptions.cs
+similarity index 100%
+rename from backend/Models/Configuration/SecurityOptions.cs
+rename to backend/Engine/Models/Configuration/SecurityOptions.cs
+diff --git a/backend/Models/Legal/UniversalLegalModel.cs b/backend/Engine/Models/Legal/UniversalLegalModel.cs
+similarity index 100%
+rename from backend/Models/Legal/UniversalLegalModel.cs
+rename to backend/Engine/Models/Legal/UniversalLegalModel.cs
+diff --git a/backend/Engine/Models/SessionBase.cs b/backend/Engine/Models/SessionBase.cs
+new file mode 100644
+index 0000000..96d7182
+--- /dev/null
++++ b/backend/Engine/Models/SessionBase.cs
+@@ -0,0 +1,19 @@
++namespace Backend.Models;
++
++/// <summary>
++/// Contratto MINIMO di sessione garantito dall'engine: ogni sessione autenticata
++/// identifica il proprio principale tramite <see cref="UserId"/>.
++/// </summary>
++/// <remarks>
++/// È la parte universale del payload del claim "session". Il progetto la estende
++/// con i propri campi di dominio (vedi <c>SessionInfo</c>). L'engine può leggere il
++/// solo <see cref="SessionBase"/> via <c>User.GetSession&lt;SessionBase&gt;()</c> per
++/// ottenere l'identità del principale senza conoscere la forma specifica del progetto.
++///
++/// Specchio lato frontend: <c>core/engine/models/session-base.model.ts</c>.
++/// </remarks>
++public record SessionBase
++{
++    /// <summary>Identificativo stabile del principale autenticato.</summary>
++    public string UserId { get; init; } = "";
++}
+diff --git a/backend/Engine/Security/SessionPayload.cs b/backend/Engine/Security/SessionPayload.cs
+new file mode 100644
+index 0000000..e706b89
+--- /dev/null
++++ b/backend/Engine/Security/SessionPayload.cs
+@@ -0,0 +1,46 @@
++using System.Security.Claims;
++using System.Text.Json;
++
++namespace Backend.Security;
++
++/// <summary>
++/// Meccanismo dell'engine per trasportare un payload di sessione tipizzato e
++/// personalizzabile dal progetto dentro il JWT, come unico claim JSON ("session").
++/// </summary>
++/// <remarks>
++/// L'engine fornisce solo il MECCANISMO (serializza/deserializza un <typeparamref name="T"/>
++/// generico): non conosce la forma del payload. La FORMA la definisce il progetto
++/// (es. <c>record SessionInfo</c>) e deve rispecchiare a mano l'interfaccia TypeScript
++/// lato frontend (<c>frontend/src/app/core/dto/session.dto.ts</c>): è il contratto del
++/// token, volutamente senza codegen.
++///
++/// Attenzione: il contenuto del JWT è leggibile dal client (base64, non cifrato).
++/// Mettere qui solo dati NON sensibili.
++/// </remarks>
++public static class SessionPayload
++{
++    /// <summary>
++    /// Opzioni JSON condivise tra scrittura e lettura: camelCase (idiomatico lato
++    /// TypeScript) e case-insensitive in lettura.
++    /// </summary>
++    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
++
++    /// <summary>
++    /// Crea il claim "session" serializzando il payload del progetto.
++    /// Da passare a <c>AuthService.GenerateToken</c> tra gli <c>additionalClaims</c>.
++    /// </summary>
++    public static Claim Claim<T>(T value) =>
++        new(SecurityDefaults.SessionClaimType, JsonSerializer.Serialize(value, Json));
++
++    /// <summary>
++    /// Rilegge il payload di sessione dal token corrente, o <c>default</c> se assente
++    /// o non deserializzabile in <typeparamref name="T"/>.
++    /// </summary>
++    public static T? GetSession<T>(this ClaimsPrincipal user)
++    {
++        var raw = user.FindFirst(SecurityDefaults.SessionClaimType)?.Value;
++        if (string.IsNullOrEmpty(raw)) return default;
++        try { return JsonSerializer.Deserialize<T>(raw, Json); }
++        catch (JsonException) { return default; }
++    }
++}
+diff --git a/backend/SharedResource.cs b/backend/Engine/SharedResource.cs
+similarity index 100%
+rename from backend/SharedResource.cs
+rename to backend/Engine/SharedResource.cs
+diff --git a/backend/Store/FileContentStore.cs b/backend/Engine/Store/FileContentStore.cs
+similarity index 100%
+rename from backend/Store/FileContentStore.cs
+rename to backend/Engine/Store/FileContentStore.cs
+diff --git a/backend/Store/IContentStore.cs b/backend/Engine/Store/IContentStore.cs
+similarity index 100%
+rename from backend/Store/IContentStore.cs
+rename to backend/Engine/Store/IContentStore.cs
+diff --git a/backend/Models/SessionInfo.cs b/backend/Models/SessionInfo.cs
+new file mode 100644
+index 0000000..2c0ed91
+--- /dev/null
++++ b/backend/Models/SessionInfo.cs
+@@ -0,0 +1,23 @@
++namespace Backend.Models;
++
++/// <summary>
++/// Payload di sessione PERSONALIZZABILE dal progetto: estende il contratto universale
++/// <see cref="SessionBase"/> (che garantisce <c>UserId</c>) con i campi di dominio.
++/// Serializzato nel claim "session" del JWT e rileggibile nei controller protetti via
++/// <c>User.GetSession&lt;SessionInfo&gt;()</c>.
++/// </summary>
++/// <remarks>
++/// Deve rispecchiare l'interfaccia TypeScript <c>frontend/src/app/core/dto/session.dto.ts</c>:
++/// tieni le due in sincronia a mano (contratto piccolo e stabile, niente codegen).
++/// Solo dati NON sensibili: il JWT è leggibile dal client.
++///
++/// Esempio fornito col template — sostituisci i campi di dominio con quelli reali.
++/// </remarks>
++public record SessionInfo : SessionBase
++{
++    /// <summary>Nome visualizzato dell'utente.</summary>
++    public string DisplayName { get; init; } = "";
++
++    /// <summary>Ruoli applicativi (di dominio, distinti dal ruolo JWT "Authenticated").</summary>
++    public string[] Roles { get; init; } = [];
++}
+diff --git a/backend/Security/ApiKeyAuthentication.cs b/backend/Security/ApiKeyAuthentication.cs
+index 8c079ac..a0da99a 100644
+--- a/backend/Security/ApiKeyAuthentication.cs
++++ b/backend/Security/ApiKeyAuthentication.cs
+@@ -42,6 +42,12 @@ public static class SecurityDefaults
+ 	/// </summary>
+ 	public const string AuthenticatedRole = "Authenticated";
+ 
++	/// <summary>
++	/// Tipo del claim che trasporta il payload di sessione personalizzabile dal
++	/// progetto, serializzato come singolo oggetto JSON. Vedi <c>SessionPayload</c>.
++	/// </summary>
++	public const string SessionClaimType = "session";
++
+ 	/// <summary>
+ 	/// Nome della policy di rate limiting applicata all'endpoint di login.
+ 	/// Usata da AuthController con <c>[EnableRateLimiting(...)]</c>.
+diff --git a/frontend/frontend.esproj b/frontend/frontend.esproj
+index 6cdf2e5..f8c36b1 100644
+--- a/frontend/frontend.esproj
++++ b/frontend/frontend.esproj
+@@ -9,8 +9,8 @@
+     <TypeScriptConfiguration Remove="dist\**" />
+   </ItemGroup>
+   <ItemGroup>
+-    <Folder Include="src\app\components\shared\directives\" />
+-    <Folder Include="src\app\components\shared\pipes\" />
++    <Folder Include="src\app\directives\" />
++    <Folder Include="src\app\pipes\" />
+     <Folder Include="src\assets\files\image-cache\" />
+   </ItemGroup>
+ </Project>
+\ No newline at end of file
+diff --git a/frontend/src/app/app.component.ts b/frontend/src/app/app.component.ts
+index 49f5c0c..ef28cdb 100644
+--- a/frontend/src/app/app.component.ts
++++ b/frontend/src/app/app.component.ts
+@@ -5,11 +5,11 @@ import { filter, map } from 'rxjs';
+ 
+ import { ContestoSito } from './site';
+ import { ThemeService } from './core/engine/services/theme.service';
+-import { FooterComponent } from './components/layout/footer/footer.component';
+-import { NavbarComponent } from './components/layout/navbar/navbar.component';
+-import { SmokeEffectComponent } from './components/layout/smoke-effect/smoke-effect.component';
+-import { BackToTopComponent } from './components/shared/back-to-top/back-to-top.component';
+-import { CookieBannerComponent } from './components/shared/cookie-banner/cookie-banner.component';
++import { FooterComponent } from './core/engine/components/layout/footer/footer.component';
++import { NavbarComponent } from './core/engine/components/layout/navbar/navbar.component';
++import { SmokeEffectComponent } from './core/engine/components/layout/smoke-effect/smoke-effect.component';
++import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
++import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
+ import { PageMetaService } from './core/engine/services/page-meta.service';
+ import { VersionCheckService } from './core/engine/services/version-check.service';
+ import { TranslatePipe } from './core/engine/pipes/translate.pipe';
+diff --git a/frontend/src/app/components/shared/icon/icon.component.css b/frontend/src/app/components/shared/icon/icon.component.css
+new file mode 100644
+index 0000000..4a5ad41
+--- /dev/null
++++ b/frontend/src/app/components/shared/icon/icon.component.css
+@@ -0,0 +1,49 @@
++/* icon.component.css — Icona "badge" generica (ex .social-icon).
++   Colore di sfondo sovrascrivibile a runtime via [style.background-color]. */
++
++.icon {
++    color: #fff;
++    background-color: #333;
++    width: 54px;
++    height: 54px;
++    margin: 6px;
++    font-size: 1.375rem;
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    overflow: hidden;
++    transition: transform 0.2s, opacity 0.2s;
++    will-change: transform;
++}
++
++/* --- Forma / disposizione (validata da IconShape) --- */
++.icon--circle {
++    border-radius: 50%;
++}
++.icon--rounded {
++    border-radius: 0.5rem;
++}
++.icon--square {
++    border-radius: 0;
++}
++
++/* --- Effetto hover (validato da IconAnimation) --- */
++.icon--anim-lift:hover {
++    opacity: 0.85;
++    transform: translateY(-3px);
++}
++.icon--anim-shake:hover {
++    animation: icon-shake 0.5s infinite;
++}
++
++@keyframes icon-shake {
++    0%, 30%, 50%, 70%, 100% { transform: translate(1px, 1px) rotate(0deg); }
++    10%, 40%, 60%, 90% { transform: translate(-1px, -2px) rotate(-1deg); }
++    20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
++}
++
++@media (prefers-reduced-motion: reduce) {
++    .icon { transition: none; }
++    .icon--anim-lift:hover { transform: none; }
++    .icon--anim-shake:hover { animation: none; }
++}
+diff --git a/frontend/src/app/components/shared/icon/icon.component.html b/frontend/src/app/components/shared/icon/icon.component.html
+new file mode 100644
+index 0000000..c78e210
+--- /dev/null
++++ b/frontend/src/app/components/shared/icon/icon.component.html
+@@ -0,0 +1 @@
++<i [class]="classes()" [style.background-color]="color()" aria-hidden="true"></i>
+diff --git a/frontend/src/app/components/shared/icon/icon.component.ts b/frontend/src/app/components/shared/icon/icon.component.ts
+new file mode 100644
+index 0000000..b708996
+--- /dev/null
++++ b/frontend/src/app/components/shared/icon/icon.component.ts
+@@ -0,0 +1,58 @@
++import { Component, ChangeDetectionStrategy, computed, input } from '@angular/core';
++
++/**
++ * Componente generico per un'icona "badge" (glifo dentro una pastiglia).
++ *
++ * Nato dalla ex `.social-icon`: la forma (tonda/quadrata) e l'effetto hover
++ * non vivono più sparsi nei template ma qui, in un unico posto riusabile.
++ *
++ * Gli input testuali `shape` e `animation` sono validati internamente contro
++ * un set chiuso di valori: qualunque stringa fuori lista ricade sul default,
++ * così il componente non si rompe mai per un valore inatteso.
++ */
++
++export const ICON_SHAPES = ['circle', 'rounded', 'square'] as const;
++export type IconShape = (typeof ICON_SHAPES)[number];
++const DEFAULT_SHAPE: IconShape = 'circle';
++
++export const ICON_ANIMATIONS = ['lift', 'shake', 'none'] as const;
++export type IconAnimation = (typeof ICON_ANIMATIONS)[number];
++const DEFAULT_ANIMATION: IconAnimation = 'none';
++
++/** Coerce di una stringa libera verso un valore ammesso, con fallback. */
++function coerce<T extends string>(allowed: readonly T[], fallback: T, value: string | null | undefined): T {
++    const v = (value ?? '').trim().toLowerCase();
++    return (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
++}
++
++@Component({
++    selector: 'app-icon',
++    standalone: true,
++    imports: [],
++    changeDetection: ChangeDetectionStrategy.OnPush,
++    templateUrl: './icon.component.html',
++    styleUrl: './icon.component.css',
++    host: { class: 'd-inline-block' }
++})
++export class IconComponent {
++    /** Classi FontAwesome del glifo, es. "fa-brands fa-facebook" o "fa-solid fa-bell". */
++    readonly glyph = input.required<string>();
++
++    /** Colore di sfondo della pastiglia; null => usa il default del tema. */
++    readonly color = input<string | null>(null);
++
++    /** Forma/disposizione. Stringa validata contro IconShape (default: circle). */
++    readonly shape = input<IconShape, string>(DEFAULT_SHAPE, {
++        transform: (v) => coerce(ICON_SHAPES, DEFAULT_SHAPE, v)
++    });
++
++    /** Effetto hover. Stringa validata contro IconAnimation (default: lift). */
++    readonly animation = input<IconAnimation, string>(DEFAULT_ANIMATION, {
++        transform: (v) => coerce(ICON_ANIMATIONS, DEFAULT_ANIMATION, v)
++    });
++
++    /** Classi calcolate: base + modificatori forma/animazione + glifo. */
++    protected readonly classes = computed(() =>
++        `icon icon--${this.shape()} icon--anim-${this.animation()} ${this.glyph()}`
++    );
++}
+diff --git a/frontend/src/app/components/shared/social-link/social-link.component.css b/frontend/src/app/components/shared/icon/social-link/social-link.component.css
+similarity index 100%
+rename from frontend/src/app/components/shared/social-link/social-link.component.css
+rename to frontend/src/app/components/shared/icon/social-link/social-link.component.css
+diff --git a/frontend/src/app/components/shared/social-link/social-link.component.html b/frontend/src/app/components/shared/icon/social-link/social-link.component.html
+similarity index 66%
+rename from frontend/src/app/components/shared/social-link/social-link.component.html
+rename to frontend/src/app/components/shared/icon/social-link/social-link.component.html
+index d268425..130ce96 100644
+--- a/frontend/src/app/components/shared/social-link/social-link.component.html
++++ b/frontend/src/app/components/shared/icon/social-link/social-link.component.html
+@@ -1,7 +1,7 @@
+ <a class="text-decoration-none text-reset d-inline-flex align-items-center gap-2 flex-column flex-sm-row social-link-hover" [href]="resolvedUrl()" target="_blank" rel="noopener noreferrer"
+    [title]="displayLabel()"
+    [attr.aria-label]="showLabel() ? null : displayLabel()">
+-    <i [class]="'social-icon text-white rounded-circle d-inline-flex align-items-center justify-content-center ' + icon()" [style.background-color]="brandColor()" aria-hidden="true"></i>
++    <app-icon [glyph]="icon()" [color]="brandColor()" shape="circle" animation="lift" />
+     @if (showLabel()) {
+         <span class="social-label">{{ displayLabel() }}</span>
+     }
+diff --git a/frontend/src/app/components/shared/social-link/social-link.component.ts b/frontend/src/app/components/shared/icon/social-link/social-link.component.ts
+similarity index 98%
+rename from frontend/src/app/components/shared/social-link/social-link.component.ts
+rename to frontend/src/app/components/shared/icon/social-link/social-link.component.ts
+index 1a4c2b5..2209477 100644
+--- a/frontend/src/app/components/shared/social-link/social-link.component.ts
++++ b/frontend/src/app/components/shared/icon/social-link/social-link.component.ts
+@@ -1,9 +1,10 @@
+ import { Component, computed, input } from '@angular/core';
++import { IconComponent } from '../icon.component';
+ 
+ @Component({
+     selector: 'app-social-link',
+     standalone: true,
+-    imports: [],
++    imports: [IconComponent],
+     templateUrl: './social-link.component.html',
+     styleUrl: './social-link.component.css',
+     host: { class: 'd-inline-block' }
+diff --git a/frontend/src/app/components/shared/login-form/login-form.component.html b/frontend/src/app/components/shared/login-form/login-form.component.html
+new file mode 100644
+index 0000000..7b29092
+--- /dev/null
++++ b/frontend/src/app/components/shared/login-form/login-form.component.html
+@@ -0,0 +1,45 @@
++<form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="text-start" autocomplete="on">
++
++    <input type="text"
++           class="d-none"
++           formControlName="username"
++           autocomplete="username"
++           tabindex="-1"
++           aria-hidden="true" />
++
++    <div class="form-floating mb-3">
++        <input id="login-password"
++               type="password"
++               class="form-control"
++               formControlName="password"
++               autocomplete="current-password"
++               placeholder="Password"
++               [class.is-invalid]="loginForm.controls.password.touched && loginForm.controls.password.invalid" />
++        <label for="login-password">{{ 'loginPasswordLabel' | translate }}</label>
++
++        @if (loginForm.controls.password.touched) {
++        @if (loginForm.controls.password.hasError('required')) {
++        <div class="invalid-feedback">{{ 'loginPasswordObbligatoria' | translate }}</div>
++        }
++        @if (loginForm.controls.password.hasError('minlength')) {
++        <div class="invalid-feedback">{{ 'loginPasswordMinLength' | translate }}</div>
++        }
++        }
++    </div>
++
++    @if (errorMessage(); as msg) {
++    <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2" role="alert">
++        <i class="fa-solid fa-triangle-exclamation"></i>
++        <span>{{ msg }}</span>
++    </div>
++    }
++
++    <button type="submit"
++            class="btn btn-primary w-100 py-2 mt-2"
++            [disabled]="isLoading()">
++        @if (isLoading()) {
++        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
++        }
++        {{ (isLoading() ? 'loginCaricamento' : 'loginAzione') | translate }}
++    </button>
++</form>
+diff --git a/frontend/src/app/components/shared/login-form/login-form.component.ts b/frontend/src/app/components/shared/login-form/login-form.component.ts
+new file mode 100644
+index 0000000..c03e5e3
+--- /dev/null
++++ b/frontend/src/app/components/shared/login-form/login-form.component.ts
+@@ -0,0 +1,53 @@
++import { Component, inject, output, signal } from '@angular/core';
++import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
++import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { TranslateService } from '../../../core/engine/services/translate.service';
++import { AuthService } from '../../../core/services/auth.service';
++import { LoginRequest } from '../../../core/dto/api.dto';
++
++/**
++ * Form di login riusabile: campi, validazione, chiamata di autenticazione ed errore inline.
++ * È un componente UI puro — non naviga e non conosce le rotte. Al login riuscito emette
++ * `loggedIn`, lasciando al contenitore (la pagina di login o una modale) decidere cosa fare.
++ */
++@Component({
++    selector: 'app-login-form',
++    imports: [ReactiveFormsModule, TranslatePipe],
++    templateUrl: './login-form.component.html',
++})
++export class LoginFormComponent {
++    private readonly auth = inject(AuthService);
++    private readonly translate = inject(TranslateService);
++    private readonly fb = inject(FormBuilder);
++
++    /** Emesso dopo un login riuscito; a questo punto il token è già memorizzato. */
++    readonly loggedIn = output<void>();
++
++    protected readonly isLoading = signal(false);
++    protected readonly errorMessage = signal<string | null>(null);
++
++    protected readonly loginForm = this.fb.group({
++        username: ['admin', [Validators.required]],
++        password: ['', [Validators.required, Validators.minLength(8)]],
++    });
++
++    protected async onSubmit(): Promise<void> {
++        if (this.loginForm.invalid) return;
++
++        this.isLoading.set(true);
++        this.errorMessage.set(null);
++
++        const { username, password } = this.loginForm.getRawValue();
++        const request: LoginRequest = { username: username!, pwd: password! };
++
++        // auth.login risolve con { valid, error }: l'errore è già tradotto e lo mostriamo inline.
++        const result = await this.auth.login(request);
++        this.isLoading.set(false);
++
++        if (result.valid) {
++            this.loggedIn.emit();
++        } else {
++            this.errorMessage.set(result.error ?? this.translate.translate('loginErroreGenerico'));
++        }
++    }
++}
+diff --git a/frontend/src/app/core/dto/session.dto.ts b/frontend/src/app/core/dto/session.dto.ts
+new file mode 100644
+index 0000000..de55b87
+--- /dev/null
++++ b/frontend/src/app/core/dto/session.dto.ts
+@@ -0,0 +1,16 @@
++import type { SessionBase } from '../engine/models/session-base.model';
++
++/**
++ * Dettagli di sessione esposti al frontend, decodificati dal claim "session" del JWT.
++ *
++ * Estende il contratto universale dell'engine `SessionBase` (che garantisce `userId`)
++ * con i campi di dominio del progetto. Corrisponde al record SessionInfo del backend
++ * (backend/Models/SessionInfo.cs): tieni le due in sincronia a mano, niente codegen.
++ * Le chiavi sono in camelCase perché il backend serializza con le opzioni JSON "Web".
++ *
++ * Esempio fornito col template — adatta i campi di dominio (insieme al record C#).
++ */
++export interface SessionInfo extends SessionBase {
++    displayName: string;
++    roles: string[];
++}
+diff --git a/frontend/src/app/components/shared/back-to-top/back-to-top.component.css b/frontend/src/app/core/engine/components/back-to-top/back-to-top.component.css
+similarity index 100%
+rename from frontend/src/app/components/shared/back-to-top/back-to-top.component.css
+rename to frontend/src/app/core/engine/components/back-to-top/back-to-top.component.css
+diff --git a/frontend/src/app/components/shared/back-to-top/back-to-top.component.html b/frontend/src/app/core/engine/components/back-to-top/back-to-top.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/back-to-top/back-to-top.component.html
+rename to frontend/src/app/core/engine/components/back-to-top/back-to-top.component.html
+diff --git a/frontend/src/app/components/shared/back-to-top/back-to-top.component.ts b/frontend/src/app/core/engine/components/back-to-top/back-to-top.component.ts
+similarity index 94%
+rename from frontend/src/app/components/shared/back-to-top/back-to-top.component.ts
+rename to frontend/src/app/core/engine/components/back-to-top/back-to-top.component.ts
+index 487ca5f..b2a6db0 100644
+--- a/frontend/src/app/components/shared/back-to-top/back-to-top.component.ts
++++ b/frontend/src/app/core/engine/components/back-to-top/back-to-top.component.ts
+@@ -1,6 +1,6 @@
+ import { Component, HostListener, PLATFORM_ID, inject, signal } from '@angular/core';
+ import { isPlatformBrowser } from '@angular/common';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { TranslatePipe } from '../../pipes/translate.pipe';
+ 
+ /**
+  * BackToTopComponent — Bottone "torna su" che appare durante lo scroll.
+diff --git a/frontend/src/app/components/shared/context-menu/context-menu-overlay.component.html b/frontend/src/app/core/engine/components/context-menu/context-menu-overlay.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/context-menu/context-menu-overlay.component.html
+rename to frontend/src/app/core/engine/components/context-menu/context-menu-overlay.component.html
+diff --git a/frontend/src/app/components/shared/context-menu/context-menu-overlay.component.ts b/frontend/src/app/core/engine/components/context-menu/context-menu-overlay.component.ts
+similarity index 97%
+rename from frontend/src/app/components/shared/context-menu/context-menu-overlay.component.ts
+rename to frontend/src/app/core/engine/components/context-menu/context-menu-overlay.component.ts
+index 991e1dc..af60ad4 100644
+--- a/frontend/src/app/components/shared/context-menu/context-menu-overlay.component.ts
++++ b/frontend/src/app/core/engine/components/context-menu/context-menu-overlay.component.ts
+@@ -7,7 +7,7 @@ import {
+     signal,
+     viewChild,
+ } from '@angular/core';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { TranslatePipe } from '../../pipes/translate.pipe';
+ import { ContextMenuOption } from './context-menu.models';
+ 
+ /**
+diff --git a/frontend/src/app/components/shared/context-menu/context-menu.component.css b/frontend/src/app/core/engine/components/context-menu/context-menu.component.css
+similarity index 100%
+rename from frontend/src/app/components/shared/context-menu/context-menu.component.css
+rename to frontend/src/app/core/engine/components/context-menu/context-menu.component.css
+diff --git a/frontend/src/app/components/shared/context-menu/context-menu.models.ts b/frontend/src/app/core/engine/components/context-menu/context-menu.models.ts
+similarity index 100%
+rename from frontend/src/app/components/shared/context-menu/context-menu.models.ts
+rename to frontend/src/app/core/engine/components/context-menu/context-menu.models.ts
+diff --git a/frontend/src/app/components/shared/cookie-banner/cookie-banner.component.css b/frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.css
+similarity index 100%
+rename from frontend/src/app/components/shared/cookie-banner/cookie-banner.component.css
+rename to frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.css
+diff --git a/frontend/src/app/components/shared/cookie-banner/cookie-banner.component.html b/frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/cookie-banner/cookie-banner.component.html
+rename to frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.html
+diff --git a/frontend/src/app/components/shared/cookie-banner/cookie-banner.component.ts b/frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.ts
+similarity index 86%
+rename from frontend/src/app/components/shared/cookie-banner/cookie-banner.component.ts
+rename to frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.ts
+index b642264..d4738f8 100644
+--- a/frontend/src/app/components/shared/cookie-banner/cookie-banner.component.ts
++++ b/frontend/src/app/core/engine/components/cookie-banner/cookie-banner.component.ts
+@@ -1,10 +1,10 @@
+ import { Component, ViewEncapsulation, computed, inject, signal } from '@angular/core';
+-import { CookieConsentService } from '../../../core/engine/services/cookie-consent.service';
+-import { ThemeService } from '../../../core/engine/services/theme.service';
+-import { TranslateService } from '../../../core/engine/services/translate.service';
+-import { ContestoSito, PageType } from '../../../site';
+-import { MarkdownPipe } from '../../../core/engine/pipes/markdown.pipe';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { CookieConsentService } from '../../services/cookie-consent.service';
++import { ThemeService } from '../../services/theme.service';
++import { TranslateService } from '../../services/translate.service';
++import { ContestoSito, PageType } from '../../../../site';
++import { MarkdownPipe } from '../../pipes/markdown.pipe';
++import { TranslatePipe } from '../../pipes/translate.pipe';
+ 
+ @Component({
+     selector: 'app-cookie-banner',
+diff --git a/frontend/src/app/components/shared/footer-nav/footer-nav.component.html b/frontend/src/app/core/engine/components/footer-nav/footer-nav.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/footer-nav/footer-nav.component.html
+rename to frontend/src/app/core/engine/components/footer-nav/footer-nav.component.html
+diff --git a/frontend/src/app/components/shared/footer-nav/footer-nav.component.ts b/frontend/src/app/core/engine/components/footer-nav/footer-nav.component.ts
+similarity index 86%
+rename from frontend/src/app/components/shared/footer-nav/footer-nav.component.ts
+rename to frontend/src/app/core/engine/components/footer-nav/footer-nav.component.ts
+index 2f974c5..e876876 100644
+--- a/frontend/src/app/components/shared/footer-nav/footer-nav.component.ts
++++ b/frontend/src/app/core/engine/components/footer-nav/footer-nav.component.ts
+@@ -1,7 +1,7 @@
+ import { Component, input } from '@angular/core';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { TranslatePipe } from '../../pipes/translate.pipe';
+ import { NavLinkComponent } from '../nav-link/nav-link.component';
+-import { NavLink } from '../../../core/engine/siteBuilder';
++import { NavLink } from '../../siteBuilder';
+ 
+ /**
+  * FOOTER NAV COMPONENT
+diff --git a/frontend/src/app/components/layout/footer/footer.component.html b/frontend/src/app/core/engine/components/layout/footer/footer.component.html
+similarity index 100%
+rename from frontend/src/app/components/layout/footer/footer.component.html
+rename to frontend/src/app/core/engine/components/layout/footer/footer.component.html
+diff --git a/frontend/src/app/components/layout/footer/footer.component.ts b/frontend/src/app/core/engine/components/layout/footer/footer.component.ts
+similarity index 68%
+rename from frontend/src/app/components/layout/footer/footer.component.ts
+rename to frontend/src/app/core/engine/components/layout/footer/footer.component.ts
+index b1d2914..9ed0647 100644
+--- a/frontend/src/app/components/layout/footer/footer.component.ts
++++ b/frontend/src/app/core/engine/components/layout/footer/footer.component.ts
+@@ -1,12 +1,12 @@
+ import { Component, computed, inject } from '@angular/core';
+-import { Profile } from '../../../core/dto/profile.dto';
+-import { ApiService } from '../../../core/services/api.service';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+-import { SocialLinkComponent } from '../../shared/social-link/social-link.component';
+-import { LoadingComponent } from '../../shared/loading/loading.component';
+-import { ProfileRenderComponent } from '../../shared/profile-render/profile-render.component';
+-import { FooterNavComponent } from '../../shared/footer-nav/footer-nav.component';
+-import { ContestoSito } from '../../../site';
++import { Profile } from '../../../../dto/profile.dto';
++import { ApiService } from '../../../../services/api.service';
++import { TranslatePipe } from '../../../pipes/translate.pipe';
++import { SocialLinkComponent } from '../../../../../components/shared/icon/social-link/social-link.component';
++import { LoadingComponent } from '../../../../../components/shared/loading/loading.component';
++import { ProfileRenderComponent } from '../../../../../components/shared/profile-render/profile-render.component';
++import { FooterNavComponent } from '../../footer-nav/footer-nav.component';
++import { ContestoSito } from '../../../../../site';
+ 
+ interface SocialLinkVm {
+     type: string;
+diff --git a/frontend/src/app/components/layout/navbar/navbar.component.css b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.css
+similarity index 99%
+rename from frontend/src/app/components/layout/navbar/navbar.component.css
+rename to frontend/src/app/core/engine/components/layout/navbar/navbar.component.css
+index ffa43c1..d2af51d 100644
+--- a/frontend/src/app/components/layout/navbar/navbar.component.css
++++ b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.css
+@@ -46,6 +46,9 @@
+     align-items: center;
+ }
+ 
++
++
++
+ /* ── Selettore lingua ─────────────────────────────────────────────── */
+ 
+ .language-picker {
+diff --git a/frontend/src/app/components/layout/navbar/navbar.component.html b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.html
+similarity index 93%
+rename from frontend/src/app/components/layout/navbar/navbar.component.html
+rename to frontend/src/app/core/engine/components/layout/navbar/navbar.component.html
+index c6a56e9..520973f 100644
+--- a/frontend/src/app/components/layout/navbar/navbar.component.html
++++ b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.html
+@@ -5,21 +5,21 @@
+         @if (isRouteActive(homePath)) {
+         <span class="navbar-brand nav-current-link d-flex align-items-center gap-2"
+               aria-current="page">
+-            @if (showBrandIcon) {
++            @if (showBrandIconInHeader) {
+             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+             }
+             {{ appName }}
+         </span>
+         } @else {
+         <a class="navbar-brand d-flex align-items-center gap-2" [appPage]="PageType.Home">
+-            @if (showBrandIcon) {
++            @if (showBrandIconInHeader) {
+             <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+             }
+             {{ appName }}
+         </a>
+         }
+ 
+-        @if (menuItems.length > 0 || languages().length > 1) {
++        @if (menuItems.length > 0 || languages().length > 1 || hasAuthPage) {
+         <button class="navbar-toggler" type="button"
+                 (click)="toggleMenu()"
+                 aria-controls="navbar-menu"
+@@ -52,8 +52,10 @@
+             </ul>
+             }
+ 
++            <user-nav (navigationClick)="onNavigationLinkClick()" />
++
+             @if (languages().length > 1) {
+-            <div class="language-picker ms-md-auto mt-3 mt-md-0">
++            <div class="language-picker mt-3 mt-md-0" [class.ms-md-auto]="!hasAuthPage">
+                 <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
+                 <div class="dropdown language-dropdown" [class.show]="langOpen()">
+                     <button type="button"
+diff --git a/frontend/src/app/components/layout/navbar/navbar.component.ts b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.ts
+similarity index 76%
+rename from frontend/src/app/components/layout/navbar/navbar.component.ts
+rename to frontend/src/app/core/engine/components/layout/navbar/navbar.component.ts
+index 716e47c..6f055bd 100644
+--- a/frontend/src/app/components/layout/navbar/navbar.component.ts
++++ b/frontend/src/app/core/engine/components/layout/navbar/navbar.component.ts
+@@ -3,20 +3,21 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ import { UpperCasePipe } from '@angular/common';
+ import { NavigationEnd, Router } from '@angular/router';
+ import { filter } from 'rxjs/operators';
+-import { injectCurrentUrl } from '../../../app.routes';
+-import { ThemeService } from '../../../core/engine/services/theme.service';
+-import { TranslateService } from '../../../core/engine/services/translate.service';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+-import { NavLinkComponent } from '../../shared/nav-link/nav-link.component';
+-import { NavDropdownComponent } from '../../shared/nav-dropdown/nav-dropdown.component';
+-import { PageDirective } from '../../../core/engine/directives/page.directive';
+-import { ContestoSito, PageType } from '../../../site';
+-import { NavLink } from '../../../core/engine/siteBuilder';
+-import { AssetDirective } from '../../../core/engine/directives/asset.directive';
++import { injectCurrentUrl } from '../../../../../app.routes';
++import { ThemeService } from '../../../services/theme.service';
++import { TranslateService } from '../../../services/translate.service';
++import { TranslatePipe } from '../../../pipes/translate.pipe';
++import { NavLinkComponent } from '../../nav-link/nav-link.component';
++import { NavDropdownComponent } from '../../nav-dropdown/nav-dropdown.component';
++import { PageDirective } from '../../../directives/page.directive';
++import { ContestoSito, PageType } from '../../../../../site';
++import { NavLink } from '../../../siteBuilder';
++import { AssetDirective } from '../../../directives/asset.directive';
++import { UserNavComponent } from '../../../../../components/shared/user-nav/user-nav.component';
+ 
+ @Component({
+     selector: 'app-navbar',
+-    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective],
++    imports: [TranslatePipe, AssetDirective, UpperCasePipe, NavLinkComponent, NavDropdownComponent, PageDirective, UserNavComponent],
+     templateUrl: './navbar.component.html',
+     styleUrl: './navbar.component.css',
+     host: { class: 'd-block' }
+@@ -32,8 +33,10 @@ export class NavbarComponent {
+     readonly menuItems = ContestoSito.menuNav;
+     protected readonly PageType = PageType;
+     readonly fixTop = ContestoSito.config.fixedTopHeader;
+-    readonly showBrandIcon = ContestoSito.config.showBrandIcon;
++    readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
+     readonly languages = this.translate.availableLangs;
++    /** true se il toggler deve apparire. */
++    readonly hasAuthPage = ContestoSito.config.pageForAuthGuard != null && ContestoSito.config.showLoginInHeader;
+     readonly menuOpen = signal(false);
+     protected readonly openDropdownIndex = signal(-1);
+     protected readonly langOpen = signal(false);
+diff --git a/frontend/src/app/components/layout/smoke-effect/smoke-effect.component.css b/frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.css
+similarity index 100%
+rename from frontend/src/app/components/layout/smoke-effect/smoke-effect.component.css
+rename to frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.css
+diff --git a/frontend/src/app/components/layout/smoke-effect/smoke-effect.component.html b/frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.html
+similarity index 100%
+rename from frontend/src/app/components/layout/smoke-effect/smoke-effect.component.html
+rename to frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.html
+diff --git a/frontend/src/app/components/layout/smoke-effect/smoke-effect.component.ts b/frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.ts
+similarity index 99%
+rename from frontend/src/app/components/layout/smoke-effect/smoke-effect.component.ts
+rename to frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.ts
+index 722c1a9..e254765 100644
+--- a/frontend/src/app/components/layout/smoke-effect/smoke-effect.component.ts
++++ b/frontend/src/app/core/engine/components/layout/smoke-effect/smoke-effect.component.ts
+@@ -8,7 +8,7 @@ import {
+     input,
+     viewChild,
+ } from '@angular/core';
+-import { SmokeSettings } from '../../../site';
++import { SmokeSettings } from '../../../../../site';
+ 
+ /**
+  * SmokeEffectComponent — Effetto decorativo a particelle di fumo.
+diff --git a/frontend/src/app/components/shared/nav-dropdown/nav-dropdown.component.html b/frontend/src/app/core/engine/components/nav-dropdown/nav-dropdown.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/nav-dropdown/nav-dropdown.component.html
+rename to frontend/src/app/core/engine/components/nav-dropdown/nav-dropdown.component.html
+diff --git a/frontend/src/app/components/shared/nav-dropdown/nav-dropdown.component.ts b/frontend/src/app/core/engine/components/nav-dropdown/nav-dropdown.component.ts
+similarity index 84%
+rename from frontend/src/app/components/shared/nav-dropdown/nav-dropdown.component.ts
+rename to frontend/src/app/core/engine/components/nav-dropdown/nav-dropdown.component.ts
+index 90c6939..ff57b51 100644
+--- a/frontend/src/app/components/shared/nav-dropdown/nav-dropdown.component.ts
++++ b/frontend/src/app/core/engine/components/nav-dropdown/nav-dropdown.component.ts
+@@ -1,9 +1,9 @@
+ import { Component, computed, inject, input, output } from '@angular/core';
+ import { Router } from '@angular/router';
+-import { injectCurrentUrl } from '../../../app.routes';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
++import { injectCurrentUrl } from '../../../../app.routes';
++import { TranslatePipe } from '../../pipes/translate.pipe';
+ import { NavLinkComponent } from '../nav-link/nav-link.component';
+-import { NavLink } from '../../../core/engine/siteBuilder';
++import { NavLink } from '../../siteBuilder';
+ 
+ @Component({
+     selector: 'app-nav-dropdown',
+diff --git a/frontend/src/app/components/shared/nav-link/nav-link.component.html b/frontend/src/app/core/engine/components/nav-link/nav-link.component.html
+similarity index 100%
+rename from frontend/src/app/components/shared/nav-link/nav-link.component.html
+rename to frontend/src/app/core/engine/components/nav-link/nav-link.component.html
+diff --git a/frontend/src/app/components/shared/nav-link/nav-link.component.ts b/frontend/src/app/core/engine/components/nav-link/nav-link.component.ts
+similarity index 91%
+rename from frontend/src/app/components/shared/nav-link/nav-link.component.ts
+rename to frontend/src/app/core/engine/components/nav-link/nav-link.component.ts
+index b3d40f1..c1dc6ec 100644
+--- a/frontend/src/app/components/shared/nav-link/nav-link.component.ts
++++ b/frontend/src/app/core/engine/components/nav-link/nav-link.component.ts
+@@ -1,8 +1,8 @@
+ import { Component, computed, inject, input, output } from '@angular/core';
+ import { Router, RouterLink } from '@angular/router';
+-import { injectCurrentUrl } from '../../../app.routes';
+-import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+-import { NavLink } from '../../../core/engine/siteBuilder';
++import { injectCurrentUrl } from '../../../../app.routes';
++import { TranslatePipe } from '../../pipes/translate.pipe';
++import { NavLink } from '../../siteBuilder';
+ 
+ /**
+  * NAV LINK COMPONENT
+diff --git a/frontend/src/app/core/engine/directives/context-menu.directive.ts b/frontend/src/app/core/engine/directives/context-menu.directive.ts
+index c515aad..bf1ae64 100644
+--- a/frontend/src/app/core/engine/directives/context-menu.directive.ts
++++ b/frontend/src/app/core/engine/directives/context-menu.directive.ts
+@@ -9,8 +9,8 @@ import {
+     input,
+ } from '@angular/core';
+ import { isPlatformBrowser } from '@angular/common';
+-import { ContextMenuOption } from '../../../components/shared/context-menu/context-menu.models';
+-import { ContextMenuOverlayComponent } from '../../../components/shared/context-menu/context-menu-overlay.component';
++import { ContextMenuOption } from '../components/context-menu/context-menu.models';
++import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
+ 
+ /**
+  * Directive per aggiungere un menu contestuale personalizzato a qualsiasi elemento.
+diff --git a/frontend/src/app/core/engine/models/session-base.model.ts b/frontend/src/app/core/engine/models/session-base.model.ts
+new file mode 100644
+index 0000000..e1b628d
+--- /dev/null
++++ b/frontend/src/app/core/engine/models/session-base.model.ts
+@@ -0,0 +1,12 @@
++/**
++ * Contratto MINIMO di sessione garantito dall'engine: ogni sessione autenticata
++ * identifica il proprio principale tramite `userId`.
++ *
++ * È la parte universale del payload del claim "session". Il progetto la estende
++ * con i propri campi di dominio (vedi core/dto/session.dto.ts).
++ *
++ * Specchio lato backend: backend/Engine/Models/SessionBase.cs.
++ */
++export interface SessionBase {
++    userId: string;
++}
+diff --git a/frontend/src/app/core/engine/services/base-api.service.ts b/frontend/src/app/core/engine/services/base-api.service.ts
+index 49f2b17..38c11c1 100644
+--- a/frontend/src/app/core/engine/services/base-api.service.ts
++++ b/frontend/src/app/core/engine/services/base-api.service.ts
+@@ -5,7 +5,7 @@ import { Observable, throwError, firstValueFrom } from 'rxjs';
+ import { catchError } from 'rxjs/operators';
+ import { NotificationService } from './notification.service';
+ import { TranslateService } from './translate.service';
+-import { TokenService } from '../../services/auth.service';
++import { TokenService } from './token.service';
+ 
+ /** 
+  * Interfaccia basata sullo standard RFC 9457 (Problem Details for HTTP APIs)
+diff --git a/frontend/src/app/core/engine/services/cookie-consent.service.ts b/frontend/src/app/core/engine/services/cookie-consent.service.ts
+index 00dd101..d73a240 100644
+--- a/frontend/src/app/core/engine/services/cookie-consent.service.ts
++++ b/frontend/src/app/core/engine/services/cookie-consent.service.ts
+@@ -4,19 +4,9 @@ import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
+ import { LOCALE_CONFIG } from '../services/translate.service';
+ import { environment } from '../../../../environments/environment';
+ import { SITE_CONFIG } from '../siteBuilder';
+-export type { CookieKey } from '../../services/cookie-registry';
+-export enum CookieCategory {
+-    Technical = 'tecnici',
+-    Analytics = 'analytics',
+-    Profiling = 'profilazione',
+-}
+-
+-export interface CookieConfig {
+-    category: CookieCategory;
+-    descriptionKey?: string;
+-}
+-
++import { CookieCategory, CookieConfig } from './cookie/cookie-type';
+ 
++export type { CookieKey } from '../../services/cookie-registry';
+ 
+ /**
+  * Controlla se il consenso tecnico è stato già salvato in localStorage.
+@@ -143,22 +133,7 @@ export class CookieConsentService {
+         }
+     }
+ 
+-    /**
+-     * Controlla in modo statico se sono necessari i cookie per il sito.
+-     * È usato da site.ts a build time / runtime precoce per determinare
+-     * se abilitare o meno la pagina Cookie Policy.
+-     */
+-    static hasCookiesConfigured(): boolean {
+-        // 1. Ci sono cookie espliciti di progetto?
+-        if (Object.keys(COOKIE_MAP).length > 0) return true;
+-
+-        // 2. Multilingua o altre config nel file di environment generato?
+-        if (environment.availableLanguages && environment.availableLanguages.length > 1) {
+-            return true;
+-        }
+ 
+-        return false;
+-    }
+ 
+     // ─── GESTIONE CONSENSO ──────────────────────────────────────────────
+ 
+@@ -250,7 +225,7 @@ export class CookieConsentService {
+             });
+         }
+     }
+-    private static readonly NGSW_WORKER = 'ngsw-worker.js';
++    public static readonly NGSW_WORKER = 'ngsw-worker.js';
+ 
+     /**
+      * Metodo cappello lingua: se il consenso tecnico è revocato rimuove il cookie lingua.
+@@ -305,7 +280,7 @@ export class CookieConsentService {
+     getCookie(key: CookieKey): string | null {
+         const fullKey = CookieConsentService.buildKey(key as string);
+         if (!fullKey) return null;
+-        
++
+         return this.readCookieDirect(fullKey);
+     }
+ 
+@@ -326,7 +301,7 @@ export class CookieConsentService {
+     // Metodo cappello: usa la stessa meccanica write/read ma non passa per COOKIE_MAP.
+     // Chiave fisica: lang  (senza namespace — funzionalità built-in)
+ 
+-    private static readonly LANG_KEY = 'lang';
++    public static readonly LANG_KEY = 'lang';
+     private readonly LANG_MAX_AGE = 60 * 60 * 24 * 365;
+ 
+     getSavedLanguage(): string | null {
+@@ -353,7 +328,7 @@ export class CookieConsentService {
+      * @param config (Opzionale) Configurazione bypassabile, usata internamente per evitare lookup duplicati.
+      * @returns Il nome univoco fisico da passare alle API del browser, o `null` se la chiave è sconosciuta.
+      */
+-    private static buildKey(rawKey: string, config?: CookieConfig): string | null {
++    public static buildKey(rawKey: string, config?: CookieConfig): string | null {
+         if (rawKey === this.LANG_KEY || rawKey === CookieConsentService.NGSW_WORKER) {
+             return rawKey;
+         }
+@@ -395,77 +370,5 @@ export class CookieConsentService {
+ 
+ 
+     // ─── PARTE LEGALE (Markdown) ──────────────────────────────────────
+-
+-    readonly legal = {
+-        /**
+-         * Restituisce le categorie dei cookie presenti nel sito in formato strutturato,
+-         * con le etichette già tradotte tramite la funzione passata.
+-         */
+-        getCategories: (t: (key: string) => string): { key: CookieCategory; name: string; description: string }[] => {
+-            const categories: { key: CookieCategory; name: string; description: string }[] = [];
+-            if (this.isTechnicalNeeded()) {
+-                categories.push({
+-                    key: CookieCategory.Technical,
+-                    name: t('tecniciCategoriaCookie'),
+-                    description: t('tecniciDescrizioneCategoriaCookie')
+-                });
+-            }
+-            if (this.isAnalyticsNeeded()) {
+-                categories.push({
+-                    key: CookieCategory.Analytics,
+-                    name: t('analyticsCategoriaCookie'),
+-                    description: t('analyticsDescrizioneCategoriaCookie')
+-                });
+-            }
+-            if (this.isProfilingNeeded()) {
+-                categories.push({
+-                    key: CookieCategory.Profiling,
+-                    name: t('profilazioneCategoriaCookie'),
+-                    description: t('profilazioneDescrizioneCategoriaCookie')
+-                });
+-            }
+-            return categories;
+-        },
+-
+-        /**
+-         * Restituisce l'elenco dei cookie attivi nel sito in formato strutturato,
+-         * con etichette e descrizioni già tradotte tramite la funzione passata.
+-         */
+-        getCookies: (t: (key: string) => string): { name: string; category: string; categoryKey: CookieCategory; description: string }[] => {
+-            const allCookies: Record<string, CookieConfig> = {
+-                ...COOKIE_MAP,
+-            };
+-
+-            if (this.localeConfig.availableLanguages.length > 1) {
+-                allCookies[CookieConsentService.LANG_KEY] = {
+-                    category: CookieCategory.Technical,
+-                    descriptionKey: 'linguaDescrizioneListaCookie',
+-                };
+-            }
+-
+-            if (this.siteConfig.isWebApp) {
+-                allCookies[CookieConsentService.NGSW_WORKER] = {
+-                    category: CookieCategory.Technical,
+-                    descriptionKey: 'swDescrizioneListaCookie',
+-                };
+-            }
+-
+-            const list: { name: string; category: string; categoryKey: CookieCategory; description: string }[] = [];
+-
+-            for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
+-                const category = config.category;
+-                const desc = config.descriptionKey ? t(config.descriptionKey) : '';
+-                const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
+-
+-                list.push({
+-                    name: fullKey,
+-                    category: t(`${category}CategoriaCookie`),
+-                    categoryKey: category,
+-                    description: desc
+-                });
+-            }
+-
+-            return list;
+-        }
+-    };
++    // La logica legale è stata estratta in PrintCookieService.
+ }
+diff --git a/frontend/src/app/core/engine/services/cookie/cookie-type.ts b/frontend/src/app/core/engine/services/cookie/cookie-type.ts
+new file mode 100644
+index 0000000..1e0e6e6
+--- /dev/null
++++ b/frontend/src/app/core/engine/services/cookie/cookie-type.ts
+@@ -0,0 +1,10 @@
++export enum CookieCategory {
++    Technical,
++    Analytics,
++    Profiling,
++}
++
++export interface CookieConfig {
++    category: CookieCategory;
++    descriptionKey?: string;
++}
+diff --git a/frontend/src/app/core/engine/services/cookie/cookie-utils.ts b/frontend/src/app/core/engine/services/cookie/cookie-utils.ts
+new file mode 100644
+index 0000000..16107fa
+--- /dev/null
++++ b/frontend/src/app/core/engine/services/cookie/cookie-utils.ts
+@@ -0,0 +1,19 @@
++import { COOKIE_MAP } from '../../../services/cookie-registry';
++import { environment } from '../../../../../environments/environment';
++
++/**
++ * Controlla in modo statico se sono necessari i cookie per il sito.
++ * È usato da site.ts a build time / runtime precoce per determinare
++ * se abilitare o meno la pagina Cookie Policy.
++ */
++export function hasCookiesConfigured(): boolean {
++    // 1. Ci sono cookie espliciti di progetto?
++    if (Object.keys(COOKIE_MAP).length > 0) return true;
++
++    // 2. Multilingua o altre config nel file di environment generato?
++    if (environment.availableLanguages && environment.availableLanguages.length > 1) {
++        return true;
++    }
++
++    return false;
++}
+diff --git a/frontend/src/app/core/engine/services/cookie/print-cookie.service.ts b/frontend/src/app/core/engine/services/cookie/print-cookie.service.ts
+new file mode 100644
+index 0000000..daa632d
+--- /dev/null
++++ b/frontend/src/app/core/engine/services/cookie/print-cookie.service.ts
+@@ -0,0 +1,98 @@
++import { Injectable, inject } from '@angular/core';
++import { CookieConsentService } from '../cookie-consent.service';
++import { CookieCategory, CookieConfig } from './cookie-type';
++import { COOKIE_MAP } from '../../../services/cookie-registry';
++import { LOCALE_CONFIG } from '../../services/translate.service';
++import { SITE_CONFIG } from '../../siteBuilder';
++
++@Injectable({ providedIn: 'root' })
++export class PrintCookieService {
++    private readonly cookieConsent = inject(CookieConsentService);
++    private readonly localeConfig = inject(LOCALE_CONFIG);
++    private readonly siteConfig = inject(SITE_CONFIG);
++
++    /**
++     * Restituisce le categorie dei cookie presenti nel sito in formato strutturato,
++     * con le etichette già tradotte tramite la funzione passata.
++     */
++    getCategories(t: (key: string) => string): { key: CookieCategory; name: string; description: string }[] {
++        const categories: { key: CookieCategory; name: string; description: string }[] = [];
++        if (this.cookieConsent.isTechnicalNeeded()) {
++            categories.push({
++                key: CookieCategory.Technical,
++                name: t('tecniciCategoriaCookie'),
++                description: t('tecniciDescrizioneCategoriaCookie')
++            });
++        }
++        if (this.cookieConsent.isAnalyticsNeeded()) {
++            categories.push({
++                key: CookieCategory.Analytics,
++                name: t('analyticsCategoriaCookie'),
++                description: t('analyticsDescrizioneCategoriaCookie')
++            });
++        }
++        if (this.cookieConsent.isProfilingNeeded()) {
++            categories.push({
++                key: CookieCategory.Profiling,
++                name: t('profilazioneCategoriaCookie'),
++                description: t('profilazioneDescrizioneCategoriaCookie')
++            });
++        }
++        return categories;
++    }
++
++    /**
++     * Restituisce l'elenco dei cookie attivi nel sito in formato strutturato,
++     * con etichette e descrizioni già tradotte tramite la funzione passata.
++     */
++    getCookies(t: (key: string) => string): { name: string; category: string; categoryKey: CookieCategory; description: string }[] {
++        const allCookies: Record<string, CookieConfig> = {
++            ...COOKIE_MAP,
++        };
++
++        if (this.localeConfig.availableLanguages.length > 1) {
++            allCookies[CookieConsentService.LANG_KEY] = {
++                category: CookieCategory.Technical,
++                descriptionKey: 'linguaDescrizioneListaCookie',
++            };
++        }
++
++        if (this.siteConfig.isWebApp) {
++            allCookies[CookieConsentService.NGSW_WORKER] = {
++                category: CookieCategory.Technical,
++                descriptionKey: 'swDescrizioneListaCookie',
++            };
++        }
++
++        const list: { name: string; category: string; categoryKey: CookieCategory; description: string }[] = [];
++        const chiaveCategopria = (t: CookieCategory) => {
++            let chiave = '';
++            switch (t) {
++                case CookieCategory.Analytics:
++                    chiave = 'analytics';
++                    break
++                case CookieCategory.Profiling:
++                    chiave = 'profilazione';
++                    break
++                case CookieCategory.Technical:
++                default:
++                    chiave = 'tecnici'
++            }
++            return chiave + "CategoriaCookie";
++        };
++        for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
++
++            const desc = config.descriptionKey ? t(config.descriptionKey) : '';
++            const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
++
++            list.push({
++                name: fullKey,
++                category: t(chiaveCategopria(config.category)),
++                categoryKey: config.category,
++                description: desc
++            });
++        }
++
++        return list;
++    }
++}
+diff --git a/frontend/src/app/core/engine/services/token.service.ts b/frontend/src/app/core/engine/services/token.service.ts
+new file mode 100644
+index 0000000..5b04282
+--- /dev/null
++++ b/frontend/src/app/core/engine/services/token.service.ts
+@@ -0,0 +1,154 @@
++import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
++import { isPlatformBrowser } from '@angular/common';
++import type { SessionBase } from '../models/session-base.model';
++
++/**
++ * TOKEN SERVICE
++ * Conserva il token JWT: unica sorgente di verità sulla sessione attiva.
++ * È separato da AuthService per risolvere il problema delle "Circular Dependencies":
++ * ApiService usa TokenService, e AuthService usa ApiService.
++ *
++ * Vive in un modulo foglia a sé (nessun import verso api/auth/base-api) così che
++ * BaseApiService possa iniettarlo senza chiudere il ciclo
++ * api → base-api → auth → api.
++ */
++@Injectable({ providedIn: 'root' })
++export class TokenService implements OnDestroy {
++    // Identifica se il codice sta girando nel browser o sul server (SSR)
++    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
++
++    // Signal reattivo per lo stato del token
++    private readonly _token = signal<string | null>(null);
++
++    // Riferimento al timer per il logout automatico alla scadenza del token
++    private expirationTimer: ReturnType<typeof setTimeout> | null = null;
++
++    // Esposizione pubblica dei dati in sola lettura
++    readonly token = this._token.asReadonly();
++    readonly isLoggedIn = computed(() => this._token() !== null);
++
++    /**
++     * Rilegge il payload di sessione che il backend ha messo nel claim "session"
++     * del JWT, tipizzandolo con l'interfaccia fornita dal progetto.
++     *
++     * L'engine resta generico: non conosce la forma del payload. Il progetto passa
++     * il proprio tipo al call-site, es. `tokenService.session<SessionInfo>()`, dove
++     * SessionInfo estende SessionBase e rispecchia il record C# (vedi dto/session.dto.ts).
++     * Senza argomento di tipo ritorna il solo contratto universale `SessionBase`.
++     *
++     * È reattivo: legge il signal del token, quindi si aggiorna a login/logout se
++     * usato dentro un computed o un template.
++     */
++    session<T extends SessionBase = SessionBase>(): T | null {
++        const token = this._token();
++        if (!token) return null;
++        const raw = this.decodePayload(token)?.['session'];
++        if (typeof raw !== 'string') return null;
++        try {
++            return JSON.parse(raw) as T;
++        } catch {
++            return null;
++        }
++    }
++
++    /**
++     * Salva il token, ne verifica la validità e avvia il timer di scadenza.
++     * @param token Stringa JWT ricevuta dal backend.
++     */
++    store(token: string): boolean {
++        const expiration = this.getExpirationTime(token);
++
++        // Se il token è malformato o già scaduto, annulla l'operazione
++        if (expiration === null || expiration <= Date.now()) {
++            this.clear();
++            return false;
++        }
++
++        this._token.set(token);
++
++        // Persistenza: usiamo sessionStorage affinché il login resti attivo al refresh
++        // ma venga rimosso alla chiusura della scheda (tab) del browser.
++        if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
++
++        this.scheduleExpiration(expiration);
++        return true;
++    }
++
++    /** Rimuove il token, pulisce i timer e svuota il SessionStorage. */
++    clear(): void {
++        this._token.set(null);
++        if (this.expirationTimer !== null) {
++            clearTimeout(this.expirationTimer);
++            this.expirationTimer = null;
++        }
++        if (this.isBrowser) sessionStorage.removeItem('bearerToken');
++    }
++
++    /** Tenta di ripristinare una sessione esistente (es. dopo F5). */
++    restore(): void {
++        if (!this.isBrowser) return;
++        const token = sessionStorage.getItem('bearerToken');
++        if (token) this.store(token);
++    }
++
++    /** Lifecycle hook: assicura che i timer vengano distrutti se il servizio muore. */
++    ngOnDestroy(): void {
++        this.clear();
++    }
++
++    /**
++     * Pianifica il logout automatico.
++     * Gestisce anche il limite massimo di setTimeout di JS (circa 24 giorni).
++     */
++    private scheduleExpiration(expiration: number): void {
++        if (!this.isBrowser) return; // I timer di scadenza non servono in SSR
++        if (this.expirationTimer !== null) clearTimeout(this.expirationTimer);
++
++        const delay = expiration - Date.now();
++        if (delay <= 0) { this.clear(); return; }
++
++        // Il delay massimo supportato da setTimeout è un intero a 32 bit
++        const nextDelay = Math.min(delay, 2147483647);
++        this.expirationTimer = setTimeout(() => {
++            if (expiration <= Date.now()) {
++                this.clear();
++                return;
++            }
++            // Se il token scade tra molto tempo, ri-schedula ricorsivamente
++            this.scheduleExpiration(expiration);
++
++        }, nextDelay);
++    }
++
++    /**
++     * Decodifica il payload del JWT (Base64) per estrarre il campo 'exp'.
++     * @returns Timestamp di scadenza in millisecondi o null.
++     */
++    private getExpirationTime(token: string): number | null {
++        const payload = this.decodePayload(token) as { exp?: unknown } | null;
++        // Il campo 'exp' nei JWT è solitamente in secondi, lo convertiamo in ms
++        return payload && typeof payload.exp === 'number' ? payload.exp * 1000 : null;
++    }
++
++    /**
++     * Decodifica il payload (parte centrale) di un JWT da Base64URL a oggetto.
++     * @returns L'oggetto del payload, o null se il token è malformato.
++     */
++    private decodePayload(token: string): Record<string, unknown> | null {
++        const payloadSegment = token.split('.')[1];
++        if (!payloadSegment) return null;
++        try {
++            // Normalizzazione Base64URL in Base64 standard + padding
++            const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
++            const padded = normalized.padEnd(
++                normalized.length + ((4 - (normalized.length % 4)) % 4), '='
++            );
++            // atob decodifica la stringa Base64
++            return JSON.parse(atob(padded)) as Record<string, unknown>;
++        } catch (err) {
++            // Token corrotto: fail closed. In dev logghiamo per diagnosi.
++            if (isDevMode()) console.warn('[auth] decoding del token JWT fallito', err);
++            return null;
++        }
++    }
++}
+diff --git a/frontend/src/app/core/engine/services/version-check.service.ts b/frontend/src/app/core/engine/services/version-check.service.ts
+index ec96484..399a946 100644
+--- a/frontend/src/app/core/engine/services/version-check.service.ts
++++ b/frontend/src/app/core/engine/services/version-check.service.ts
+@@ -4,6 +4,7 @@ import { SwUpdate } from '@angular/service-worker';
+ import { Subscription, filter } from 'rxjs';
+ import { NotificationService } from './notification.service';
+ import { TranslateService } from './translate.service';
++import { isTechnicalConsentGiven } from './cookie-consent.service';
+ 
+ /** Intervallo di controllo: 10 minuti. */
+ const CHECK_INTERVAL_MS = 10 * 60 * 1000;
+@@ -52,6 +53,18 @@ export class VersionCheckService implements OnDestroy {
+          */
+         if (!this.isBrowser) return;
+ 
++        /**
++         * GATE SUL CONSENSO TECNICO:
++         * Senza consenso tecnico il Service Worker non viene registrato (vedi
++         * provideServiceWorker in app.config.ts, stessa condizione isTechnicalConsentGiven()).
++         * In quel caso anche il polling sul manifest va spento: chi non ha scelto i cookie
++         * non ha attivato alcun meccanismo di aggiornamento, quindi un fetch ricorrente ogni
++         * 10 minuti sarebbe solo spreco di risorse (rete + risveglio della tab) senza scopo.
++         * Quando l'utente accetta, applyServiceWorker() registra il SW e al reload successivo
++         * provideServiceWorker lo integra con SwUpdate: da lì il controllo versione riparte.
++         */
++        if (!isTechnicalConsentGiven()) return;
++
+         // Recupera la versione attuale iniettata nel meta tag dell'index.html
+         this.currentVersion = this.document
+             .querySelector('meta[name="app-version"]')
+diff --git a/frontend/src/app/core/engine/siteBuilder.ts b/frontend/src/app/core/engine/siteBuilder.ts
+index 6d755d5..81e05bb 100644
+--- a/frontend/src/app/core/engine/siteBuilder.ts
++++ b/frontend/src/app/core/engine/siteBuilder.ts
+@@ -1,7 +1,7 @@
+ import { InjectionToken, type Type } from '@angular/core';
+-import { PageType } from '../../site';
++import type { PageType } from '../../site';
+ import type { PageBaseComponent } from '../../pages/page-base.component';
+-import { COOKIE_MAP } from '../services/cookie-registry';
++
+ 
+ // ======================================================
+ // MODELLI DI CONFIGURAZIONE
+@@ -113,7 +113,9 @@ export interface SiteConfig {
+     /** FIssare la navBar in alto */
+     fixedTopHeader?: boolean;
+     /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. */
+-    showBrandIcon: boolean;
++    showBrandIconInHeader: boolean;
++    /** Mostra il pulsante di login nella navbar. */
++    showLoginInHeader: boolean;
+     /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
+     isWebApp: boolean;
+     /** Configurazione finale normalizzata dell'effetto smoke. */
+@@ -152,7 +154,9 @@ export interface SiteConfigInput {
+     /** FIssare la navBar in alto */
+     fixedTopHeader?: boolean;
+     /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. Default: `true`. */
+-    showBrandIcon?: boolean;
++    showBrandIconInHeader?: boolean;
++    /** Mostra il pulsante di login nella navbar. */
++    showLoginInHeader?: boolean;
+     /**
+      * Abilita le funzionalità PWA: Service Worker, cache offline e aggiornamenti automatici.
+      * Se `false`, il SW non viene registrato e `VersionCheckService` usa solo il polling manifest.
+@@ -869,7 +873,8 @@ export function buildSite(
+                 showFooter: siteConfigurationInput.showFooter ?? true,
+                 showNav: siteConfigurationInput.showNav ?? true,
+                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
+-                showBrandIcon: siteConfigurationInput.showBrandIcon ?? true,
++                showBrandIconInHeader: siteConfigurationInput.showBrandIconInHeader  ?? true,
++                showLoginInHeader: siteConfigurationInput.showLoginInHeader ?? true,
+                 isWebApp: siteConfigurationInput.isWebApp ?? true,
+                 onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
+                 forcedLightPanel: siteConfigurationInput.forcedLightPanel ?? true,
+diff --git a/frontend/src/app/core/services/auth.service.ts b/frontend/src/app/core/services/auth.service.ts
+index c242a86..8af30e5 100644
+--- a/frontend/src/app/core/services/auth.service.ts
++++ b/frontend/src/app/core/services/auth.service.ts
+@@ -1,127 +1,10 @@
+-import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
+-import { isPlatformBrowser } from '@angular/common';
++import { computed, inject, Injectable } from '@angular/core';
+ import { ApiService } from './api.service';
+ import { LoginRequest } from '../dto/api.dto';
++import { SessionInfo } from '../dto/session.dto';
+ import { ApiError } from '../engine/services/base-api.service';
+ import { TranslateService } from '../engine/services/translate.service';
+-
+-/**
+- * TOKEN SERVICE
+- * Conserva il token JWT: unica sorgente di verità sulla sessione attiva.
+- * È separato da AuthService per risolvere il problema delle "Circular Dependencies":
+- * ApiService usa TokenService, e AuthService usa ApiService.
+- */
+-@Injectable({ providedIn: 'root' })
+-export class TokenService implements OnDestroy {
+-    // Identifica se il codice sta girando nel browser o sul server (SSR)
+-    private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+-
+-    // Signal reattivo per lo stato del token
+-    private readonly _token = signal<string | null>(null);
+-
+-    // Riferimento al timer per il logout automatico alla scadenza del token
+-    private expirationTimer: ReturnType<typeof setTimeout> | null = null;
+-
+-    // Esposizione pubblica dei dati in sola lettura
+-    readonly token = this._token.asReadonly();
+-    readonly isLoggedIn = computed(() => this._token() !== null);
+-
+-    /**
+-     * Salva il token, ne verifica la validità e avvia il timer di scadenza.
+-     * @param token Stringa JWT ricevuta dal backend.
+-     */
+-    store(token: string): boolean {
+-        const expiration = this.getExpirationTime(token);
+-
+-        // Se il token è malformato o già scaduto, annulla l'operazione
+-        if (expiration === null || expiration <= Date.now()) {
+-            this.clear();
+-            return false;
+-        }
+-
+-        this._token.set(token);
+-
+-        // Persistenza: usiamo sessionStorage affinché il login resti attivo al refresh
+-        // ma venga rimosso alla chiusura della scheda (tab) del browser.
+-        if (this.isBrowser) sessionStorage.setItem('bearerToken', token);
+-
+-        this.scheduleExpiration(expiration);
+-        return true;
+-    }
+-
+-    /** Rimuove il token, pulisce i timer e svuota il SessionStorage. */
+-    clear(): void {
+-        this._token.set(null);
+-        if (this.expirationTimer !== null) {
+-            clearTimeout(this.expirationTimer);
+-            this.expirationTimer = null;
+-        }
+-        if (this.isBrowser) sessionStorage.removeItem('bearerToken');
+-    }
+-
+-    /** Tenta di ripristinare una sessione esistente (es. dopo F5). */
+-    restore(): void {
+-        if (!this.isBrowser) return;
+-        const token = sessionStorage.getItem('bearerToken');
+-        if (token) this.store(token);
+-    }
+-
+-    /** Lifecycle hook: assicura che i timer vengano distrutti se il servizio muore. */
+-    ngOnDestroy(): void {
+-        this.clear();
+-    }
+-
+-    /**
+-     * Pianifica il logout automatico. 
+-     * Gestisce anche il limite massimo di setTimeout di JS (circa 24 giorni).
+-     */
+-    private scheduleExpiration(expiration: number): void {
+-        if (!this.isBrowser) return; // I timer di scadenza non servono in SSR
+-        if (this.expirationTimer !== null) clearTimeout(this.expirationTimer);
+-
+-        const delay = expiration - Date.now();
+-        if (delay <= 0) { this.clear(); return; }
+-
+-        // Il delay massimo supportato da setTimeout è un intero a 32 bit
+-        const nextDelay = Math.min(delay, 2147483647);
+-        this.expirationTimer = setTimeout(() => {
+-            if (expiration <= Date.now()) {
+-                this.clear();
+-                return;
+-            }
+-            // Se il token scade tra molto tempo, ri-schedula ricorsivamente
+-            this.scheduleExpiration(expiration);
+-
+-        }, nextDelay);
+-    }
+-
+-    /**
+-     * Decodifica il payload del JWT (Base64) per estrarre il campo 'exp'.
+-     * @returns Timestamp di scadenza in millisecondi o null.
+-     */
+-    private getExpirationTime(token: string): number | null {
+-        // Prende la parte centrale del JWT (payload Base64url)
+-        const payloadSegment = token.split('.')[1];
+-        if (!payloadSegment) return null;
+-        try {
+-            // Normalizzazione Base64URL in Base64 standard
+-            const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
+-            const padded = normalized.padEnd(
+-                normalized.length + ((4 - (normalized.length % 4)) % 4), '='
+-            );
+-            // atob decodifica la stringa Base64
+-            const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+-
+-            // Il campo 'exp' nei JWT è solitamente in secondi, lo convertiamo in ms
+-            return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+-        } catch (err) {
+-            // Trattiamo il token come scaduto (fail closed). In dev logghiamo
+-            // per distinguere "token corrotto" da "nessuna scadenza valida"
+-            if (isDevMode()) console.warn('[auth] decoding del token JWT fallito', err);
+-            return null;
+-        }
+-    }
+-}
++import { TokenService } from '../engine/services/token.service';
+ 
+ /**
+  * AUTH SERVICE
+@@ -138,6 +21,12 @@ export class AuthService {
+     readonly isLoggedIn = this.tokenService.isLoggedIn;
+     readonly token = this.tokenService.token;
+ 
++    /**
++     * Dettagli di sessione decodificati dal token, tipizzati col contratto del progetto.
++     * `null` se non loggati. Reattivo: si aggiorna a login/logout.
++     */
++    readonly session = computed(() => this.tokenService.session<SessionInfo>());
++
+     /**
+      * Effettua il login inviando la password al backend.
+      *
+@@ -179,6 +68,12 @@ export class AuthService {
+ 
+     /** Termina la sessione dell'utente. */
+     logout(): void {
++        // TODO (pulizia lato server): il JWT è stateless, quindi azzerare il token sul client
++        // NON lo invalida sul backend: resta tecnicamente valido fino alla scadenza (exp).
++        // Per una revoca immediata servirebbe un endpoint dedicato (es. POST /auth/logout) che
++        // aggiunga il token a una blocklist/denylist server-side. Da valutare se richiesto.
++        // await this.api.logout();
++
+         this.tokenService.clear();
+     }
+ 
+@@ -186,4 +81,4 @@ export class AuthService {
+     restoreSession(): void {
+         this.tokenService.restore();
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/frontend/src/app/core/services/cookie-registry.ts b/frontend/src/app/core/services/cookie-registry.ts
+index 736931c..7dda24f 100644
+--- a/frontend/src/app/core/services/cookie-registry.ts
++++ b/frontend/src/app/core/services/cookie-registry.ts
+@@ -1,4 +1,4 @@
+-import type { CookieConfig } from "../engine/services/cookie-consent.service";
++import { CookieCategory, type CookieConfig } from "../engine/services/cookie/cookie-type";
+ 
+ /**
+  * Registro unico dei cookie del progetto.
+diff --git a/frontend/src/app/pages/home/home.component.ts b/frontend/src/app/pages/home/home.component.ts
+index 84fe8d8..1413893 100644
+--- a/frontend/src/app/pages/home/home.component.ts
++++ b/frontend/src/app/pages/home/home.component.ts
+@@ -14,7 +14,7 @@ import { QrConfig } from '../../core/engine/services/qr-code.service';
+ import { AuthService } from '../../core/services/auth.service';
+ 
+ import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
+-import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
++import { ContextMenuOption } from '../../core/engine/components/context-menu/context-menu.models';
+ import { ContextMenuDirective } from '../../core/engine/directives/context-menu.directive';
+ import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
+ import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';
+diff --git a/frontend/src/app/pages/login/login.component.html b/frontend/src/app/pages/login/login.component.html
+new file mode 100644
+index 0000000..6121cab
+--- /dev/null
++++ b/frontend/src/app/pages/login/login.component.html
+@@ -0,0 +1,20 @@
++<div class="card border-0 shadow-sm w-100">
++    <div class="card-body p-4 p-sm-5 text-center">
++
++        <div class="mb-4">
++            <i class="fa-solid fa-circle-user fa-4x text-secondary mb-3"></i>
++            <h1 class="h4 fw-bold mb-1">{{ 'loginTitolo' | translate }}</h1>
++            <p class="text-body-secondary small">{{ 'loginSottotitolo' | translate }}</p>
++        </div>
++
++        @if (infoMessage(); as info) {
++        <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 text-start" role="status">
++            <i class="fa-solid fa-circle-info"></i>
++            <span>{{ info }}</span>
++        </div>
++        }
++
++        <app-login-form (loggedIn)="onLoggedIn()" />
++
++    </div>
++</div>
+diff --git a/frontend/src/app/pages/login/login.component.ts b/frontend/src/app/pages/login/login.component.ts
+new file mode 100644
+index 0000000..afdc9aa
+--- /dev/null
++++ b/frontend/src/app/pages/login/login.component.ts
+@@ -0,0 +1,44 @@
++import { Component, inject, signal } from '@angular/core';
++import { ActivatedRoute, Router } from '@angular/router';
++import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
++import { PageBaseComponent } from '../page-base.component';
++import { LoginFormComponent } from '../../components/shared/login-form/login-form.component';
++import { ContestoSito, PageType } from '../../site';
++
++@Component({
++    selector: 'app-login',
++    imports: [TranslatePipe, LoginFormComponent],
++    templateUrl: './login.component.html',
++})
++export class LoginComponent extends PageBaseComponent<void> {
++    private readonly router = inject(Router);
++    private readonly route = inject(ActivatedRoute);
++
++    // Avviso informativo (non un errore) quando si arriva qui dal guard di una pagina protetta.
++    // Letto da ActivatedRoute (SSR-safe), così è disponibile già al primo render.
++    protected readonly infoMessage = signal<string | null>(
++        this.route.snapshot.queryParamMap.get('reason') === 'auth'
++            ? this.translate.translate('loginRichiestoMotivo')
++            : null
++    );
++
++    /** Login riuscito: torna alla pagina richiesta (returnPageType) o alla home. */
++    protected async onLoggedIn(): Promise<void> {
++        const returnPageType = this.getReturnPageType();
++        const path = returnPageType != null
++            ? ContestoSito.getPath(returnPageType)
++            : null;
++        await this.router.navigateByUrl(path ?? '/');
++    }
++
++    private getReturnPageType(): PageType | null {
++        const raw = this.route.snapshot.queryParamMap.get('returnPageType');
++        if (raw == null) return null;
++
++        const asNumber = Number(raw);
++        if (!isNaN(asNumber) && asNumber in PageType) return asNumber;
++
++        const asName = (PageType as Record<string, unknown>)[raw];
++        return typeof asName === 'number' ? asName : null;
++    }
++}
+diff --git a/frontend/src/app/pages/policy/policy.component.ts b/frontend/src/app/pages/policy/policy.component.ts
+index fdf3f77..518a3d1 100644
+--- a/frontend/src/app/pages/policy/policy.component.ts
++++ b/frontend/src/app/pages/policy/policy.component.ts
+@@ -1,7 +1,9 @@
+ import { Component, computed, effect, inject, signal } from '@angular/core';
+ import { MarkdownPipe } from '../../core/engine/pipes/markdown.pipe';
+ import { PageBaseComponent } from '../page-base.component';
+-import { CookieConsentService, CookieCategory } from '../../core/engine/services/cookie-consent.service';
++import { CookieConsentService } from '../../core/engine/services/cookie-consent.service';
++import { CookieCategory } from '../../core/engine/services/cookie/cookie-type';
++import { PrintCookieService } from '../../core/engine/services/cookie/print-cookie.service';
+ import type { Profile } from '../../core/dto/profile.dto';
+ 
+ type ProfileData = Record<string, string | undefined>;
+@@ -14,6 +16,7 @@ type ProfileData = Record<string, string | undefined>;
+ })
+ export class PolicyComponent extends PageBaseComponent<string> {
+     private readonly cookieConsent = inject(CookieConsentService);
++    private readonly printCookie = inject(PrintCookieService);
+ 
+     readonly CookieCategory = CookieCategory;
+ 
+@@ -21,11 +24,11 @@ export class PolicyComponent extends PageBaseComponent<string> {
+     private readonly profileData = signal<ProfileData | null>(null);
+ 
+     readonly cookieCategories = computed(() =>
+-        this.cookieConsent.legal.getCategories(k => this.translate.translate(k))
++        this.printCookie.getCategories(k => this.translate.translate(k))
+     );
+ 
+     readonly cookieList = computed(() =>
+-        this.cookieConsent.legal.getCookies(k => this.translate.translate(k))
++        this.printCookie.getCookies(k => this.translate.translate(k))
+     );
+ 
+     readonly segments = computed(() => {
+diff --git a/frontend/src/app/pages/social/social.component.html b/frontend/src/app/pages/social/social.component.html
+index 0d6b64d..6f8272d 100644
+--- a/frontend/src/app/pages/social/social.component.html
++++ b/frontend/src/app/pages/social/social.component.html
+@@ -1,12 +1,12 @@
+ <!-- Vetrina icone di utilita' -->
+ <div class="text-center" aria-hidden="true">
+-    <i class="social-icon shake-on-hover fa-solid fa-clone"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-scissors"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-paste"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-download"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-envelope"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-file-pdf"></i>
+-    <i class="social-icon shake-on-hover fa-solid fa-bell"></i>
++    <app-icon glyph="fa-solid fa-clone" animation="shake" />
++    <app-icon glyph="fa-solid fa-scissors" animation="shake" />
++    <app-icon glyph="fa-solid fa-paste" animation="shake" />
++    <app-icon glyph="fa-solid fa-download" animation="shake" />
++    <app-icon glyph="fa-solid fa-envelope" animation="shake" />
++    <app-icon glyph="fa-solid fa-file-pdf" animation="shake" />
++    <app-icon glyph="fa-solid fa-bell" animation="shake" />
+ </div>
+ <hr>
+ <div class="text-center">
+diff --git a/frontend/src/app/pages/social/social.component.ts b/frontend/src/app/pages/social/social.component.ts
+index da1e4bb..bdc2470 100644
+--- a/frontend/src/app/pages/social/social.component.ts
++++ b/frontend/src/app/pages/social/social.component.ts
+@@ -1,5 +1,6 @@
+ import { Component, computed } from '@angular/core';
+-import { SocialLinkComponent } from '../../components/shared/social-link/social-link.component';
++import { SocialLinkComponent } from '../../components/shared/icon/social-link/social-link.component';
++import { IconComponent } from '../../components/shared/icon/icon.component';
+ import { PageBaseComponent } from '../page-base.component';
+ 
+ /**
+@@ -15,7 +16,7 @@ import { PageBaseComponent } from '../page-base.component';
+  */
+ @Component({
+     selector: 'app-social',
+-    imports: [SocialLinkComponent],
++    imports: [SocialLinkComponent, IconComponent],
+     templateUrl: './social.component.html'
+ })
+ export class SocialComponent extends PageBaseComponent<Record<string, string>> {
+diff --git a/frontend/src/app/site.ts b/frontend/src/app/site.ts
+index 090027f..1fe75a7 100644
+--- a/frontend/src/app/site.ts
++++ b/frontend/src/app/site.ts
+@@ -1,5 +1,5 @@
+ import { buildSite } from './core/engine/siteBuilder';
+-import { CookieConsentService } from './core/engine/services/cookie-consent.service';
++import { hasCookiesConfigured } from './core/engine/services/cookie/cookie-utils';
+ 
+ export type {
+     SiteConfig,
+@@ -44,7 +44,7 @@ function _createPolicy(): _SitePageInput[] {
+             description: 'cookiePolicyDescrizione',
+             pageType: PageType.CookiePolicy,
+             component: loadPolicyComponent,
+-            enabled: CookieConsentService.hasCookiesConfigured(),
++            enabled: hasCookiesConfigured(),
+         },
+         {
+             path: 'legal',
+@@ -84,6 +84,7 @@ export enum PageType {
+     Social,
+     Impostazioni,
+     GitHub,
++    Login,
+ }
+ 
+ // ═══════════════════════════════════════════════════════════════════════
+@@ -126,6 +127,7 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
+         colorTema: '#131e55',
+         showFooter: true,
+         fixedTopHeader: true,
++        showLoginInHeader: true,
+         smoke: {
+             enable: true,
+             color: '#b5d9ff',
+@@ -133,7 +135,8 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
+             maximumVelocity: 120,
+             particleRadius: 350,
+             density: 18
+-        }
++        },
++        pageForAuthGuard: PageType.Login
+     });
+ 
+     // ── ALBERO DELLE PAGINE ────────────────────────────────────────────
+@@ -193,6 +196,13 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
+             pageType: PageType.GitHub,
+             externalUrl: 'https://github.com/br1brown/Br1WebEngine'
+         },
++        {
++            path: 'login',
++            title: 'loginNav',
++            pageType: PageType.Login,
++            description: 'loginDesc',
++            component: () => import('./pages/login/login.component').then(m => m.LoginComponent)
++        },
+         {
+             path: 'impostazioni',
+             title: 'impostazioniNav',
+diff --git a/frontend/src/assets/i18n/basic.en.json b/frontend/src/assets/i18n/basic.en.json
+index 4cddd4a..ca282c2 100644
+--- a/frontend/src/assets/i18n/basic.en.json
++++ b/frontend/src/assets/i18n/basic.en.json
+@@ -141,5 +141,9 @@
+   "loginServizioNonDisponibile": "The sign-in service is currently unavailable. Please try again later.",
+   "loginRichiestoMotivo": "Sign in to continue to the requested page.",
+   "loginCaricamento": "Signing in…",
+-  "loginAzione": "Sign In"
++  "loginAzione": "Sign In",
++  "logoutNav": "Logout",
++  "logoutAzione": "Sign out of the session",
++  "logoutConfermaTitolo": "Confirm logout?",
++  "logoutConfermaTesto": "You will be signed out of the restricted area."
+ }
+diff --git a/frontend/src/assets/i18n/basic.it.json b/frontend/src/assets/i18n/basic.it.json
+index 9c68964..4809c01 100644
+--- a/frontend/src/assets/i18n/basic.it.json
++++ b/frontend/src/assets/i18n/basic.it.json
+@@ -141,5 +141,9 @@
+   "loginServizioNonDisponibile": "Il servizio di accesso non è al momento disponibile. Riprova più tardi.",
+   "loginRichiestoMotivo": "Accedi per continuare verso la pagina richiesta.",
+   "loginCaricamento": "Accesso in corso…",
+-  "loginAzione": "Accedi"
++  "loginAzione": "Accedi",
++  "logoutNav": "Logout",
++  "logoutAzione": "Esci dalla sessione",
++  "logoutConfermaTitolo": "Confermi il logout?",
++  "logoutConfermaTesto": "Verrai disconnesso dall'area riservata."
+ }
+diff --git a/frontend/src/styles.css b/frontend/src/styles.css
+index 73570c4..346111d 100644
+--- a/frontend/src/styles.css
++++ b/frontend/src/styles.css
+@@ -2,7 +2,6 @@
+    evita @import dentro CSS, riduce warning del bundler ed evita doppio
+    processing del CSS di terze parti. */
+ @import './styles/base.css';
+-@import './styles/social.css';
+ @import './styles/nav.css';
+ 
+ /* SweetAlert2 — theme Bootstrap 5 (light + dark via [data-swal2-theme]).
+diff --git a/frontend/src/styles/social.css b/frontend/src/styles/social.css
+deleted file mode 100644
+index 38bfdcb..0000000
+--- a/frontend/src/styles/social.css
++++ /dev/null
+@@ -1,22 +0,0 @@
+-/* social.css — Icone social. Colori gestiti dinamicamente via [style.background-color]. */
+-
+-.social-icon {
+-    background-color: #333;
+-    width: 54px;
+-    height: 54px;
+-    margin: 6px;
+-    font-size: 1.375rem;
+-    overflow: hidden;
+-    transition: transform 0.2s, opacity 0.2s;
+-    will-change: transform;
+-}
+-
+-.social-icon:hover {
+-    opacity: 0.85;
+-    transform: translateY(-3px);
+-}
+-
+-@media (prefers-reduced-motion: reduce) {
+-    .social-icon { transition: none; }
+-    .social-icon:hover { transform: none; }
+-}
+diff --git a/global-settings.json b/global-settings.json
+index fe1b317..f5f98fa 100644
+--- a/global-settings.json
++++ b/global-settings.json
+@@ -27,7 +27,7 @@
+       "Content-Security-Policy": "default-src 'self'; script-src 'self' {SCRIPT_NONCE_PLACEHOLDER}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+     },
+     "Token": {
+-      "SecretKey": "",
++      "SecretKey": "dev-only-change-me-chiave-di-sviluppo-min-32-byte",
+       "ExpirationSeconds": 3000
+     }
+   },
+diff --git a/scripts/test/circular-deps-check.sh b/scripts/test/circular-deps-check.sh
+new file mode 100644
+index 0000000..e0f7dcd
+--- /dev/null
++++ b/scripts/test/circular-deps-check.sh
+@@ -0,0 +1,47 @@
++#!/usr/bin/env bash
++# =============================================================================
++# circular-deps-check.sh  —  Rilevatore generico di cicli di import pericolosi
++#
++# Esegue circular-deps.mjs: analizza l'AST TypeScript del frontend, costruisce
++# il grafo degli import di valore (gli `import type` sono cancellati da tsc),
++# distingue gli usi eager (a livello di modulo) da quelli lazy (dentro
++# funzioni/metodi/campi → es. `inject()`), simula l'ordine di valutazione dei
++# moduli ES dai veri entry point e fallisce solo se un modulo legge un binding
++# di un modulo del ciclo non ancora inizializzato (errore di init reale).
++#
++# I cicli leciti di Dependency Injection restano verdi.
++#
++# Utilizzo:
++#   ./circular-deps-check.sh
++#
++# Exit code:
++#   0  Nessun ciclo eager pericoloso
++#   1  Ciclo eager pericoloso (rischio binding `undefined` all'init)
++#   2  Node.js/TypeScript non disponibili — test saltato
++# =============================================================================
++
++set -euo pipefail
++
++if [[ -t 1 ]]; then
++    GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'
++else
++    GREEN=''; RED=''; RESET=''
++fi
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++
++if ! command -v node >/dev/null 2>&1; then
++    echo "  WARN Node.js non trovato — controllo dipendenze cicliche saltato"
++    exit 2
++fi
++
++set +e
++node "${SCRIPT_DIR}/circular-deps.mjs"
++code=$?
++set -e
++
++case $code in
++    0) echo -e "  ${GREEN}OK${RESET} Nessuna dipendenza ciclica pericolosa" ;;
++    2) exit 2 ;;
++    *) echo -e "  ${RED}ERR${RESET} Dipendenza ciclica pericolosa rilevata" >&2; exit 1 ;;
++esac
+diff --git a/scripts/test/circular-deps.mjs b/scripts/test/circular-deps.mjs
+new file mode 100644
+index 0000000..f6a8381
+--- /dev/null
++++ b/scripts/test/circular-deps.mjs
+@@ -0,0 +1,230 @@
++// =============================================================================
++// circular-deps.mjs  —  Rilevatore generico di dipendenze cicliche pericolose
++//
++// Suite di template: vale per QUALSIASI codice, non solo per i cookie.
++//
++// Non tutti i cicli di import sono un problema. In Angular i cicli via Dependency
++// Injection (servizi che si iniettano a vicenda con `inject()`) sono leciti e
++// idiomatici — il "modello autoalimentato". Un controllo "qualsiasi ciclo =
++// errore" (es. `madge --circular`) sarebbe rosso su codice perfettamente valido.
++//
++// Pericoloso è invece il ciclo EAGER: un modulo che, durante l'inizializzazione,
++// legge a livello di modulo (non dentro una funzione) un binding di un altro
++// modulo del ciclo non ancora inizializzato → quel binding è `undefined`.
++// È esattamente il bug storico della mappa cookie: cookie-registry.ts costruiva
++// COOKIE_MAP usando il VALORE dell'enum CookieCategory importato da
++// cookie-consent.service.ts, che a sua volta importa COOKIE_MAP.
++//
++// Come distingue eager da lazy (analisi dell'AST TypeScript):
++//   • eager  → `extends X`, chiamate/riferimenti al top-level del modulo,
++//              inizializzatori di `const`/`let` di modulo, decoratori di classe
++//   • lazy   → dentro corpi di funzione/metodo/costruttore/accessor, oppure
++//              inizializzatori di campo di classe (`x = inject(Service)`)
++//   • assenti→ `import type` / `export type` (cancellati da tsc)
++//
++// Poi simula l'ordine reale di valutazione dei moduli ES a partire dai veri
++// entry point (main.ts, main.server.ts) e segnala un ciclo solo se un arco
++// eager punta a un modulo ancora "in valutazione" (sullo stack).
++//
++// Uso:
++//   node scripts/test/circular-deps.mjs
++//
++// Exit code:
++//   0  Nessun ciclo eager pericoloso
++//   1  Almeno un ciclo eager pericoloso (rischio `undefined` all'init)
++//   2  TypeScript non disponibile (dipendenze non installate) — test saltato
++// =============================================================================
++
++import { dirname, resolve, relative, sep } from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
++const FRONTEND_DIR = resolve(SCRIPT_DIR, '..', '..', 'frontend');
++const SRC_DIR = norm(resolve(FRONTEND_DIR, 'src'));
++
++let ts;
++try {
++    ts = (await import(`file://${resolve(FRONTEND_DIR, 'node_modules/typescript/lib/typescript.js')}`)).default;
++} catch {
++    try { ts = (await import('typescript')).default; } catch { /* gestito sotto */ }
++}
++if (!ts) {
++    console.log('  WARN typescript non installato — controllo dipendenze cicliche saltato');
++    process.exit(2);
++}
++
++// ── tsconfig + module resolution ────────────────────────────────────────────
++const configPath = resolve(FRONTEND_DIR, 'tsconfig.json');
++const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
++const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, FRONTEND_DIR);
++const options = parsed.options;
++const host = ts.createCompilerHost(options);
++const program = ts.createProgram(parsed.fileNames, options, host);
++
++const isInternal = f => {
++    const n = norm(f);
++    return n.startsWith(SRC_DIR + '/') && n.endsWith('.ts') && !n.endsWith('.d.ts');
++};
++
++// ── Costruzione del grafo (archi di valore, marcati eager/lazy) ──────────────
++// graph: nodo → array ordinato di { target, eager }
++const graph = new Map();
++
++for (const sf of program.getSourceFiles()) {
++    if (!isInternal(sf.fileName)) continue;
++    const self = norm(sf.fileName);
++
++    const edges = [];                 // ordinati per posizione nel sorgente
++    const edgeByTarget = new Map();   // target → edge (per marcatura eager)
++    const valueNameToTarget = new Map(); // local name di valore → target
++
++    const addEdge = (target, eager) => {
++        let e = edgeByTarget.get(target);
++        if (!e) { e = { target, eager: false }; edges.push(e); edgeByTarget.set(target, e); }
++        if (eager) e.eager = true;
++        return e;
++    };
++
++    const resolveSpec = spec => {
++        const r = ts.resolveModuleName(spec, sf.fileName, options, host).resolvedModule;
++        if (!r) return null;
++        const t = norm(r.resolvedFileName);
++        return isInternal(t) ? t : null;
++    };
++
++    // 1) Dichiarazioni import/export con specificatore di modulo
++    for (const st of sf.statements) {
++        if (ts.isImportDeclaration(st) && st.moduleSpecifier && ts.isStringLiteral(st.moduleSpecifier)) {
++            const target = resolveSpec(st.moduleSpecifier.text);
++            if (!target || target === self) continue;
++            const clause = st.importClause;
++            if (!clause) { addEdge(target, true); continue; }   // import './x' — side-effect, eager
++            if (clause.isTypeOnly) continue;                    // import type — cancellato
++            addEdge(target, false);
++            if (clause.name) valueNameToTarget.set(clause.name.text, target); // default
++            const nb = clause.namedBindings;
++            if (nb && ts.isNamespaceImport(nb)) valueNameToTarget.set(nb.name.text, target);
++            if (nb && ts.isNamedImports(nb)) {
++                for (const el of nb.elements) {
++                    if (el.isTypeOnly) continue;
++                    valueNameToTarget.set(el.name.text, target);
++                }
++            }
++        } else if (ts.isExportDeclaration(st) && st.moduleSpecifier && ts.isStringLiteral(st.moduleSpecifier)) {
++            if (st.isTypeOnly) continue;
++            const target = resolveSpec(st.moduleSpecifier.text);
++            if (!target || target === self) continue;
++            addEdge(target, true); // re-export: esegue il modulo target all'init
++        }
++    }
++
++    // 2) Analisi d'uso: un binding di valore importato, riferito in posizione
++    //    EAGER, rende l'arco eager.
++    // I nodi di createProgram non hanno `.parent`: lo passiamo a mano.
++    const visit = (node, parent, eager, inType) => {
++        if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return; // già gestiti
++        const nowType = inType || ts.isTypeNode(node) || ts.isTypeAliasDeclaration(node)
++            || ts.isInterfaceDeclaration(node);
++        const nowEager = eager && !isDeferred(node);
++
++        if (eager && !inType && ts.isIdentifier(node) && isValueReference(node, parent)) {
++            const target = valueNameToTarget.get(node.text);
++            if (target) { const e = edgeByTarget.get(target); if (e) e.eager = true; }
++        }
++        ts.forEachChild(node, c => visit(c, node, nowEager, nowType));
++    };
++    ts.forEachChild(sf, c => visit(c, sf, true, false));
++
++    // `class X extends Base`: la classe base è valutata eager alla definizione
++    // della classe (non è una posizione di tipo come `implements`).
++    const markExtends = node => {
++        if ((ts.isClassDeclaration(node) || ts.isClassExpression(node)) && node.heritageClauses) {
++            for (const h of node.heritageClauses) {
++                if (h.token !== ts.SyntaxKind.ExtendsKeyword) continue;
++                for (const t of h.types) {
++                    let ex = t.expression;
++                    while (ts.isPropertyAccessExpression(ex)) ex = ex.expression;
++                    if (ts.isIdentifier(ex)) {
++                        const target = valueNameToTarget.get(ex.text);
++                        if (target) { const e = edgeByTarget.get(target); if (e) e.eager = true; }
++                    }
++                }
++            }
++        }
++        ts.forEachChild(node, markExtends);
++    };
++    markExtends(sf);
++
++    graph.set(self, edges);
++
++    function isDeferred(n) {
++        return ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n)
++            || ts.isMethodDeclaration(n) || ts.isConstructorDeclaration(n)
++            || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n)
++            || ts.isPropertyDeclaration(n); // inizializzatore di campo → runtime di costruzione
++    }
++}
++
++// Un Identifier è un riferimento di VALORE (non nome di proprietà/dichiarazione).
++function isValueReference(id, p) {
++    if (!p) return false;
++    if (ts.isPropertyAccessExpression(p) && p.name === id) return false; // a.b → b
++    if (ts.isQualifiedName(p) && p.right === id) return false;
++    if (ts.isPropertyAssignment(p) && p.name === id) return false;       // { b: ... }
++    if (ts.isBindingElement(p) && p.propertyName === id) return false;
++    if ((ts.isPropertyDeclaration(p) || ts.isParameter(p) || ts.isVariableDeclaration(p)
++        || ts.isFunctionDeclaration(p) || ts.isClassDeclaration(p)) && p.name === id) return false;
++    return true;
++}
++
++// ── Simulazione dell'ordine di valutazione dei moduli ES dagli entry ─────────
++const entries = ['src/main.ts', 'src/main.server.ts']
++    .map(p => norm(resolve(FRONTEND_DIR, p)))
++    .filter(p => graph.has(p));
++
++const rel = f => relative(FRONTEND_DIR, f).split(sep).join('/');
++const hazards = new Map(); // "src→tgt" → { from, to, cycle[] }
++
++for (const entry of entries) {
++    const state = new Map(); // 0/undef unvisited, 1 in valutazione (stack), 2 valutato
++    const stack = [];
++    evaluate(entry);
++
++    function evaluate(m) {
++        state.set(m, 1);
++        stack.push(m);
++        const edges = graph.get(m) ?? [];
++        for (const e of edges) {                 // fase 1: valuta le dipendenze (ordine sorgente)
++            if (!state.get(e.target)) evaluate(e.target);
++        }
++        for (const e of edges) {                 // fase 2: esegue il corpo (letture eager)
++            if (e.eager && state.get(e.target) === 1) {
++                const idx = stack.indexOf(e.target);
++                const cycle = [...stack.slice(idx), e.target];
++                hazards.set(`${m}->${e.target}`, { from: m, to: e.target, cycle });
++            }
++        }
++        stack.pop();
++        state.set(m, 2);
++    }
++}
++
++// ── Esito ───────────────────────────────────────────────────────────────────
++const internalCount = [...graph.keys()].length;
++
++if (hazards.size === 0) {
++    console.log(`  Analizzati ${internalCount} moduli da ${entries.length} entry — nessun ciclo eager pericoloso`);
++    process.exit(0);
++}
++
++console.error(`  PERICOLO: ${hazards.size} ciclo/i eager (binding letto prima dell'init):\n`);
++for (const { from, to, cycle } of hazards.values()) {
++    console.error('   ' + cycle.map(rel).join('\n     → '));
++    console.error(`     ⮑ ${rel(from)} legge a livello di modulo un binding di ${rel(to)} non ancora inizializzato\n`);
++}
++console.error('  Spezza il ciclo: estrai enum/tipi/costanti condivise in un modulo foglia');
++console.error('  e importa i soli tipi con `import type`.');
++process.exit(1);
++
++// ── util ────────────────────────────────────────────────────────────────────
++function norm(p) { return p.replace(/\\/g, '/'); }
+diff --git a/scripts/test/run-all.sh b/scripts/test/run-all.sh
+index 1ed157c..6ac9fa1 100644
+--- a/scripts/test/run-all.sh
++++ b/scripts/test/run-all.sh
+@@ -90,6 +90,7 @@ run_test() {
+ run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"
+ run_test "Completezza i18n"     "${SCRIPT_DIR}/i18n-check.sh"
+ run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
++run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
+ run_test           "Accessibilità (WCAG)" "${SCRIPT_DIR}/a11y-test.sh"       "${BASE_URL}"
+ run_test           "Budget Lighthouse"    "${SCRIPT_DIR}/lighthouse-test.sh" "${BASE_URL}"
+ 

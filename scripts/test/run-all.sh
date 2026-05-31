@@ -90,6 +90,7 @@ run_test() {
 run_test "Lint"                 "${SCRIPT_DIR}/lint-check.sh"
 run_test "Completezza i18n"     "${SCRIPT_DIR}/i18n-check.sh"
 run_test "TypeScript"           "${SCRIPT_DIR}/tsc-check.sh"
+run_test "Dipendenze cicliche"  "${SCRIPT_DIR}/circular-deps-check.sh"
 run_test           "Accessibilità (WCAG)" "${SCRIPT_DIR}/a11y-test.sh"       "${BASE_URL}"
 run_test           "Budget Lighthouse"    "${SCRIPT_DIR}/lighthouse-test.sh" "${BASE_URL}"
 

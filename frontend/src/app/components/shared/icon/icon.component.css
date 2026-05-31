@@ -1,0 +1,49 @@
+/* icon.component.css — Icona "badge" generica (ex .social-icon).
+   Colore di sfondo sovrascrivibile a runtime via [style.background-color]. */
+
+.icon {
+    color: #fff;
+    background-color: #333;
+    width: 54px;
+    height: 54px;
+    margin: 6px;
+    font-size: 1.375rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: transform 0.2s, opacity 0.2s;
+    will-change: transform;
+}
+
+/* --- Forma / disposizione (validata da IconShape) --- */
+.icon--circle {
+    border-radius: 50%;
+}
+.icon--rounded {
+    border-radius: 0.5rem;
+}
+.icon--square {
+    border-radius: 0;
+}
+
+/* --- Effetto hover (validato da IconAnimation) --- */
+.icon--anim-lift:hover {
+    opacity: 0.85;
+    transform: translateY(-3px);
+}
+.icon--anim-shake:hover {
+    animation: icon-shake 0.5s infinite;
+}
+
+@keyframes icon-shake {
+    0%, 30%, 50%, 70%, 100% { transform: translate(1px, 1px) rotate(0deg); }
+    10%, 40%, 60%, 90% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20%, 80% { transform: translate(-3px, 0px) rotate(1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon { transition: none; }
+    .icon--anim-lift:hover { transform: none; }
+    .icon--anim-shake:hover { animation: none; }
+}

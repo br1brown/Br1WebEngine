@@ -141,5 +141,9 @@
   "loginServizioNonDisponibile": "The sign-in service is currently unavailable. Please try again later.",
   "loginRichiestoMotivo": "Sign in to continue to the requested page.",
   "loginCaricamento": "Signing in…",
-  "loginAzione": "Sign In"
+  "loginAzione": "Sign In",
+  "logoutNav": "Logout",
+  "logoutAzione": "Sign out of the session",
+  "logoutConfermaTitolo": "Confirm logout?",
+  "logoutConfermaTesto": "You will be signed out of the restricted area."
 }

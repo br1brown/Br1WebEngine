@@ -4,19 +4,9 @@ import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
 import { LOCALE_CONFIG } from '../services/translate.service';
 import { environment } from '../../../../environments/environment';
 import { SITE_CONFIG } from '../siteBuilder';
+import { CookieCategory, CookieConfig } from './cookie/cookie-type';
+
 export type { CookieKey } from '../../services/cookie-registry';
-export enum CookieCategory {
-    Technical = 'tecnici',
-    Analytics = 'analytics',
-    Profiling = 'profilazione',
-}
-
-export interface CookieConfig {
-    category: CookieCategory;
-    descriptionKey?: string;
-}
-
-
 
 /**
  * Controlla se il consenso tecnico è stato già salvato in localStorage.
@@ -143,22 +133,7 @@ export class CookieConsentService {
         }
     }
 
-    /**
-     * Controlla in modo statico se sono necessari i cookie per il sito.
-     * È usato da site.ts a build time / runtime precoce per determinare
-     * se abilitare o meno la pagina Cookie Policy.
-     */
-    static hasCookiesConfigured(): boolean {
-        // 1. Ci sono cookie espliciti di progetto?
-        if (Object.keys(COOKIE_MAP).length > 0) return true;
 
-        // 2. Multilingua o altre config nel file di environment generato?
-        if (environment.availableLanguages && environment.availableLanguages.length > 1) {
-            return true;
-        }
-
-        return false;
-    }
 
     // ─── GESTIONE CONSENSO ──────────────────────────────────────────────
 
@@ -250,7 +225,7 @@ export class CookieConsentService {
             });
         }
     }
-    private static readonly NGSW_WORKER = 'ngsw-worker.js';
+    public static readonly NGSW_WORKER = 'ngsw-worker.js';
 
     /**
      * Metodo cappello lingua: se il consenso tecnico è revocato rimuove il cookie lingua.
@@ -305,7 +280,7 @@ export class CookieConsentService {
     getCookie(key: CookieKey): string | null {
         const fullKey = CookieConsentService.buildKey(key as string);
         if (!fullKey) return null;
-        
+
         return this.readCookieDirect(fullKey);
     }
 
@@ -326,7 +301,7 @@ export class CookieConsentService {
     // Metodo cappello: usa la stessa meccanica write/read ma non passa per COOKIE_MAP.
     // Chiave fisica: lang  (senza namespace — funzionalità built-in)
 
-    private static readonly LANG_KEY = 'lang';
+    public static readonly LANG_KEY = 'lang';
     private readonly LANG_MAX_AGE = 60 * 60 * 24 * 365;
 
     getSavedLanguage(): string | null {
@@ -353,7 +328,7 @@ export class CookieConsentService {
      * @param config (Opzionale) Configurazione bypassabile, usata internamente per evitare lookup duplicati.
      * @returns Il nome univoco fisico da passare alle API del browser, o `null` se la chiave è sconosciuta.
      */
-    private static buildKey(rawKey: string, config?: CookieConfig): string | null {
+    public static buildKey(rawKey: string, config?: CookieConfig): string | null {
         if (rawKey === this.LANG_KEY || rawKey === CookieConsentService.NGSW_WORKER) {
             return rawKey;
         }
@@ -395,77 +370,5 @@ export class CookieConsentService {
 
 
     // ─── PARTE LEGALE (Markdown) ──────────────────────────────────────
-
-    readonly legal = {
-        /**
-         * Restituisce le categorie dei cookie presenti nel sito in formato strutturato,
-         * con le etichette già tradotte tramite la funzione passata.
-         */
-        getCategories: (t: (key: string) => string): { key: CookieCategory; name: string; description: string }[] => {
-            const categories: { key: CookieCategory; name: string; description: string }[] = [];
-            if (this.isTechnicalNeeded()) {
-                categories.push({
-                    key: CookieCategory.Technical,
-                    name: t('tecniciCategoriaCookie'),
-                    description: t('tecniciDescrizioneCategoriaCookie')
-                });
-            }
-            if (this.isAnalyticsNeeded()) {
-                categories.push({
-                    key: CookieCategory.Analytics,
-                    name: t('analyticsCategoriaCookie'),
-                    description: t('analyticsDescrizioneCategoriaCookie')
-                });
-            }
-            if (this.isProfilingNeeded()) {
-                categories.push({
-                    key: CookieCategory.Profiling,
-                    name: t('profilazioneCategoriaCookie'),
-                    description: t('profilazioneDescrizioneCategoriaCookie')
-                });
-            }
-            return categories;
-        },
-
-        /**
-         * Restituisce l'elenco dei cookie attivi nel sito in formato strutturato,
-         * con etichette e descrizioni già tradotte tramite la funzione passata.
-         */
-        getCookies: (t: (key: string) => string): { name: string; category: string; categoryKey: CookieCategory; description: string }[] => {
-            const allCookies: Record<string, CookieConfig> = {
-                ...COOKIE_MAP,
-            };
-
-            if (this.localeConfig.availableLanguages.length > 1) {
-                allCookies[CookieConsentService.LANG_KEY] = {
-                    category: CookieCategory.Technical,
-                    descriptionKey: 'linguaDescrizioneListaCookie',
-                };
-            }
-
-            if (this.siteConfig.isWebApp) {
-                allCookies[CookieConsentService.NGSW_WORKER] = {
-                    category: CookieCategory.Technical,
-                    descriptionKey: 'swDescrizioneListaCookie',
-                };
-            }
-
-            const list: { name: string; category: string; categoryKey: CookieCategory; description: string }[] = [];
-
-            for (const [rawKey, config] of Object.entries(allCookies) as [string, CookieConfig][]) {
-                const category = config.category;
-                const desc = config.descriptionKey ? t(config.descriptionKey) : '';
-                const fullKey = CookieConsentService.buildKey(rawKey, config) ?? rawKey;
-
-                list.push({
-                    name: fullKey,
-                    category: t(`${category}CategoriaCookie`),
-                    categoryKey: category,
-                    description: desc
-                });
-            }
-
-            return list;
-        }
-    };
+    // La logica legale è stata estratta in PrintCookieService.
 }

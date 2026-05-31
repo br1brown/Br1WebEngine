@@ -9,8 +9,8 @@ import {
     input,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { ContextMenuOption } from '../../../components/shared/context-menu/context-menu.models';
-import { ContextMenuOverlayComponent } from '../../../components/shared/context-menu/context-menu-overlay.component';
+import { ContextMenuOption } from '../components/context-menu/context-menu.models';
+import { ContextMenuOverlayComponent } from '../components/context-menu/context-menu-overlay.component';
 
 /**
  * Directive per aggiungere un menu contestuale personalizzato a qualsiasi elemento.

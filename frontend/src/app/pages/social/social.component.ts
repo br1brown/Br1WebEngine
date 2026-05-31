@@ -1,5 +1,6 @@
 import { Component, computed } from '@angular/core';
-import { SocialLinkComponent } from '../../components/shared/social-link/social-link.component';
+import { SocialLinkComponent } from '../../components/shared/icon/social-link/social-link.component';
+import { IconComponent } from '../../components/shared/icon/icon.component';
 import { PageBaseComponent } from '../page-base.component';
 
 /**
@@ -15,7 +16,7 @@ import { PageBaseComponent } from '../page-base.component';
  */
 @Component({
     selector: 'app-social',
-    imports: [SocialLinkComponent],
+    imports: [SocialLinkComponent, IconComponent],
     templateUrl: './social.component.html'
 })
 export class SocialComponent extends PageBaseComponent<Record<string, string>> {

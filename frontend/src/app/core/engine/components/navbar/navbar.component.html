@@ -1,0 +1,102 @@
+<nav class="navbar navbar-expand-md theme-bg" [class.fixed-top]="fixTop"
+     [attr.data-bs-theme]="theme.themeTone()"
+     [attr.aria-label]="'principaleNav' | translate">
+    <div class="container-fluid">
+        @if (isRouteActive(homePath)) {
+        <span class="navbar-brand nav-current-link d-flex align-items-center gap-2"
+              aria-current="page">
+            @if (showBrandIconInHeader) {
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            }
+            {{ appName }}
+        </span>
+        } @else {
+        <a class="navbar-brand d-flex align-items-center gap-2" [appPage]="PageType.Home">
+            @if (showBrandIconInHeader) {
+            <img aria-hidden="true" alt="" class="navbar-brand-icon" [appAsset]="'favIcon'" />
+            }
+            {{ appName }}
+        </a>
+        }
+
+        @if (menuItems.length > 0 || languages().length > 1 || hasAuthPage) {
+        <button class="navbar-toggler" type="button"
+                (click)="toggleMenu()"
+                aria-controls="navbar-menu"
+                [attr.aria-expanded]="menuOpen()"
+                [attr.aria-label]="'toggleNav' | translate">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        }
+
+        <div id="navbar-menu" class="collapse navbar-collapse" [class.show]="menuOpen()">
+            @if (menuItems.length > 0) {
+            <ul class="navbar-nav">
+                @for (item of menuItems; track item.path; let i = $index) {
+                @if (isGroup(item)) {
+                <li class="nav-item nav-dropdown-item">
+                    <app-nav-dropdown [item]="item"
+                                      [open]="isNavDropdownOpen(i)"
+                                      (toggle)="onNavDropdownToggle(i)"
+                                      (linkClick)="onNavigationLinkClick()" />
+                </li>
+                } @else {
+                <li class="nav-item">
+                    <app-nav-link [link]="item"
+                                  cssClass="nav-link"
+                                  activeCssClass="nav-current-link active"
+                                  (linkClick)="onNavigationLinkClick()" />
+                </li>
+                }
+                }
+            </ul>
+            }
+
+            <user-nav (navigationClick)="onNavigationLinkClick()" />
+
+            @if (languages().length > 1) {
+            <div class="language-picker mt-3 mt-md-0" [class.ms-md-auto]="!hasAuthPage">
+                <span class="language-picker-label">{{ 'selezionaLinguaAzione' | translate }}</span>
+                <div class="dropdown language-dropdown" [class.show]="langOpen()">
+                    <button type="button"
+                            class="nav-link nav-dropdown-toggle language-toggle"
+                            [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                            aria-haspopup="true"
+                            [attr.aria-expanded]="langOpen()"
+                            (click)="toggleLang()">
+                        <span class="nav-dropdown-label">
+                            <i [class]="getFlagClass(translate.currentLang())" aria-hidden="true" class="me-1"></i>
+                            {{ translate.currentLang() | uppercase }}
+                        </span>
+                        <span class="nav-dropdown-caret" aria-hidden="true"></span>
+                    </button>
+                    <ul class="dropdown-menu language-dropdown-menu list-unstyled"
+                        [attr.aria-label]="'selezionaLinguaAzione' | translate"
+                        [class.show]="langOpen()">
+                        @for (lingua of languages(); track lingua) {
+                        <li>
+                            @if (lingua === translate.currentLang()) {
+                            <span class="dropdown-item language-link nav-current-link active d-flex align-items-center justify-content-between"
+                                  aria-current="true">
+                                {{ lingua | uppercase }}
+                                <i class="fa-solid fa-check ms-2" aria-hidden="true"></i>
+                            </span>
+                            } @else {
+                            <button type="button"
+                                    class="dropdown-item language-link"
+                                    (click)="setLanguage(lingua)">
+                                {{ lingua | uppercase }}
+                            </button>
+                            }
+                        </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+            }
+        </div>
+    </div>
+</nav>
+@if (fixTop) {
+<div aria-hidden="true" style="height: 3.5rem;"></div>
+}

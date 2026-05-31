@@ -43,6 +43,12 @@ public static class SecurityDefaults
 	public const string AuthenticatedRole = "Authenticated";
 
 	/// <summary>
+	/// Tipo del claim che trasporta il payload di sessione personalizzabile dal
+	/// progetto, serializzato come singolo oggetto JSON. Vedi <c>SessionPayload</c>.
+	/// </summary>
+	public const string SessionClaimType = "session";
+
+	/// <summary>
 	/// Nome della policy di rate limiting applicata all'endpoint di login.
 	/// Usata da AuthController con <c>[EnableRateLimiting(...)]</c>.
 	/// </summary>

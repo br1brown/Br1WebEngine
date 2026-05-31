@@ -4,6 +4,7 @@ import { SwUpdate } from '@angular/service-worker';
 import { Subscription, filter } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
+import { isTechnicalConsentGiven } from './cookie-consent.service';
 
 /** Intervallo di controllo: 10 minuti. */
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
@@ -51,6 +52,18 @@ export class VersionCheckService implements OnDestroy {
          * Inoltre, il controllo versione ha senso solo nel client.
          */
         if (!this.isBrowser) return;
+
+        /**
+         * GATE SUL CONSENSO TECNICO:
+         * Senza consenso tecnico il Service Worker non viene registrato (vedi
+         * provideServiceWorker in app.config.ts, stessa condizione isTechnicalConsentGiven()).
+         * In quel caso anche il polling sul manifest va spento: chi non ha scelto i cookie
+         * non ha attivato alcun meccanismo di aggiornamento, quindi un fetch ricorrente ogni
+         * 10 minuti sarebbe solo spreco di risorse (rete + risveglio della tab) senza scopo.
+         * Quando l'utente accetta, applyServiceWorker() registra il SW e al reload successivo
+         * provideServiceWorker lo integra con SwUpdate: da lì il controllo versione riparte.
+         */
+        if (!isTechnicalConsentGiven()) return;
 
         // Recupera la versione attuale iniettata nel meta tag dell'index.html
         this.currentVersion = this.document

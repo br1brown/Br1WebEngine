@@ -58,6 +58,17 @@ public class AuthController : EngineAuthController
         }
 
         Logger.LogInformation("Login riuscito per username '{Username}'.", request.Username);
-        return Ok(new LoginResult(true, Token: Auth.GenerateToken()));
+
+        // Payload di sessione del progetto: serializzato nel claim "session" del token,
+        // poi rileggibile via User.GetSession<SessionInfo>() e lato frontend.
+        // Sostituire i valori demo con quelli reali (id utente, ruoli, ecc.).
+        var session = new SessionInfo
+        {
+            UserId = validUsername,        // campo universale (SessionBase)
+            DisplayName = "Amministratore",
+            Roles = new[] { "admin" }
+        };
+
+        return Ok(new LoginResult(true, Token: Auth.GenerateToken(new[] { SessionPayload.Claim(session) })));
     }
 }

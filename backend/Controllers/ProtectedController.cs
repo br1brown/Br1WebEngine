@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Backend.Models;
+using Backend.Security;
 
 namespace Backend.Controllers;
 
@@ -17,5 +19,11 @@ public class ProtectedController : EngineProtectedController
 
     /// <summary>Health check per endpoint protetti da JWT (utile anche per i test di integrazione).</summary>
     [HttpGet("ping")]
-    public IActionResult Ping() => Ok(new { status = "ok" });
+    public IActionResult Ping()
+    {
+        // Il middleware ha già validato il token: qui rileggiamo il payload di sessione
+        // che il progetto ha messo nel claim "session" durante il login.
+        var session = User.GetSession<SessionInfo>();
+        return Ok(new { status = "ok", session });
+    }
 }

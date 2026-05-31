@@ -1,7 +1,7 @@
 import { InjectionToken, type Type } from '@angular/core';
-import { PageType } from '../../site';
+import type { PageType } from '../../site';
 import type { PageBaseComponent } from '../../pages/page-base.component';
-import { COOKIE_MAP } from '../services/cookie-registry';
+
 
 // ======================================================
 // MODELLI DI CONFIGURAZIONE
@@ -113,7 +113,9 @@ export interface SiteConfig {
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
     /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. */
-    showBrandIcon: boolean;
+    showBrandIconInHeader: boolean;
+    /** Mostra il pulsante di login nella navbar. */
+    showLoginInHeader: boolean;
     /** Abilita le funzionalità PWA: Service Worker, aggiornamenti automatici e installazione offline. */
     isWebApp: boolean;
     /** Configurazione finale normalizzata dell'effetto smoke. */
@@ -152,7 +154,9 @@ export interface SiteConfigInput {
     /** FIssare la navBar in alto */
     fixedTopHeader?: boolean;
     /** Mostra l'icona (favIcon) accanto al nome dell'app nella navbar-brand. Default: `true`. */
-    showBrandIcon?: boolean;
+    showBrandIconInHeader?: boolean;
+    /** Mostra il pulsante di login nella navbar. */
+    showLoginInHeader?: boolean;
     /**
      * Abilita le funzionalità PWA: Service Worker, cache offline e aggiornamenti automatici.
      * Se `false`, il SW non viene registrato e `VersionCheckService` usa solo il polling manifest.
@@ -869,7 +873,8 @@ export function buildSite(
                 showFooter: siteConfigurationInput.showFooter ?? true,
                 showNav: siteConfigurationInput.showNav ?? true,
                 fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
-                showBrandIcon: siteConfigurationInput.showBrandIcon ?? true,
+                showBrandIconInHeader: siteConfigurationInput.showBrandIconInHeader  ?? true,
+                showLoginInHeader: siteConfigurationInput.showLoginInHeader ?? true,
                 isWebApp: siteConfigurationInput.isWebApp ?? true,
                 onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
                 forcedLightPanel: siteConfigurationInput.forcedLightPanel ?? true,

@@ -1,0 +1,19 @@
+@if (loginLink) {
+<ul class="navbar-nav ms-md-auto">
+    <li class="nav-item p-1">
+        @if (isLoggedIn()) {
+        <button type="button"
+                class="nav-link nav-logout-link"
+                [attr.aria-label]="'logoutAzione' | translate"
+                (click)="onLogout()">
+            {{ 'logoutNav' | translate }}
+        </button>
+        } @else {
+        <app-nav-link [link]="loginLink"
+                      cssClass="nav-link"
+                      activeCssClass="nav-current-link active"
+                      (linkClick)="onNavigationClick()" />
+        }
+    </li>
+</ul>
+}

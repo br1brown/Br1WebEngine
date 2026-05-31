@@ -14,7 +14,7 @@ import { QrConfig } from '../../core/engine/services/qr-code.service';
 import { AuthService } from '../../core/services/auth.service';
 
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
-import { ContextMenuOption } from '../../components/shared/context-menu/context-menu.models';
+import { ContextMenuOption } from '../../core/engine/components/context-menu/context-menu.models';
 import { ContextMenuDirective } from '../../core/engine/directives/context-menu.directive';
 import { QrRenderDirective } from '../../core/engine/directives/qr-render.directive';
 import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directives/img-render.directive';

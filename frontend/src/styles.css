@@ -2,7 +2,6 @@
    evita @import dentro CSS, riduce warning del bundler ed evita doppio
    processing del CSS di terze parti. */
 @import './styles/base.css';
-@import './styles/social.css';
 @import './styles/nav.css';
 
 /* SweetAlert2 — theme Bootstrap 5 (light + dark via [data-swal2-theme]).

@@ -141,5 +141,9 @@
   "loginServizioNonDisponibile": "Il servizio di accesso non è al momento disponibile. Riprova più tardi.",
   "loginRichiestoMotivo": "Accedi per continuare verso la pagina richiesta.",
   "loginCaricamento": "Accesso in corso…",
-  "loginAzione": "Accedi"
+  "loginAzione": "Accedi",
+  "logoutNav": "Logout",
+  "logoutAzione": "Esci dalla sessione",
+  "logoutConfermaTitolo": "Confermi il logout?",
+  "logoutConfermaTesto": "Verrai disconnesso dall'area riservata."
 }

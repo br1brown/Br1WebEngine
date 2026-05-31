@@ -1,0 +1,20 @@
+<div class="card border-0 shadow-sm w-100">
+    <div class="card-body p-4 p-sm-5 text-center">
+
+        <div class="mb-4">
+            <i class="fa-solid fa-circle-user fa-4x text-secondary mb-3"></i>
+            <h1 class="h4 fw-bold mb-1">{{ 'loginTitolo' | translate }}</h1>
+            <p class="text-body-secondary small">{{ 'loginSottotitolo' | translate }}</p>
+        </div>
+
+        @if (infoMessage(); as info) {
+        <div class="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 text-start" role="status">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>{{ info }}</span>
+        </div>
+        }
+
+        <app-login-form (loggedIn)="onLoggedIn()" />
+
+    </div>
+</div>

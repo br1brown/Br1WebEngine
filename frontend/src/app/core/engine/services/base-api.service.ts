@@ -5,7 +5,7 @@ import { Observable, throwError, firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { NotificationService } from './notification.service';
 import { TranslateService } from './translate.service';
-import { TokenService } from '../../services/auth.service';
+import { TokenService } from './token.service';
 
 /** 
  * Interfaccia basata sullo standard RFC 9457 (Problem Details for HTTP APIs)

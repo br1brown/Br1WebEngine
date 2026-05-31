@@ -9,8 +9,8 @@
     <TypeScriptConfiguration Remove="dist\**" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="src\app\components\shared\directives\" />
-    <Folder Include="src\app\components\shared\pipes\" />
+    <Folder Include="src\app\directives\" />
+    <Folder Include="src\app\pipes\" />
     <Folder Include="src\assets\files\image-cache\" />
   </ItemGroup>
 </Project>
