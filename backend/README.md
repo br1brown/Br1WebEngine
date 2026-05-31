@@ -60,27 +60,61 @@ public class MyAuthController : EngineAuthController { }
 
 ### 2. Lancia Eccezioni, Non Costruire Risposte di Errore
 
-Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione appropriata — il middleware la converte automaticamente in `ProblemDetails` (RFC 9457) con il codice HTTP corretto e il messaggio localizzato dal file `.resx`.
+Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione appropriata — `ApiExceptionHandler` la intercetta, localizza il messaggio tramite `.resx` e scrive una risposta `ProblemDetails` (RFC 9457) con `status` + `detail`.
 
-| Eccezione | HTTP | Quando usarla |
-| :--- | :---: | :--- |
-| `NotFoundException("nome-risorsa")` | 404 | La risorsa non esiste o non è leggibile |
-| `DataNotFoundException()` | 404 | I dati esistono ma sono vuoti o non disponibili nella lingua richiesta |
-| `UnauthorizedException("chiave-messaggio")` | 401 | Credenziali mancanti o non valide |
-| `DecodingException()` | 400 | Il body o il file di dati non è decodificabile (JSON malformato, encoding errato) |
-| `InvalidParametersException()` | 400 | Parametri mancanti o non validi (alternativa esplicita a FluentValidation) |
+**Mappatura completa delle eccezioni:**
 
+| Eccezione | HTTP | Chiave `.resx` | Messaggio (it) |
+| :--- | :---: | :--- | :--- |
+| `NotFoundException("risorsa")` | 404 | `error_not_found` | "Impossibile leggere le informazioni {0}" |
+| `DataNotFoundException()` | 404 | `error_data_not_found` | "Dati non trovati" |
+| `UnauthorizedException()` | 401 | `error_unauthorized` | "Non autorizzato" |
+| `UnauthorizedException("error_invalid_credentials")` | 401 | `error_invalid_credentials` | "Credenziali non valide." |
+| `DecodingException()` | 400 | `error_decoding` | "Errore nella decodifica" |
+| `InvalidParametersException()` | 400 | `error_invalid_parameters` | "Parametri non validi o mancanti" |
+| qualsiasi altra eccezione | 500 | — | Risposta generica ASP.NET (nessun dettaglio esposto) |
+
+> `UnauthorizedException` accetta una chiave personalizzata come argomento. Usa `"error_unauthorized"` (generica) quando non vuoi rivelare se a sbagliare è username o password; usa `"error_invalid_credentials"` solo dove la distinzione è accettabile.
+
+**Formato della risposta al client:**
+```json
+{
+    "status": 404,
+    "detail": "Impossibile leggere le informazioni utente"
+}
+```
+Il campo `detail` arriva già localizzato nella lingua della richiesta (`Accept-Language`). Il frontend può leggerlo direttamente oppure ignorarlo e usare la propria traduzione i18n basandosi sullo `status`.
+
+**Esempio in un Service:**
 ```csharp
 public async Task<UserResponseDto> ProcessUser(string id)
 {
     var user = await _store.GetUserAsync(id);
-    if (user == null) throw new NotFoundException("utente");    // → 404
-    if (!user.IsActive) throw new UnauthorizedException();      // → 401
+    if (user == null) throw new NotFoundException("utente");   // → 404 "Impossibile leggere le informazioni utente"
+    if (!user.IsActive) throw new UnauthorizedException();     // → 401 "Non autorizzato"
     return user;
 }
 ```
 
-Per aggiungere un tipo di errore custom: crea una sottoclasse di `ApiException` passando la chiave `.resx` e lo status code, poi aggiungi la chiave nei file `Resources/SharedResource*.resx`.
+**Aggiungere un tipo di errore custom:**
+1. Crea una sottoclasse di `ApiException` con la chiave `.resx` e il codice HTTP
+2. Aggiungi la chiave in `Resources/SharedResource.resx` (default) e `Resources/SharedResource.it.resx` (italiano)
+
+```csharp
+// Engine/Models/ApiException.cs  — aggiungi in coda
+public class ConflictException : ApiException
+{
+    public ConflictException() : base("error_conflict", 409) { }
+}
+```
+```xml
+<!-- Resources/SharedResource.it.resx -->
+<data name="error_conflict" xml:space="preserve">
+    <value>Risorsa già esistente</value>
+</data>
+```
+
+**Le eccezioni non-`ApiException`** (es. `NullReferenceException`, errori di database) vengono ignorate dall'handler: ASP.NET restituisce un 500 generico senza esporre stack trace né dettagli interni.
 
 ### 3. Usa FluentValidation per gli Input
 Non riempire i controller di `if (string.IsNullOrEmpty(model.Name)) throw ...`.
