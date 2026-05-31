@@ -104,7 +104,7 @@ Il frontend gira su Node SSR: serve l'app Angular e proxya `/api/*` al backend s
 Lo script `./deploy.sh` utilizza una logica avanzata **"Pre-flight" (Blue/Green safety)** per garantirti zero downtime e prevenire errori fatali:
 1. **Build con Quality Check**: Compila le immagini Docker (eseguendo anche `npm run lint` per bloccare subito la build in caso di codice di bassa qualita').
 2. **Pre-flight Test**: Avvia i nuovi container su un ambiente isolato (su una porta temporanea e nascosta).
-3. **Validazione e Test Suite**: Attende che il server risponda con HTTP 200 (Healthcheck). Inoltre, esegue *automaticamente* tutta la suite di test (`run-all.sh`) sull'ambiente nascosto.
+3. **Validazione e Test Suite**: Attende che il server risponda con HTTP 200 (Healthcheck). Inoltre, esegue *automaticamente* tutta la suite di test (`run-all.sh`) sull'ambiente nascosto. La suite comprende: lint Angular, controllo chiavi i18n, type checking TypeScript, rilevamento dipendenze circolari, test WCAG di accessibilità e Lighthouse (performance budget).
 4. **Scambio (Swap)**: Solo se l'healthcheck e i test passano con successo, il deploy procede rimpiazzando i container vecchi. Se c'e' un errore, il deploy si annulla e il sito in produzione resta online intatto.
 
 Se hai un'emergenza e devi eseguire un deploy saltando i test post-deploy (l'healthcheck base verra' comunque eseguito), puoi usare:

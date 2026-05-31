@@ -37,17 +37,26 @@ Per far sì che l'Engine possa proteggerti, devi rispettare queste convenzioni a
 ### 1. Eredita sempre dalle classi base dell'Engine
 Non ereditare **mai** direttamente da `ControllerBase`. Se lo fai, perdi i controlli di rate limiting, il logging e il controllo API Key.
 
-**Esempio Pubblico (Solo API Key):**
+L'Engine offre tre classi base a seconda del livello di protezione richiesto:
+
+**Endpoint pubblici (solo API Key):**
 ```csharp
 [Route("api/v1/public")]
 public class PublicFeatureController : EngineApiController { }
 ```
 
-**Esempio Privato (API Key + JWT Login):**
+**Endpoint riservati (API Key + JWT valido):**
 ```csharp
 [Route("api/v1/private")]
 public class PrivateFeatureController : EngineProtectedController { }
 ```
+
+**Endpoint di autenticazione (transito credenziali → emissione JWT):**
+```csharp
+[Route("auth")]
+public class MyAuthController : EngineAuthController { }
+```
+`EngineAuthController` è riservato agli endpoint che gestiscono il login. Viene soppresso automaticamente dal `TemplateControllerFeatureProvider` se `Security.Token.SecretKey` è vuoto.
 
 ### 2. Usa FluentValidation per gli Input
 Non riempire i controller di `if (string.IsNullOrEmpty(model.Name)) throw ...`.
@@ -71,7 +80,13 @@ public class UserResponseDto {
 ```
 
 ### Passo 2: Recupero Dati (IContentStore)
-Se la tua feature legge dai file JSON, aggiungi il metodo nell'interfaccia `IContentStore` e implementalo in `FileContentStore`.
+`IContentStore` è già implementato da `FileContentStore` per i dati di configurazione del sito. I metodi esistenti sono:
+```csharp
+Task<UniversalLegalModel> GetProfileAsync(string language); // dati legali/aziendali localizzati
+Task<Dictionary<string, string>> GetSocialAsync();          // URL social network
+```
+
+Se la tua feature legge file JSON aggiuntivi dalla cartella `/data/`, aggiungi un nuovo metodo all'interfaccia e implementalo in `FileContentStore`.
 ```csharp
 // IContentStore.cs
 Task<UserResponseDto> GetUserAsync(string id);
@@ -112,6 +127,40 @@ public class UsersController : EngineProtectedController
     }
 }
 ```
+
+---
+
+## 🔐 Sessioni JWT (`SessionInfo` e `SessionPayload`)
+
+Quando il login è abilitato, il token JWT trasporta un payload tipizzato. L'Engine fornisce:
+
+- **`SessionPayload`** — utility per costruire i claims da mettere nel JWT al momento del login.
+- **`SessionInfo`** — modello concreto con `UserId`, `DisplayName` e `Roles[]`; estratto dal token nei controller protetti tramite `User.GetSession<SessionInfo>()`.
+
+Esempio in un endpoint protetto:
+```csharp
+[HttpGet("ping")]
+public IActionResult Ping()
+{
+    var session = User.GetSession<SessionInfo>();
+    return Ok(session.DisplayName);
+}
+```
+
+---
+
+## 📦 Controller Template Inclusi
+
+Il template include già 4 controller operativi come esempio/punto di partenza:
+
+| Controller | Base class | Endpoint |
+| :--- | :--- | :--- |
+| `BaseController` | `EngineApiController` | `GET /profile`, `GET /social` |
+| `AuthController` | `EngineAuthController` | `POST /auth/login` |
+| `ProtectedController` | `EngineProtectedController` | `GET /ping` |
+| `BlobController` | `EngineApiController` | `GET /blob/{slug}` |
+
+`BlobController` serve file binari (immagini, PDF) dal volume Docker `/app/uploads` e li espone via slug opaco.
 
 ---
 

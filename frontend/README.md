@@ -21,6 +21,9 @@ Gestione stato locale e globale tramite l'API nativa `Signals` di Angular 19. Ni
 ### 4. Gestione Trasparente Privacy e Accessibilità
 L'Engine si occupa di iniettare meccanismi standard di base per l'Accessibilità (WCAG) e un banner cookie integrato che si allinea alla navigazione. Meno codice per te, più compliance.
 
+### 5. Policy Pages Integrate
+Le pagine legali (Privacy, Cookie, Termini, Note Legali) sono già cablate nel DSL. I testi vivono in `public/assets/legal/` come file Markdown localizzati (es. `privacy.it.md`). Il `ContentResolver` li carica via filesystem in SSR e via HTTP fetch nel browser. Il `PolicyComponent` interpola automaticamente i placeholder come `{{ragioneSociale}}` o `{{partitaIva}}` usando i dati del profilo aziendale restituiti dal backend.
+
 ---
 
 ## 📜 Le Regole del Gioco (Cosa l'Engine ti Impone)
@@ -87,14 +90,20 @@ Sempre in `site.ts`, vai nell'oggetto `siteConfig.pages` e istruisci l'Engine su
 ```
 
 ### Passo 3: Creare il Componente
-Nella cartella `pages/nuova-pagina/` crea il tuo componente. Assicurati che estenda `PageBaseComponent` per ereditare i superpoteri dell'Engine.
+Nella cartella `pages/nuova-pagina/` crea il tuo componente. Assicurati che estenda `PageBaseComponent<T>` (dove `T` è il tipo del contenuto della pagina) per ereditare i superpoteri dell'Engine.
 ```typescript
 @Component({
   standalone: true,
   templateUrl: './nuova-pagina.component.html'
 })
-export default class NuovaPaginaComponent extends PageBaseComponent {
-    // Hai già a disposizione this.api_get(), this.translate(), ecc.
+export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto> {
+    // Proprietà ereditate da PageBaseComponent:
+    // this.api        → ApiService (chiamate al backend)
+    // this.translate  → TranslateService (i18n)
+    // this.asset      → AssetService (URL immagini CDN)
+    // this.notify     → NotificationService (toast/alert)
+    // this.pageContent → Signal<MioContenuto | null> (dati dalla pagina)
+    // this.pageType   → input<PageType> (tipo corrente della pagina)
 }
 ```
 
@@ -103,6 +112,72 @@ Per mettere un bottone che porta alla tua pagina, non usare `href="/nuova-pagina
 ```html
 <!-- Cliccando calcolerà l'URL corretto a runtime -->
 <button (click)="navigateTo(PageType.MioNuovoComponente)">Vai!</button>
+```
+
+---
+
+## 🌐 ApiService: Chiamare il Backend
+
+`ApiService` (iniettato come `this.api` in ogni `PageBaseComponent`) espone questi metodi:
+
+| Metodo | Tipo di ritorno | Quando usarlo |
+| :--- | :--- | :--- |
+| `getProfile()` | `Promise<Profile>` | Caricamento una-tantum del profilo aziendale |
+| `getProfileResource()` | `httpResource<Profile>` | Profilo reattivo (si aggiorna col Signal) |
+| `getSocial(nomi?)` | `Promise<Record<string, string>>` | URL social network, filtrabile per nome |
+| `getBlob(slug)` | `Promise<Blob>` | File binari (immagini, PDF) caricati via uploads |
+| `login(req)` | `Promise<LoginResult>` | Autenticazione utente (solo se JWT abilitato) |
+
+**Pattern one-shot** (dati statici, caricati una volta):
+```typescript
+ngOnInit() {
+    this.api.getProfile().then(p => this.profile.set(p));
+}
+```
+
+**Pattern reattivo** (dati che si aggiornano con la lingua o lo stato):
+```typescript
+readonly profileRes = this.api.getProfileResource();
+// In template: profileRes.value() | profileRes.isLoading()
+```
+
+---
+
+## ⚙️ Opzioni Avanzate di `site.ts`
+
+Oltre a `path`, `title` e `description`, ogni pagina in `defineSitePages()` accetta:
+
+```typescript
+{
+    // Forza il rendering client-side (es. per pagine protette da login)
+    renderMode: 'client',  // default: 'server'
+
+    // Nasconde parti della shell per questa pagina
+    layout: {
+        showNav: false,     // nasconde la navbar
+        showFooter: false,  // nasconde il footer
+        showPanel: false,   // nasconde il pannello laterale
+    },
+
+    // Meta tag OpenGraph aggiuntivi
+    otherSEO: {
+        ogImage: '/assets/og-cover.png',
+        ogType: 'article',
+        structuredDataType: 'WebPage',
+    },
+}
+```
+
+La configurazione globale del sito (`setSiteConfiguration`) accetta anche `smoke` per l'effetto particellare:
+```typescript
+smoke: {
+    enable: true,
+    color: '#ffffff',
+    opacity: 0.4,
+    maximumVelocity: 1.5,
+    particleRadius: 3,
+    density: 40,
+}
 ```
 
 ---
