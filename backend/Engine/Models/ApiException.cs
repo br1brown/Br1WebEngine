@@ -157,6 +157,53 @@ public class InvalidParametersException : ApiException
 }
 
 /// <summary>
+/// Rappresenta un errore 405 per metodi HTTP non supportati dall'endpoint.
+/// </summary>
+/// <remarks>
+/// ASP.NET Core lo gestisce automaticamente per route non configurate, ma puo' essere
+/// utile lanciarlo esplicitamente quando un metodo e' tecnicamente mappato ma logicamente
+/// non applicabile al contesto (es. PATCH su una risorsa read-only).
+/// </remarks>
+public class MethodNotAllowedException : ApiException
+{
+    public MethodNotAllowedException()
+        : base("error_method_not_allowed", 405)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 406 per formati di risposta non negoziabili.
+/// </summary>
+/// <remarks>
+/// Il server non riesce a restituire una risposta nei formati accettati dall'header
+/// <c>Accept</c> del client. In JSON-only API e' raro; piu' utile in API multiformat.
+/// </remarks>
+public class NotAcceptableException : ApiException
+{
+    public NotAcceptableException()
+        : base("error_not_acceptable", 406)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 408 per richieste o risposte di servizi esterni scadute nel tempo.
+/// </summary>
+/// <remarks>
+/// Utile quando il backend chiama un servizio esterno (HTTP, database, queue) con un timeout
+/// esplicito e il servizio non risponde. Diverso da <see cref="GatewayTimeoutException"/> (504),
+/// che segnala il timeout di un proxy/gateway intermedio.
+/// </remarks>
+public class RequestTimeoutException : ApiException
+{
+    public RequestTimeoutException()
+        : base("error_request_timeout", 408)
+    {
+    }
+}
+
+/// <summary>
 /// Rappresenta un errore 403 per accesso negato a un utente autenticato ma non autorizzato.
 /// </summary>
 /// <remarks>
@@ -171,6 +218,55 @@ public class ForbiddenException : ApiException
     /// </summary>
     public ForbiddenException()
         : base("error_forbidden", 403)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 410 per risorse rimosse definitivamente.
+/// </summary>
+/// <remarks>
+/// Diversa da <see cref="NotFoundException"/> (404): il 404 e' ambiguo (la risorsa potrebbe
+/// tornare), mentre il 410 comunica esplicitamente al client e ai crawler che la risorsa
+/// non esiste piu' e non tornera'. Il nome della risorsa riempie il segnaposto <c>{0}</c>.
+/// </remarks>
+public class GoneException : ApiException
+{
+    /// <param name="resourceName">Nome logico della risorsa rimossa definitivamente.</param>
+    public GoneException(string resourceName = "risorsa")
+        : base("error_gone", 410, resourceName)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 422 per richieste sintatticamente valide ma semanticamente non elaborabili.
+/// </summary>
+/// <remarks>
+/// Usato quando il JSON e' ben formato (diversamente dal 400) ma i valori non superano
+/// le regole di business (es. data di fine precedente alla data di inizio, importo negativo).
+/// Complementa FluentValidation per le validazioni che richiedono logica di dominio.
+/// </remarks>
+public class UnprocessableEntityException : ApiException
+{
+    public UnprocessableEntityException()
+        : base("error_unprocessable_entity", 422)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 429 per superamento dei limiti di frequenza applicativi.
+/// </summary>
+/// <remarks>
+/// Il rate limiting infrastrutturale e' gia' gestito dal middleware (100 req/min globale,
+/// 5 req/min per login). Questa eccezione serve per limiti di business applicativi piu'
+/// granulari (es. max 3 tentativi di OTP per sessione, max 10 export al giorno per utente).
+/// </remarks>
+public class TooManyRequestsException : ApiException
+{
+    public TooManyRequestsException()
+        : base("error_too_many_requests", 429)
     {
     }
 }
@@ -196,6 +292,39 @@ public class ConflictException : ApiException
 }
 
 /// <summary>
+/// Rappresenta un errore 501 per funzionalita' non ancora implementate lato server.
+/// </summary>
+/// <remarks>
+/// Utile per endpoint stub o funzionalita' pianificate ma non ancora disponibili.
+/// Nota: il nome e' volutamente diverso da <c>System.NotImplementedException</c>
+/// (usata per metodi astratti non implementati in C#) per evitare ambiguita'.
+/// </remarks>
+public class NotImplementedEndpointException : ApiException
+{
+    public NotImplementedEndpointException()
+        : base("error_not_implemented", 501)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 502 per risposte non valide ricevute da un servizio upstream.
+/// </summary>
+/// <remarks>
+/// Usato quando il backend agisce da intermediario (chiama API esterne, microservizi,
+/// ecc.) e riceve una risposta corrotta, malformata o con un formato imprevisto.
+/// Diverso da <see cref="ServiceUnavailableException"/> (503, servizio non raggiungibile)
+/// e <see cref="GatewayTimeoutException"/> (504, servizio raggiungibile ma lento).
+/// </remarks>
+public class BadGatewayException : ApiException
+{
+    public BadGatewayException()
+        : base("error_bad_gateway", 502)
+    {
+    }
+}
+
+/// <summary>
 /// Rappresenta un errore 503 per servizi esterni temporaneamente non disponibili.
 /// </summary>
 /// <remarks>
@@ -210,6 +339,23 @@ public class ServiceUnavailableException : ApiException
     /// </summary>
     public ServiceUnavailableException()
         : base("error_service_unavailable", 503)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 504 per timeout di risposta da un servizio upstream.
+/// </summary>
+/// <remarks>
+/// Usato quando il backend e' in attesa di una risposta da un servizio esterno e questa
+/// non arriva entro il timeout configurato. Il servizio e' raggiungibile (diversamente
+/// dal 503) ma troppo lento. Consente al client di distinguere tra "servizio giu'" e
+/// "servizio congestionato/lento".
+/// </remarks>
+public class GatewayTimeoutException : ApiException
+{
+    public GatewayTimeoutException()
+        : base("error_gateway_timeout", 504)
     {
     }
 }

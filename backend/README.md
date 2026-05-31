@@ -64,20 +64,37 @@ Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione app
 
 **Mappatura completa delle eccezioni:**
 
-| Eccezione | HTTP | Chiave `.resx` | Messaggio (it) |
+| Eccezione | HTTP | Chiave `.resx` | Note |
 | :--- | :---: | :--- | :--- |
-| `NotFoundException("risorsa")` | 404 | `error_not_found` | "Impossibile leggere le informazioni {0}" |
-| `DataNotFoundException()` | 404 | `error_data_not_found` | "Dati non trovati" |
-| `UnauthorizedException()` | 401 | `error_unauthorized` | "Non autorizzato" |
-| `UnauthorizedException("error_invalid_credentials")` | 401 | `error_invalid_credentials` | "Credenziali non valide." |
-| `ForbiddenException()` | 403 | `error_forbidden` | "Non hai i permessi necessari per eseguire questa operazione." |
-| `ConflictException("risorsa")` | 409 | `error_conflict` | "{0} è già esistente o in conflitto con una risorsa esistente." |
-| `DecodingException()` | 400 | `error_decoding` | "Errore nella decodifica" |
-| `InvalidParametersException()` | 400 | `error_invalid_parameters` | "Parametri non validi o mancanti" |
-| `ServiceUnavailableException()` | 503 | `error_service_unavailable` | "Il servizio è temporaneamente non disponibile. Riprova più tardi." |
-| qualsiasi altra eccezione | 500 | — | Risposta generica ASP.NET (nessun dettaglio esposto) |
+| `DecodingException()` | 400 | `error_decoding` | Body o file di dati non decodificabile |
+| `InvalidParametersException()` | 400 | `error_invalid_parameters` | Parametri mancanti o non validi |
+| `UnauthorizedException()` | 401 | `error_unauthorized` | Utente non autenticato |
+| `UnauthorizedException("error_invalid_credentials")` | 401 | `error_invalid_credentials` | Credenziali errate (login) |
+| `ForbiddenException()` | 403 | `error_forbidden` | Autenticato ma senza permessi |
+| `NotFoundException("risorsa")` | 404 | `error_not_found` | Risorsa non trovata (`{0}` = nome) |
+| `DataNotFoundException()` | 404 | `error_data_not_found` | Dati esistenti ma vuoti o non disponibili |
+| `MethodNotAllowedException()` | 405 | `error_method_not_allowed` | Metodo HTTP non supportato dall'endpoint |
+| `NotAcceptableException()` | 406 | `error_not_acceptable` | Formato risposta non negoziabile |
+| `RequestTimeoutException()` | 408 | `error_request_timeout` | Operazione scaduta nel tempo |
+| `ConflictException("risorsa")` | 409 | `error_conflict` | Risorsa già esistente (`{0}` = nome) |
+| `GoneException("risorsa")` | 410 | `error_gone` | Risorsa rimossa definitivamente (`{0}` = nome) |
+| `UnprocessableEntityException()` | 422 | `error_unprocessable_entity` | Dati validi ma semanticamente non elaborabili |
+| `TooManyRequestsException()` | 429 | `error_too_many_requests` | Limite applicativo superato (non il rate limiter globale) |
+| `NotImplementedEndpointException()` | 501 | `error_not_implemented` | Funzionalità non ancora implementata |
+| `BadGatewayException()` | 502 | `error_bad_gateway` | Risposta non valida da servizio upstream |
+| `ServiceUnavailableException()` | 503 | `error_service_unavailable` | Servizio esterno temporaneamente non disponibile |
+| `GatewayTimeoutException()` | 504 | `error_gateway_timeout` | Servizio upstream non risponde in tempo |
+| qualsiasi altra eccezione .NET | 500 | — | ASP.NET restituisce 500 generico senza esporre dettagli |
 
-> **401 vs 403**: `UnauthorizedException` (401) significa che l'utente non è autenticato. `ForbiddenException` (403) significa che è autenticato ma non ha i permessi — non confondere i due.
+> **401 vs 403**: `UnauthorizedException` (401) = utente non autenticato. `ForbiddenException` (403) = autenticato ma senza i permessi. Non confonderle.
+>
+> **404 vs 410**: `NotFoundException` (404) = risorsa assente o temporaneamente non trovata. `GoneException` (410) = rimossa in modo permanente. Il 410 comunica ai crawler che non devono più indicizzare l'URL.
+>
+> **408 vs 504**: `RequestTimeoutException` (408) = timeout interno (operazione troppo lenta lato server). `GatewayTimeoutException` (504) = timeout di un servizio esterno chiamato dal backend.
+>
+> **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
+>
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione).
 
 **Formato della risposta al client:**
 ```json
