@@ -190,6 +190,19 @@ this.auth.session()?.roles
 
 Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (engine, intoccabile) avvia un timer automatico che esegue il logout allo scadere dell'`exp` del JWT.
 
+### Gestione Errori di Login
+
+`AuthService.login()` traduce i codici HTTP in messaggi i18n tramite `mapLoginError()` (in `auth.service.ts`):
+
+| Codice | Chiave i18n usata | Quando accade |
+| :--- | :--- | :--- |
+| `401` | `loginErroreGenerico` | Credenziali errate |
+| `429` | `errore429Descrizione` | Troppi tentativi — il backend limita l'endpoint di autenticazione a 5 req/min |
+| `503` / `404` / `0` | `loginServizioNonDisponibile` | Servizio non raggiungibile |
+| qualsiasi altro | `erroreImprevisto` | Errore non classificabile |
+
+Il 429 è importante: senza questa mappatura esplicita, un rate-limit sul login mostrerebbe "errore imprevisto" invece di un messaggio informativo per l'utente.
+
 ---
 
 ## 🔔 NotificationService: Feedback all'Utente
@@ -206,7 +219,7 @@ Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla ch
 | `interact<T>(config)` | Modale con HTML custom, validazione e mappatura del risultato |
 | `openLoading(msg?)` / `closeLoading()` | Spinner bloccante (es. durante upload) |
 | `validationErrors(title, errors)` | Popup con lista di errori di validazione |
-| `handleApiError(status, problem, ...)` | Legge il `ProblemDetails` del backend e mostra il messaggio corretto; fallback automatico a i18n per i codici HTTP standard |
+| `handleApiError(status, problem, ...)` | Legge il `ProblemDetails` del backend e mostra il messaggio corretto; fallback automatico a i18n per i codici HTTP standard tramite le chiavi `errore{status}Titolo` / `errore{status}Descrizione` da `basic.{lang}.json` — copertura completa per: 400, 401, 403, 404, 405, 406, 408, 409, 410, 422, 429, 500, 501, 502, 503, 504 |
 
 ```typescript
 // Toast di successo
@@ -255,7 +268,7 @@ Le traduzioni vivono in `public/assets/i18n/` in due cataloghi per lingua:
 
 | File | Ruolo |
 | :--- | :--- |
-| `basic.{lang}.json` | Stringhe dell'Engine (messaggi di errore, azioni comuni, stati) — non toccare |
+| `basic.{lang}.json` | Stringhe dell'Engine: traduzioni per le pagine di errore HTTP (`errore400Titolo`/`Descrizione` … fino al 504), azioni comuni (`clipboardCopied`, `clipboardError`, `shareError`, ecc.) e messaggi di login. **Non aggiungere qui chiavi di dominio** — quelle vanno in `addon.{lang}.json`. Aggiungere invece qui quando si modifica l'Engine stesso o si introduce una nuova notifica/comportamento globale; in quel caso la chiave va aggiunta in *tutti* i file `basic.*.json` — `i18n-check.sh` lo verifica in CI. |
 | `addon.{lang}.json` | Stringhe del **tuo progetto** — aggiungi qui le tue chiavi |
 
 **Aggiungere una lingua:**

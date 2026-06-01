@@ -16,9 +16,14 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 **Perché è così?** Configurare rate limiter e validazioni CORS manualmente su ogni progetto espone a rischi di dimenticanze fatali. 
 **Cosa fa l'Engine:** Ogni endpoint che eredita dai controller di base esige l'header `X-Api-Key`. Il framework blocca automaticamente gli IP che superano le 100 req/min (5 req/min per i login) e applica CORS a livello di middleware. Gli header di sicurezza rivolti al browser sono definiti una sola volta in `Security.Headers` di `global-settings.json` e condivisi col Node SSR del frontend: nel default il backend è interno alla rete Docker e serve solo JSON, ma se lo esponi (`backend.public`) applica gli stessi header (saltando la CSP, irrilevante su risposte JSON).
 
+Tre dettagli architetturali che incidono sul comportamento osservabile:
+- **CORS + `Retry-After`**: la configurazione CORS include `WithExposedHeaders("Retry-After")`. Senza questa riga il server imposta correttamente l'header, ma il browser lo filtra per policy CORS e JavaScript non può leggerlo.
+- **Rate limiter strutturato**: il callback `OnRejected` del rate limiter produce un `ProblemDetails` JSON (RFC 9457) con status 429 e `Retry-After` calcolato dal tempo residuo della finestra — stesso formato di `ApiExceptionHandler`, nessun 429 con body vuoto.
+- **Ordine middleware**: `UseExceptionHandler` è registrato **prima** di `UseRateLimiter`. I 429 da `OnRejected` non sono eccezioni, quindi l'ordine non cambia il flusso normale; garantisce però che eventuali eccezioni interne al rate limiter vengano catturate dall'handler globale invece di produrre risposte non strutturate.
+
 ### 2. Errori Standardizzati (RFC 9457)
 **Perché è così?** I client frontend spesso impazziscono a parsare errori strutturati in 10 modi diversi. 
-**Cosa fa l'Engine:** Non scrivi mai `return BadRequest(...)`. Lanci un'eccezione (`throw new NotFoundException("User not found")`) e un Exception Handler globale la formatta in un JSON `ProblemDetails` standardizzato. Questo garantisce uniformità assoluta senza leakare stack trace.
+**Cosa fa l'Engine:** Non scrivi mai `return BadRequest(...)`. Lanci un'eccezione (`throw new NotFoundException("utente")`) e un Exception Handler globale la formatta in un JSON `ProblemDetails` standardizzato. Questo garantisce uniformità assoluta senza leakare stack trace.
 
 ### 3. Routing Adattivo (JWT Opzionale)
 **Perché è così?** Non tutti i progetti hanno utenti e login. Avere codice di auth "dormiente" ma esposto è un rischio di sicurezza e inquina Swagger.
@@ -26,7 +31,7 @@ L'obiettivo di questa separazione è **levarti dai piedi i problemi noiosi** per
 
 ### 4. Il Database Fantasma (`FileContentStore`)
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
-**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `ConcurrentDictionary` (velocità RAM pura) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. 
+**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `ConcurrentDictionary` (velocità RAM pura) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
 
 ---
 
@@ -71,30 +76,37 @@ Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione app
 | `UnauthorizedException()` | 401 | `error_unauthorized` | Utente non autenticato |
 | `UnauthorizedException("error_invalid_credentials")` | 401 | `error_invalid_credentials` | Credenziali errate (login) |
 | `ForbiddenException()` | 403 | `error_forbidden` | Autenticato ma senza permessi |
-| `NotFoundException("risorsa")` | 404 | `error_not_found` | Risorsa non trovata (`{0}` = nome) |
+| `NotFoundException()` | 404 | `error_not_found` | Risorsa non trovata (messaggio generico) |
+| `NotFoundException("utente")` | 404 | `error_not_found_named` | Risorsa non trovata con nome (`{0}` = "utente") |
 | `DataNotFoundException()` | 404 | `error_data_not_found` | Dati esistenti ma vuoti o non disponibili |
 | `MethodNotAllowedException()` | 405 | `error_method_not_allowed` | Metodo HTTP non supportato dall'endpoint |
 | `NotAcceptableException()` | 406 | `error_not_acceptable` | Formato risposta non negoziabile |
-| `RequestTimeoutException()` | 408 | `error_request_timeout` | Operazione scaduta nel tempo |
-| `ConflictException("risorsa")` | 409 | `error_conflict` | Risorsa già esistente (`{0}` = nome) |
-| `GoneException("risorsa")` | 410 | `error_gone` | Risorsa rimossa definitivamente (`{0}` = nome) |
+| `RequestTimeoutException()` | 408 | `error_request_timeout` | Il client ha impiegato troppo a inviare il body della richiesta |
+| `ConflictException()` | 409 | `error_conflict` | Conflitto (messaggio generico) |
+| `ConflictException("ordine")` | 409 | `error_conflict_named` | Conflitto con nome della risorsa (`{0}` = "ordine") |
+| `GoneException()` | 410 | `error_gone` | Risorsa rimossa definitivamente (messaggio generico) |
+| `GoneException("articolo")` | 410 | `error_gone_named` | Risorsa rimossa definitivamente con nome (`{0}` = "articolo") |
 | `UnprocessableEntityException()` | 422 | `error_unprocessable_entity` | Dati validi ma semanticamente non elaborabili |
 | `TooManyRequestsException()` | 429 | `error_too_many_requests` | Limite applicativo superato (non il rate limiter globale) |
+| `TooManyRequestsException(60)` | 429 | `error_too_many_requests_timed` | Come sopra + `{0}` secondi nel testo + header `Retry-After: 60` |
 | `NotImplementedEndpointException()` | 501 | `error_not_implemented` | Funzionalità non ancora implementata |
 | `BadGatewayException()` | 502 | `error_bad_gateway` | Risposta non valida da servizio upstream |
 | `ServiceUnavailableException()` | 503 | `error_service_unavailable` | Servizio esterno temporaneamente non disponibile |
+| `ServiceUnavailableException(120)` | 503 | `error_service_unavailable_timed` | Come sopra + `{0}` secondi nel testo + header `Retry-After: 120` |
 | `GatewayTimeoutException()` | 504 | `error_gateway_timeout` | Servizio upstream non risponde in tempo |
 | qualsiasi altra eccezione .NET | 500 | — | ASP.NET restituisce 500 generico senza esporre dettagli |
+
+> **Pattern `_named` / `_timed`**: le eccezioni con parametro opzionale usano una chiave `.resx` diversa a seconda che il parametro sia fornito. La variante `_named` include `{0}` con il nome della risorsa (evita di passare stringhe in lingua hardcoded come argomento del messaggio localizzato). La variante `_timed` include `{0}` con i secondi di attesa e imposta l'header HTTP `Retry-After`.
 
 > **401 vs 403**: `UnauthorizedException` (401) = utente non autenticato. `ForbiddenException` (403) = autenticato ma senza i permessi. Non confonderle.
 >
 > **404 vs 410**: `NotFoundException` (404) = risorsa assente o temporaneamente non trovata. `GoneException` (410) = rimossa in modo permanente. Il 410 comunica ai crawler che non devono più indicizzare l'URL.
 >
-> **408 vs 504**: `RequestTimeoutException` (408) = timeout interno (operazione troppo lenta lato server). `GatewayTimeoutException` (504) = timeout di un servizio esterno chiamato dal backend.
+> **408 vs 504**: `RequestTimeoutException` (408) = il **client** ha impiegato troppo a inviare il body della richiesta (RFC 9110). Per un timeout verso un servizio esterno usa `GatewayTimeoutException` (504), non il 408.
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
-> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione).
+> **429 applicativo vs rate limiter infrastrutturale**: il middleware blocca già 100 req/min globali e 5/min sul login — quando scatta, produce anch'esso un `ProblemDetails` JSON con `Retry-After` (via callback `OnRejected`), quindi il formato è coerente con `ApiExceptionHandler`. `TooManyRequestsException` serve per limiti di dominio più granulari (es. max 3 tentativi OTP per sessione); usa `TooManyRequestsException(60)` per includere i secondi di attesa nel messaggio e nell'header.
 
 **Formato della risposta al client:**
 ```json
@@ -110,9 +122,18 @@ Il campo `detail` arriva già localizzato nella lingua della richiesta (`Accept-
 public async Task<UserResponseDto> ProcessUser(string id)
 {
     var user = await _store.GetUserAsync(id);
-    if (user == null) throw new NotFoundException("utente");   // → 404 "Impossibile leggere le informazioni utente"
+    // Senza parametro → chiave generica (error_not_found, messaggio senza nome risorsa)
+    // Con parametro   → chiave _named    (error_not_found_named, {0} = "utente")
+    if (user == null) throw new NotFoundException("utente");   // → 404 con nome risorsa
     if (!user.IsActive) throw new UnauthorizedException();     // → 401 "Non autorizzato"
     return user;
+}
+
+// Esempio con RetryAfterSeconds: testo localizzato include i secondi + header Retry-After
+public async Task SendOtp(string userId)
+{
+    if (await _rateLimitStore.IsBlockedAsync(userId, out int secondsLeft))
+        throw new TooManyRequestsException(secondsLeft); // → 429 + Retry-After: {secondsLeft}
 }
 ```
 
@@ -120,19 +141,22 @@ public async Task<UserResponseDto> ProcessUser(string id)
 1. Crea una sottoclasse di `ApiException` con la chiave `.resx` e il codice HTTP
 2. Aggiungi la chiave in `Resources/SharedResource.resx` (default) e `Resources/SharedResource.it.resx` (italiano)
 
+Il caso più comune è un errore senza parametri (chiave fissa):
 ```csharp
 // Engine/Models/ApiException.cs  — aggiungi in coda
-public class ConflictException : ApiException
+public class PaymentRequiredException : ApiException
 {
-    public ConflictException() : base("error_conflict", 409) { }
+    public PaymentRequiredException() : base("error_payment_required", 402) { }
 }
 ```
 ```xml
 <!-- Resources/SharedResource.it.resx -->
-<data name="error_conflict" xml:space="preserve">
-    <value>Risorsa già esistente</value>
+<data name="error_payment_required" xml:space="preserve">
+    <value>Pagamento richiesto per proseguire</value>
 </data>
 ```
+
+Se hai bisogno del pattern `_named` (nome risorsa variabile) o `_timed` (secondi variabili), guarda come è implementato `NotFoundException` o `TooManyRequestsException` in `ApiException.cs`: il costruttore riceve il parametro nullable e sceglie la chiave resx in base alla sua presenza.
 
 **Le eccezioni non-`ApiException`** (es. `NullReferenceException`, errori di database) vengono ignorate dall'handler: ASP.NET restituisce un 500 generico senza esporre stack trace né dettagli interni.
 
@@ -228,7 +252,9 @@ public class UserService
     public async Task<UserResponseDto> ProcessUser(string id)
     {
         var user = await _store.GetUserAsync(id);
-        if (user == null) throw new NotFoundException("Utente non trovato");
+        // "utente" è il NOME della risorsa (finisce in {0} del messaggio localizzato),
+        // non il messaggio completo. Senza parametro → chiave generica "error_not_found".
+        if (user == null) throw new NotFoundException("utente");
         return user;
     }
 }
