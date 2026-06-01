@@ -58,6 +58,9 @@ export class AuthService {
             switch (err.status) {
                 case 401:
                     return this.translate.translate('loginErroreGenerico');
+                case 429:
+                    return this.translate.translate('errore429Descrizione');
+                case 503:
                 case 404:
                 case 0:
                     return this.translate.translate('loginServizioNonDisponibile');

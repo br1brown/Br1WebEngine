@@ -50,6 +50,8 @@
   "clipboardCut": "Cut to clipboard",
   "clipboardPasted": "Pasted from clipboard",
   "clipboardEmpty": "Clipboard empty",
+  "clipboardError": "Could not access clipboard.",
+  "shareError": "Could not complete the share operation.",
   "whatsappCta": "Contact us on WhatsApp",
   "instagramCta": "Follow us on Instagram",
   "youtubeCta": "Watch us on YouTube",

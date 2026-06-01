@@ -163,9 +163,12 @@ public class ForbiddenException : ApiException
 /// </remarks>
 public class NotFoundException : ApiException
 {
-    /// <param name="dataName">Descrizione della risorsa che non e' stato possibile leggere.</param>
-    public NotFoundException(string dataName = "richieste")
-        : base("error_not_found", 404, dataName)
+    /// <param name="dataName">Nome della risorsa non trovata; se omesso viene usato un messaggio generico.</param>
+    public NotFoundException(string? dataName = null)
+        : base(
+            dataName is not null ? "error_not_found_named" : "error_not_found",
+            404,
+            dataName is not null ? new object[] { dataName } : Array.Empty<object>())
     {
     }
 }
@@ -251,9 +254,12 @@ public class RequestTimeoutException : ApiException
 /// </remarks>
 public class ConflictException : ApiException
 {
-    /// <param name="resourceName">Descrizione della risorsa che ha generato il conflitto.</param>
-    public ConflictException(string resourceName = "risorsa")
-        : base("error_conflict", 409, resourceName)
+    /// <param name="resourceName">Nome della risorsa in conflitto; se omesso viene usato un messaggio generico.</param>
+    public ConflictException(string? resourceName = null)
+        : base(
+            resourceName is not null ? "error_conflict_named" : "error_conflict",
+            409,
+            resourceName is not null ? new object[] { resourceName } : Array.Empty<object>())
     {
     }
 }
@@ -270,9 +276,12 @@ public class ConflictException : ApiException
 /// </remarks>
 public class GoneException : ApiException
 {
-    /// <param name="resourceName">Nome logico della risorsa rimossa definitivamente.</param>
-    public GoneException(string resourceName = "risorsa")
-        : base("error_gone", 410, resourceName)
+    /// <param name="resourceName">Nome della risorsa rimossa; se omesso viene usato un messaggio generico.</param>
+    public GoneException(string? resourceName = null)
+        : base(
+            resourceName is not null ? "error_gone_named" : "error_gone",
+            410,
+            resourceName is not null ? new object[] { resourceName } : Array.Empty<object>())
     {
     }
 }
@@ -309,9 +318,12 @@ public class UnprocessableEntityException : ApiException
 /// </remarks>
 public class TooManyRequestsException : ApiException
 {
-    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale).</param>
+    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale). Se fornito, viene incluso nel messaggio e nell'header <c>Retry-After</c>.</param>
     public TooManyRequestsException(int? retryAfterSeconds = null)
-        : base("error_too_many_requests", 429)
+        : base(
+            retryAfterSeconds.HasValue ? "error_too_many_requests_timed" : "error_too_many_requests",
+            429,
+            retryAfterSeconds.HasValue ? new object[] { retryAfterSeconds.Value } : Array.Empty<object>())
     {
         RetryAfterSeconds = retryAfterSeconds;
     }
@@ -368,9 +380,12 @@ public class BadGatewayException : ApiException
 /// </remarks>
 public class ServiceUnavailableException : ApiException
 {
-    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale).</param>
+    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale). Se fornito, viene incluso nel messaggio e nell'header <c>Retry-After</c>.</param>
     public ServiceUnavailableException(int? retryAfterSeconds = null)
-        : base("error_service_unavailable", 503)
+        : base(
+            retryAfterSeconds.HasValue ? "error_service_unavailable_timed" : "error_service_unavailable",
+            503,
+            retryAfterSeconds.HasValue ? new object[] { retryAfterSeconds.Value } : Array.Empty<object>())
     {
         RetryAfterSeconds = retryAfterSeconds;
     }

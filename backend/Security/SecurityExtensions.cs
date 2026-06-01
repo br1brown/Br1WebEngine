@@ -1,8 +1,13 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
+using Backend;
 using Backend.Models.Configuration;
 
 namespace Backend.Security;
@@ -110,10 +115,12 @@ public static class SecurityExtensions
                 else
                     policy.WithOrigins(security.CorsOrigins);
 
-				// Gli header consentiti sono quelli usati dal frontend:
-				// Content-Type (body JSON), Authorization (JWT), X-Api-Key, Accept-Language.
+				// Gli header consentiti sono quelli usati dal frontend.
+				// Retry-After e' esposto esplicitamente perche' il browser non puo' leggerlo
+				// senza WithExposedHeaders, anche se e' gia' presente nella risposta.
 				policy.AllowAnyMethod()
-                    .WithHeaders("Content-Type", "Authorization", SecurityDefaults.ApiKeyHeaderName, "Accept-Language");
+                    .WithHeaders("Content-Type", "Authorization", SecurityDefaults.ApiKeyHeaderName, "Accept-Language")
+                    .WithExposedHeaders("Retry-After");
             });
         });
 
@@ -123,7 +130,39 @@ public static class SecurityExtensions
         //
         services.AddRateLimiter(options =>
         {
-            options.RejectionStatusCode = 429;
+            // OnRejected sostituisce RejectionStatusCode: scrive un ProblemDetails (RFC 9457)
+            // con status 429 e, quando il limiter espone il tempo d'attesa residuo, aggiunge
+            // l'header Retry-After e lo include nel campo detail.
+            // UseRequestLocalization non ha ancora eseguito in questo punto del pipeline,
+            // quindi la cultura viene ricavata direttamente dall'header Accept-Language.
+            options.OnRejected = async (context, _) =>
+            {
+                var http = context.HttpContext;
+                http.Response.StatusCode = 429;
+
+                var hasRetryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfterSpan);
+                if (hasRetryAfter)
+                    http.Response.Headers.RetryAfter = ((int)retryAfterSpan.TotalSeconds).ToString();
+
+                var langTag = http.Request.Headers.AcceptLanguage.FirstOrDefault()?.Split(',')[0].Split(';')[0].Trim();
+                if (langTag is not null)
+                {
+                    try { CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(langTag); }
+                    catch (CultureNotFoundException) { }
+                }
+
+                var localizer = http.RequestServices.GetRequiredService<IStringLocalizer<SharedResource>>();
+                var detail = hasRetryAfter
+                    ? localizer["error_too_many_requests_timed", (int)retryAfterSpan.TotalSeconds].Value
+                    : localizer["error_too_many_requests"].Value;
+
+                var problemDetailsSvc = http.RequestServices.GetRequiredService<IProblemDetailsService>();
+                await problemDetailsSvc.TryWriteAsync(new ProblemDetailsContext
+                {
+                    HttpContext = http,
+                    ProblemDetails = new ProblemDetails { Status = 429, Detail = detail }
+                });
+            };
 
             // Globale — 100 req/min per IP. Alto abbastanza per una SPA con prefetch,
             // basso abbastanza per bloccare script automatici e crawler.
@@ -200,9 +239,16 @@ public static class SecurityExtensions
         // gestiti qui e non consumano il budget del rate limiter.
         app.UseCors();
 
+        // Gestione centralizzata errori: deve precedere UseRateLimiter per catturare
+        // eventuali eccezioni sollevate nell'elaborazione interna del limiter.
+        // I 429 generati da OnRejected non passano per qui (non sono eccezioni),
+        // ma qualsiasi altra eccezione inattesa del limiter arriva a questo handler.
+        app.UseExceptionHandler();
+        app.UseStatusCodePages();
+
         // Rate limiting per IP del client.
         // 100 req/min globali, 5 req/min su login.
-        // Sta in alto nella pipeline (fail fast): se un client sta abusando,
+        // Sta subito dopo l'exception handler (fail fast): se un client sta abusando,
         // viene bloccato subito senza sprecare risorse sui middleware successivi.
         app.UseRateLimiter();
 
@@ -232,10 +278,6 @@ public static class SecurityExtensions
         }
 
         app.UseHsts();
-
-        // Gestione centralizzata errori: ApiException → ProblemDetails JSON.
-        app.UseExceptionHandler();
-        app.UseStatusCodePages();
 
         return app;
     }

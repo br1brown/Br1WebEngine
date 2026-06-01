@@ -68,7 +68,10 @@
     <value>Password must be at least 8 characters long.</value>
   </data>
   <data name="error_not_found" xml:space="preserve">
-    <value>Could not read {0} information</value>
+    <value>Resource not found.</value>
+  </data>
+  <data name="error_not_found_named" xml:space="preserve">
+    <value>Could not read {0} information.</value>
   </data>
   <data name="error_data_not_found" xml:space="preserve">
     <value>Data not found</value>
@@ -98,6 +101,9 @@
     <value>The request took too long to complete. Please try again.</value>
   </data>
   <data name="error_gone" xml:space="preserve">
+    <value>The requested resource is no longer available and has been permanently removed.</value>
+  </data>
+  <data name="error_gone_named" xml:space="preserve">
     <value>{0} is no longer available and has been permanently removed.</value>
   </data>
   <data name="error_unprocessable_entity" xml:space="preserve">
@@ -106,7 +112,13 @@
   <data name="error_too_many_requests" xml:space="preserve">
     <value>Too many requests. Please wait a moment and try again.</value>
   </data>
+  <data name="error_too_many_requests_timed" xml:space="preserve">
+    <value>Too many requests. Please try again in {0} seconds.</value>
+  </data>
   <data name="error_conflict" xml:space="preserve">
+    <value>Resource conflict. The requested operation cannot be completed.</value>
+  </data>
+  <data name="error_conflict_named" xml:space="preserve">
     <value>{0} already exists or is in conflict with an existing resource.</value>
   </data>
   <data name="error_not_implemented" xml:space="preserve">
@@ -117,6 +129,9 @@
   </data>
   <data name="error_service_unavailable" xml:space="preserve">
     <value>The service is temporarily unavailable. Please try again later.</value>
+  </data>
+  <data name="error_service_unavailable_timed" xml:space="preserve">
+    <value>The service is temporarily unavailable. Please try again in {0} seconds.</value>
   </data>
   <data name="error_gateway_timeout" xml:space="preserve">
     <value>The upstream service did not respond in time. Please try again later.</value>

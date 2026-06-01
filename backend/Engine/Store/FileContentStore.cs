@@ -110,10 +110,15 @@ public class FileContentStore : IContentStore
             return cached;
 
         var filePath = Path.Combine(_dataPath, $"{name}.json");
-        if (!File.Exists(filePath))
+        string content;
+        try
+        {
+            content = await File.ReadAllTextAsync(filePath);
+        }
+        catch (FileNotFoundException)
+        {
             throw new NotFoundException(name);
-
-        var content = await File.ReadAllTextAsync(filePath);
+        }
         _fileCache.TryAdd(name, content);
         return content;
     }

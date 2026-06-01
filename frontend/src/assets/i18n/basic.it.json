@@ -50,6 +50,8 @@
   "clipboardCut": "Tagliato negli appunti",
   "clipboardPasted": "Incollato dagli appunti",
   "clipboardEmpty": "Appunti vuoti",
+  "clipboardError": "Impossibile accedere agli appunti.",
+  "shareError": "Impossibile completare la condivisione.",
   "whatsappCta": "Contattaci su WhatsApp",
   "instagramCta": "Seguici su Instagram",
   "youtubeCta": "Guardaci su YouTube",
