@@ -52,17 +52,20 @@ public class ApiExceptionHandler : IExceptionHandler
 {
     private readonly IProblemDetailsService _problemDetails;
     private readonly IStringLocalizer<SharedResource> _localizer;
+    private readonly ILogger<ApiExceptionHandler> _logger;
 
     /// <summary>
-    /// Inizializza l'handler con il servizio ASP.NET che serializza i Problem Details
-    /// e il localizzatore dei messaggi d'errore.
+    /// Inizializza l'handler con il servizio ASP.NET che serializza i Problem Details,
+    /// il localizzatore dei messaggi d'errore e il logger.
     /// </summary>
     /// <param name="problemDetails">Servizio usato per scrivere la risposta di errore.</param>
     /// <param name="localizer">Risolve la chiave dell'eccezione nella lingua della richiesta.</param>
-    public ApiExceptionHandler(IProblemDetailsService problemDetails, IStringLocalizer<SharedResource> localizer)
+    /// <param name="logger">Logger per segnalare chiavi resx mancanti.</param>
+    public ApiExceptionHandler(IProblemDetailsService problemDetails, IStringLocalizer<SharedResource> localizer, ILogger<ApiExceptionHandler> logger)
     {
         _problemDetails = problemDetails;
         _localizer = localizer;
+        _logger = logger;
     }
 
     /// <summary>
@@ -102,9 +105,15 @@ public class ApiExceptionHandler : IExceptionHandler
         if (requestCulture is not null)
             CultureInfo.CurrentUICulture = requestCulture.UICulture;
 
-        // Se la chiave manca nei .resx, LocalizedString.Value restituisce la chiave formattata con
-        // gli argomenti: l'omissione resta visibile invece di crashare.
+        // Se la chiave manca nei .resx, LocalizedString.Value restituisce la chiave grezza;
+        // loghiamo un warning per renderla visibile senza esporre dettagli al client.
         var detail = _localizer[apiEx.MessageKey, apiEx.MessageArgs];
+        if (detail.ResourceNotFound)
+            _logger.LogWarning("Chiave resx '{Key}' non trovata: il client ricevera' la chiave grezza nel campo detail.", apiEx.MessageKey);
+
+        // Per 429 e 503, aggiunge l'header Retry-After se l'eccezione lo specifica (RFC 9110).
+        if (apiEx.RetryAfterSeconds.HasValue)
+            httpContext.Response.Headers.RetryAfter = apiEx.RetryAfterSeconds.Value.ToString();
 
         // Scrive il payload ProblemDetails JSON con lo status code e il messaggio.
         // Il frontend leggera' il campo "detail" per mostrare l'errore all'utente.

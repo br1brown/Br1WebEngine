@@ -19,11 +19,23 @@ namespace Backend.Models;
 /// <para>
 /// Ogni sottoclasse rappresenta uno scenario di errore specifico con il suo codice HTTP:
 /// <list type="bullet">
-/// <item><see cref="UnauthorizedException"/> (401) — credenziali assenti o non valide</item>
-/// <item><see cref="NotFoundException"/> (404) — la risorsa non esiste o non e' leggibile</item>
-/// <item><see cref="DataNotFoundException"/> (404) — i dati esistono ma sono vuoti</item>
 /// <item><see cref="DecodingException"/> (400) — il payload non e' decodificabile</item>
 /// <item><see cref="InvalidParametersException"/> (400) — parametri mancanti o non validi</item>
+/// <item><see cref="UnauthorizedException"/> (401) — credenziali assenti o non valide</item>
+/// <item><see cref="ForbiddenException"/> (403) — autenticato ma senza permessi</item>
+/// <item><see cref="NotFoundException"/> (404) — la risorsa non esiste o non e' leggibile</item>
+/// <item><see cref="DataNotFoundException"/> (404) — i dati esistono ma sono vuoti</item>
+/// <item><see cref="MethodNotAllowedException"/> (405) — metodo HTTP non supportato</item>
+/// <item><see cref="NotAcceptableException"/> (406) — formato risposta non negoziabile</item>
+/// <item><see cref="RequestTimeoutException"/> (408) — client troppo lento a inviare la richiesta</item>
+/// <item><see cref="ConflictException"/> (409) — risorsa gia' esistente o conflitto di stato</item>
+/// <item><see cref="GoneException"/> (410) — risorsa rimossa definitivamente</item>
+/// <item><see cref="UnprocessableEntityException"/> (422) — dati validi ma semanticamente errati</item>
+/// <item><see cref="TooManyRequestsException"/> (429) — limite applicativo superato</item>
+/// <item><see cref="NotImplementedEndpointException"/> (501) — funzionalita' non ancora implementata</item>
+/// <item><see cref="BadGatewayException"/> (502) — risposta non valida da upstream</item>
+/// <item><see cref="ServiceUnavailableException"/> (503) — servizio temporaneamente non disponibile</item>
+/// <item><see cref="GatewayTimeoutException"/> (504) — upstream non risponde in tempo</item>
 /// </list>
 /// </para>
 /// <para>
@@ -33,9 +45,7 @@ namespace Backend.Models;
 /// </remarks>
 public class ApiException : Exception
 {
-    /// <summary>
-    /// Codice HTTP da restituire al client.
-    /// </summary>
+    /// <summary>Codice HTTP da restituire al client.</summary>
     public int StatusCode { get; }
 
     /// <summary>
@@ -47,6 +57,14 @@ public class ApiException : Exception
     /// Argomenti che riempiono i segnaposto del messaggio localizzato (es. <c>{0}</c>).
     /// </summary>
     public object[] MessageArgs { get; }
+
+    /// <summary>
+    /// Secondi che il client deve attendere prima di riprovare.
+    /// Se valorizzato, l'handler aggiunge l'header <c>Retry-After</c> alla risposta.
+    /// Rilevante per <see cref="TooManyRequestsException"/> (429) e
+    /// <see cref="ServiceUnavailableException"/> (503).
+    /// </summary>
+    public int? RetryAfterSeconds { get; protected init; }
 
     /// <summary>
     /// Inizializza l'eccezione con la chiave del messaggio, lo status HTTP e gli argomenti.
@@ -63,44 +81,7 @@ public class ApiException : Exception
     }
 }
 
-/// <summary>
-/// Rappresenta un errore 401 per credenziali assenti, non valide o sessione non autenticata.
-/// </summary>
-/// <remarks>
-/// Uso tipico: <c>throw new UnauthorizedException("error_invalid_credentials")</c> quando la
-/// verifica delle credenziali in un controller di login fallisce. L'handler lo converte in un
-/// ProblemDetails 401, coerente con il resto della gerarchia.
-/// </remarks>
-public class UnauthorizedException : ApiException
-{
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio da mostrare.
-    /// </summary>
-    /// <param name="messageKey">Chiave di risorsa del motivo. Tenerla generica per non rivelare quale campo e' errato.</param>
-    public UnauthorizedException(string messageKey = "error_unauthorized")
-        : base(messageKey, 401)
-    {
-    }
-}
-
-/// <summary>
-/// Rappresenta un errore 404 per una risorsa richiesta ma non trovata o non leggibile.
-/// </summary>
-/// <remarks>
-/// Uso tipico: <c>throw new NotFoundException("profilo")</c> quando un file JSON o un record
-/// non esiste. Il nome della risorsa riempie il segnaposto del messaggio localizzato.
-/// </remarks>
-public class NotFoundException : ApiException
-{
-    /// <summary>
-    /// Inizializza l'eccezione specificando il nome logico della risorsa mancante.
-    /// </summary>
-    /// <param name="dataName">Descrizione della risorsa che non e' stato possibile leggere.</param>
-    public NotFoundException(string dataName = "richieste")
-        : base("error_not_found", 404, dataName)
-    {
-    }
-}
+// ── 400 Bad Request ──────────────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 400 dovuto a contenuti non decodificabili.
@@ -111,29 +92,8 @@ public class NotFoundException : ApiException
 /// </remarks>
 public class DecodingException : ApiException
 {
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio di errore di decodifica.
-    /// </summary>
     public DecodingException()
         : base("error_decoding", 400)
-    {
-    }
-}
-
-/// <summary>
-/// Rappresenta un errore 404 per dati esistenti ma vuoti o non disponibili.
-/// </summary>
-/// <remarks>
-/// Diversa da <see cref="NotFoundException"/>: la risorsa esiste, ma il contenuto
-/// e' vuoto o non disponibile per la lingua richiesta.
-/// </remarks>
-public class DataNotFoundException : ApiException
-{
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio di dato non disponibile.
-    /// </summary>
-    public DataNotFoundException()
-        : base("error_data_not_found", 404)
     {
     }
 }
@@ -147,14 +107,85 @@ public class DataNotFoundException : ApiException
 /// </remarks>
 public class InvalidParametersException : ApiException
 {
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio di parametri non validi.
-    /// </summary>
     public InvalidParametersException()
         : base("error_invalid_parameters", 400)
     {
     }
 }
+
+// ── 401 Unauthorized ─────────────────────────────────────────────────────────
+
+/// <summary>
+/// Rappresenta un errore 401 per credenziali assenti, non valide o sessione non autenticata.
+/// </summary>
+/// <remarks>
+/// Uso tipico: <c>throw new UnauthorizedException("error_invalid_credentials")</c> quando la
+/// verifica delle credenziali in un controller di login fallisce. L'handler lo converte in un
+/// ProblemDetails 401, coerente con il resto della gerarchia.
+/// Usare la chiave generica <c>"error_unauthorized"</c> (default) quando non si vuole rivelare
+/// quale campo e' errato; <c>"error_invalid_credentials"</c> solo dove la distinzione e' accettabile.
+/// </remarks>
+public class UnauthorizedException : ApiException
+{
+    /// <param name="messageKey">Chiave di risorsa del motivo. Default: <c>"error_unauthorized"</c>.</param>
+    public UnauthorizedException(string messageKey = "error_unauthorized")
+        : base(messageKey, 401)
+    {
+    }
+}
+
+// ── 403 Forbidden ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Rappresenta un errore 403 per accesso negato a un utente autenticato ma non autorizzato.
+/// </summary>
+/// <remarks>
+/// Diversa da <see cref="UnauthorizedException"/> (401): quella indica che l'utente non e'
+/// autenticato; questa indica che e' autenticato ma non ha i permessi per l'operazione richiesta.
+/// Uso tipico: un utente loggato tenta di accedere a una risorsa riservata a un ruolo superiore.
+/// </remarks>
+public class ForbiddenException : ApiException
+{
+    public ForbiddenException()
+        : base("error_forbidden", 403)
+    {
+    }
+}
+
+// ── 404 Not Found ────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Rappresenta un errore 404 per una risorsa richiesta ma non trovata o non leggibile.
+/// </summary>
+/// <remarks>
+/// Uso tipico: <c>throw new NotFoundException("profilo")</c> quando un file JSON o un record
+/// non esiste. Il nome della risorsa riempie il segnaposto del messaggio localizzato.
+/// </remarks>
+public class NotFoundException : ApiException
+{
+    /// <param name="dataName">Descrizione della risorsa che non e' stato possibile leggere.</param>
+    public NotFoundException(string dataName = "richieste")
+        : base("error_not_found", 404, dataName)
+    {
+    }
+}
+
+/// <summary>
+/// Rappresenta un errore 404 per dati esistenti ma vuoti o non disponibili.
+/// </summary>
+/// <remarks>
+/// Diversa da <see cref="NotFoundException"/>: la risorsa esiste, ma il contenuto
+/// e' vuoto o non disponibile per la lingua richiesta.
+/// </remarks>
+public class DataNotFoundException : ApiException
+{
+    public DataNotFoundException()
+        : base("error_data_not_found", 404)
+    {
+    }
+}
+
+// ── 405 Method Not Allowed ───────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 405 per metodi HTTP non supportati dall'endpoint.
@@ -172,6 +203,8 @@ public class MethodNotAllowedException : ApiException
     }
 }
 
+// ── 406 Not Acceptable ───────────────────────────────────────────────────────
+
 /// <summary>
 /// Rappresenta un errore 406 per formati di risposta non negoziabili.
 /// </summary>
@@ -187,13 +220,16 @@ public class NotAcceptableException : ApiException
     }
 }
 
+// ── 408 Request Timeout ──────────────────────────────────────────────────────
+
 /// <summary>
-/// Rappresenta un errore 408 per richieste o risposte di servizi esterni scadute nel tempo.
+/// Rappresenta un errore 408 per client troppo lenti a inviare la richiesta completa.
 /// </summary>
 /// <remarks>
-/// Utile quando il backend chiama un servizio esterno (HTTP, database, queue) con un timeout
-/// esplicito e il servizio non risponde. Diverso da <see cref="GatewayTimeoutException"/> (504),
-/// che segnala il timeout di un proxy/gateway intermedio.
+/// Secondo RFC 9110, il 408 segnala che il <b>client</b> non ha completato l'invio della
+/// richiesta entro il tempo che il server era disposto ad attendere (es. upload di un body
+/// molto grande con connessione lenta). Non e' il codice corretto per timeout lato server
+/// verso servizi esterni: in quel caso usare <see cref="GatewayTimeoutException"/> (504).
 /// </remarks>
 public class RequestTimeoutException : ApiException
 {
@@ -203,24 +239,26 @@ public class RequestTimeoutException : ApiException
     }
 }
 
+// ── 409 Conflict ─────────────────────────────────────────────────────────────
+
 /// <summary>
-/// Rappresenta un errore 403 per accesso negato a un utente autenticato ma non autorizzato.
+/// Rappresenta un errore 409 per conflitti di stato sulla risorsa.
 /// </summary>
 /// <remarks>
-/// Diversa da <see cref="UnauthorizedException"/> (401): quella indica che l'utente non e'
-/// autenticato; questa indica che e' autenticato ma non ha i permessi per l'operazione richiesta.
-/// Uso tipico: un utente loggato tenta di accedere a una risorsa riservata a un ruolo superiore.
+/// Uso tipico: tentativo di creare una risorsa gia' esistente, o aggiornamento
+/// su una versione obsoleta (ottimistic concurrency). Il nome della risorsa in conflitto
+/// riempie il segnaposto <c>{0}</c> del messaggio localizzato.
 /// </remarks>
-public class ForbiddenException : ApiException
+public class ConflictException : ApiException
 {
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio di accesso vietato.
-    /// </summary>
-    public ForbiddenException()
-        : base("error_forbidden", 403)
+    /// <param name="resourceName">Descrizione della risorsa che ha generato il conflitto.</param>
+    public ConflictException(string resourceName = "risorsa")
+        : base("error_conflict", 409, resourceName)
     {
     }
 }
+
+// ── 410 Gone ─────────────────────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 410 per risorse rimosse definitivamente.
@@ -239,6 +277,8 @@ public class GoneException : ApiException
     }
 }
 
+// ── 422 Unprocessable Entity ─────────────────────────────────────────────────
+
 /// <summary>
 /// Rappresenta un errore 422 per richieste sintatticamente valide ma semanticamente non elaborabili.
 /// </summary>
@@ -255,6 +295,8 @@ public class UnprocessableEntityException : ApiException
     }
 }
 
+// ── 429 Too Many Requests ────────────────────────────────────────────────────
+
 /// <summary>
 /// Rappresenta un errore 429 per superamento dei limiti di frequenza applicativi.
 /// </summary>
@@ -262,34 +304,20 @@ public class UnprocessableEntityException : ApiException
 /// Il rate limiting infrastrutturale e' gia' gestito dal middleware (100 req/min globale,
 /// 5 req/min per login). Questa eccezione serve per limiti di business applicativi piu'
 /// granulari (es. max 3 tentativi di OTP per sessione, max 10 export al giorno per utente).
+/// Se valorizzato, <paramref name="retryAfterSeconds"/> aggiunge l'header <c>Retry-After</c>
+/// alla risposta, indicando al client quando potra' riprovare.
 /// </remarks>
 public class TooManyRequestsException : ApiException
 {
-    public TooManyRequestsException()
+    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale).</param>
+    public TooManyRequestsException(int? retryAfterSeconds = null)
         : base("error_too_many_requests", 429)
     {
+        RetryAfterSeconds = retryAfterSeconds;
     }
 }
 
-/// <summary>
-/// Rappresenta un errore 409 per conflitti di stato sulla risorsa.
-/// </summary>
-/// <remarks>
-/// Uso tipico: tentativo di creare una risorsa gia' esistente, o aggiornamento
-/// su una versione obsoleta (ottimistic concurrency). Il nome della risorsa in conflitto
-/// riempie il segnaposto <c>{0}</c> del messaggio localizzato.
-/// </remarks>
-public class ConflictException : ApiException
-{
-    /// <summary>
-    /// Inizializza l'eccezione specificando il nome logico della risorsa in conflitto.
-    /// </summary>
-    /// <param name="resourceName">Descrizione della risorsa che ha generato il conflitto.</param>
-    public ConflictException(string resourceName = "risorsa")
-        : base("error_conflict", 409, resourceName)
-    {
-    }
-}
+// ── 501 Not Implemented ──────────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 501 per funzionalita' non ancora implementate lato server.
@@ -306,6 +334,8 @@ public class NotImplementedEndpointException : ApiException
     {
     }
 }
+
+// ── 502 Bad Gateway ──────────────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 502 per risposte non valide ricevute da un servizio upstream.
@@ -324,6 +354,8 @@ public class BadGatewayException : ApiException
     }
 }
 
+// ── 503 Service Unavailable ──────────────────────────────────────────────────
+
 /// <summary>
 /// Rappresenta un errore 503 per servizi esterni temporaneamente non disponibili.
 /// </summary>
@@ -331,17 +363,20 @@ public class BadGatewayException : ApiException
 /// Uso tipico: un servizio di terze parti (email, pagamenti, SMS) non risponde o
 /// restituisce un errore. Segnala al client che l'operazione puo' essere ritentata piu' tardi,
 /// senza esporre dettagli tecnici dell'infrastruttura.
+/// Se valorizzato, <paramref name="retryAfterSeconds"/> aggiunge l'header <c>Retry-After</c>
+/// alla risposta (RFC 9110 §15.6.4).
 /// </remarks>
 public class ServiceUnavailableException : ApiException
 {
-    /// <summary>
-    /// Inizializza l'eccezione con la chiave del messaggio di servizio non disponibile.
-    /// </summary>
-    public ServiceUnavailableException()
+    /// <param name="retryAfterSeconds">Secondi da attendere prima di riprovare (opzionale).</param>
+    public ServiceUnavailableException(int? retryAfterSeconds = null)
         : base("error_service_unavailable", 503)
     {
+        RetryAfterSeconds = retryAfterSeconds;
     }
 }
+
+// ── 504 Gateway Timeout ──────────────────────────────────────────────────────
 
 /// <summary>
 /// Rappresenta un errore 504 per timeout di risposta da un servizio upstream.
