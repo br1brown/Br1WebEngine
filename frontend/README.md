@@ -188,7 +188,7 @@ this.auth.session()?.roles
 
 ### Ciclo di Vita del Token
 
-Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (engine, intoccabile) avvia un timer automatico che esegue il logout allo scadere dell'`exp` del JWT.
+Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla chiusura della scheda). `TokenService` (engine, intoccabile) avvia un timer automatico che esegue il logout allo scadere dell'`exp` del JWT. Il timer gestisce il limite JavaScript di 24 giorni tramite rescheduling ricorsivo.
 
 ### Gestione Errori di Login
 
@@ -202,6 +202,102 @@ Il token è persistito in `sessionStorage` (sopravvive all'F5, si azzera alla ch
 | qualsiasi altro | `erroreImprevisto` | Errore non classificabile |
 
 Il 429 è importante: senza questa mappatura esplicita, un rate-limit sul login mostrerebbe "errore imprevisto" invece di un messaggio informativo per l'utente.
+
+---
+
+## 🔒 Consenso Cookie e Privacy (GDPR/ePrivacy)
+
+`CookieConsentService` implementa una strategia "Privacy by Default": nessun cookie viene scritto finché l'utente non esprime consenso esplicito per quella categoria.
+
+### Tre Categorie di Consenso
+
+| Categoria | Cosa include |
+| :--- | :--- |
+| **Technical** | Preferenza lingua, Service Worker, cookie essenziali di funzionamento |
+| **Analytics** | Tracciamento e analytics (Google Analytics, ecc.) |
+| **Profiling** | Pubblicità comportamentale e profilazione |
+
+### Aggiungere un Nuovo Cookie
+
+Registra il cookie nel `COOKIE_MAP` (in `src/app/core/services/cookie-registry.ts`), specifica la categoria e il banner mostrerà automaticamente il toggle corrispondente:
+
+```typescript
+export const COOKIE_MAP = {
+    'mioTracker': {
+        category: CookieCategory.Analytics,
+        displayName: 'My Tracker',
+        description: 'Usato per il tracciamento anonimo...'
+    }
+} as const;
+```
+
+Nel componente:
+```typescript
+this.consent.setCookie('mioTracker', 'valore', 60 * 60 * 24); // 1 giorno
+```
+
+Il cookie viene scritto solo se la categoria corrispondente è stata accettata.
+
+### Service Worker e Consenso Tecnico
+
+Il Service Worker è registrato **solo dopo che l'utente accetta il consenso tecnico**. Questo include:
+- Registrazione `provideServiceWorker()` all'avvio
+- `VersionCheckService` inizia il polling degli aggiornamenti
+- La preferenza lingua viene salvata su `localStorage`
+
+### Persistenza Lingua e Consenso
+
+La preferenza lingua è salvata solo con consenso tecnico accettato:
+1. Utente rifiuta consenso → cambia lingua a "en" → al reload torna al default
+2. Utente accetta consenso tecnico → cambia lingua a "en" → persiste tra i reload
+
+La lettura della preferenza salvata non richiede consenso (operazione di sola lettura, privacy-safe).
+
+---
+
+## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)
+
+Il sito ha un sistema di tema che genera 75+ variabili CSS partendo da un **solo colore brand** dichiarato in `site.ts`.
+
+### Un Colore, Palette Completa
+
+```typescript
+// site.ts
+setSiteConfiguration({
+    colorTema: '#1f40ff',  // Un solo colore — l'engine genera tutto il resto
+    // ...
+});
+```
+
+Da questo colore vengono generati automaticamente:
+- Varianti brand: primario, secondario (muted), testo leggibile
+- Surface colors: sfondo pagina, card, hover states (light e dark)
+- Semantic colors: link, borders, emphasis text, subtle backgrounds
+- Navbar colors: adattiva al brand (full immersive se scuro, pastello se chiaro)
+
+### Garanzia WCAG 4.5:1
+
+Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA:
+- `findCompliantColor()` regola la luminanza L in OKLCH finché non raggiunge 4.5:1
+- Funziona sia in light che dark mode
+- Risultato: accessibilità garantita senza lavoro manuale
+
+### Dark Mode Automatico
+
+Reattivo a `prefers-color-scheme`: se l'utente cambia tema OS, il sito si adatta in tempo reale senza reload:
+```typescript
+readonly themeTone: Signal<'light' | 'dark'>; // Reattivo a prefers-color-scheme
+readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
+```
+
+### Metodi Statici (SSR-Safe)
+
+`ThemeService` espone metodi statici puri usabili in Node.js/SSR senza Angular:
+```typescript
+const [L, C, H] = ThemeService.hexToOklch('#1f40ff');
+const textColor = ThemeService.findCompliantColor(C, H, bgHex, 4.5, startL, stepDir);
+const hex = ThemeService.oklchToHex(L, C, H);
+```
 
 ---
 
@@ -260,6 +356,37 @@ const { angularUrl } = this.asset.getUrlFromBlob(blob);
 
 I Blob URL vengono revocati automaticamente a ogni cambio pagina, quindi non perdono memoria.
 
+### Ottimizzazione Immagini Server-Side
+
+L'endpoint `/cdn-cgi/asset` effettua il resize lato server e cacha il risultato:
+
+```
+GET /cdn-cgi/asset?id=hero&w=640
+→ Legge mapping.json (asset ID → percorso fisico)
+→ Ridimensiona a 640px (se la larghezza è in whitelist)
+→ Caches il risultato
+→ Restituisce PNG/JPEG ottimizzato
+```
+
+Larghezze supportate (whitelist in `app.config.ts`): `125, 320, 480, 512, 640, 768, 1024, 1080, 1366, 1600, 1920`.
+Formati non-raster (video, PDF, SVG) sono serviti senza modifica.
+
+### Directive `appAsset` / `appAssetHref`
+
+Invece di costruire gli URL manualmente, usa le directive dichiarative:
+
+```html
+<!-- Immagine ottimizzata (src reattivo alla width) -->
+<img appAsset="hero" [appAssetWidth]="640" alt="Hero" class="img-fluid">
+
+<!-- Link/download con href ottimizzato -->
+<a [appAssetHref]="'manuale'" [appAssetWidth]="1024" download="manuale.pdf">
+    Scarica manuale
+</a>
+```
+
+Le directive sono type-safe: errori di applicazione su elementi sbagliati vengono rilevati a compile-time.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)
@@ -299,6 +426,32 @@ const msg = this.translate.translate('benvenuto', 'Mario'); // "Ciao {0}" → "C
 }
 ```
 
+### Normalizzazione BCP-47
+
+L'engine normalizza internamente i tag lingua per coerenza:
+```typescript
+// "it-IT" e "it" sono equivalenti — entrambi caricano basic.it.json
+TranslateService.normalizeBcp47('it-IT')  // → 'it'
+TranslateService.normalizeBcp47('en-US')  // → 'en'
+```
+
+### Pipe `translate` — Impura by Design
+
+La `TranslatePipe` è dichiarata `pure: false` perché le traduzioni cambiano al cambio lingua, e una pipe pura non rileva il cambiamento di stato esterno. Angular la ri-esegue ad ogni ciclo di change detection. Se serve ottimizzare per template ad alta frequenza, usa `computed()`:
+
+```typescript
+readonly trad = computed(() => this.translate.translate('chiave'));
+```
+
+### Pipe `markdown`
+
+Converte Markdown a HTML nel template, con sanitizzazione XSS automatica:
+```html
+<div [innerHTML]="testo | markdown"></div>
+```
+
+Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qualsiasi componente per contenuto rich text.
+
 ---
 
 ## 🌐 ApiService: Chiamare il Backend
@@ -325,6 +478,193 @@ ngOnInit() {
 readonly profileRes = this.api.getProfileResource();
 // In template: profileRes.value() | profileRes.isLoading()
 ```
+
+### Errori Silenziosi per UI Custom
+
+In componenti con UI d'errore propria (es. form di login), passa `{ silent: true }` per impedire la notifica automatica:
+
+```typescript
+// LoginFormComponent: gestisce l'errore internamente
+await this.api.login(req, { silent: true })
+    .catch(err => {
+        this.errorMsg.set(err.problem?.detail ?? this.translate.translate('erroreImprevisto'));
+    });
+```
+
+Senza `silent: true`, `BaseApiService` chiamerebbe `NotificationService.handleApiError()` automaticamente.
+
+### `httpResource` per Componenti Sempre-On
+
+Usa `getProfileResource()` nei componenti che restano attivi durante tutta la navigazione (navbar, footer):
+```typescript
+readonly profile = this.api.getProfileResource();
+// profile.value() → Profile | undefined
+// profile.isLoading() → boolean
+```
+Si aggiorna automaticamente al cambio lingua (tramite segnale `Accept-Language`).
+
+---
+
+## 📤 ShareService: Copia, Condivisione, Download
+
+`ShareService` centralizza tutte le operazioni di condivisione e download.
+
+```typescript
+// Copia negli appunti
+const ok = await this.share.copyText('testo');
+// → mostra toast "Copiato negli appunti"
+
+// Condivisione nativa (Web Share API) con fallback a copy
+await this.share.shareText('Titolo', 'Testo da condividere');
+
+// Download canvas come PNG
+await this.share.downloadCanvas(myCanvas, 'screenshot.png');
+
+// Download blob generico
+this.share.downloadBlob(blob, 'documento.pdf');
+```
+
+**Fallback chain:** Web Share API disponibile → usa native share; non disponibile / errore → fallback a download o copy.
+
+---
+
+## 🔊 Sintesi Vocale (SpeechService)
+
+`SpeechService` fornisce lettura ad alta voce con selezione automatica della voce in base alla lingua corrente.
+
+```typescript
+// Nel componente
+private speech = inject(SpeechService);
+
+readAloud(text: string) {
+    this.speech.speak(text, { rate: 1.0, pitch: 1.0 });
+}
+```
+
+```html
+<button (click)="readAloud(articleText)" [disabled]="speech.isSpeaking()">
+    {{ speech.isSpeaking() ? 'Lettura in corso...' : 'Leggi ad alta voce' }}
+</button>
+```
+
+- Voce auto-selezionata in base alla lingua corrente (si aggiorna reattivamente al cambio lingua)
+- `rate`: velocità 0.1–10 (default 1); `pitch`: tono 0–2 (default 1)
+- `speech.isSpeaking()`: Signal reattivo
+- SSR-safe: non disponibile server-side, degradazione silenziosa
+
+---
+
+## QR: Codici QR Dinamici (QrCodeService)
+
+`QrCodeService` genera codici QR per casi d'uso comuni con colori automaticamente adattati al tema.
+
+```typescript
+// WhatsApp: link precompilato con messaggio
+await this.qr.create({ type: 'whatsapp', phone: '+393331234567', text: 'Ciao!' });
+
+// Email: mailto con subject e body
+await this.qr.create({ type: 'email', to: 'info@example.com', subject: 'Demo', body: '...' });
+
+// WiFi: WIFI auth string
+await this.qr.create({ type: 'wifi', ssid: 'MyNetwork', password: 'pwd123', encryption: 'WPA' });
+
+// SEPA: bonifico bancario
+await this.qr.create({ type: 'sepa', iban: 'IT60...', name: 'Azienda', amount: 100.50 });
+
+// Testo libero / URL
+await this.qr.create({ type: 'text', content: 'https://example.com' });
+```
+
+Ritorna `{ success: true, blob: Blob }` oppure `{ success: false, error: QrError, message: string }`.
+
+**Caching:** LRU cache automatica (max 32 QR) — QR identici con stessi colori sono serviti dalla memoria senza ricalcolo.
+
+---
+
+## 🖼️ ImgBuilderService: Generazione Immagini da Testo
+
+`ImgBuilderService` genera PNG da testo usando SVG come formato intermedio. Tre modalità di layout:
+
+```typescript
+// exactInLine: nessun wrap, dimensioni guidate dal contenuto
+{ renderMode: 'exactInLine' }
+
+// wrap: larghezza fissa, altezza segue il testo
+{ renderMode: 'wrap', maxWidth: 1000 }
+
+// fixedRatio: aspetto ratio fisso, dimensioni si adattano
+{ renderMode: 'fixedRatio', ratio: '16:9' }
+```
+
+```typescript
+// Canvas per uso diretto (es. disegno, compositing)
+const canvas = await this.img.buildCanvas('Titolo Articolo', {
+    bgColor: '#1f40ff',
+    textColor: '#ffffff',
+    fontSize: 60,
+    ratio: '16:9',
+    maxWidth: 1920,
+});
+
+// Blob PNG per download o condivisione
+const blob = await this.img.buildBlob('Titolo', opts);
+await this.share.downloadBlob(blob, 'social.png');
+```
+
+Se non fornisci `bgColor`/`textColor`, vengono letti dai Signal del tema corrente (colori WCAG-conformi automatici).
+
+**SSR-safe:** il metodo statico `ImgBuilderService.buildSvg()` non tocca DOM né Angular — usabile in Node.js per generare preview server-side.
+
+---
+
+## 🔗 Meta Tag e Anteprima Sociale (PageMetaService)
+
+`PageMetaService` aggiorna meta tag (title, og:, twitter:, canonical, JSON-LD) per ogni pagina. I valori di base vengono impostati automaticamente da `site.ts`; il resolver li affina con i dati della pagina.
+
+### og:image Dinamica
+
+In SSR viene generata automaticamente un'immagine personalizzata per la condivisione sociale:
+- Asset di background (se `imgId` fornito)
+- Overlay con titolo e sottotitolo
+- Badge con favicon del sito
+
+```typescript
+// Nel ContentResolver della pagina
+this.pageMeta.setPageMeta({
+    pageTitle: 'Il Mio Articolo',
+    description: 'Descrizione SEO',
+    imgId: 'hero-image-123',
+    ogType: 'article',
+    structuredDataType: 'Article'
+});
+```
+
+**Importante:** `og:image` si aggiorna solo in SSR. I crawler non eseguono JavaScript — vedono la versione server-rendered. Le modifiche client-side all'og:image non hanno effetto sui preview di Facebook/LinkedIn/WhatsApp.
+
+### JSON-LD Strutturato
+
+Schema.org viene injected automaticamente per ogni pagina. Migliora l'apparenza in Google Search e altri motori. Il tipo (`Article`, `WebPage`, `Organization`, ecc.) si imposta tramite `structuredDataType` nella config della pagina in `site.ts`.
+
+---
+
+## 🔄 Controllo Versione e Aggiornamenti (VersionCheckService)
+
+L'app controlla automaticamente se è disponibile una nuova versione e notifica l'utente.
+
+### Fonti di Versione
+
+La versione è dichiarata in `site.ts` e distribuita in tre posti tramite `generate-statics.ts` al build:
+1. Meta tag `app-version` — baseline in memoria
+2. `manifest.webmanifest` — usato dal polling ogni 10 minuti
+3. Hash NGSW — usato da SwUpdate nelle PWA installate
+
+### Meccanica
+
+**Browser normale:** polling ogni 10 minuti su `/manifest.webmanifest` → se version cambia → dialog "Nuova versione disponibile" → hard reload attiva la nuova versione.
+
+**PWA installata:** SwUpdate intercetta il manifest (Service Worker) → emette `VERSION_READY` quando la nuova versione è scaricata → l'utente conferma → `activateUpdate()` + reload.
+
+**Prerequisito:** il controllo versione è **disabilitato finché `isTechnicalConsentGiven()` è false**. Una volta accettato il consenso tecnico, il servizio si attiva al reload successivo.
 
 ---
 
@@ -368,6 +708,34 @@ smoke: {
 showLoginInHeader: true,           // mostra link Login / pulsante Logout nella navbar
 pageForAuthGuard: PageType.Login,  // pagina verso cui redirigere utenti non autenticati
 ```
+
+### Router: Component Input Binding e Scroll
+
+Il router è configurato con `withComponentInputBinding()`: i parametri di rotta si leggono direttamente come `@Input()` nel componente, senza iniettare `ActivatedRoute`:
+
+```typescript
+@Component({ ... })
+export class ArticleComponent {
+    readonly id = input<string>();       // Letto da route params
+    readonly tab = input<string>('info'); // Valore di default
+}
+```
+
+`withInMemoryScrolling()` gestisce la posizione di scroll: il ritorno alla pagina precedente ripristina la posizione; i link con `#section` scrollano all'ancora.
+
+---
+
+## 📡 Configurazione SSR e Origine Frontend
+
+### `FRONTEND_BASE_URL` per og:image
+
+L'URL canonico del sito è dichiarato in `FRONTEND_BASE_URL` (env var letta da `deploy.sh` / `global-settings.json`). Viene usato per costruire URL assoluti di `og:image` in SSR — indipendentemente dagli header del reverse proxy (Nginx, Cloudflare):
+
+```bash
+FRONTEND_BASE_URL=https://tuodominio.it
+```
+
+Nel browser, se il token non è disponibile, si usa `document.location.origin` come fallback. Importante per deployment multi-dominio dove SSR e browser vedono origini diverse.
 
 ---
 
