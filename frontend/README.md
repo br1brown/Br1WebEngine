@@ -265,6 +265,28 @@ La preferenza lingua è salvata solo con consenso tecnico accettato:
 
 La lettura della preferenza salvata non richiede consenso (operazione di sola lettura, privacy-safe).
 
+### `PrintCookieService`: Dichiarazione Cookie GDPR
+
+`PrintCookieService` genera l'elenco strutturato di cookie e categorie da mostrare nella pagina Cookie Policy — richiesto dalla normativa GDPR per ogni sito che usa cookie non tecnici.
+
+```typescript
+private readonly printCookies = inject(PrintCookieService);
+
+// Elenco categorie presenti nel sito (solo quelle effettivamente usate)
+readonly categories = computed(() =>
+    this.printCookies.getCategories(k => this.translate.translate(k))
+);
+// → [{ key: CookieCategory.Technical, name: 'Cookie tecnici', description: '...' }, ...]
+
+// Elenco cookie individuali con nome, categoria e descrizione
+readonly cookies = computed(() =>
+    this.printCookies.getCookies(k => this.translate.translate(k))
+);
+// → [{ name: 'lang', category: 'Cookie tecnici', categoryKey: CookieCategory.Technical, description: '...' }, ...]
+```
+
+Il servizio include automaticamente il cookie di lingua (se il sito è multilingua) e il cookie del Service Worker (se `isWebApp: true`). Le stringhe usano le chiavi `*CategoriaCookie` / `*DescrizioneCategoriaCookie` in `basic.{lang}.json`.
+
 ---
 
 ## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)
@@ -1069,6 +1091,16 @@ La risposta HTML viene inoltrata al browser senza bufferizzare in memoria:
 Readable.fromWeb(renderedResponse.body).pipe(response);
 ```
 Il browser inizia a ricevere e parsare l'HTML prima che Angular abbia completato il rendering completo della pagina.
+
+### Cache Immagini su Disco (`IMAGE_CACHE_MAX_MB`)
+
+I thumbnail generati da `/cdn-cgi/asset` e `/cdn-cgi/preview` vengono scritti su disco per evitare di ricalcolarli a ogni richiesta. Lo sweep LRU avviene ogni 6 ore:
+
+```bash
+IMAGE_CACHE_MAX_MB=500   # default: 500 MB — oltre questa soglia elimina i file meno usati
+```
+
+Il sweep porta la cache al 90% del cap (non al 100%) per evitare di ri-sweepare a ogni singolo thumbnail aggiunto. L'`mtime` di ogni file viene aggiornato a ogni hit, così i thumbnail realmente richiesti sopravvivono e vengono scartati solo quelli inutilizzati.
 
 ---
 
