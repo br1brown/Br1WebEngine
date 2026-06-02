@@ -33,8 +33,8 @@ I due progetti (Frontend e Backend) sono totalmente disaccoppiati, ma condividon
 │  Frontend — Node SSR (Angular 19 + Express)          │
 │  porta 80                                            │
 │  ┌──────────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │ Angular SSR  │  │/api/* proxy│  │/cdn-cgi/asset│  │
-│  │  (pagine)    │  │ → backend  │  │ Sharp + cache│  │
+│  │ Angular SSR  │  │/api/* proxy│  │/cdn-cgi/*    │  │
+│  │  (pagine)    │  │ → backend  │  │ Sharp+OGimage│  │
 │  └──────────────┘  └────────────┘  └──────────────┘  │
 └───────────────────────────┬──────────────────────────┘
                          │
@@ -67,6 +67,17 @@ I due progetti (Frontend e Backend) sono totalmente disaccoppiati, ma condividon
 | ├── 🖼️ `pages/` | Schermate Intere | Ereditano da `PageBaseComponent`. Dichiarate tramite enum `PageType`. |
 | └── 🧱 `components/` | UI Condivisa | Componenti "stupidi". Ricevono `@Input()` ed emettono eventi. |
 
+### Route SSR speciali del Frontend
+
+Il Node SSR del frontend gestisce oltre alle pagine Angular anche alcune route infrastrutturali:
+
+| Route | Cosa fa |
+| :--- | :--- |
+| `/api/*` | Reverse proxy verso il backend (inietta l'API key lato server) |
+| `/cdn-cgi/asset` | Image processing con Sharp: resize, conversione formato, cache su disco |
+| `/cdn-cgi/preview` | Generazione og:image dinamica (preview OpenGraph firmata) |
+| `/blob/:slug` | Serve file statici caricati dall'applicazione (volume `/app/uploads`) |
+
 ---
 
 ## 💡 I Vantaggi per il Business
@@ -74,6 +85,23 @@ I due progetti (Frontend e Backend) sono totalmente disaccoppiati, ma condividon
 1. **Time to Market Fulmineo**: Al Giorno 1 sei già pronto per sviluppare la logica. Il prodotto esce prima.
 2. **SEO Perfetta "Di Fabbrica"**: L'Engine frontend gestisce dinamicamente tag OpenGraph, JSON-LD e Server-Side Rendering granulare in base a `site.ts`.
 3. **Sicurezza Preventiva**: Bot bloccati, attacchi brute-force mitigati e API Key inforcate. L'infrastruttura del cliente è sicura fin dal primo commit.
+
+---
+
+## 🧪 Test Suite Automatica
+
+Prima di ogni deploy in produzione, `deploy.sh` esegue automaticamente `scripts/test/run-all.sh` su un ambiente isolato (blue/green). La suite comprende 6 controlli:
+
+| Script | Cosa verifica |
+| :--- | :--- |
+| `lint-check.sh` | Qualità del codice Angular (ESLint) |
+| `i18n-check.sh` | Chiavi di traduzione mancanti o non usate |
+| `tsc-check.sh` | Errori TypeScript (type safety) |
+| `circular-deps-check.sh` | Dipendenze circolari tra moduli |
+| `a11y-test.sh` | Conformità WCAG (accessibilità) |
+| `lighthouse-test.sh` | Performance budget (Core Web Vitals) |
+
+Puoi eseguirli manualmente dalla root del progetto con `./scripts/test/run-all.sh`.
 
 ---
 

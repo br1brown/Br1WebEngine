@@ -68,7 +68,10 @@
     <value>La password deve contenere almeno 8 caratteri.</value>
   </data>
   <data name="error_not_found" xml:space="preserve">
-    <value>Impossibile leggere le informazioni {0}</value>
+    <value>Risorsa non trovata.</value>
+  </data>
+  <data name="error_not_found_named" xml:space="preserve">
+    <value>Impossibile leggere le informazioni {0}.</value>
   </data>
   <data name="error_data_not_found" xml:space="preserve">
     <value>Dati non trovati</value>
@@ -84,5 +87,53 @@
   </data>
   <data name="error_invalid_credentials" xml:space="preserve">
     <value>Credenziali non valide.</value>
+  </data>
+  <data name="error_forbidden" xml:space="preserve">
+    <value>Non hai i permessi necessari per eseguire questa operazione.</value>
+  </data>
+  <data name="error_method_not_allowed" xml:space="preserve">
+    <value>Il metodo HTTP utilizzato non è supportato per questo endpoint.</value>
+  </data>
+  <data name="error_not_acceptable" xml:space="preserve">
+    <value>Il server non è in grado di restituire una risposta nei formati accettati dalla richiesta.</value>
+  </data>
+  <data name="error_request_timeout" xml:space="preserve">
+    <value>La richiesta ha impiegato troppo tempo. Riprova.</value>
+  </data>
+  <data name="error_gone" xml:space="preserve">
+    <value>La risorsa richiesta non è più disponibile ed è stata rimossa definitivamente.</value>
+  </data>
+  <data name="error_gone_named" xml:space="preserve">
+    <value>{0} non è più disponibile ed è stato rimosso definitivamente.</value>
+  </data>
+  <data name="error_unprocessable_entity" xml:space="preserve">
+    <value>La richiesta è sintatticamente corretta ma non può essere elaborata per un errore semantico.</value>
+  </data>
+  <data name="error_too_many_requests" xml:space="preserve">
+    <value>Troppe richieste. Attendi qualche secondo e riprova.</value>
+  </data>
+  <data name="error_too_many_requests_timed" xml:space="preserve">
+    <value>Troppe richieste. Riprova tra {0} secondi.</value>
+  </data>
+  <data name="error_conflict" xml:space="preserve">
+    <value>Conflitto di risorsa. L'operazione richiesta non può essere completata.</value>
+  </data>
+  <data name="error_conflict_named" xml:space="preserve">
+    <value>{0} è già esistente o in conflitto con una risorsa esistente.</value>
+  </data>
+  <data name="error_not_implemented" xml:space="preserve">
+    <value>La funzionalità richiesta non è ancora supportata da questo server.</value>
+  </data>
+  <data name="error_bad_gateway" xml:space="preserve">
+    <value>Il server ha ricevuto una risposta non valida da un servizio upstream.</value>
+  </data>
+  <data name="error_service_unavailable" xml:space="preserve">
+    <value>Il servizio è temporaneamente non disponibile. Riprova più tardi.</value>
+  </data>
+  <data name="error_service_unavailable_timed" xml:space="preserve">
+    <value>Il servizio è temporaneamente non disponibile. Riprova tra {0} secondi.</value>
+  </data>
+  <data name="error_gateway_timeout" xml:space="preserve">
+    <value>Il servizio upstream non ha risposto in tempo. Riprova più tardi.</value>
   </data>
 </root>

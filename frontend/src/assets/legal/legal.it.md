@@ -1,24 +1,7 @@
 # Note Legali
 
 ## Informazioni sul titolare
-Il presente sito web è di proprietà e gestito da **{{ragioneSociale}}**.
-
-### Sede legale
-{{indirizzo}}
-
-### Dati di registrazione
-- **P.IVA:** {{partitaIva}}
-- **Codice Fiscale:** {{codiceFiscale}}
-- **Numero REA:** {{numeroRea}}
-- **Registro Imprese:** {{registroImprese}}
-
-### Contatti
-- **Telefono:** {{telefono}}
-- **Email:** {{email}}
-- **PEC:** {{pec}}
-
-### Rappresentante legale
-{{rappresentanteLegale}}
+{{companyProfile}}
 
 ## Hosting e gestione tecnica
 Il sito è ospitato su infrastruttura cloud. Per segnalare problemi tecnici o vulnerabilità di sicurezza, contatta il titolare ai recapiti sopra indicati.

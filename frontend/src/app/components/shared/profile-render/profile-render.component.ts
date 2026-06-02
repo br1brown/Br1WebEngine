@@ -45,18 +45,6 @@ export class ProfileRenderComponent {
 
         return this.compactSections([
             {
-                titleKey: 'contattiAzienda',
-                items: this.compactItems([
-                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSocialeAzienda')),
-                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegaleAzienda')),
-                    this.createLinkItem(this.label('telefonoAzienda'), profile.contatti?.telefono, 'tel:'),
-                    this.createLinkItem(this.label('pecAzienda'), profile.contatti?.pec, 'mailto:'),
-                    this.createLinkItem(this.label('emailAzienda'), profile.contatti?.email, 'mailto:'),
-                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegaleAzienda'], this.label('rappresentanteLegaleAzienda')),
-                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContattoAzienda'], this.label('orariContattoAzienda'), 'mt-3'),
-                ]),
-            },
-            {
                 titleKey: 'datiSocietariAzienda',
                 items: this.compactItems([
                     this.createCodeItem(this.label('partitaIvaAzienda'), profile.partitaIva),
@@ -73,6 +61,18 @@ export class ProfileRenderComponent {
                     this.createCodeItem(this.label('codiceSdiAzienda'), profile.datiSocietari?.codiceSdi),
                 ]),
             },
+            {
+                titleKey: 'contattiAzienda',
+                items: this.compactItems([
+                    this.createTextItem(profile.ragioneSociale, this.label('ragioneSocialeAzienda')),
+                    this.createTextItem(this.formatAddress(profile), this.label('sedeLegaleAzienda')),
+                    this.createLinkItem(this.label('telefonoAzienda'), profile.contatti?.telefono, 'tel:'),
+                    this.createLinkItem(this.label('pecAzienda'), profile.contatti?.pec, 'mailto:'),
+                    this.createLinkItem(this.label('emailAzienda'), profile.contatti?.email, 'mailto:'),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['rappresentanteLegaleAzienda'], this.label('rappresentanteLegaleAzienda')),
+                    this.createTextItem(profile.metadatiAggiuntivi?.['orariContattoAzienda'], this.label('orariContattoAzienda'), 'mt-3'),
+                ]),
+            }
         ]);
     });
 
