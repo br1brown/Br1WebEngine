@@ -131,10 +131,22 @@ export default class AreaRiservataComponent extends PageBaseComponent {
 ```
 
 ### Passo 4: Navigare in Sicurezza
-Per mettere un bottone che porta alla tua pagina, non usare `href="/nuova-pagina"`. Fai in modo che il framework calcoli la rotta esatta (e mantenga il link vivo anche se domani cambi l'URL in `site.ts`).
+Per navigare alla tua pagina, non usare mai `href="/nuova-pagina"` hardcoded. Fai in modo che il framework calcoli la rotta esatta (e mantenga il link vivo anche se domani cambi l'URL in `site.ts`).
+
+**Per link `<a>` (preferito — SPA navigation, SEO, keyboard, right-click):**
 ```html
-<!-- Cliccando calcolerà l'URL corretto a runtime -->
-<button (click)="navigateTo(PageType.MioNuovoComponente)">Vai!</button>
+<!-- [appPage] traduce il PageType in href e attiva RouterLink -->
+<a [appPage]="PageType.MioNuovoComponente" class="btn btn-primary">Vai!</a>
+<a [appPage]="PageType.PrivacyPolicy" class="footer-link">Privacy</a>
+```
+
+**Per navigazione programmatica (es. redirect dopo submit form):**
+```typescript
+// Inietta il Router nel componente
+private readonly router = inject(Router);
+
+// Nel metodo (es. onFormSubmit)
+this.router.navigate([ContestoSito.getPath(PageType.MioNuovoComponente) ?? '/']);
 ```
 
 ---
@@ -736,6 +748,327 @@ FRONTEND_BASE_URL=https://tuodominio.it
 ```
 
 Nel browser, se il token non è disponibile, si usa `document.location.origin` come fallback. Importante per deployment multi-dominio dove SSR e browser vedono origini diverse.
+
+---
+
+## 🔗 `[appPage]`: Navigazione Dichiarativa
+
+La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo passa a `RouterLink`, eliminando il boilerplate `[routerLink]="ContestoSito.getPath(PageType.X) ?? '/'"`.
+
+```html
+<!-- Tutti i link interni al sito usano [appPage] -->
+<a [appPage]="PageType.Home"          class="nav-link">Home</a>
+<a [appPage]="PageType.PrivacyPolicy" class="footer-link">Privacy</a>
+<a [appPage]="PageType.Contatti"      class="btn btn-primary">Contattaci</a>
+```
+
+| Caratteristica | Dettaglio |
+| :--- | :--- |
+| Comportamento | Identico a `[routerLink]` — SPA navigation, keyboard, right-click "Apri in nuova scheda" |
+| Fallback | Se il `PageType` non è registrato in `site.ts`, naviga verso `/` |
+| `href` | Bindato esplicitamente: RouterLink come `hostDirective` non aggiorna il proprio `@HostBinding` via effect → senza questo binding, l'elemento avrebbe `href=null` e cursore testo invece di cursore link |
+| Tipo | `input.required<PageType>()` — errore TypeScript a compile-time se mancante |
+
+**Regola pratica:** usa `[appPage]` per tutti i link interni. Per navigazione programmatica dopo operazioni asincrone (es. redirect post-login, post-form) inietta `Router` e chiama `router.navigate([ContestoSito.getPath(PageType.X) ?? '/'])`.
+
+---
+
+## 🖼️ Directive di Rendering Dichiarativo
+
+### `img[imgRender]`: Rendering Immagine Generata
+
+Applica `ImgBuilderService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il data URL PNG ogni volta che la config cambia. Niente wrapper, niente classi proprie — l'elemento accetta tutti gli attributi `<img>` standard.
+
+```html
+<img [imgRender]="imgConfig"
+     (canvasChange)="canvas.set($event)"
+     alt="Anteprima social"
+     class="img-fluid rounded">
+```
+
+```typescript
+readonly imgConfig: ImgRenderConfig = {
+    text: 'Il titolo del post',
+    renderMode: 'fixedRatio',
+    ratio: '16:9',
+    maxWidth: 1200,
+    bgColor: '#1f40ff',
+    textColor: '#ffffff',
+    fontSize: 48,
+};
+
+// Canvas raw per pilotare download/share dall'esterno della directive
+readonly canvas = signal<HTMLCanvasElement | null>(null);
+```
+
+- **Output `canvasChange`**: emette il `HTMLCanvasElement` raw per pilotare `share.downloadCanvas()` da altri rami del template
+- **SSR-safe**: `src = null` server-side → il browser mostra `alt`
+- **Race condition**: token monotono evita che render asincroni sovrapposti mostrino un'immagine obsoleta
+- **Selector vincolato**: `img[imgRender]` → errore TypeScript a compile-time su elementi diversi da `<img>`
+
+### `img[qrContent]`: Rendering QR Code
+
+Applica `QrCodeService` direttamente su un `<img>`. Il `src` viene aggiornato automaticamente con il blob URL del QR generato.
+
+```html
+<img [qrContent]="qrConfig"
+     (blobChange)="qrBlob.set($event)"
+     (errorChange)="qrError.set($event)"
+     alt="QR Code WhatsApp"
+     class="img-fluid">
+
+@if (qrError()) {
+    <div class="alert alert-danger">{{ qrError() }}</div>
+}
+<button [disabled]="!qrBlob()" (click)="downloadQr()">Scarica QR</button>
+```
+
+```typescript
+readonly qrConfig: QrConfig = { type: 'whatsapp', phone: '+393331234567', text: 'Ciao!' };
+
+readonly qrBlob  = signal<Blob | null>(null);
+readonly qrError = signal<string | null>(null);
+
+downloadQr() {
+    const b = this.qrBlob();
+    if (b) this.share.downloadBlob(b, 'qr-whatsapp.png');
+}
+```
+
+- **Output `blobChange`**: blob raw per `share.downloadBlob()` / `share.shareText()`
+- **Output `errorChange`**: messaggio localizzato (o `null` se generazione ok)
+- **SSR-safe**: `src = null` server-side
+- **Selector vincolato**: `img[qrContent]` → errore TypeScript a compile-time su elementi diversi da `<img>`
+
+---
+
+## 🖱️ `[appContextMenu]`: Menu Contestuale
+
+La directive `ContextMenuDirective` aggiunge un menu contestuale a qualsiasi elemento. Su desktop apre un **popover** sotto il cursore; su mobile/touch apre un **bottom sheet** a tutta larghezza.
+
+```html
+<div [appContextMenu]="menuOptions" class="item-card p-3">
+    Contenuto (click destro / tieni premuto su mobile)
+</div>
+```
+
+```typescript
+readonly menuOptions: ContextMenuOption[] = [
+    { label: 'Copia link',  icon: 'fa-solid fa-copy',        action: () => this.copyLink() },
+    { label: 'Condividi',   icon: 'fa-solid fa-share-nodes',  action: () => this.shareItem() },
+    { separator: true },
+    { label: 'Elimina',     icon: 'fa-solid fa-trash',        action: () => this.deleteItem() },
+];
+```
+
+### Interfaccia `ContextMenuOption`
+
+| Campo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `label` | `string` | Testo della voce |
+| `action` | `() => void` | Callback al click (opzionale) |
+| `icon` | `string` | Classe FontAwesome (es. `'fa-solid fa-copy'`) |
+| `disabled` | `boolean` | Voce disabilitata (mostrata ma non cliccabile) |
+| `separator` | `boolean` | Inserisce un divisore visivo sopra questa voce |
+
+### Comportamento Adattivo
+
+| Input | Presentazione |
+| :--- | :--- |
+| Mouse destro (desktop, `pointer: fine`) | Popover contestuale alla posizione del cursore |
+| Long-press 450 ms (touch/mobile, `pointer: coarse`) | Bottom sheet a tutta larghezza — ottimizzato per pollice |
+| Tasto `Escape` | Chiude il menu |
+| Click fuori dal menu | Chiude il menu |
+| Focus | Ripristinato sull'elemento trigger alla chiusura |
+
+La directive usa Pointer Events unificati (mouse, touch, penna). Un timer di sicurezza di 600 ms previene che il click sintetico post-long-press chiuda immediatamente il menu appena aperto.
+
+---
+
+## 🃏 Componenti Condivisi
+
+### `app-profile-render`: Dati Aziendali Completi
+
+Visualizza un oggetto `Profile` con tutti i campi legali italiani. I campi `null`/`undefined` vengono omessi automaticamente (skip-empty).
+
+```html
+<app-profile-render [profile]="profile" />
+```
+
+Rende due sezioni:
+- **Contatti**: telefono, PEC, email
+- **Dati societari**: P.IVA, Codice Fiscale, sede legale, registro imprese, REA, capitale sociale, versamento integrale, socio unico, stato di liquidazione, codice SDI
+
+Formattazione automatica:
+- **Importi**: `Intl.NumberFormat` con locale mapping (`it` → `it-IT`, `en` → `en-GB`)
+- **Booleani**: tradotti tramite chiavi i18n (`siAzione` / `noAzione`)
+- **Indirizzo**: assembla `via civico` + `CAP città (provincia)` + `nazione`
+
+Le etichette usano le chiavi `*Azienda` in `addon.{lang}.json` — tutte personalizzabili.
+
+### `app-icon`: Badge Icona FontAwesome
+
+Glifo FontAwesome in pastiglia con forma e animazione hover configurabili. Valori non riconosciuti per `shape`/`animation` ricadono silenziosamente sul default (coerce interno).
+
+```html
+<!-- Cerchio di default, nessuna animazione -->
+<app-icon glyph="fa-brands fa-facebook" [color]="'#1877F2'" />
+
+<!-- Quadrato con animazione lift al hover -->
+<app-icon glyph="fa-solid fa-star" shape="square" animation="lift" />
+```
+
+| Input | Tipo | Valori | Default |
+| :--- | :--- | :--- | :--- |
+| `glyph` | `string` (required) | Qualsiasi classe FontAwesome | — |
+| `color` | `string \| null` | Hex / CSS color, `null` = tema | `null` |
+| `shape` | `string` | `'circle'` \| `'rounded'` \| `'square'` | `'circle'` |
+| `animation` | `string` | `'lift'` \| `'shake'` \| `'none'` | `'none'` |
+
+### `app-social-link`: Pulsante Social con Branding
+
+Pulsante social con icona e colore brand corretti. Riconosce automaticamente tutti i network noti; per gli sconosciuti usa `fa-solid fa-link` senza colore brand.
+
+```html
+<app-social-link type="facebook"  [value]="fbUrl" />
+<app-social-link type="instagram" [value]="igUrl" [showLabel]="true" />
+<!-- Network non riconosciuto — usa icona generica -->
+<app-social-link type="mio-sito"  [value]="url"   label="Sito web" />
+```
+
+| Input | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `type` | `string` (required) | Chiave network (case-insensitive) |
+| `value` | `string` (required) | URL o handle |
+| `label` | `string` | Etichetta custom (default: `capitalize(type)`) |
+| `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
+
+Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `skype`, `mastodon`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `yahoo`, `audible` e altri.
+
+---
+
+## 🏗️ Script di Build: `generate-statics.ts`
+
+Lo script sincronizza tutti i file statici con la configurazione centrale in `site.ts`. **Va eseguito ogni volta che si modifica `site.ts`** (appName, description, colorTema, version, struttura pagine).
+
+```bash
+npm run generate:statics
+```
+
+### File Aggiornati
+
+| File | Contenuto sincronizzato |
+| :--- | :--- |
+| `src/index.html` | `<html lang>`, `<title>`, tutti i meta OpenGraph/Twitter, favicon |
+| `public/manifest.webmanifest` | `name`, `description`, `theme_color`, `background_color`, `lang`, `version` |
+| `public/sitemap.xml` | URL di tutte le pagine indicizzabili con `priority` e `changefreq` automatici |
+| `public/robots.txt` | `Disallow` per le pagine `requiresAuth: true`, URL sitemap |
+| `src/environments/environment.ts` | `defaultLang`, `availableLanguages` — **file generato automaticamente, non modificare manualmente** |
+
+### Variabili d'Ambiente
+
+| Variabile | Descrizione | Fallback |
+| :--- | :--- | :--- |
+| `FRONTEND_BASE_URL` | URL canonico del sito (es. `https://tuodominio.it`) | `https://example.com` con warning |
+| `DEFAULT_LANG` | Lingua di default — usata nelle immagini Docker | Da `global-settings.json` |
+| `SUPPORTED_LANGS` | Lingue separate da virgola — usata nelle immagini Docker | Da `global-settings.json` |
+
+Su host/CI lo script legge direttamente `global-settings.json`. Nelle immagini Docker (dove il file non è nel build context) `deploy.sh` estrae le variabili dal file e le passa come `--build-arg`.
+
+### Esclusioni Automatiche da Sitemap e robots.txt
+
+| Condizione sulla pagina | Effetto |
+| :--- | :--- |
+| `enabled: false` | Esclusa dalla sitemap |
+| `externalUrl` presente | Esclusa dalla sitemap |
+| `requiresAuth: true` | Esclusa dalla sitemap + riga `Disallow` in robots.txt |
+
+### Priority e Changefreq Automatici
+
+| Profondità del path | Esempio | `priority` | `changefreq` |
+| :--- | :--- | :--- | :--- |
+| 0 (root) | `/` | `1.0` | `weekly` |
+| 1 | `/chi-siamo` | `0.8` | `monthly` |
+| 2+ | `/blog/articolo` | `0.6` e sotto | `yearly` |
+
+### `og:updated_time`
+
+Impostato alla data dell'ultimo commit git (formato `YYYY-MM-DD`, granularità giornaliera per evitare diff a ogni commit nello stesso giorno). Fallback alla data odierna se git non è disponibile (build da tarball).
+
+---
+
+## ⚙️ Server SSR: Sicurezza e Performance
+
+### Health Check JSON
+
+L'endpoint `/health` restituisce JSON strutturato (non una stringa generica):
+
+```json
+{ "status": "ok", "mode": "ssr", "a11yPaths": ["/home", "/chi-siamo", "..."] }
+```
+
+`a11yPaths` è la lista di tutte le pagine indicizzabili — usato da sistemi di monitoraggio per verificare la salute dell'SSR e pilotare test automatici di accessibilità (Lighthouse, axe-core) su tutte le pagine del sito.
+
+### Host Allowlist (HTTP 421)
+
+Le richieste da host non autorizzati vengono rifiutate con `HTTP 421 Misdirected Request` prima di raggiungere il proxy API o l'SSR. Il controllo avviene tramite `request.hostname` dopo `app.set('trust proxy', ...)`.
+
+```bash
+ALLOWED_HOSTS=tuodominio.it,www.tuodominio.it
+# Wildcard — accetta qualsiasi host (coerente con AllowAnyOrigin del backend):
+ALLOWED_HOSTS=*
+```
+
+### CSP Nonce Per-Request (Solo Produzione)
+
+In produzione (`node server.mjs`), ogni risposta SSR ottiene un nonce casuale a 16 byte (base64url):
+- Rimpiazza `{SCRIPT_NONCE_PLACEHOLDER}` nell'header `Content-Security-Policy`
+- Angular inietta `nonce="..."` su tutti gli `<script>` inline generati in SSR
+- In development (HMR attivo) viene usato `unsafe-inline` (richiesto da webpack HMR)
+
+### Server Fingerprinting Nascosto
+
+`app.disable('x-powered-by')` rimuove l'header `X-Powered-By: Express` dalle risposte per rendere più difficile il fingerprinting del server.
+
+### Trusted Proxy Headers
+
+Il server dichiara una lista esplicita di header proxy fidati, incluso `x-forwarded-scheme` (non-standard, inviato da Nginx Proxy Manager). Senza questa configurazione, Angular SSR — ricevendo qualsiasi `X-Forwarded-*` non dichiarato — degrada silenziosamente a CSR (`index.csr.html`) invece di eseguire il rendering server-side.
+
+### Cache Strategy per Tipo di File Statico
+
+| Tipo di file | `Cache-Control` | Motivo |
+| :--- | :--- | :--- |
+| Asset con hash nel nome (JS/CSS Angular) | `public, max-age=31536000, immutable` | Il contenuto non cambia mai — l'hash nel nome garantisce unicità |
+| `ngsw-worker.js`, `ngsw.json` | `no-store` | Il Service Worker deve scaricare sempre la versione più recente |
+| `manifest.webmanifest` | `public, max-age=86400` | Il polling versione avviene ogni 10 min — massimo 1 giorno stale |
+| Traduzioni, icone, altri statici | `no-cache` | Rivalidati a ogni richiesta |
+| Pagine SSR | `no-cache` | Contenuto dinamico per-request |
+
+### Protezione Path Traversal (`/assets/legal`)
+
+I file Markdown delle policy legali sono serviti con protezione contro path traversal:
+```
+GET /assets/legal/privacy.md      → OK
+GET /assets/legal/../../etc/passwd → 403
+GET /assets/legal/%2e%2e/secret   → 403  (anche URL-encoded)
+GET /assets/legal/....//secret    → 403  (anche sequenze miste)
+```
+Usa `path.resolve()` + prefix check con separatore di directory (`path.sep`) — più robusto di un semplice replace di `../`.
+
+### `/assets/files` — Accesso Diretto Bloccato
+
+```
+GET /assets/files/qualsiasi-file → 404
+```
+I file upload devono essere richiesti tramite `/cdn-cgi/asset?id=...` per passare attraverso la pipeline di ottimizzazione, cache e controllo degli accessi.
+
+### Streaming SSR (Zero Buffering RAM)
+
+La risposta HTML viene inoltrata al browser senza bufferizzare in memoria:
+```typescript
+Readable.fromWeb(renderedResponse.body).pipe(response);
+```
+Il browser inizia a ricevere e parsare l'HTML prima che Angular abbia completato il rendering completo della pagina.
 
 ---
 
