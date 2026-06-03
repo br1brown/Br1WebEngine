@@ -75,9 +75,6 @@
     font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    min-height: 2.75rem;
-    min-width: 5.5rem;
-    justify-content: space-between;
 }
 
 /* Posizionato a destra: Bootstrap non lo fa senza Popper, lo gestiamo noi */
@@ -98,9 +95,18 @@
         width: max-content;
         max-width: min(14rem, calc(100vw - 1rem));
     }
+
+    .navbar-collapse {
+        gap: 1rem;
+    }
 }
 
 @media (max-width: 767.98px) {
+    .user-nav-wrapper {
+        padding-top: 0.9rem;
+        border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    }
+
     .language-picker {
         display: grid;
         gap: 0.45rem;
@@ -121,7 +127,8 @@
     .language-toggle {
         font-size: 0.95rem;
         min-height: 2.5rem;
-        padding-inline: 0;
+        padding-inline-start: 0;
+        padding-inline-end: 0.25rem;
     }
 
     .language-link {

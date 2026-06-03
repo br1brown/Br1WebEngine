@@ -52,7 +52,9 @@
             </ul>
             }
 
-            <user-nav ngSkipHydration (navigationClick)="onNavigationLinkClick()" />
+            <div class="user-nav-wrapper ms-md-auto">
+                <user-nav ngSkipHydration (navigationClick)="onNavigationLinkClick()" />
+            </div>
 
             @if (languages().length > 1) {
             <div class="language-picker mt-3 mt-md-0" [class.ms-md-auto]="!hasAuthPage">

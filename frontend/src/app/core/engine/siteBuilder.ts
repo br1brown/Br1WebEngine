@@ -630,39 +630,41 @@ export interface SiteNavigationSectionBuilder {
 }
 
 /**
- * Builder principale del sito.
+ * Sottoinsieme della configurazione sito esposto alla factory di `defineSitePages`.
  *
- * Tiene separate quattro aree semanticamente diverse:
- * - config globale
- * - albero delle pagine
- * - navigazione header
- * - navigazione footer
+ * Contiene solo le proprietà rilevanti per decidere quali pagine abilitare o
+ * come configurarle — estratto come valore immutabile dalla config normalizzata,
+ * senza esporre il riferimento interno completo.
  */
-export interface SiteBuilder {
+export type SitePageContext = {
+    /** Indica se il sito è una PWA con Service Worker attivo. */
+    readonly isWebApp: boolean;
+    /** Indica se il pulsante login è visibile nella navbar. */
+    readonly showLoginInHeader: boolean;
+};
+
+/**
+ * Struttura di definizione del sito passata a `buildSite`.
+ *
+ * Raccoglie in un unico oggetto le quattro aree di configurazione:
+ * - `config`     → metadati e opzioni globali del sito
+ * - `pages`      → factory che riceve il contesto sito e restituisce le pagine
+ * - `headerNav`  → callback che popola la navigazione header
+ * - `footerNav`  → callback che popola la navigazione footer
+ */
+export interface SiteDefinition {
+    /** Metadati e opzioni globali del sito. */
+    config: SiteConfigInput;
     /**
-     * Configura i metadati e le opzioni globali del sito.
-     * @param config Configurazione grezza del sito da normalizzare.
+     * Factory dell'albero pagine.
+     * Riceve un sottoinsieme della configurazione normalizzata (`SitePageContext`)
+     * per permettere di condizionare pagine in base a flag come `isWebApp`.
      */
-    setSiteConfiguration: (config: SiteConfigInput) => void;
-    /**
-     * Definisce l'albero delle pagine del sito.
-     * @param pages Pagine dichiarate dall'utente.
-     */
-    defineSitePages: (pages: SitePageInput[]) => void;
-    /**
-     * Configura i link della navigazione principale (header).
-     * @param buildItems Callback che popola le voci tramite addPage / addGroup / addLink.
-     */
-    configureHeaderNavigation: (
-        buildItems: (builder: SiteNavigationSectionBuilder) => void
-    ) => void;
-    /**
-     * Configura i link del footer.
-     * @param buildItems Callback che popola le voci tramite addPage / addGroup / addLink.
-     */
-    configureFooterNavigation: (
-        buildItems: (builder: SiteNavigationSectionBuilder) => void
-    ) => void;
+    pages: (ctx: SitePageContext) => SitePageInput[];
+    /** Popola le voci della navigazione header tramite addPage / addGroup / addLink. */
+    headerNav?: (nav: SiteNavigationSectionBuilder) => void;
+    /** Popola le voci della navigazione footer tramite addPage / addGroup / addLink. */
+    footerNav?: (nav: SiteNavigationSectionBuilder) => void;
 }
 
 export type ServerRenderEntry = {
@@ -762,149 +764,80 @@ type RawNavItem =
 // ======================================================
 
 /**
- * Costruisce la struttura completa del sito.
+ * Costruisce la struttura completa del sito a partire da un oggetto di definizione.
  *
- * Raccoglie config, pagine e navigation tramite builder, normalizza la configurazione,
- * percorre l'albero delle pagine per costruire la mappa PageType → path e la sitemap,
+ * Normalizza la configurazione, invoca la factory pagine con il contesto sito,
+ * percorre l'albero per costruire la mappa PageType → path e la sitemap,
  * quindi risolve menu e footer in NavLink finali.
  *
- * @param defineSiteStructure - Callback che configura il builder (config, pagine, navigazione)
+ * @param definition - Oggetto con config, pages, headerNav, footerNav
  * @returns Struttura completa del sito normalizzata e pronta per Angular Router e SSR
- * @throws Se la configurazione mancante o se ci sono PageType/path duplicati o incoerenze
+ * @throws Se ci sono PageType/path duplicati o incoerenze nell'albero pagine
  */
-export function buildSite(
-    defineSiteStructure: (siteDefinitionBuilder: SiteBuilder) => void
-): BuiltSite {
-    let siteConfig: SiteConfig | null = null;
+export function buildSite(definition: SiteDefinition): BuiltSite {
 
-    /**
-     * Albero completo delle pagine definito dall'utente.
-     */
-    let sitePages: SitePage[] = [];
+    // ── Normalizza configurazione ──────────────────────────────────────────
+    const normalizeVersion = (v?: string) =>
+        // trim() rimuove spazi iniziali/finali accidentali
+        // replace() elimina qualsiasi carattere che non sia alfanumerico, punto, trattino o underscore
+        // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
+        typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
 
-    /**
-     * Contenitori raw delle sezioni di navigazione.
-     *
-     * Qui accumuliamo la struttura dichiarata in `configureHeaderNavigation` /
-     * `configureFooterNavigation` prima di risolverla nei `NavLink` finali.
-     */
+    const defaultSmoke: SmokeSettings = {
+        enable: false, color: '#ffffff', opacity: 0.5,
+        maximumVelocity: 0.5, particleRadius: 2, density: 10
+    };
+
+    const input = definition.config;
+    const finalConfig: SiteConfig = {
+        appName: input.appName,
+        version: normalizeVersion(input.version) || '1.0.0',
+        description: input.description,
+        colorTema: input.colorTema,
+        showFooter: input.showFooter ?? true,
+        showNav: input.showNav ?? true,
+        fixedTopHeader: input.fixedTopHeader ?? false,
+        showBrandIconInHeader: input.showBrandIconInHeader ?? true,
+        showLoginInHeader: input.showLoginInHeader ?? true,
+        isWebApp: input.isWebApp ?? true,
+        onlyPlainImage: input.onlyPlainImage ?? false,
+        forcedLightPanel: input.forcedLightPanel ?? true,
+        smoke: { ...defaultSmoke, ...(input.smoke ?? {}) },
+        pageForAuthGuard: input.pageForAuthGuard ?? null
+    };
+
+    // ── Costruisce il contesto e raccoglie pagine ──────────────────────────
+    const ctx: SitePageContext = {
+        isWebApp: finalConfig.isWebApp,
+        showLoginInHeader: finalConfig.showLoginInHeader,
+    };
+    const sitePages = normalizeSitePages(definition.pages(ctx));
+
+    // ── Raccoglie la navigazione ───────────────────────────────────────────
     const rawHeader: RawNavItem[] = [];
     const rawFooter: RawNavItem[] = [];
 
     /**
-     * Crea gli strumenti di build per una sezione di navigazione sia per l'header sia per il footer.
+     * Crea gli strumenti di build per una sezione di navigazione (header o footer).
      */
     const createNavigationSectionBuilder = (
         targetNavigationItems: RawNavItem[]
     ): SiteNavigationSectionBuilder => ({
-        /**
-         * Aggiunge un riferimento a una pagina del sito tramite PageType.
-         * La risoluzione del path reale avverrà più avanti.
-         */
         addPage: (pageType) => {
             targetNavigationItems.push({ kind: 'page', type: pageType });
         },
-
-        /**
-         * Aggiunge un link diretto già completo.
-         */
         addLink: (labelTranslationKey, destinationPath) => {
-            targetNavigationItems.push({
-                kind: 'link',
-                label: labelTranslationKey,
-                path: destinationPath
-            });
+            targetNavigationItems.push({ kind: 'link', label: labelTranslationKey, path: destinationPath });
         },
-
-        /**
-         * Aggiunge un gruppo annidato.
-         *
-         * Viene creato un sotto-array locale `children`,
-         * popolato dalla callback, e poi inserito nel target.
-         */
         addGroup: (groupLabelTranslationKey, configureGroupItems) => {
             const childNavigationItems: RawNavItem[] = [];
-            configureGroupItems(
-                createNavigationSectionBuilder(childNavigationItems)
-            );
-            targetNavigationItems.push({
-                kind: 'group',
-                label: groupLabelTranslationKey,
-                children: childNavigationItems
-            });
+            configureGroupItems(createNavigationSectionBuilder(childNavigationItems));
+            targetNavigationItems.push({ kind: 'group', label: groupLabelTranslationKey, children: childNavigationItems });
         }
     });
 
-    /**
-     * Esegue la configurazione del sito passando un builder unico.
-     *
-     * Ogni sezione scrive dentro le variabili locali:
-     * - `setSiteConfiguration(...)`      -> valorizza `siteConfig`
-     * - `defineSitePages(...)`           -> valorizza `sitePages`
-     * - `configureHeaderNavigation(...)` -> valorizza `rawHeader`
-     * - `configureFooterNavigation(...)` -> valorizza `rawFooter`
-     */
-    defineSiteStructure({
-        setSiteConfiguration: (siteConfigurationInput) => {
-            /**
-             * Default dell'effetto smoke.
-             * Vengono usati per completare eventuali campi mancanti.
-             */
-            const defaultSmoke: SmokeSettings = {
-                enable: false,
-                color: '#ffffff',
-                opacity: 0.5,
-                maximumVelocity: 0.5,
-                particleRadius: 2,
-                density: 10
-            };
-
-            const normalizeVersion = (v?: string) =>
-                // trim() rimuove spazi iniziali/finali accidentali
-                // replace() elimina qualsiasi carattere che non sia alfanumerico, punto, trattino o underscore
-                // → evita che stringhe arbitrarie finiscano in header HTTP o manifest PWA
-                typeof v === 'string' ? v.trim().replace(/[^a-zA-Z0-9.\-_]/g, '') : '';
-
-            siteConfig = {
-                appName: siteConfigurationInput.appName,
-                version: normalizeVersion(siteConfigurationInput.version) || '1.0.0',
-                description: siteConfigurationInput.description,
-                colorTema: siteConfigurationInput.colorTema,
-                showFooter: siteConfigurationInput.showFooter ?? true,
-                showNav: siteConfigurationInput.showNav ?? true,
-                fixedTopHeader: siteConfigurationInput.fixedTopHeader ?? false,
-                showBrandIconInHeader: siteConfigurationInput.showBrandIconInHeader  ?? true,
-                showLoginInHeader: siteConfigurationInput.showLoginInHeader ?? true,
-                isWebApp: siteConfigurationInput.isWebApp ?? true,
-                onlyPlainImage: siteConfigurationInput.onlyPlainImage ?? false,
-                forcedLightPanel: siteConfigurationInput.forcedLightPanel ?? true,
-                smoke: { ...defaultSmoke, ...(siteConfigurationInput.smoke ?? {}) },
-                pageForAuthGuard: siteConfigurationInput.pageForAuthGuard ?? null
-            };
-        },
-
-        defineSitePages: (definedSitePages) => {
-            sitePages = normalizeSitePages(definedSitePages);
-        },
-
-        configureHeaderNavigation: (buildItems) => {
-            buildItems(createNavigationSectionBuilder(rawHeader));
-        },
-
-        configureFooterNavigation: (buildItems) => {
-            buildItems(createNavigationSectionBuilder(rawFooter));
-        }
-    });
-
-    /**
-     * La config è obbligatoria.
-     * Se manca, il builder non è stato usato correttamente.
-     */
-    if (!siteConfig) {
-        throw new Error(
-            '[SiteBuilder] Configurazione mancante. Chiamare site.configureSiteConfiguration(...) prima del build.'
-        );
-    }
+    definition.headerNav?.(createNavigationSectionBuilder(rawHeader));
+    definition.footerNav?.(createNavigationSectionBuilder(rawFooter));
 
     /**
      * Mappa interna usata per risolvere i riferimenti `PageType`.
@@ -1057,7 +990,6 @@ export function buildSite(
      * viene scartata da processPages e non finisce nella pageMap.
      * In questo caso, resettiamo la configurazione a null per evitare redirect verso 404.
      */
-    const finalConfig = siteConfig as SiteConfig;
     if (finalConfig.pageForAuthGuard && !pageMap.has(finalConfig.pageForAuthGuard)) {
         finalConfig.pageForAuthGuard = null;
     }
@@ -1130,7 +1062,7 @@ export function buildSite(
         /**
          * Configurazione finale già normalizzata.
          */
-        config: siteConfig,
+        config: finalConfig,
 
         /**
          * Solo le pagine interne al sito.

@@ -64,7 +64,10 @@ fi
 mapfile -t LANGS < <(
     node -e "
 const s = JSON.parse(require('fs').readFileSync('${SETTINGS_JSON}', 'utf-8'));
-const langs = s.Localization?.SupportedLanguages || [s.Localization?.DefaultLanguage || 'it'];
+const rawLangs = s.Localization?.SupportedLanguages;
+const langs = (Array.isArray(rawLangs) && rawLangs.length > 0)
+    ? rawLangs
+    : [s.Localization?.DefaultLanguage || 'it'];
 langs.forEach(l => process.stdout.write(l + '\n'));
 " 2>/dev/null
 )

@@ -34,8 +34,19 @@ export class PolicyComponent extends PageBaseComponent<string> {
     );
 
     readonly segments = computed(() => {
-        const content = this.pageContent() ?? '';
+        const profile = this.rawProfile();
+        let content = this.pageContent() ?? '';
         if (!content) return [];
+
+        if (profile) {
+            const fields: (keyof Profile)[] = ['ragioneSociale', 'partitaIva', 'codiceFiscale'];
+            for (const field of fields) {
+                const val = profile[field];
+                if (typeof val === 'string') {
+                    content = content.replaceAll(`{{${field}}}`, val);
+                }
+            }
+        }
 
         const result: ({ type: 'markdown'; content: string } | { type: 'categories' } | { type: 'cookieList' } | { type: 'profile' })[] = [];
         let remaining = content;
@@ -71,7 +82,13 @@ export class PolicyComponent extends PageBaseComponent<string> {
         super();
         effect(() => {
             const content = this.pageContent();
-            if (content != null && content.includes('{{companyProfile}}') && !this.profileLoaded()) {
+            const needsProfile = content != null && (
+                content.includes('{{companyProfile}}') ||
+                content.includes('{{ragioneSociale}}') ||
+                content.includes('{{partitaIva}}') ||
+                content.includes('{{codiceFiscale}}')
+            );
+            if (needsProfile && !this.profileLoaded()) {
                 this.api.getProfile()
                     .then(p => {
                         this.rawProfile.set(p);

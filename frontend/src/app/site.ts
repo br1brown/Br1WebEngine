@@ -9,7 +9,7 @@ export type {
     SmokeSettingsInput
 } from './core/engine/siteBuilder';
 
-import type { SitePageInput as _SitePageInput } from './core/engine/siteBuilder';
+import type { SitePageInput as _SitePageInput, SitePageContext as _SitePageContext } from './core/engine/siteBuilder';
 
 /**
  * Genera il blocco di configurazione per le pagine legali e di policy.
@@ -18,7 +18,7 @@ import type { SitePageInput as _SitePageInput } from './core/engine/siteBuilder'
  * 
  * @returns Un array di configurazioni `SitePageInput` destinate alla rotta padre `/legale`.
  */
-function _createPolicy(): _SitePageInput[] {
+function _createPolicy(ctx: _SitePageContext): _SitePageInput[] {
     // Estraiamo il loader lazy per evitare di duplicare la chiusura e l'istruzione di import() 4 volte.
     // Questo aiuta il bundler di Angular a ottimizzare il chunking.
     const loadPolicyComponent = () => import('./pages/policy/policy.component').then(m => m.PolicyComponent);
@@ -44,7 +44,7 @@ function _createPolicy(): _SitePageInput[] {
             description: 'cookiePolicyDescrizione',
             pageType: PageType.CookiePolicy,
             component: loadPolicyComponent,
-            enabled: hasCookiesConfigured(),
+            enabled: hasCookiesConfigured(ctx.isWebApp),
         },
         {
             path: 'legal',
@@ -83,7 +83,6 @@ export enum PageType {
     Home,
     Social,
     Impostazioni,
-    GitHub,
     Login,
 }
 
@@ -109,18 +108,18 @@ export enum PageType {
 //   ContestoSito.getPath(PageType.X) → path di una pagina per link interni
 //   ContestoSito.getSitemapEntries() → voci per la sitemap (path + metadati)
 
-export const ContestoSito = buildSite(siteFondamentaBuilder => {
-    // ── CONFIGURAZIONE GLOBALE ────────────────────────────────────────
+export const ContestoSito = buildSite({
+
+    // ── CONFIGURAZIONE GLOBALE ────────────────────────────────────────────
     //
     // appName     → nome mostrato in navbar, titolo pagina, PWA manifest
-    // defaultLang → lingua di default (anche se il cookie non c'e')
     // description → meta description per SEO
-    // colorTema          → colore principale del sito (hex). Determina automaticamente
-    //                       il tono del testo (chiaro/scuro) e la CSS var --colorTema
-    // showNav            → mostra/nascondi la navbar (default true)
-    // showFooter         → mostra/nascondi il footer (default true)
-    // smoke              → effetto particellare di sfondo (omettilo per disabilitarlo)
-    siteFondamentaBuilder.setSiteConfiguration({
+    // colorTema   → colore principale del sito (hex). Determina automaticamente
+    //               il tono del testo (chiaro/scuro) e la CSS var --colorTema
+    // showNav     → mostra/nascondi la navbar (default true)
+    // showFooter  → mostra/nascondi il footer (default true)
+    // smoke       → effetto particellare di sfondo (omettilo per disabilitarlo)
+    config: {
         appName: 'Template',
         version: '1.0.0',
         description: 'Template di base che serve per fare vedere le funzionalità base',
@@ -137,14 +136,14 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             density: 18
         },
         pageForAuthGuard: PageType.Login
-    });
+    },
 
-    // ── ALBERO DELLE PAGINE ────────────────────────────────────────────
+    // ── ALBERO DELLE PAGINE ───────────────────────────────────────────────
     //
     // Tre tipi di pagina. Non serve specificare quale, si capisce da solo:
     //
     //   Ha "component"?   → pagina interna (rotta Angular, lazy loaded)
-    //   Ha "children"?    → gruppo di sotto-pagine (es. /legale/privacy)
+    //   Ha "children"?    → gruppo di sotto-pagine (es. /policy/privacy)
     //   Ha "externalUrl"? → link esterno (appare nei menu, non genera rotte)
     //
     // Campi comuni:
@@ -156,26 +155,20 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // Campi opzionali:
     //   requiresAuth → true = richiede login (JWT), altrimenti redirect
     //   layout       → { showPanel, showNav, showFooter } override per-pagina
-    //                  della shell (subordinati ai flag globali del sito)
     //   otherSEO     → { ogImage, ogType, structuredDataType } meta OG/Schema.org
-    //                  per-pagina (vedi README.md "Meta SEO e SSR")
     //   description  → chiave i18n o stringa per meta description + sitemap
     //   renderMode   → 'server' (default) | 'client' (no SSR)
     //   data         → dati custom passati al componente via route.data
     //
-    // Il componente DEVE estendere PageBaseComponent (fornisce translate,
-    // api, asset, notify gia' pronti senza ripetere inject).
+    // Il componente DEVE estendere PageBaseComponent.
     //
-
-    siteFondamentaBuilder.defineSitePages([
+    pages: (ctx) => [
         {
             path: '',
             title: 'homeNav',
             pageType: PageType.Home,
             description: 'homeDesc',
-            otherSEO: {
-                ogImage: 'img4k',
-            },
+            otherSEO: { ogImage: 'img4k' },
             component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
         },
         {
@@ -189,19 +182,14 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
         {
             path: 'policy',
             title: 'policies',
-            children: _createPolicy()
-        },
-        {
-            title: 'githubDesc',
-            pageType: PageType.GitHub,
-            externalUrl: 'https://github.com/br1brown/Br1WebEngine'
+            children: _createPolicy(ctx),
         },
         {
             path: 'login',
             title: 'loginNav',
             pageType: PageType.Login,
             description: 'loginDesc',
-            component: () => import('./pages/login/login.component').then(m => m.LoginComponent)
+            component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
         },
         {
             path: 'impostazioni',
@@ -210,13 +198,10 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
             pageType: PageType.Impostazioni,
             description: 'settingsDesc',
             component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-        }
-    ]);
+        },
+    ],
 
-    // ── NAVIGAZIONE (header e footer) ───────────────────────────────────
-    //
-    // Qui si definisce cosa appare nei menu. Non serve scrivere path:
-    // basta passare il PageType e il link si costruisce da solo.
+    // ── NAVIGAZIONE (header e footer) ─────────────────────────────────────
     //
     // Tre metodi disponibili:
     //   addPage(PageType.X)              → voce singola
@@ -226,26 +211,24 @@ export const ContestoSito = buildSite(siteFondamentaBuilder => {
     // Le pagine disabilitate (enabled: false) vengono escluse in automatico.
     // Se un gruppo resta vuoto (tutti i figli disabilitati), scompare anche lui.
     //
-    siteFondamentaBuilder.configureHeaderNavigation(h => {
+    headerNav: (h) => {
         h.addPage(PageType.Impostazioni);
-
         h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);
             g.addPage(PageType.LegalNotice);
         });
-
         h.addPage(PageType.Social);
-    });
+    },
 
-    siteFondamentaBuilder.configureFooterNavigation(f => {
-        f.addPage(PageType.GitHub);
+    footerNav: (f) => {
+        f.addLink('githubDesc', 'https://github.com/br1brown/Br1WebEngine');
         f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
             g.addPage(PageType.TermsOfService);
             g.addPage(PageType.LegalNotice);
         });
-    });
+    },
 });

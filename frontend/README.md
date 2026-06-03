@@ -76,17 +76,20 @@ export enum PageType {
 }
 ```
 
-### Passo 2: Dichiarare la Rotta (defineSitePages)
-Sempre in `site.ts`, vai nell'oggetto `siteConfig.pages` e istruisci l'Engine su come generare la pagina. Specifica il path, eventuali guardie di sicurezza e l'Auto-SEO.
+### Passo 2: Dichiarare la Rotta (`pages`)
+Sempre in `site.ts`, aggiungi la pagina nell'array restituito da `pages`. Specifica il path, eventuali guardie di sicurezza e l'Auto-SEO.
 ```typescript
-{
-    path: 'nuova-pagina',
-    pageType: PageType.MioNuovoComponente,
-    title: 'Nuova Pagina', // Verrà localizzato automaticamente
-    description: 'La mia descrizione SEO',
-    requiresAuth: false,
-    component: () => import('./pages/nuova-pagina/nuova-pagina.component')
-}
+pages: (ctx) => [
+    // ... pagine esistenti ...
+    {
+        path: 'nuova-pagina',
+        pageType: PageType.MioNuovoComponente,
+        title: 'Nuova Pagina', // Verrà localizzato automaticamente
+        description: 'La mia descrizione SEO',
+        requiresAuth: false,
+        component: () => import('./pages/nuova-pagina/nuova-pagina.component')
+    }
+],
 ```
 
 ### Passo 3: Creare il Componente
@@ -112,13 +115,15 @@ export default class NuovaPaginaComponent extends PageBaseComponent<MioContenuto
 Se il componente deve essere accessibile solo agli utenti autenticati, aggiungi `requiresAuth: true` nella dichiarazione in `site.ts`. L'Engine fa tutto il resto: disattiva SSR per quella pagina, aggiunge l'auth guard e reindirizza gli utenti non loggati alla `pageForAuthGuard`.
 
 ```typescript
-{
-    path: 'area-riservata',
-    pageType: PageType.AreaRiservata,
-    title: 'Area Riservata',
-    requiresAuth: true, // <-- sufficiente per proteggere la pagina
-    component: () => import('./pages/area-riservata/area-riservata.component')
-}
+pages: (ctx) => [
+    {
+        path: 'area-riservata',
+        pageType: PageType.AreaRiservata,
+        title: 'Area Riservata',
+        requiresAuth: true, // <-- sufficiente per proteggere la pagina
+        component: () => import('./pages/area-riservata/area-riservata.component')
+    }
+],
 ```
 
 Nel componente puoi leggere i dati di sessione tramite `AuthService`:
@@ -153,26 +158,28 @@ this.router.navigate([ContestoSito.getPath(PageType.MioNuovoComponente) ?? '/'])
 
 ## 🔐 Sistema di Autenticazione (JWT)
 
-Il sistema di login è **opzionale** e si attiva configurando `Security.Token.SecretKey` nel backend. Sul frontend, si attiva impostando due proprietà in `setSiteConfiguration()` dentro `site.ts`:
+Il sistema di login è **opzionale** e si attiva configurando `Security.Token.SecretKey` nel backend. Sul frontend, si attiva impostando due proprietà in `config` dentro `site.ts`:
 
 ```typescript
-setSiteConfiguration({
+config: {
     showLoginInHeader: true,          // mostra il link Login/pulsante Logout nella navbar
     pageForAuthGuard: PageType.Login, // pagina di login (dove redirigere utenti non autenticati)
-})
+}
 ```
 
 ### Proteggere una Pagina
 
-In `defineSitePages()`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
+In `pages`, imposta `requiresAuth: true` sulla pagina da proteggere. L'Engine aggiunge automaticamente `renderMode: 'client'` (disabilita SSR per quella pagina) e attiva l'auth guard.
 
 ```typescript
-{
-    path: 'area-riservata',
-    pageType: PageType.AreaRiservata,
-    requiresAuth: true,
-    component: () => import('./pages/area-riservata/area-riservata.component')
-}
+pages: (ctx) => [
+    {
+        path: 'area-riservata',
+        pageType: PageType.AreaRiservata,
+        requiresAuth: true,
+        component: () => import('./pages/area-riservata/area-riservata.component')
+    }
+],
 ```
 
 ### Leggere la Sessione in una Pagina
@@ -298,8 +305,11 @@ Il sito ha un sistema di tema che genera 75+ variabili CSS partendo da un **solo
 
 ```typescript
 // site.ts
-setSiteConfiguration({
-    colorTema: '#1f40ff',  // Un solo colore — l'engine genera tutto il resto
+buildSite({
+    config: {
+        colorTema: '#1f40ff',  // Un solo colore — l'engine genera tutto il resto
+        // ...
+    },
     // ...
 });
 ```
@@ -735,7 +745,7 @@ La versione è dichiarata in `site.ts` e distribuita in tre posti tramite `gener
 
 ## ⚙️ Opzioni Avanzate di `site.ts`
 
-Oltre a `path`, `title` e `description`, ogni pagina in `defineSitePages()` accetta:
+Oltre a `path`, `title` e `description`, ogni pagina in `pages` accetta:
 
 ```typescript
 {
@@ -758,20 +768,22 @@ Oltre a `path`, `title` e `description`, ogni pagina in `defineSitePages()` acce
 }
 ```
 
-La configurazione globale del sito (`setSiteConfiguration`) accetta anche `smoke` per l'effetto particellare e le opzioni di autenticazione:
+La sezione `config` accetta anche `smoke` per l'effetto particellare e le opzioni di autenticazione:
 ```typescript
-smoke: {
-    enable: true,
-    color: '#ffffff',
-    opacity: 0.4,
-    maximumVelocity: 1.5,
-    particleRadius: 3,
-    density: 40,
-},
+config: {
+    smoke: {
+        enable: true,
+        color: '#ffffff',
+        opacity: 0.4,
+        maximumVelocity: 1.5,
+        particleRadius: 3,
+        density: 40,
+    },
 
-// Autenticazione JWT (opzionale — solo se il backend ha SecretKey configurata)
-showLoginInHeader: true,           // mostra link Login / pulsante Logout nella navbar
-pageForAuthGuard: PageType.Login,  // pagina verso cui redirigere utenti non autenticati
+    // Autenticazione JWT (opzionale — solo se il backend ha SecretKey configurata)
+    showLoginInHeader: true,           // mostra link Login / pulsante Logout nella navbar
+    pageForAuthGuard: PageType.Login,  // pagina verso cui redirigere utenti non autenticati
+}
 ```
 
 ### Router: Component Input Binding e Scroll
