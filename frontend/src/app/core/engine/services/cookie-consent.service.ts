@@ -15,11 +15,10 @@ export type { CookieKey } from '../../services/cookie-registry';
  */
 export function isTechnicalConsentGiven(): boolean {
     try {
-        // Fallback or read directly if possible, ma questo è fuori dal service.
-        // Possiamo provare a leggere tutti i cookie tecnici o basarci su un prefix generico,
-        // ma la logica richiedeva ContestoSito.config.appName. Per informazioni fuori dal DI, 
-        // usiamo un fallback generico o controlliamo le chiavi localStorage per "cookie-consent-*"
-        // Visto che questo viene usato prima del boot, possiamo iterare sulle chiavi:
+        // Viene chiamata prima che Angular avvii il DI (es. da provideServiceWorker),
+        // quindi non ha accesso a SITE_CONFIG per costruire la chiave esatta.
+        // Scansiona localStorage cercando qualsiasi chiave "cookie-consent-*-technical"
+        // così funziona correttamente a prescindere dal nome dell'app.
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith('cookie-consent-') && key.endsWith('-technical')) {

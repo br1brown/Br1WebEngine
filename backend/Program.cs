@@ -7,9 +7,9 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
 using Backend.Models.Configuration;
-using Backend.Infrastructure;
 using Backend.Security;
 using Backend.Services;
+using Backend.Store;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +59,7 @@ var otlp = builder.Configuration
 // IContentStore (FileContentStore): accesso dati, sostituibile con DB senza toccare controller.
 // SiteService: logica di business del progetto.
 // AuthService: infrastruttura JWT, registrata solo se LoginEnabled.
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IContentStore, FileContentStore>();
 builder.Services.AddScoped<SiteService>();
 

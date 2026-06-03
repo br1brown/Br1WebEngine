@@ -167,5 +167,13 @@
   "logoutNav": "Logout",
   "logoutAzione": "Esci dalla sessione",
   "logoutConfermaTitolo": "Confermi il logout?",
-  "logoutConfermaTesto": "Verrai disconnesso dall'area riservata."
+  "logoutConfermaTesto": "Verrai disconnesso",
+  "uploadAreaTrascinamento": "Trascina qui il file oppure clicca per sfogliare",
+  "uploadFileScelto": "File selezionato:",
+  "uploadAzione": "Carica",
+  "uploadCaricamento": "Caricamento in corso…",
+  "uploadErroreGenerico": "Errore durante il caricamento. Riprova.",
+  "uploadNessunFile": "Seleziona un file prima di procedere.",
+  "uploadFileTroppoGrande": "Il file supera la dimensione massima consentita.",
+  "uploadFileNonAmmesso": "Il tipo di file selezionato non è consentito."
 }

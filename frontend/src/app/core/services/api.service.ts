@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpParams } from '@angular/common/http';
-import { Profile } from '../dto/profile.dto';
-import { LoginRequest, LoginResult } from '../dto/api.dto';
+import { Profile } from '../engine/dto/profile.dto';
+import { LoginRequest, LoginResult } from '../dto/auth.dto';
 import { BaseApiService } from '../engine/services/base-api.service';
 
 /** Endpoint backend. Aggiungere il path qui, poi il metodo pubblico sotto. */
@@ -10,6 +10,7 @@ const API = {
     profile: 'profile',
     login: 'auth/login',
     blob: (slug: string) => `blob/${encodeURIComponent(slug)}`,
+    blobUpload: 'blob/up',
 } as const;
 
 /**
@@ -57,11 +58,46 @@ export class ApiService extends BaseApiService {
     }
 
     /**
-     * Recupera un file dal volume uploads come Blob (immagini, documenti, ecc.).
-     * Delega a api_get_blob della base: stessa risoluzione URL (SSR-aware), header e gestione errori.
+     * Recupera un file dal volume uploads come oggetto `Blob` (immagini, documenti, ecc.).
+     * Utile quando il file deve essere elaborato in memoria (es. anteprima locale, download forzato).
+     * Per visualizzare un'immagine direttamente in un `<img>`, preferisci `getBlobUrl()`.
      */
     getBlob(slug: string): Promise<Blob> {
         return this.api_get_blob(API.blob(slug));
+    }
+
+    /**
+     * Restituisce l'URL relativo del blob per usarlo direttamente in template
+     * (`<img [src]="url">`, `<a [href]="url">`, ecc.) senza scaricare il file in memoria.
+     *
+     * Restituisce sempre un path relativo (`/blob/{slug}`) anche in SSR:
+     * il browser deve poterlo raggiungere tramite il proxy del frontend,
+     * non attraverso l'URL interno del backend.
+     *
+     * @param slug  Identificativo del file restituito dall'upload.
+     * @param webopt  Se `true` il backend ridimensiona
+     *                l'immagine a max 1920 px (lato lungo) e la converte in WebP.
+     *                Non ha effetto su file non immagine.
+     */
+    getBlobUrl(slug: string, webopt = true): string {
+        const base = `/${API.blob(slug)}`;
+        return webopt ? `${base}?webopt=true` : base;
+    }
+
+    /**
+     * Carica un file nel volume uploads del backend e restituisce lo slug univoco
+     * con cui recuperarlo in seguito tramite `getBlob()` o `getBlobUrl()`.
+     *
+     * Richiede che l'utente sia autenticato (JWT valido): il backend applica
+     * `[Authorize(Policy = "RequireLogin")]` sull'endpoint POST.
+     *
+     * @param file  Il file da caricare (da `<input type="file">` o drag-and-drop).
+     * @returns  `{ slug }` — lo slug del file appena salvato.
+     */
+    uploadBlob(file: File): Promise<{ slug: string }> {
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.api_post_form<{ slug: string }>(API.blobUpload, formData);
     }
 
     /**

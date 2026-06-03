@@ -79,7 +79,7 @@ Dopo la rimozione, ASP.NET non genera rotte, non espone nulla in Swagger e nessu
 
 ### 4. Il Database Fantasma (`FileContentStore`)
 **Perché è così?** Installare Entity Framework e SQL per un MVP rallenta pesantemente le prime settimane. Spesso servono solo testi legali e di configurazione.
-**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `ConcurrentDictionary` (velocità RAM pura) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
+**Cosa fa l'Engine:** Il `FileContentStore` carica file JSON da `/data/`, li cacha in `IMemoryCache` (con TTL di 1 ora e rispetto della memory pressure del runtime) e, risolvendo la lingua dall'header HTTP `Accept-Language`, restituisce l'oggetto già localizzato. Per gestire la lettura del file usa `try/catch` su `ReadAllTextAsync` invece di un `File.Exists` preventivo: elimina la race condition TOCTOU (il file potrebbe essere rimosso tra il controllo e la lettura effettiva) e converte correttamente la `FileNotFoundException` in `NotFoundException`.
 
 #### `LocalizedJsonDeserializer` — regole dettagliate della risoluzione i18n
 
@@ -153,9 +153,6 @@ Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione app
 | `NotFoundException()` | 404 | `error_not_found` | Risorsa non trovata (messaggio generico) |
 | `NotFoundException("utente")` | 404 | `error_not_found_named` | Risorsa non trovata con nome (`{0}` = "utente") |
 | `DataNotFoundException()` | 404 | `error_data_not_found` | Dati esistenti ma vuoti o non disponibili |
-| `MethodNotAllowedException()` | 405 | `error_method_not_allowed` | Metodo HTTP non supportato dall'endpoint |
-| `NotAcceptableException()` | 406 | `error_not_acceptable` | Formato risposta non negoziabile |
-| `RequestTimeoutException()` | 408 | `error_request_timeout` | Il client ha impiegato troppo a inviare il body della richiesta |
 | `ConflictException()` | 409 | `error_conflict` | Conflitto (messaggio generico) |
 | `ConflictException("ordine")` | 409 | `error_conflict_named` | Conflitto con nome della risorsa (`{0}` = "ordine") |
 | `GoneException()` | 410 | `error_gone` | Risorsa rimossa definitivamente (messaggio generico) |
@@ -175,8 +172,6 @@ Non scrivere mai `return BadRequest(...)` nei controller. Lancia l'eccezione app
 > **401 vs 403**: `UnauthorizedException` (401) = utente non autenticato. `ForbiddenException` (403) = autenticato ma senza i permessi. Non confonderle.
 >
 > **404 vs 410**: `NotFoundException` (404) = risorsa assente o temporaneamente non trovata. `GoneException` (410) = rimossa in modo permanente. Il 410 comunica ai crawler che non devono più indicizzare l'URL.
->
-> **408 vs 504**: `RequestTimeoutException` (408) = il **client** ha impiegato troppo a inviare il body della richiesta (RFC 9110). Per un timeout verso un servizio esterno usa `GatewayTimeoutException` (504), non il 408.
 >
 > **503 vs 502**: `ServiceUnavailableException` (503) = servizio non raggiungibile. `BadGatewayException` (502) = servizio raggiungibile ma ha restituito una risposta non valida.
 >
@@ -528,21 +523,21 @@ Il login è **opzionale**: si attiva valorizzando `Security.Token.SecretKey` (�
 
 ### Architettura del Payload di Sessione
 
-Il JWT trasporta un payload tipizzato nel claim `"session"`. L'Engine gestisce solo il meccanismo; la forma del payload la definisce il progetto.
+Il JWT trasporta un payload tipizzato nel claim `"session"`. L'Engine gestisce solo il meccanismo (serializzazione/deserializzazione generica); la forma del payload la definisce il progetto.
 
-**Livelli del contratto:**
+Il contratto vive in due posti speculari da tenere in sincronia a mano:
 
-| Tipo | Layer | Campi |
+| File | Layer | Descrizione |
 | :--- | :--- | :--- |
-| `SessionBase` | Engine (intoccabile) | `UserId` |
-| `SessionInfo` | Progetto (personalizzabile) | `UserId` + `DisplayName` + `Roles[]` |
-
-Specchio frontend: `core/dto/session.dto.ts` (interfaccia `SessionInfo`) e `core/engine/models/session-base.model.ts` (interfaccia `SessionBase`). I due lati vanno tenuti in sincronia a mano — il contratto è piccolo e stabile, niente codegen.
+| `backend/Models/SessionInfo.cs` | Progetto (personalizzabile) | Record C# serializzato nel JWT |
+| `frontend/src/app/core/dto/session.dto.ts` | Progetto (personalizzabile) | Interfaccia TypeScript speculare |
 
 Per aggiungere un campo al payload di sessione, modificalo in entrambi i posti:
 ```csharp
 // backend/Models/SessionInfo.cs
-public record SessionInfo : SessionBase {
+public record SessionInfo
+{
+    public string UserId { get; init; } = "";
     public string DisplayName { get; init; } = "";
     public string[] Roles { get; init; } = [];
     public string Department { get; init; } = ""; // <-- aggiunto
@@ -550,10 +545,11 @@ public record SessionInfo : SessionBase {
 ```
 ```typescript
 // frontend/src/app/core/dto/session.dto.ts
-export interface SessionInfo extends SessionBase {
+export interface SessionInfo {
+    userId: string;
     displayName: string;
     roles: string[];
-    department: string; // <-- aggiunto (camelCase: il backend serializza con opzioni Web)
+    department: string; // <-- aggiunto (camelCase: il backend serializza con JsonSerializerDefaults.Web)
 }
 ```
 
@@ -571,9 +567,6 @@ export interface SessionInfo extends SessionBase {
 var session = User.GetSession<SessionInfo>();
 if (session is null)
     throw new UnauthorizedException(); // token valido ma senza payload di sessione
-
-// Nei controller che verificano solo l'identità senza campi di dominio:
-var session = User.GetSession<SessionBase>();
 ```
 
 Le opzioni JSON sono identiche in scrittura e lettura: non cambiare la serializzazione in `Claim<T>` senza aggiornare anche `session.dto.ts` nel frontend.

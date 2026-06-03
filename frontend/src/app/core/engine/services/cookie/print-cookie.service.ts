@@ -5,6 +5,14 @@ import { COOKIE_MAP } from '../../../services/cookie-registry';
 import { LOCALE_CONFIG } from '../../services/translate.service';
 import { SITE_CONFIG } from '../../siteBuilder';
 
+/**
+ * Fornisce le strutture dati necessarie alla pagina Cookie Policy:
+ * l'elenco delle categorie attive e quello dei singoli cookie presenti nel sito.
+ *
+ * Estratto da `CookieConsentService` per separare la logica di rendering legale
+ * dalla gestione del consenso, così la policy può essere aggiornata
+ * senza rischiare di alterare il comportamento del banner.
+ */
 @Injectable({ providedIn: 'root' })
 export class PrintCookieService {
     private readonly cookieConsent = inject(CookieConsentService);

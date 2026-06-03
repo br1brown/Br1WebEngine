@@ -10,6 +10,11 @@
 
   <ItemGroup>
     <Content Update="data\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- uploads/ è una cartella dati runtime: escludiamo tutto per evitare
+         che file .cs caricati dagli utenti vengano erroneamente compilati. -->
+    <Compile Remove="uploads\**\*" />
+    <Content Remove="uploads\**\*" />
+    <None Remove="uploads\**\*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +25,8 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0" />
   </ItemGroup>
 
 </Project>

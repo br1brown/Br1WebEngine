@@ -25,9 +25,6 @@ namespace Backend.Models;
 /// <item><see cref="ForbiddenException"/> (403) — autenticato ma senza permessi</item>
 /// <item><see cref="NotFoundException"/> (404) — la risorsa non esiste o non e' leggibile</item>
 /// <item><see cref="DataNotFoundException"/> (404) — i dati esistono ma sono vuoti</item>
-/// <item><see cref="MethodNotAllowedException"/> (405) — metodo HTTP non supportato</item>
-/// <item><see cref="NotAcceptableException"/> (406) — formato risposta non negoziabile</item>
-/// <item><see cref="RequestTimeoutException"/> (408) — client troppo lento a inviare la richiesta</item>
 /// <item><see cref="ConflictException"/> (409) — risorsa gia' esistente o conflitto di stato</item>
 /// <item><see cref="GoneException"/> (410) — risorsa rimossa definitivamente</item>
 /// <item><see cref="UnprocessableEntityException"/> (422) — dati validi ma semanticamente errati</item>
@@ -184,60 +181,6 @@ public class DataNotFoundException : ApiException
 {
     public DataNotFoundException()
         : base("error_data_not_found", 404)
-    {
-    }
-}
-
-// ── 405 Method Not Allowed ───────────────────────────────────────────────────
-
-/// <summary>
-/// Rappresenta un errore 405 per metodi HTTP non supportati dall'endpoint.
-/// </summary>
-/// <remarks>
-/// ASP.NET Core lo gestisce automaticamente per route non configurate, ma puo' essere
-/// utile lanciarlo esplicitamente quando un metodo e' tecnicamente mappato ma logicamente
-/// non applicabile al contesto (es. PATCH su una risorsa read-only).
-/// </remarks>
-public class MethodNotAllowedException : ApiException
-{
-    public MethodNotAllowedException()
-        : base("error_method_not_allowed", 405)
-    {
-    }
-}
-
-// ── 406 Not Acceptable ───────────────────────────────────────────────────────
-
-/// <summary>
-/// Rappresenta un errore 406 per formati di risposta non negoziabili.
-/// </summary>
-/// <remarks>
-/// Il server non riesce a restituire una risposta nei formati accettati dall'header
-/// <c>Accept</c> del client. In JSON-only API e' raro; piu' utile in API multiformat.
-/// </remarks>
-public class NotAcceptableException : ApiException
-{
-    public NotAcceptableException()
-        : base("error_not_acceptable", 406)
-    {
-    }
-}
-
-// ── 408 Request Timeout ──────────────────────────────────────────────────────
-
-/// <summary>
-/// Rappresenta un errore 408 per client troppo lenti a inviare la richiesta completa.
-/// </summary>
-/// <remarks>
-/// Secondo RFC 9110, il 408 segnala che il <b>client</b> non ha completato l'invio della
-/// richiesta entro il tempo che il server era disposto ad attendere (es. upload di un body
-/// molto grande con connessione lenta). Non e' il codice corretto per timeout lato server
-/// verso servizi esterni: in quel caso usare <see cref="GatewayTimeoutException"/> (504).
-/// </remarks>
-public class RequestTimeoutException : ApiException
-{
-    public RequestTimeoutException()
-        : base("error_request_timeout", 408)
     {
     }
 }

@@ -1,6 +1,5 @@
 import { computed, inject, Injectable, isDevMode, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import type { SessionBase } from '../models/session-base.model';
 
 /**
  * TOKEN SERVICE
@@ -32,14 +31,13 @@ export class TokenService implements OnDestroy {
      * del JWT, tipizzandolo con l'interfaccia fornita dal progetto.
      *
      * L'engine resta generico: non conosce la forma del payload. Il progetto passa
-     * il proprio tipo al call-site, es. `tokenService.session<SessionInfo>()`, dove
-     * SessionInfo estende SessionBase e rispecchia il record C# (vedi dto/session.dto.ts).
-     * Senza argomento di tipo ritorna il solo contratto universale `SessionBase`.
+     * il proprio tipo al call-site, es. `tokenService.session<SessionInfo>()`,
+     * dove SessionInfo rispecchia il record C# (vedi dto/session.dto.ts).
      *
      * È reattivo: legge il signal del token, quindi si aggiorna a login/logout se
      * usato dentro un computed o un template.
      */
-    session<T extends SessionBase = SessionBase>(): T | null {
+    session<T>(): T | null {
         const token = this._token();
         if (!token) return null;
         const raw = this.decodePayload(token)?.['session'];

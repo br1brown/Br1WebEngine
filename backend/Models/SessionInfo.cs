@@ -1,20 +1,21 @@
 namespace Backend.Models;
 
 /// <summary>
-/// Payload di sessione PERSONALIZZABILE dal progetto: estende il contratto universale
-/// <see cref="SessionBase"/> (che garantisce <c>UserId</c>) con i campi di dominio.
-/// Serializzato nel claim "session" del JWT e rileggibile nei controller protetti via
-/// <c>User.GetSession&lt;SessionInfo&gt;()</c>.
+/// Payload di sessione serializzato nel claim "session" del JWT.
+/// Rileggibile nei controller protetti via <c>User.GetSession&lt;SessionInfo&gt;()</c>.
 /// </summary>
 /// <remarks>
 /// Deve rispecchiare l'interfaccia TypeScript <c>frontend/src/app/core/dto/session.dto.ts</c>:
 /// tieni le due in sincronia a mano (contratto piccolo e stabile, niente codegen).
 /// Solo dati NON sensibili: il JWT è leggibile dal client.
 ///
-/// Esempio fornito col template — sostituisci i campi di dominio con quelli reali.
+/// Esempio fornito col template — sostituisci i campi con quelli reali del progetto.
 /// </remarks>
-public record SessionInfo : SessionBase
+public record SessionInfo
 {
+    /// <summary>Identificativo del principale autenticato.</summary>
+    public string UserId { get; init; } = "";
+
     /// <summary>Nome visualizzato dell'utente.</summary>
     public string DisplayName { get; init; } = "";
 

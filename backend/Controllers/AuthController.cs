@@ -1,9 +1,9 @@
-using Backend.Security;
 using Backend.Models;
+using Backend.Security;
+using Backend.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Backend.Services;
 
 namespace Backend.Controllers;
 
@@ -64,7 +64,7 @@ public class AuthController : EngineAuthController
         // Sostituire i valori demo con quelli reali (id utente, ruoli, ecc.).
         var session = new SessionInfo
         {
-            UserId = validUsername,        // campo universale (SessionBase)
+            UserId = validUsername,
             DisplayName = "Amministratore",
             Roles = new[] { "admin" }
         };

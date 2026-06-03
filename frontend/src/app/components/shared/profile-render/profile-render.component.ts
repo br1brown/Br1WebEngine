@@ -1,5 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { Profile } from '../../../core/dto/profile.dto';
+import { Profile } from '../../../core/engine/dto/profile.dto';
 import { TranslateService } from '../../../core/engine/services/translate.service';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 

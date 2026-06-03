@@ -1,6 +1,6 @@
 using Backend.Models.Legal;
 
-namespace Backend.Infrastructure;
+namespace Backend.Store;
 
 /// <summary>
 /// Definisce il contratto di accesso ai contenuti persistenti del sito.

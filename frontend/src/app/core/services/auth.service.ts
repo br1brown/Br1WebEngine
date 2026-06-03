@@ -1,6 +1,6 @@
 import { computed, inject, Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { LoginRequest } from '../dto/api.dto';
+import { LoginRequest } from '../dto/auth.dto';
 import { SessionInfo } from '../dto/session.dto';
 import { ApiError } from '../engine/services/base-api.service';
 import { TranslateService } from '../engine/services/translate.service';

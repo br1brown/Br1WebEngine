@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
 import { TranslateService } from '../../../core/engine/services/translate.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { LoginRequest } from '../../../core/dto/api.dto';
+import { LoginRequest } from '../../../core/dto/auth.dto';
 
 /**
  * Form di login riusabile: campi, validazione, chiamata di autenticazione ed errore inline.

@@ -1,5 +1,4 @@
-
-/** Payload di POST /auth/login — corrisponde al record LoginRequest del backend. */
+/** Payload di POST /auth/login. */
 export interface LoginRequest {
     username: string;
     pwd: string;

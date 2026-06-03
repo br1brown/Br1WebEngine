@@ -197,6 +197,7 @@ this.auth.session()?.roles
 | :--- | :--- | :--- |
 | `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
 | `UserNavComponent` | `user-nav` | Area Login/Logout nella navbar. Appare solo se `showLoginInHeader: true`. Gestisce il logout con modale di conferma. |
+| `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file. Emette il `File` nativo delegando la chiamata API al componente genitore. |
 
 ### Ciclo di Vita del Token
 
@@ -497,8 +498,38 @@ Usata internamente da `PolicyComponent` per le pagine legali. Disponibile in qua
 | `getProfile()` | `Promise<Profile>` | Caricamento una-tantum del profilo aziendale |
 | `getProfileResource()` | `httpResource<Profile>` | Profilo reattivo (si aggiorna col Signal) |
 | `getSocial(nomi?)` | `Promise<Record<string, string>>` | URL social network, filtrabile per nome |
-| `getBlob(slug)` | `Promise<Blob>` | File binari (immagini, PDF) caricati via uploads |
+| `getBlobUrl(slug, webopt?)` | `string` | URL relativo del file per `<img src>` / `<a href>` — senza download in memoria |
+| `getBlob(slug)` | `Promise<Blob>` | File scaricato in memoria (anteprima locale, download forzato) |
+| `uploadBlob(file)` | `Promise<{ slug }>` | Carica un file nel volume uploads (richiede JWT) |
 | `login(req)` | `Promise<LoginResult>` | Autenticazione utente (solo se JWT abilitato) |
+
+### File Uploads (`/blob`)
+
+```typescript
+// Mostrare un'immagine già caricata in un template — nessun download in memoria.
+// ?webopt=true → il backend la ridimensiona (max 1920 px) e la converte in WebP.
+readonly coverUrl = this.api.getBlobUrl(this.slug, true);
+// <img [src]="coverUrl" />
+
+// Caricare un file tramite l'interfaccia UI condivisa:
+// <app-upload-form (fileConfirmed)="onFileConfirmed($event)" [isLoading]="isUploading()" />
+async onFileConfirmed(file: File): Promise<void> {
+    this.isUploading.set(true);
+    try {
+        const { slug } = await this.api.uploadBlob(file);
+        // `slug` è l'identificativo per recuperare il file in futuro
+    } finally {
+        this.isUploading.set(false);
+    }
+}
+
+// Scaricare un file in memoria (anteprima locale, elaborazione, download forzato):
+const blob = await this.api.getBlob(slug);
+const url = URL.createObjectURL(blob);
+// ... usa url, poi URL.revokeObjectURL(url) quando non serve più
+```
+
+> **Nota:** `uploadBlob` richiede JWT valido (l'utente deve essere loggato). `getBlobUrl` e `getBlob` richiedono solo API key — la gestisce il proxy SSR in modo trasparente.
 
 **Pattern one-shot** (dati statici, caricati una volta):
 ```typescript

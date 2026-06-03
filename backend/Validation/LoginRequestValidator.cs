@@ -1,17 +1,21 @@
-using Backend.Engine.Validation;
+using FluentValidation;
 using Microsoft.Extensions.Localization;
+using Backend.Services;
 
 namespace Backend.Validation;
 
 /// <summary>
-/// Validator concreto per <see cref="Backend.Services.LoginRequest"/>.
+/// Validator per <see cref="LoginRequest"/>. Adatta le regole alle policy del progetto.
 /// </summary>
-/// <remarks>
-/// Eredita le regole base da <see cref="LoginRequestValidatorBase"/>.
-/// Aggiungere qui le regole specifiche del progetto (es. whitelist username, policy password).
-/// </remarks>
-public class LoginRequestValidator : LoginRequestValidatorBase
+public class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
-    /// <inheritdoc cref="LoginRequestValidator"/>
-    public LoginRequestValidator(IStringLocalizer<SharedResource> localizer) : base(localizer) { }
+    public LoginRequestValidator(IStringLocalizer<SharedResource> localizer)
+    {
+        RuleFor(x => x.Username)
+            .NotEmpty().WithMessage(_ => localizer["username_required"].Value);
+
+        RuleFor(x => x.Pwd)
+            .NotEmpty().WithMessage(_ => localizer["pwd_required"].Value)
+            .MinimumLength(8).WithMessage(_ => localizer["pwd_length"].Value);
+    }
 }

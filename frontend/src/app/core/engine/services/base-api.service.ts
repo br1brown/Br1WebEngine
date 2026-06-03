@@ -126,10 +126,26 @@ export abstract class BaseApiService {
         );
     }
 
-    /** Esegue una richiesta POST inviando un body. */
+    /** Esegue una richiesta POST inviando un body JSON. */
     protected api_post<T>(url: string, body: unknown, opts?: ApiCallOptions): Promise<T> {
         return firstValueFrom(
             this.http.post<T>(this.resolveUrl(url), body, {
+                headers: this.build_api_Headers()
+            }).pipe(catchError(err => this.handleError(err, opts?.silent)))
+        );
+    }
+
+    /**
+     * Esegue una richiesta POST inviando un `FormData` (upload multipart).
+     *
+     * Non imposta `Content-Type` manualmente: Angular/browser lo fa in automatico
+     * includendo il boundary corretto. Impostarlo esplicitamente lo spezzerebbe.
+     * Passa comunque per `resolveUrl`, `build_api_Headers` e `handleError`
+     * come tutti gli altri wrapper.
+     */
+    protected api_post_form<T>(url: string, formData: FormData, opts?: ApiCallOptions): Promise<T> {
+        return firstValueFrom(
+            this.http.post<T>(this.resolveUrl(url), formData, {
                 headers: this.build_api_Headers()
             }).pipe(catchError(err => this.handleError(err, opts?.silent)))
         );

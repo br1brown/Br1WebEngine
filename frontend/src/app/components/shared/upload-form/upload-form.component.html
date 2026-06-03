@@ -1,0 +1,43 @@
+<div class="text-start">
+
+    <label class="d-block border rounded-3 p-4 text-center mb-3 cursor-pointer"
+           [class.border-primary]="isDragging()"
+           [class.bg-primary-subtle]="isDragging()"
+           (dragover)="onDragOver($event)"
+           (dragleave)="onDragLeave($event)"
+           (drop)="onDrop($event)">
+
+        <input type="file"
+               class="d-none"
+               [accept]="acceptAttr()"
+               [disabled]="isLoading()"
+               (change)="onFileSelected($event)" />
+
+        @if (selectedFile(); as file) {
+            <i class="fa-solid fa-file-circle-check text-primary mb-2 d-block fs-4"></i>
+            <span class="small text-body-secondary">{{ 'uploadFileScelto' | translate }}</span>
+            <span class="d-block fw-semibold text-truncate">{{ file.name }}</span>
+        } @else {
+            <i class="fa-solid fa-cloud-arrow-up text-body-tertiary mb-2 d-block fs-4"></i>
+            <span class="small text-body-secondary">{{ 'uploadAreaTrascinamento' | translate }}</span>
+        }
+    </label>
+
+    @if (externalError() || errorMessage(); as msg) {
+        <div class="alert alert-danger py-2 px-3 small d-flex align-items-center gap-2 mb-3" role="alert">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ msg }}</span>
+        </div>
+    }
+
+    <button type="button"
+            class="btn btn-primary w-100 py-2"
+            [disabled]="isLoading()"
+            (click)="onSubmit()">
+        @if (isLoading()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+        }
+        {{ (isLoading() ? 'uploadCaricamento' : 'uploadAzione') | translate }}
+    </button>
+
+</div>

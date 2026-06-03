@@ -5,7 +5,7 @@ import { CookieConsentService } from '../../core/engine/services/cookie-consent.
 import { CookieCategory } from '../../core/engine/services/cookie/cookie-type';
 import { PrintCookieService } from '../../core/engine/services/cookie/print-cookie.service';
 import { ProfileRenderComponent } from '../../components/shared/profile-render/profile-render.component';
-import type { Profile } from '../../core/dto/profile.dto';
+import type { Profile } from '../../core/engine/dto/profile.dto';
 
 @Component({
     selector: 'app-policy',

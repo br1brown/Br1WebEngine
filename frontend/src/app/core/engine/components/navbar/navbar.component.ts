@@ -22,6 +22,19 @@ import { UserNavComponent } from '../../../../components/shared/user-nav/user-na
     styleUrl: './navbar.component.css',
     host: { class: 'd-block' }
 })
+/**
+ * Barra di navigazione principale del sito, configurata interamente da `site.ts`.
+ *
+ * Responsabilità:
+ * - Renderizza il brand, le voci di menu (flat o dropdown), il selettore lingua e
+ *   l'area login/logout (delegata a `UserNavComponent`).
+ * - Gestisce l'apertura/chiusura del menu mobile e dei dropdown nidificati.
+ * - Chiude tutto alla navigazione (RouterEvent) e ai click fuori dal componente
+ *   (`@HostListener document:click`).
+ *
+ * Configurazione: tutto viene letto da `ContestoSito` (alias di `site.ts`).
+ * Non modificare questo file — personalizza `site.ts` e `user-nav.component.ts`.
+ */
 export class NavbarComponent {
     readonly theme = inject(ThemeService);
     readonly translate = inject(TranslateService);
@@ -35,7 +48,7 @@ export class NavbarComponent {
     readonly fixTop = ContestoSito.config.fixedTopHeader;
     readonly showBrandIconInHeader = ContestoSito.config.showBrandIconInHeader;
     readonly languages = this.translate.availableLangs;
-    /** true se il toggler deve apparire. */
+    /** True se l'area login/logout deve essere mostrata nella navbar. */
     readonly hasAuthPage = ContestoSito.config.pageForAuthGuard != null && ContestoSito.config.showLoginInHeader;
     readonly menuOpen = signal(false);
     protected readonly openDropdownIndex = signal(-1);

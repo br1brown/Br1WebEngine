@@ -167,5 +167,13 @@
   "logoutNav": "Logout",
   "logoutAzione": "Sign out of the session",
   "logoutConfermaTitolo": "Confirm logout?",
-  "logoutConfermaTesto": "You will be signed out of the restricted area."
+  "logoutConfermaTesto": "You will be signed out.",
+  "uploadAreaTrascinamento": "Drag a file here or click to browse",
+  "uploadFileScelto": "Selected file:",
+  "uploadAzione": "Upload",
+  "uploadCaricamento": "Uploading…",
+  "uploadErroreGenerico": "Upload failed. Please try again.",
+  "uploadNessunFile": "Please select a file before continuing.",
+  "uploadFileTroppoGrande": "The file exceeds the maximum allowed size.",
+  "uploadFileNonAmmesso": "The selected file type is not allowed."
 }

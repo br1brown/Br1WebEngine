@@ -91,15 +91,6 @@
   <data name="error_forbidden" xml:space="preserve">
     <value>Non hai i permessi necessari per eseguire questa operazione.</value>
   </data>
-  <data name="error_method_not_allowed" xml:space="preserve">
-    <value>Il metodo HTTP utilizzato non è supportato per questo endpoint.</value>
-  </data>
-  <data name="error_not_acceptable" xml:space="preserve">
-    <value>Il server non è in grado di restituire una risposta nei formati accettati dalla richiesta.</value>
-  </data>
-  <data name="error_request_timeout" xml:space="preserve">
-    <value>La richiesta ha impiegato troppo tempo. Riprova.</value>
-  </data>
   <data name="error_gone" xml:space="preserve">
     <value>La risorsa richiesta non è più disponibile ed è stata rimossa definitivamente.</value>
   </data>
