@@ -346,7 +346,7 @@ export class NotificationService {
                 if (!hasSpecificTitle) {
                     errorInfo = httpStatus + ': ' + problem.title;
                 } else {
-                    console.warn(`[API Warning] Ignorato titolo dal backend "${problem.title}" per HTTP ${httpStatus}. Usata traduzione locale.`);
+                    console.info(`[API Info] Ignorato titolo dal backend "${problem.title}" per HTTP ${httpStatus}. Usata traduzione locale.`);
                 }
             }
         } else if (httpStatus === 404 || httpStatus === 500) {
