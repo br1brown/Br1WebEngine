@@ -78,6 +78,17 @@ export abstract class BaseApiService {
     private readonly ssrApiKey = inject(SSR_API_KEY, { optional: true });
 
     /**
+     * Ritorna true se siamo in SSR ma BACKEND_ORIGIN non è configurato (es. route extraction in CI).
+     * In questo caso non ha senso fare chiamate HTTP: falliamo subito silenziosamente
+     * così i .catch() nei resolver restituiscono dati vuoti senza bloccare il build.
+     */
+    private get ssrBackendUnconfigured(): boolean {
+        // ssrOrigin è null in browser, stringa (anche '') in SSR.
+        // La stringa vuota significa che BACKEND_ORIGIN non era settato al momento del boot.
+        return this.ssrOrigin !== null && this.ssrOrigin !== undefined && !this.ssrOrigin;
+    }
+
+    /**
      * Determina l'endpoint finale della richiesta.
      * Gestisce la differenza tra chiamate client-side (relative) e server-side (assolute).
      * @param url - Il path relativo dell'endpoint (es. 'users')
@@ -102,6 +113,7 @@ export abstract class BaseApiService {
 
     /** Esegue una richiesta GET. */
     protected api_get<T>(url: string, params?: HttpParams, opts?: ApiCallOptions): Promise<T> {
+        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
             this.http.get<T>(this.resolveUrl(url), {
                 headers: this.build_api_Headers(),
@@ -117,6 +129,7 @@ export abstract class BaseApiService {
      * header/gestione errori centralizzati come tutte le altre chiamate.
      */
     protected api_get_blob(url: string, params?: HttpParams, opts?: ApiCallOptions): Promise<Blob> {
+        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
             this.http.get(this.resolveUrl(url), {
                 headers: this.build_api_Headers(),
@@ -128,6 +141,7 @@ export abstract class BaseApiService {
 
     /** Esegue una richiesta POST inviando un body JSON. */
     protected api_post<T>(url: string, body: unknown, opts?: ApiCallOptions): Promise<T> {
+        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
             this.http.post<T>(this.resolveUrl(url), body, {
                 headers: this.build_api_Headers()
@@ -144,6 +158,7 @@ export abstract class BaseApiService {
      * come tutti gli altri wrapper.
      */
     protected api_post_form<T>(url: string, formData: FormData, opts?: ApiCallOptions): Promise<T> {
+        if (this.ssrBackendUnconfigured) return Promise.reject(new ApiError(0, null));
         return firstValueFrom(
             this.http.post<T>(this.resolveUrl(url), formData, {
                 headers: this.build_api_Headers()
