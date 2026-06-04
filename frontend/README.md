@@ -329,6 +329,52 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 - Funziona sia in light che dark mode per i colori brand-derived
 - I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
+### Cambio Tema a Runtime
+
+`colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
+
+**Pattern 1 — Colore utente al login**
+
+Il caso più comune: l'utente ha un colore brand nel suo profilo. Impostarlo subito dopo l'autenticazione lo fa persistere su tutte le navigazioni successive.
+
+```typescript
+// Nel service/componente che gestisce il login
+const theme = inject(ThemeService);
+
+async login(credentials: Credentials) {
+    const user = await this.auth.login(credentials);
+    if (user.brandColor) {
+        theme.setColorTema(user.brandColor);  // persiste per tutta la sessione
+    }
+}
+```
+
+**Pattern 2 — Colore per singola pagina**
+
+Se una pagina ha un colore dedicato, il componente lo imposta e lo ripristina quando viene distrutto tramite `DestroyRef`.
+
+```typescript
+// Nel componente di pagina
+export class CampagnaComponent {
+    constructor() {
+        const theme = inject(ThemeService);
+        const defaultColor = inject(SITE_CONFIG).colorTema; // token del colore default
+
+        theme.setColorTema('#e63946');
+
+        inject(DestroyRef).onDestroy(() => theme.setColorTema(defaultColor));
+    }
+}
+```
+
+**Precedenza e conflitti**
+
+Non esiste un meccanismo di priorità centralizzato — l'ultimo chiamante vince. La convenzione suggerita:
+
+- Il colore utente va impostato al login e non deve essere sovrascritto da logiche di navigazione
+- Il colore di pagina va sempre ripristinato in `onDestroy`
+- Se un albero di pagine condivide un colore, impostarlo nel componente radice dell'albero
+
 ### Dark Mode Automatico
 
 Reattivo a `prefers-color-scheme`: se l'utente cambia tema OS, il sito si adatta in tempo reale senza reload:
