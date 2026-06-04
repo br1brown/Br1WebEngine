@@ -1080,9 +1080,11 @@ Le richieste da host non autorizzati vengono rifiutate con `HTTP 421 Misdirected
 
 ```bash
 ALLOWED_HOSTS=tuodominio.it,www.tuodominio.it
-# Wildcard — accetta qualsiasi host (coerente con AllowAnyOrigin del backend):
-ALLOWED_HOSTS=*
 ```
+
+**Default (nessuna variabile impostata):** `localhost`, `127.0.0.1`, `[::1]` — permette lo sviluppo locale senza configurazione aggiuntiva.
+
+> **Nota:** `@angular/ssr` non riconosce `*` come wildcard globale (lo tratterebbe come match letterale, causando `400 Bad Request` per qualsiasi host reale). Per accettare host multipli, elencali esplicitamente separati da virgola in `ALLOWED_HOSTS`, oppure valorizza `frontend.hostname` in `global-settings.json`.
 
 ### CSP Nonce Per-Request (Solo Produzione)
 
