@@ -259,6 +259,32 @@ body {
     --bs-btn-disabled-border-color: var(--colorInfoTextEmphasis, #087990);
 }
 
+.btn-outline-success {
+    --bs-btn-color:               var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-border-color:        var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-hover-bg:            var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-hover-border-color:  var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-active-bg:           var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-active-border-color: var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-disabled-color:      var(--colorSuccessTextEmphasis, #0a3622);
+    --bs-btn-disabled-border-color: var(--colorSuccessTextEmphasis, #0a3622);
+}
+
+.btn-outline-danger {
+    --bs-btn-color:               var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-border-color:        var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-hover-bg:            var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-hover-border-color:  var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-active-bg:           var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-active-border-color: var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-disabled-color:      var(--colorDangerTextEmphasis, #58151c);
+    --bs-btn-disabled-border-color: var(--colorDangerTextEmphasis, #58151c);
+}
+
 /* I form controls (checkbox/toggle/range/input focus) restano coi default
    Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.
    Sovrascriverli ogni volta complicherebbe la cascata senza guadagno utente. */
