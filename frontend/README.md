@@ -317,15 +317,63 @@ buildSite({
 Da questo colore vengono generati automaticamente:
 - Varianti brand: primario, secondario (muted), testo leggibile
 - Surface colors: sfondo pagina, card, hover states (light e dark)
-- Semantic colors: link, borders, emphasis text, subtle backgrounds
+- Semantic brand (primary/secondary): link, borders, emphasis text, subtle backgrounds per `.alert-*` e `.text-*-emphasis`
 - Navbar colors: adattiva al brand (full immersive se scuro, pastello se chiaro)
+
+I colori semantici fissi (warning, info, success, danger) non sono derivati dal brand: Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei suoi blocchi `[data-bs-theme]`. ThemeService imposta `data-bs-theme` su `<html>` in base a `prefers-color-scheme`, quindi `--bs-warning-text-emphasis` ecc. si risolvono automaticamente.
 
 ### Garanzia WCAG 4.5:1
 
 Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA:
 - `findCompliantColor()` regola la luminanza L in OKLCH finché non raggiunge 4.5:1
-- Funziona sia in light che dark mode
-- Risultato: accessibilità garantita senza lavoro manuale
+- Funziona sia in light che dark mode per i colori brand-derived
+- I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
+
+### Cambio Tema a Runtime
+
+`colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.
+
+**Pattern 1 — Colore utente al login**
+
+Il caso più comune: l'utente ha un colore brand nel suo profilo. Impostarlo subito dopo l'autenticazione lo fa persistere su tutte le navigazioni successive.
+
+```typescript
+// Nel service/componente che gestisce il login
+const theme = inject(ThemeService);
+
+async login(credentials: Credentials) {
+    const user = await this.auth.login(credentials);
+    if (user.brandColor) {
+        theme.setColorTema(user.brandColor);  // persiste per tutta la sessione
+    }
+}
+```
+
+**Pattern 2 — Colore per singola pagina**
+
+Se una pagina ha un colore dedicato, il componente lo imposta e lo ripristina quando viene distrutto tramite `DestroyRef`.
+
+```typescript
+// Nel componente di pagina
+export class CampagnaComponent {
+    constructor() {
+        const theme = inject(ThemeService);
+        const defaultColor = inject(SITE_CONFIG).colorTema; // token del colore default
+
+        theme.setColorTema('#e63946');
+
+        inject(DestroyRef).onDestroy(() => theme.setColorTema(defaultColor));
+    }
+}
+```
+
+**Precedenza e conflitti**
+
+Non esiste un meccanismo di priorità centralizzato — l'ultimo chiamante vince. La convenzione suggerita:
+
+- Il colore utente va impostato al login e non deve essere sovrascritto da logiche di navigazione
+- Il colore di pagina va sempre ripristinato in `onDestroy`
+- Se un albero di pagine condivide un colore, impostarlo nel componente radice dell'albero
 
 ### Dark Mode Automatico
 
@@ -1009,6 +1057,103 @@ Pulsante social con icona e colore brand corretti. Riconosce automaticamente tut
 | `showLabel` | `boolean` | Mostra testo accanto all'icona (default: `false`) |
 
 Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `skype`, `mastodon`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `yahoo`, `audible` e altri.
+
+### Componenti di Azione
+
+Famiglia di bottoni icon-first per operazioni su contenuto (testo, Blob, PDF, email). Tutti condividono lo stesso pattern:
+
+- `action` (required) — funzione sincrona o asincrona che produce il contenuto
+- `label` — chiave i18n per il testo del bottone (default predefinito per ogni componente)
+- `showLabel` — `false` per sola icona (default), `true` per icona + testo
+
+```html
+<!-- Solo icona (default) -->
+<app-copy-action [action]="getMyText" />
+
+<!-- Icona + etichetta -->
+<app-copy-action [action]="getMyText" [showLabel]="true" />
+
+<!-- Etichetta personalizzata -->
+<app-copy-action [action]="getMyText" label="copiaRisultato" [showLabel]="true" />
+```
+
+#### `app-copy-action`
+
+Copia il testo restituito da `action` negli appunti tramite `ShareService`.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `label` | `string` | `'copiaAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-share-action`
+
+Condivide il testo tramite Web Share API (con fallback automatico a copia su browser non supportati).
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `title` | `string` | `''` |
+| `label` | `string` | `'condividiAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-speech-action`
+
+Legge il testo ad alta voce tramite `SpeechService`. Bottone toggle: in riproduzione mostra lo stato "stop" e si interrompe automaticamente alla distruzione del componente.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `label` | `string` | `'speechPlay'` |
+| `labelStop` | `string` | `'speechStop'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-download-action`
+
+Scarica il `Blob` restituito da `action` con il nome file specificato. Mostra uno spinner e disabilita il bottone durante il download.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => Blob \| Promise<Blob>` (required) | — |
+| `filename` | `string` (required) | — |
+| `label` | `string` | `'scaricaAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-pdf-action`
+
+Apre o scarica un PDF tramite `PdfActionConfig`. `openInTab: true` apre in una nuova scheda, `false` forza il download.
+
+```typescript
+export interface PdfActionConfig {
+    url: string;
+    openInTab: boolean;
+}
+```
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `config` | `PdfActionConfig` (required) | — |
+| `label` | `string` | `'apriPdfAzione'` / `'scaricaPdfAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-mail-action`
+
+Genera un link `mailto:` precompilato con destinatario, oggetto e corpo tramite `MailActionConfig`.
+
+```typescript
+export interface MailActionConfig {
+    to: string;
+    subject?: string;
+    body?: string;
+}
+```
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `config` | `MailActionConfig` (required) | — |
+| `label` | `string` | `'inviaMailAzione'` |
+| `showLabel` | `boolean` | `false` |
 
 ---
 

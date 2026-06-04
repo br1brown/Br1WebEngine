@@ -1,5 +1,5 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, Signal, WritableSignal, afterNextRender, computed, inject, signal } from '@angular/core';
 import { ContestoSito } from '../../../site';
 import { FontConfig } from '../../../../styles/font-config';
 
@@ -91,6 +91,10 @@ export interface PaletteTokens {
     subtlePrimary: SemanticSubtleTokens;
     /** Token sfondo/bordo/testo per `.alert-secondary`, `.text-secondary-emphasis`, `.bg-secondary-subtle`. */
     subtleSecondary: SemanticSubtleTokens;
+    // Nota: warning/info/success/danger NON sono calcolati qui — sono colori semantici con hue
+    // fisse (non derivate dal brand) e Bootstrap 5.3 fornisce già varianti light/dark WCAG-safe
+    // tramite i blocchi [data-bs-theme] nel suo CSS. ThemeService imposta data-bs-theme su <html>,
+    // quindi --bs-warning-text-emphasis ecc. si risolvono automaticamente senza ricalcolo.
 
     // ── Structural Bootstrap vars (headings, muted bg, muted text) ─────────
     /** Colore headings/`<strong>` light: quasi nero con leggera tinta brand (L=0.165). CSS: `--colorHeadingLt` / `--bs-heading-color` */
@@ -150,34 +154,34 @@ export interface PaletteTokens {
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
 
-    // Snapshot dell'intera palette calcolata da computePalette al boot del servizio.
-    // Tutti i token hex sono pre-computati per entrambi i toni (Lt/Dk): _applyPalette
-    // si limita a scegliere la coppia giusta senza ricalcolare nulla a ogni cambio tema.
-    private readonly _palette: PaletteTokens;
+    // Signal scrivibile per il colore brand — valore iniziale da site.ts, modificabile runtime.
+    // _palette è un computed signal: si ricalcola automaticamente (con cache) ad ogni cambio.
+    private readonly _colorTema: WritableSignal<string>;
+    private readonly _palette: Signal<PaletteTokens>;
 
     private readonly document = inject(DOCUMENT);
     private readonly platformId = inject(PLATFORM_ID);
 
     // ── Plain readonly from palette ───────────────────────────────────────
 
-    /** Colore brand esatto dichiarato in `site.ts` (`colorTema`). CSS: `--colorTema` */
-    readonly colorTema: string;
-    /** `true` se il brand è sufficientemente chiaro da richiedere testo scuro sopra di esso. */
-    readonly isDarkTextPreferred: boolean;
-    /** `#000000` o `#ffffff` — testo a contrasto massimo su `--colorTema`. CSS: `--colorTemaText` */
-    readonly colorTemaText: '#000000' | '#ffffff';
+    /** Colore brand corrente. Aggiornabile runtime via `setColorTema()`. CSS: `--colorTema` */
+    readonly colorTema: Signal<string>;
+    /** Signal `true` se il brand corrente richiede testo scuro sopra di esso. */
+    readonly isDarkTextPreferred: Signal<boolean>;
+    /** Signal `#000000` o `#ffffff` — testo a contrasto massimo su `--colorTema`. CSS: `--colorTemaText` */
+    readonly colorTemaText: Signal<'#000000' | '#ffffff'>;
     /**
-     * Variante scurita del brand che garantisce contrasto WCAG 4.5:1 su sfondo bianco.
+     * Signal della variante scurita del brand con contrasto WCAG 4.5:1 su sfondo bianco.
      * Usare per bottoni, CTA e link. CSS: `--colorPrimary`
      */
-    readonly colorPrimary: string;
-    /** `#000000` o `#ffffff` — testo leggibile su `--colorPrimary`. CSS: `--colorPrimaryText` */
-    readonly colorPrimaryText: '#000000' | '#ffffff';
+    readonly colorPrimary: Signal<string>;
+    /** Signal `#000000` o `#ffffff` — testo leggibile su `--colorPrimary`. CSS: `--colorPrimaryText` */
+    readonly colorPrimaryText: Signal<'#000000' | '#ffffff'>;
     /**
-     * Tripla RGB di `--colorPrimary` (es. `"31, 64, 255"`), per le utility `rgba()` di Bootstrap.
+     * Signal della tripla RGB di `--colorPrimary` (es. `"31, 64, 255"`), per le utility `rgba()` di Bootstrap.
      * CSS: `--colorPrimaryRgb`
      */
-    readonly colorPrimaryRgb: string;
+    readonly colorPrimaryRgb: Signal<string>;
     /**
      * `true` se la configurazione imposta `forcedLightPanel: true` in `site.ts`.
      * Il pannello contenuti centrale resta in tono chiaro indipendentemente dalla preferenza OS.
@@ -214,37 +218,35 @@ export class ThemeService {
     readonly prefersReducedMotion: Signal<boolean>;
 
     constructor() {
-        // 1. Calcola la palette da colorTema: unico punto dove viene chiamato computePalette
-        //    per l'istanza — tutti i token vengono derivati da qui, una volta sola.
-        this._palette = ThemeService.computePalette(ContestoSito.config.colorTema);
+        // 1. Signal del colore brand + palette computed con cache automatica.
+        //    Valore iniziale da site.ts; modificabile runtime via setColorTema().
+        this._colorTema = signal(ContestoSito.config.colorTema);
+        this._palette = computed(() => ThemeService._getCachedPalette(this._colorTema()));
 
-        // 2. Copia i token brand su proprietà readonly istanza così i componenti possono
-        //    leggerli senza dover accedere a _palette (che è privata).
-        this.colorTema = this._palette.colorTema;
-        this.isDarkTextPreferred = ThemeService.prefersDarkText(this._palette.colorTema);
-        this.colorTemaText = this._palette.colorTemaText;
-        this.colorPrimary = this._palette.colorPrimary;
-        this.colorPrimaryText = this._palette.colorPrimaryText;
-        this.colorPrimaryRgb = this._palette.colorPrimaryRgb;
-        this.panelForcedLight = ContestoSito.config.forcedLightPanel;
+        // 2. Signal pubblici derivati dalla palette — si aggiornano automaticamente
+        //    quando cambia _colorTema, senza calcoli aggiuntivi.
+        this.colorTema          = this._colorTema.asReadonly();
+        this.colorTemaText      = computed(() => this._palette().colorTemaText);
+        this.isDarkTextPreferred = computed(() => ThemeService.prefersDarkText(this._palette().colorTema));
+        this.colorPrimary       = computed(() => this._palette().colorPrimary);
+        this.colorPrimaryText   = computed(() => this._palette().colorPrimaryText);
+        this.colorPrimaryRgb    = computed(() => this._palette().colorPrimaryRgb);
+        this.panelForcedLight   = ContestoSito.config.forcedLightPanel;
         this.panelBootstrapTheme = this.panelForcedLight ? 'light' : null;
 
-        // 3. Inizializza i signal con naturalTone: valore SSR-safe derivato dal brand,
-        //    senza leggere prefers-color-scheme (non disponibile lato server).
-        this._themeTone = signal(this._palette.naturalTone);
+        // 3. themeTone inizializzato con naturalTone (SSR-safe, senza leggere prefers-color-scheme).
+        this._themeTone = signal(this._palette().naturalTone);
         this.themeTone = this._themeTone.asReadonly();
         this._prefersReducedMotion = signal(false);
         this.prefersReducedMotion = this._prefersReducedMotion.asReadonly();
 
-        // 4. Applica le CSS vars dopo il primo render di Angular. Il markup è già corretto
-        //    grazie all'inline script in <head> — questo è il "confirm" post-idratazione
-        //    che sovrascrive l'inline style SSR con le proprietà gestite da Angular.
-        afterNextRender(() => this._applyPalette(this._themeTone()));
+        // 4. Applica le CSS vars dopo il primo render. Il <style id="theme-init"> nel DOM
+        //    copre già la fase pre-idratazione; questo è il "confirm" post-hydration.
+        afterNextRender(() => this._applyPalette(this._palette(), this._themeTone()));
 
-        // I blocchi seguenti richiedono window: in SSR si esce qui senza errori.
         if (!isPlatformBrowser(this.platformId)) return;
 
-        // 5. Aggiorna i signal con le preferenze OS reali (client-only).
+        // 5. Aggiorna con le preferenze OS reali (client-only).
         const osTone: 'light' | 'dark' =
             window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         this._themeTone.set(osTone);
@@ -253,17 +255,29 @@ export class ThemeService {
             window.matchMedia('(prefers-reduced-motion: reduce)').matches
         );
 
-        // 6. Ascolta i cambiamenti in tempo reale: l'utente può cambiare il tema OS
-        //    mentre la pagina è aperta senza dover ricaricare.
+        // 6. Ascolta i cambiamenti OS in tempo reale.
         window.matchMedia('(prefers-color-scheme: dark)')
             .addEventListener('change', e => {
                 const t: 'light' | 'dark' = e.matches ? 'dark' : 'light';
                 this._themeTone.set(t);
-                this._applyPalette(t);
+                this._applyPalette(this._palette(), t);
             });
 
         window.matchMedia('(prefers-reduced-motion: reduce)')
             .addEventListener('change', e => this._prefersReducedMotion.set(e.matches));
+    }
+
+    /**
+     * Cambia il colore brand a runtime: ricalcola la palette (con cache) e reinietta
+     * tutte le CSS vars su `<html>`. I signal `colorTema`, `colorPrimary` ecc. si
+     * aggiornano automaticamente. La build-time bake in index.html rimane invariata —
+     * questo metodo sovrascrive con le inline styles di priorità più alta.
+     */
+    setColorTema(color: string): void {
+        this._colorTema.set(color);
+        if (isPlatformBrowser(this.platformId)) {
+            this._applyPalette(this._palette(), this._themeTone());
+        }
     }
 
     // ── DOM injection ─────────────────────────────────────────────────────
@@ -273,8 +287,7 @@ export class ThemeService {
      * Chiamata da `afterNextRender` al boot e dal listener `prefers-color-scheme` a ogni cambio OS.
      * Aggiorna anche `data-bs-theme` e `data-theme-tone` per il sistema di varianti Bootstrap.
      */
-    private _applyPalette(tone: 'light' | 'dark'): void {
-        const p = this._palette;
+    private _applyPalette(p: PaletteTokens, tone: 'light' | 'dark'): void {
         const el = this.document.documentElement;
         const lt = tone === 'light';
 
@@ -597,6 +610,7 @@ export class ThemeService {
         const [, C_p, H_p] = ThemeService.hexToOklch(colorPrimary);
         const subtlePrimary = ThemeService.computeSemanticSubtle(C_p, H_p);
         const subtleSecondary = ThemeService.computeSemanticSubtle(C_sec, H_sec);
+
 
         // ── Structural Bootstrap vars ──────────────────────────────────────
         // emphasis: headings/strong — quasi nero/bianco con leggera tinta brand

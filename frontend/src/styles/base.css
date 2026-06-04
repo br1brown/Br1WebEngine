@@ -204,13 +204,16 @@ body {
 }
 
 /* ── Token colori semantici ──────────────────────────────────────────────────
-   I valori --colorSecondary, --colorInfo, --colorSuccess, --colorWarning,
-   --colorDanger e i rispettivi *Text sono calcolati da ThemeService.computePalette()
-   in OKLCH, scalano con la vibranza del brand e garantiscono WCAG 4.5:1 in
-   entrambi i toni. ThemeService li inietta via inline style; generate-theme.ts
-   li bake in index.html per la fase pre-idratazione.
-   Non servono più valori hardcoded qui — i default sotto sono solo fallback
-   last-resort per ambienti senza JS e senza theme-init. */
+   --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
+   (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
+   il tag <style id="theme-init"> ne fa il bake per la fase pre-idratazione SSR.
+   I valori qui sotto sono fallback last-resort per ambienti senza JS/theme-init.
+
+   I colori warning/info/success/danger NON sono gestiti da ThemeService:
+   Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei blocchi
+   [data-bs-theme="light/dark"] del suo CSS. ThemeService imposta data-bs-theme
+   su <html> in base a prefers-color-scheme, quindi --bs-warning-text-emphasis
+   ecc. si risolvono correttamente senza alcun calcolo aggiuntivo. */
 :root {
     --colorSecondary:     #495057;
     --colorSecondaryText: #ffffff;
@@ -228,6 +231,33 @@ body {
     --bs-btn-disabled-color:      var(--bs-secondary);
     --bs-btn-disabled-border-color: var(--bs-secondary);
 }
+
+/* WCAG 1.4.3 — btn-outline-warning/info/success/danger: Bootstrap usa i colori
+   vivaci (es. #ffc107, #0dcaf0) come testo degli outline button, che non superano
+   4.5:1 su sfondi chiari. Bootstrap 5.3 fornisce già --bs-*-text-emphasis come
+   varianti WCAG-safe tone-adaptive nei blocchi [data-bs-theme]; ThemeService
+   imposta data-bs-theme su <html>, quindi questi token si risolvono correttamente
+   senza alcun calcolo aggiuntivo. */
+.btn-outline-warning,
+.btn-outline-info,
+.btn-outline-success,
+.btn-outline-danger {
+    --bs-btn-color:               var(--bs-btn-color-emphasis);
+    --bs-btn-border-color:        var(--bs-btn-color-emphasis);
+    --bs-btn-hover-bg:            var(--bs-btn-color-emphasis);
+    --bs-btn-hover-border-color:  var(--bs-btn-color-emphasis);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-active-bg:           var(--bs-btn-color-emphasis);
+    --bs-btn-active-border-color: var(--bs-btn-color-emphasis);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-disabled-color:      var(--bs-btn-color-emphasis);
+    --bs-btn-disabled-border-color: var(--bs-btn-color-emphasis);
+}
+
+.btn-outline-warning { --bs-btn-color-emphasis: var(--bs-warning-text-emphasis); }
+.btn-outline-info    { --bs-btn-color-emphasis: var(--bs-info-text-emphasis);    }
+.btn-outline-success { --bs-btn-color-emphasis: var(--bs-success-text-emphasis); }
+.btn-outline-danger  { --bs-btn-color-emphasis: var(--bs-danger-text-emphasis);  }
 
 /* I form controls (checkbox/toggle/range/input focus) restano coi default
    Bootstrap, che si adattano già al tono chiaro/scuro via data-bs-theme.

@@ -428,14 +428,14 @@
                     <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
                     <div class="d-flex gap-2 flex-wrap mb-3">
                         <span class="badge border font-monospace fw-normal"
-                              [style.backgroundColor]="theme.colorTema"
-                              [style.color]="theme.colorTemaText">
-                            colorTema: {{ theme.colorTema }}
+                              [style.backgroundColor]="theme.colorTema()"
+                              [style.color]="theme.colorTemaText()">
+                            colorTema: {{ theme.colorTema() }}
                         </span>
                         <span class="badge border font-monospace fw-normal"
-                              [style.backgroundColor]="theme.colorPrimary"
-                              [style.color]="theme.colorPrimaryText">
-                            colorPrimary: {{ theme.colorPrimary }}
+                              [style.backgroundColor]="theme.colorPrimary()"
+                              [style.color]="theme.colorPrimaryText()">
+                            colorPrimary: {{ theme.colorPrimary() }}
                         </span>
                     </div>
                     @if (auth.isLoggedIn()) {
