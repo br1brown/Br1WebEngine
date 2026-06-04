@@ -230,33 +230,33 @@ body {
 }
 
 /* WCAG 1.4.3 — btn-outline-warning/info: Bootstrap's default warning/info hues
-   (#ffc107, #0dcaf0) fail 4.5:1 on light backgrounds. Use Bootstrap's own
-   *-text-emphasis tokens which are already WCAG-safe and light/dark-mode aware
-   (light: #664d03 / #087990; dark: #ffda6a / #6edff6). */
+   (#ffc107, #0dcaf0) fail 4.5:1 on light backgrounds. ThemeService computes
+   --colorWarningTextEmphasis / --colorInfoTextEmphasis via OKLCH (fixed hues
+   H≈85° / H≈200°) with WCAG 4.5:1 guaranteed in both light and dark tones. */
 .btn-outline-warning {
-    --bs-btn-color:               var(--bs-warning-text-emphasis, #664d03);
-    --bs-btn-border-color:        var(--bs-warning-text-emphasis, #664d03);
-    --bs-btn-hover-bg:            var(--bs-warning-text-emphasis, #664d03);
-    --bs-btn-hover-border-color:  var(--bs-warning-text-emphasis, #664d03);
+    --bs-btn-color:               var(--colorWarningTextEmphasis, #664d03);
+    --bs-btn-border-color:        var(--colorWarningTextEmphasis, #664d03);
+    --bs-btn-hover-bg:            var(--colorWarningTextEmphasis, #664d03);
+    --bs-btn-hover-border-color:  var(--colorWarningTextEmphasis, #664d03);
     --bs-btn-hover-color:         var(--bs-body-bg);
-    --bs-btn-active-bg:           var(--bs-warning-text-emphasis, #664d03);
-    --bs-btn-active-border-color: var(--bs-warning-text-emphasis, #664d03);
+    --bs-btn-active-bg:           var(--colorWarningTextEmphasis, #664d03);
+    --bs-btn-active-border-color: var(--colorWarningTextEmphasis, #664d03);
     --bs-btn-active-color:        var(--bs-body-bg);
-    --bs-btn-disabled-color:      var(--bs-warning-text-emphasis, #664d03);
-    --bs-btn-disabled-border-color: var(--bs-warning-text-emphasis, #664d03);
+    --bs-btn-disabled-color:      var(--colorWarningTextEmphasis, #664d03);
+    --bs-btn-disabled-border-color: var(--colorWarningTextEmphasis, #664d03);
 }
 
 .btn-outline-info {
-    --bs-btn-color:               var(--bs-info-text-emphasis, #087990);
-    --bs-btn-border-color:        var(--bs-info-text-emphasis, #087990);
-    --bs-btn-hover-bg:            var(--bs-info-text-emphasis, #087990);
-    --bs-btn-hover-border-color:  var(--bs-info-text-emphasis, #087990);
+    --bs-btn-color:               var(--colorInfoTextEmphasis, #087990);
+    --bs-btn-border-color:        var(--colorInfoTextEmphasis, #087990);
+    --bs-btn-hover-bg:            var(--colorInfoTextEmphasis, #087990);
+    --bs-btn-hover-border-color:  var(--colorInfoTextEmphasis, #087990);
     --bs-btn-hover-color:         var(--bs-body-bg);
-    --bs-btn-active-bg:           var(--bs-info-text-emphasis, #087990);
-    --bs-btn-active-border-color: var(--bs-info-text-emphasis, #087990);
+    --bs-btn-active-bg:           var(--colorInfoTextEmphasis, #087990);
+    --bs-btn-active-border-color: var(--colorInfoTextEmphasis, #087990);
     --bs-btn-active-color:        var(--bs-body-bg);
-    --bs-btn-disabled-color:      var(--bs-info-text-emphasis, #087990);
-    --bs-btn-disabled-border-color: var(--bs-info-text-emphasis, #087990);
+    --bs-btn-disabled-color:      var(--colorInfoTextEmphasis, #087990);
+    --bs-btn-disabled-border-color: var(--colorInfoTextEmphasis, #087990);
 }
 
 /* I form controls (checkbox/toggle/range/input focus) restano coi default
