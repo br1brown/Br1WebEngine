@@ -1012,6 +1012,103 @@ Pulsante social con icona e colore brand corretti. Riconosce automaticamente tut
 
 Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linkedin`, `youtube`, `whatsapp`, `telegram`, `tiktok`, `spotify`, `discord`, `github`, `reddit`, `threads`, `google`, `snapchat`, `pinterest`, `tumblr`, `twitch`, `soundcloud`, `deezer`, `vimeo`, `dribbble`, `skype`, `mastodon`, `btc`, `amazon`, `airbnb`, `apple`, `android`, `yahoo`, `audible` e altri.
 
+### Componenti di Azione
+
+Famiglia di bottoni icon-first per operazioni su contenuto (testo, Blob, PDF, email). Tutti condividono lo stesso pattern:
+
+- `action` (required) — funzione sincrona o asincrona che produce il contenuto
+- `label` — chiave i18n per il testo del bottone (default predefinito per ogni componente)
+- `showLabel` — `false` per sola icona (default), `true` per icona + testo
+
+```html
+<!-- Solo icona (default) -->
+<app-copy-action [action]="getMyText" />
+
+<!-- Icona + etichetta -->
+<app-copy-action [action]="getMyText" [showLabel]="true" />
+
+<!-- Etichetta personalizzata -->
+<app-copy-action [action]="getMyText" label="copiaRisultato" [showLabel]="true" />
+```
+
+#### `app-copy-action`
+
+Copia il testo restituito da `action` negli appunti tramite `ShareService`.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `label` | `string` | `'copiaAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-share-action`
+
+Condivide il testo tramite Web Share API (con fallback automatico a copia su browser non supportati).
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `title` | `string` | `''` |
+| `label` | `string` | `'condividiAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-speech-action`
+
+Legge il testo ad alta voce tramite `SpeechService`. Bottone toggle: in riproduzione mostra lo stato "stop" e si interrompe automaticamente alla distruzione del componente.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => string \| Promise<string>` (required) | — |
+| `label` | `string` | `'speechPlay'` |
+| `labelStop` | `string` | `'speechStop'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-download-action`
+
+Scarica il `Blob` restituito da `action` con il nome file specificato. Mostra uno spinner e disabilita il bottone durante il download.
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `action` | `() => Blob \| Promise<Blob>` (required) | — |
+| `filename` | `string` (required) | — |
+| `label` | `string` | `'scaricaAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-pdf-action`
+
+Apre o scarica un PDF tramite `PdfActionConfig`. `openInTab: true` apre in una nuova scheda, `false` forza il download.
+
+```typescript
+export interface PdfActionConfig {
+    url: string;
+    openInTab: boolean;
+}
+```
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `config` | `PdfActionConfig` (required) | — |
+| `label` | `string` | `'apriPdfAzione'` / `'scaricaPdfAzione'` |
+| `showLabel` | `boolean` | `false` |
+
+#### `app-mail-action`
+
+Genera un link `mailto:` precompilato con destinatario, oggetto e corpo tramite `MailActionConfig`.
+
+```typescript
+export interface MailActionConfig {
+    to: string;
+    subject?: string;
+    body?: string;
+}
+```
+
+| Input | Tipo | Default |
+| :--- | :--- | :--- |
+| `config` | `MailActionConfig` (required) | — |
+| `label` | `string` | `'inviaMailAzione'` |
+| `showLabel` | `boolean` | `false` |
+
 ---
 
 ## 🏗️ Script di Build: `generate-statics.ts`
