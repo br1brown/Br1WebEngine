@@ -204,13 +204,16 @@ body {
 }
 
 /* ── Token colori semantici ──────────────────────────────────────────────────
-   I valori --colorSecondary, --colorInfo, --colorSuccess, --colorWarning,
-   --colorDanger e i rispettivi *Text sono calcolati da ThemeService.computePalette()
-   in OKLCH, scalano con la vibranza del brand e garantiscono WCAG 4.5:1 in
-   entrambi i toni. ThemeService li inietta via inline style; generate-theme.ts
-   li bake in index.html per la fase pre-idratazione.
-   Non servono più valori hardcoded qui — i default sotto sono solo fallback
-   last-resort per ambienti senza JS e senza theme-init. */
+   --colorSecondary è calcolato da ThemeService.computePalette() in OKLCH
+   (derivato dal brand, WCAG 4.5:1 garantito) e iniettato via inline style;
+   il tag <style id="theme-init"> ne fa il bake per la fase pre-idratazione SSR.
+   I valori qui sotto sono fallback last-resort per ambienti senza JS/theme-init.
+
+   I colori warning/info/success/danger NON sono gestiti da ThemeService:
+   Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei blocchi
+   [data-bs-theme="light/dark"] del suo CSS. ThemeService imposta data-bs-theme
+   su <html> in base a prefers-color-scheme, quindi --bs-warning-text-emphasis
+   ecc. si risolvono correttamente senza alcun calcolo aggiuntivo. */
 :root {
     --colorSecondary:     #495057;
     --colorSecondaryText: #ffffff;

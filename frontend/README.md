@@ -317,15 +317,17 @@ buildSite({
 Da questo colore vengono generati automaticamente:
 - Varianti brand: primario, secondario (muted), testo leggibile
 - Surface colors: sfondo pagina, card, hover states (light e dark)
-- Semantic colors: link, borders, emphasis text, subtle backgrounds
+- Semantic brand (primary/secondary): link, borders, emphasis text, subtle backgrounds per `.alert-*` e `.text-*-emphasis`
 - Navbar colors: adattiva al brand (full immersive se scuro, pastello se chiaro)
+
+I colori semantici fissi (warning, info, success, danger) non sono derivati dal brand: Bootstrap 5.3 fornisce già varianti WCAG-safe tone-adaptive nei suoi blocchi `[data-bs-theme]`. ThemeService imposta `data-bs-theme` su `<html>` in base a `prefers-color-scheme`, quindi `--bs-warning-text-emphasis` ecc. si risolvono automaticamente.
 
 ### Garanzia WCAG 4.5:1
 
 Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA:
 - `findCompliantColor()` regola la luminanza L in OKLCH finché non raggiunge 4.5:1
-- Funziona sia in light che dark mode
-- Risultato: accessibilità garantita senza lavoro manuale
+- Funziona sia in light che dark mode per i colori brand-derived
+- I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
 ### Dark Mode Automatico
 
