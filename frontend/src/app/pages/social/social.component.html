@@ -1,7 +1,7 @@
-<div class="text-center">
+<div class="offset-md-2 col-md-8 offset-lg-3 col-lg-6 row">
     @if (socialLinks().length > 0) {
     @for (link of socialLinks(); track link.type) {
-    <app-social-link [type]="link.type" [value]="link.url" />
+    <app-social-link class="col align-self-end" [type]="link.type" [value]="link.url" [showLabel]="true" />
     }
     }
 </div>
