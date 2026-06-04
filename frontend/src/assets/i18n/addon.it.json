@@ -21,6 +21,7 @@
   "markdownPreviewTitle": "Anteprima",
   "markdownHtmlOutputTitle": "HTML generato",
   "copyHtml": "Copia HTML",
+  "actionDemoText": "Testo di esempio per copia e condivisione.",
   "presetBase": "Preset base",
   "presetTable": "Tabella",
   "themeAccessibilityTitle": "Tema e accessibilità",

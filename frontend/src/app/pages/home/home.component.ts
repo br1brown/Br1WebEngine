@@ -3,6 +3,7 @@ import {
     inject,
     signal,
     computed,
+    effect,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -46,7 +47,6 @@ import { MailActionComponent, MailActionConfig } from '../../components/shared/i
         MailActionComponent,
     ],
     templateUrl: './home.component.html',
-    styleUrl: './home.component.css'
 })
 export class HomeComponent extends PageBaseComponent<void> {
     readonly theme = inject(ThemeService);
@@ -57,8 +57,17 @@ export class HomeComponent extends PageBaseComponent<void> {
     /** Canvas raw emesso dalla [imgRender] directive: serve a download/share. */
     readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
 
+    constructor() {
+        super();
+        effect(() => {
+            // Reagisce al cambio lingua
+            this.translate.currentLang();
+            this.demoActionText.set(this.translate.translate('actionDemoText'));
+        });
+    }
+
     readonly getMarkdownHtml = () => this.markdownHtml;
-    readonly demoActionText = signal('Testo di esempio per copia e condivisione.');
+    readonly demoActionText = signal(this.translate.translate('actionDemoText'));
     readonly getDemoText = () => this.demoActionText();
     readonly getDemoBlob = () => new Blob([this.demoActionText()], { type: 'text/plain' });
 

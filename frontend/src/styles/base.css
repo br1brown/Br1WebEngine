@@ -146,6 +146,7 @@ body {
     --bs-emphasis-color-rgb:  var(--colorHeadingRgbLt);
     --bs-heading-color:       var(--colorHeadingLt);
     --bs-border-color:        var(--colorSurfaceBorderLt);
+    --bs-secondary:           var(--colorSecondaryLt);
     --bs-secondary-bg:        var(--colorMutedBgLt);
     --bs-tertiary-bg:         var(--colorSubtleBgLt);
     --bs-secondary-color:     var(--colorMutedTextLt);
@@ -164,6 +165,7 @@ body {
     --bs-emphasis-color-rgb:  var(--colorHeadingRgbDk);
     --bs-heading-color:       var(--colorHeadingDk);
     --bs-border-color:        var(--colorSurfaceBorderDk);
+    --bs-secondary:           var(--colorSecondaryDk);
     --bs-secondary-bg:        var(--colorMutedBgDk);
     --bs-tertiary-bg:         var(--colorSubtleBgDk);
     --bs-secondary-color:     var(--colorMutedTextDk);
@@ -189,16 +191,16 @@ body {
 }
 
 .btn-outline-primary {
-    --bs-btn-color:            var(--bs-primary);
-    --bs-btn-border-color:     var(--bs-primary);
-    --bs-btn-hover-bg:         var(--bs-primary);
-    --bs-btn-hover-border-color: var(--bs-primary);
-    --bs-btn-hover-color:      var(--colorPrimaryText, #fff);
-    --bs-btn-active-bg:        var(--bs-primary);
-    --bs-btn-active-border-color: var(--bs-primary);
-    --bs-btn-active-color:     var(--colorPrimaryText, #fff);
-    --bs-btn-disabled-color:   var(--bs-primary);
-    --bs-btn-disabled-border-color: var(--bs-primary);
+    --bs-btn-color:            var(--bs-link-color);
+    --bs-btn-border-color:     var(--bs-link-color);
+    --bs-btn-hover-bg:         var(--bs-link-color);
+    --bs-btn-hover-border-color: var(--bs-link-color);
+    --bs-btn-hover-color:      var(--bs-body-bg);
+    --bs-btn-active-bg:        var(--bs-link-color);
+    --bs-btn-active-border-color: var(--bs-link-color);
+    --bs-btn-active-color:     var(--bs-body-bg);
+    --bs-btn-disabled-color:   var(--bs-link-color);
+    --bs-btn-disabled-border-color: var(--bs-link-color);
 }
 
 /* ── Token colori semantici ──────────────────────────────────────────────────
@@ -212,79 +214,19 @@ body {
 :root {
     --colorSecondary:     #495057;
     --colorSecondaryText: #ffffff;
-    --colorInfo:          #0058cc;
-    --colorInfoText:      #ffffff;
-    --colorSuccess:       #1a7a3c;
-    --colorSuccessText:   #ffffff;
-    --colorWarning:       #8a5c00;
-    --colorWarningText:   #ffffff;
-    --colorDanger:        #b91c1c;
-    --colorDangerText:    #ffffff;
 }
 
 .btn-outline-secondary {
-    --bs-btn-color:               var(--colorSecondary);
-    --bs-btn-border-color:        var(--colorSecondary);
-    --bs-btn-hover-bg:            var(--colorSecondary);
-    --bs-btn-hover-color:         var(--colorSecondaryText);
-    --bs-btn-hover-border-color:  var(--colorSecondary);
-    --bs-btn-active-bg:           color-mix(in srgb, var(--colorSecondary), #000 12%);
-    --bs-btn-active-color:        var(--colorSecondaryText);
-    --bs-btn-active-border-color: var(--colorSecondary);
-    --bs-btn-disabled-color:      var(--colorSecondary);
-    --bs-btn-disabled-border-color: var(--colorSecondary);
-}
-
-.btn-outline-info {
-    --bs-btn-color:               var(--colorInfo);
-    --bs-btn-border-color:        var(--colorInfo);
-    --bs-btn-hover-bg:            var(--colorInfo);
-    --bs-btn-hover-color:         var(--colorInfoText);
-    --bs-btn-hover-border-color:  var(--colorInfo);
-    --bs-btn-active-bg:           color-mix(in srgb, var(--colorInfo), #000 12%);
-    --bs-btn-active-color:        var(--colorInfoText);
-    --bs-btn-active-border-color: var(--colorInfo);
-    --bs-btn-disabled-color:      var(--colorInfo);
-    --bs-btn-disabled-border-color: var(--colorInfo);
-}
-
-.btn-outline-success {
-    --bs-btn-color:               var(--colorSuccess);
-    --bs-btn-border-color:        var(--colorSuccess);
-    --bs-btn-hover-bg:            var(--colorSuccess);
-    --bs-btn-hover-color:         var(--colorSuccessText);
-    --bs-btn-hover-border-color:  var(--colorSuccess);
-    --bs-btn-active-bg:           color-mix(in srgb, var(--colorSuccess), #000 12%);
-    --bs-btn-active-color:        var(--colorSuccessText);
-    --bs-btn-active-border-color: var(--colorSuccess);
-    --bs-btn-disabled-color:      var(--colorSuccess);
-    --bs-btn-disabled-border-color: var(--colorSuccess);
-}
-
-.btn-outline-danger {
-    --bs-btn-color:               var(--colorDanger);
-    --bs-btn-border-color:        var(--colorDanger);
-    --bs-btn-hover-bg:            var(--colorDanger);
-    --bs-btn-hover-color:         var(--colorDangerText);
-    --bs-btn-hover-border-color:  var(--colorDanger);
-    --bs-btn-active-bg:           color-mix(in srgb, var(--colorDanger), #000 12%);
-    --bs-btn-active-color:        var(--colorDangerText);
-    --bs-btn-active-border-color: var(--colorDanger);
-    --bs-btn-disabled-color:      var(--colorDanger);
-    --bs-btn-disabled-border-color: var(--colorDanger);
-}
-
-.btn-outline-warning {
-    --bs-btn-color:               var(--colorWarning);
-    --bs-btn-border-color:        var(--colorWarning);
-    --bs-btn-hover-bg:            var(--colorWarning);
-    --bs-btn-hover-color:         var(--colorWarningText);
-    --bs-btn-hover-border-color:  var(--colorWarning);
-    --bs-btn-active-bg:           color-mix(in srgb, var(--colorWarning), #000 12%);
-    --bs-btn-active-color:        var(--colorWarningText);
-    --bs-btn-active-border-color: var(--colorWarning);
-    --bs-btn-disabled-color:      var(--colorWarning);
-    --bs-btn-disabled-border-color: var(--colorWarning);
+    --bs-btn-color:               var(--bs-secondary);
+    --bs-btn-border-color:        var(--bs-secondary);
+    --bs-btn-hover-bg:            var(--bs-secondary);
+    --bs-btn-hover-color:         var(--bs-body-bg);
+    --bs-btn-hover-border-color:  var(--bs-secondary);
+    --bs-btn-active-bg:           var(--bs-secondary);
+    --bs-btn-active-color:        var(--bs-body-bg);
+    --bs-btn-active-border-color: var(--bs-secondary);
+    --bs-btn-disabled-color:      var(--bs-secondary);
+    --bs-btn-disabled-border-color: var(--bs-secondary);
 }
 
 /* I form controls (checkbox/toggle/range/input focus) restano coi default
