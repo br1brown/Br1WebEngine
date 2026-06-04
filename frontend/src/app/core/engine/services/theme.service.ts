@@ -91,30 +91,10 @@ export interface PaletteTokens {
     subtlePrimary: SemanticSubtleTokens;
     /** Token sfondo/bordo/testo per `.alert-secondary`, `.text-secondary-emphasis`, `.bg-secondary-subtle`. */
     subtleSecondary: SemanticSubtleTokens;
-    /**
-     * Token sfondo/bordo/testo per `.alert-warning`, `.text-warning-emphasis`, `.bg-warning-subtle`.
-     * Hue fissa OKLCH H≈85° (giallo-arancio), indipendente dal brand.
-     * `textEmphasis*` garantisce WCAG 4.5:1 in entrambi i toni.
-     */
-    subtleWarning: SemanticSubtleTokens;
-    /**
-     * Token sfondo/bordo/testo per `.alert-info`, `.text-info-emphasis`, `.bg-info-subtle`.
-     * Hue fissa OKLCH H≈200° (ciano), indipendente dal brand.
-     * `textEmphasis*` garantisce WCAG 4.5:1 in entrambi i toni.
-     */
-    subtleInfo: SemanticSubtleTokens;
-    /**
-     * Token sfondo/bordo/testo per `.alert-success`, `.text-success-emphasis`, `.bg-success-subtle`.
-     * Hue fissa OKLCH H≈150° (verde), indipendente dal brand.
-     * `textEmphasis*` garantisce WCAG 4.5:1 in entrambi i toni.
-     */
-    subtleSuccess: SemanticSubtleTokens;
-    /**
-     * Token sfondo/bordo/testo per `.alert-danger`, `.text-danger-emphasis`, `.bg-danger-subtle`.
-     * Hue fissa OKLCH H≈25° (rosso), indipendente dal brand.
-     * `textEmphasis*` garantisce WCAG 4.5:1 in entrambi i toni.
-     */
-    subtleDanger: SemanticSubtleTokens;
+    // Nota: warning/info/success/danger NON sono calcolati qui — sono colori semantici con hue
+    // fisse (non derivate dal brand) e Bootstrap 5.3 fornisce già varianti light/dark WCAG-safe
+    // tramite i blocchi [data-bs-theme] nel suo CSS. ThemeService imposta data-bs-theme su <html>,
+    // quindi --bs-warning-text-emphasis ecc. si risolvono automaticamente senza ricalcolo.
 
     // ── Structural Bootstrap vars (headings, muted bg, muted text) ─────────
     /** Colore headings/`<strong>` light: quasi nero con leggera tinta brand (L=0.165). CSS: `--colorHeadingLt` / `--bs-heading-color` */
@@ -360,32 +340,6 @@ export class ThemeService {
             ['--bs-secondary-bg-subtle', lt ? p.subtleSecondary.bgSubtleLt : p.subtleSecondary.bgSubtleDk],
             ['--bs-secondary-border-subtle', lt ? p.subtleSecondary.borderSubtleLt : p.subtleSecondary.borderSubtleDk],
             ['--bs-secondary-text-emphasis', lt ? p.subtleSecondary.textEmphasisLt : p.subtleSecondary.textEmphasisDk],
-            // Warning / Info subtle/emphasis — hue fisse OKLCH, WCAG 4.5:1 garantito
-            ['--bs-warning-bg-subtle', lt ? p.subtleWarning.bgSubtleLt : p.subtleWarning.bgSubtleDk],
-            ['--bs-warning-border-subtle', lt ? p.subtleWarning.borderSubtleLt : p.subtleWarning.borderSubtleDk],
-            ['--bs-warning-text-emphasis', lt ? p.subtleWarning.textEmphasisLt : p.subtleWarning.textEmphasisDk],
-            ['--bs-info-bg-subtle', lt ? p.subtleInfo.bgSubtleLt : p.subtleInfo.bgSubtleDk],
-            ['--bs-info-border-subtle', lt ? p.subtleInfo.borderSubtleLt : p.subtleInfo.borderSubtleDk],
-            ['--bs-info-text-emphasis', lt ? p.subtleInfo.textEmphasisLt : p.subtleInfo.textEmphasisDk],
-            ['--colorWarningBgSubtle', lt ? p.subtleWarning.bgSubtleLt : p.subtleWarning.bgSubtleDk],
-            ['--colorWarningBorderSubtle', lt ? p.subtleWarning.borderSubtleLt : p.subtleWarning.borderSubtleDk],
-            ['--colorWarningTextEmphasis', lt ? p.subtleWarning.textEmphasisLt : p.subtleWarning.textEmphasisDk],
-            ['--colorInfoBgSubtle', lt ? p.subtleInfo.bgSubtleLt : p.subtleInfo.bgSubtleDk],
-            ['--colorInfoBorderSubtle', lt ? p.subtleInfo.borderSubtleLt : p.subtleInfo.borderSubtleDk],
-            ['--colorInfoTextEmphasis', lt ? p.subtleInfo.textEmphasisLt : p.subtleInfo.textEmphasisDk],
-            // Success / Danger subtle/emphasis — hue fisse OKLCH, WCAG 4.5:1 garantito
-            ['--bs-success-bg-subtle', lt ? p.subtleSuccess.bgSubtleLt : p.subtleSuccess.bgSubtleDk],
-            ['--bs-success-border-subtle', lt ? p.subtleSuccess.borderSubtleLt : p.subtleSuccess.borderSubtleDk],
-            ['--bs-success-text-emphasis', lt ? p.subtleSuccess.textEmphasisLt : p.subtleSuccess.textEmphasisDk],
-            ['--bs-danger-bg-subtle', lt ? p.subtleDanger.bgSubtleLt : p.subtleDanger.bgSubtleDk],
-            ['--bs-danger-border-subtle', lt ? p.subtleDanger.borderSubtleLt : p.subtleDanger.borderSubtleDk],
-            ['--bs-danger-text-emphasis', lt ? p.subtleDanger.textEmphasisLt : p.subtleDanger.textEmphasisDk],
-            ['--colorSuccessBgSubtle', lt ? p.subtleSuccess.bgSubtleLt : p.subtleSuccess.bgSubtleDk],
-            ['--colorSuccessBorderSubtle', lt ? p.subtleSuccess.borderSubtleLt : p.subtleSuccess.borderSubtleDk],
-            ['--colorSuccessTextEmphasis', lt ? p.subtleSuccess.textEmphasisLt : p.subtleSuccess.textEmphasisDk],
-            ['--colorDangerBgSubtle', lt ? p.subtleDanger.bgSubtleLt : p.subtleDanger.bgSubtleDk],
-            ['--colorDangerBorderSubtle', lt ? p.subtleDanger.borderSubtleLt : p.subtleDanger.borderSubtleDk],
-            ['--colorDangerTextEmphasis', lt ? p.subtleDanger.textEmphasisLt : p.subtleDanger.textEmphasisDk],
             // Bridge vars — esposti come --color* su :root così base.css può propagarli
             // ai subtheme [data-bs-theme] nested via var(--color*) senza dipendere dall'inline style
             ['--colorHeading', lt ? p.colorHeadingLt : p.colorHeadingDk],
@@ -526,30 +480,6 @@ export class ThemeService {
                 `--bs-secondary-bg-subtle:${s ? p.subtleSecondary.bgSubtleLt : p.subtleSecondary.bgSubtleDk};` +
                 `--bs-secondary-border-subtle:${s ? p.subtleSecondary.borderSubtleLt : p.subtleSecondary.borderSubtleDk};` +
                 `--bs-secondary-text-emphasis:${s ? p.subtleSecondary.textEmphasisLt : p.subtleSecondary.textEmphasisDk};` +
-                `--bs-warning-bg-subtle:${s ? p.subtleWarning.bgSubtleLt : p.subtleWarning.bgSubtleDk};` +
-                `--bs-warning-border-subtle:${s ? p.subtleWarning.borderSubtleLt : p.subtleWarning.borderSubtleDk};` +
-                `--bs-warning-text-emphasis:${s ? p.subtleWarning.textEmphasisLt : p.subtleWarning.textEmphasisDk};` +
-                `--bs-info-bg-subtle:${s ? p.subtleInfo.bgSubtleLt : p.subtleInfo.bgSubtleDk};` +
-                `--bs-info-border-subtle:${s ? p.subtleInfo.borderSubtleLt : p.subtleInfo.borderSubtleDk};` +
-                `--bs-info-text-emphasis:${s ? p.subtleInfo.textEmphasisLt : p.subtleInfo.textEmphasisDk};` +
-                `--colorWarningBgSubtle:${s ? p.subtleWarning.bgSubtleLt : p.subtleWarning.bgSubtleDk};` +
-                `--colorWarningBorderSubtle:${s ? p.subtleWarning.borderSubtleLt : p.subtleWarning.borderSubtleDk};` +
-                `--colorWarningTextEmphasis:${s ? p.subtleWarning.textEmphasisLt : p.subtleWarning.textEmphasisDk};` +
-                `--colorInfoBgSubtle:${s ? p.subtleInfo.bgSubtleLt : p.subtleInfo.bgSubtleDk};` +
-                `--colorInfoBorderSubtle:${s ? p.subtleInfo.borderSubtleLt : p.subtleInfo.borderSubtleDk};` +
-                `--colorInfoTextEmphasis:${s ? p.subtleInfo.textEmphasisLt : p.subtleInfo.textEmphasisDk};` +
-                `--bs-success-bg-subtle:${s ? p.subtleSuccess.bgSubtleLt : p.subtleSuccess.bgSubtleDk};` +
-                `--bs-success-border-subtle:${s ? p.subtleSuccess.borderSubtleLt : p.subtleSuccess.borderSubtleDk};` +
-                `--bs-success-text-emphasis:${s ? p.subtleSuccess.textEmphasisLt : p.subtleSuccess.textEmphasisDk};` +
-                `--bs-danger-bg-subtle:${s ? p.subtleDanger.bgSubtleLt : p.subtleDanger.bgSubtleDk};` +
-                `--bs-danger-border-subtle:${s ? p.subtleDanger.borderSubtleLt : p.subtleDanger.borderSubtleDk};` +
-                `--bs-danger-text-emphasis:${s ? p.subtleDanger.textEmphasisLt : p.subtleDanger.textEmphasisDk};` +
-                `--colorSuccessBgSubtle:${s ? p.subtleSuccess.bgSubtleLt : p.subtleSuccess.bgSubtleDk};` +
-                `--colorSuccessBorderSubtle:${s ? p.subtleSuccess.borderSubtleLt : p.subtleSuccess.borderSubtleDk};` +
-                `--colorSuccessTextEmphasis:${s ? p.subtleSuccess.textEmphasisLt : p.subtleSuccess.textEmphasisDk};` +
-                `--colorDangerBgSubtle:${s ? p.subtleDanger.bgSubtleLt : p.subtleDanger.bgSubtleDk};` +
-                `--colorDangerBorderSubtle:${s ? p.subtleDanger.borderSubtleLt : p.subtleDanger.borderSubtleDk};` +
-                `--colorDangerTextEmphasis:${s ? p.subtleDanger.textEmphasisLt : p.subtleDanger.textEmphasisDk};` +
                 `--colorHeading:${s ? p.colorHeadingLt : p.colorHeadingDk};` +
                 `--colorHeadingRgb:${ThemeService.hexToRgbTriplet(s ? p.colorHeadingLt : p.colorHeadingDk)};` +
                 `--colorMutedBg:${s ? p.colorMutedBgLt : p.colorMutedBgDk};` +
@@ -672,12 +602,6 @@ export class ThemeService {
         const subtlePrimary = ThemeService.computeSemanticSubtle(C_p, H_p);
         const subtleSecondary = ThemeService.computeSemanticSubtle(C_sec, H_sec);
 
-        // Colori semantici con hue OKLCH fisse, indipendenti dal brand.
-        // computeSemanticSubtle garantisce WCAG 4.5:1 per textEmphasis in entrambi i toni.
-        const subtleWarning = ThemeService.computeSemanticSubtle(0.185, 85);   // giallo-arancio
-        const subtleInfo    = ThemeService.computeSemanticSubtle(0.125, 200);  // ciano
-        const subtleSuccess = ThemeService.computeSemanticSubtle(0.170, 150);  // verde
-        const subtleDanger  = ThemeService.computeSemanticSubtle(0.220, 25);   // rosso
 
         // ── Structural Bootstrap vars ──────────────────────────────────────
         // emphasis: headings/strong — quasi nero/bianco con leggera tinta brand
@@ -749,7 +673,7 @@ export class ThemeService {
             // Semantic dark
             colorSecondaryDk: secDk, colorSecondaryTextDk: ThemeService.getReadableTextColor(secDk),
 
-            subtlePrimary, subtleSecondary, subtleWarning, subtleInfo, subtleSuccess, subtleDanger,
+            subtlePrimary, subtleSecondary,
             colorHeadingLt, colorHeadingDk,
             colorMutedBgLt, colorMutedBgDk,
             colorSubtleBgLt, colorSubtleBgDk,
