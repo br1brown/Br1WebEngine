@@ -2,7 +2,6 @@ import {
     Component,
     inject,
     signal,
-    effect,
     computed,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -21,8 +20,13 @@ import { ImgRenderDirective, ImgRenderConfig } from '../../core/engine/directive
 import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
-import { SpeechService } from '../../core/engine/services/speech.service';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
+import { CopyActionComponent } from '../../components/shared/icon/copy-action/copy-action.component';
+import { SpeechActionComponent } from '../../components/shared/icon/speech-action/speech-action.component';
+import { DownloadActionComponent } from '../../components/shared/icon/download-action/download-action.component';
+import { ShareActionComponent } from '../../components/shared/icon/share-action/share-action.component';
+import { PdfActionComponent, PdfActionConfig } from '../../components/shared/icon/pdf-action/pdf-action.component';
+import { MailActionComponent, MailActionConfig } from '../../components/shared/icon/mail-action/mail-action.component';
 
 @Component({
     selector: 'app-home',
@@ -34,6 +38,12 @@ import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
         QrRenderDirective,
         ImgRenderDirective,
         AssetDirective,
+        CopyActionComponent,
+        SpeechActionComponent,
+        DownloadActionComponent,
+        ShareActionComponent,
+        PdfActionComponent,
+        MailActionComponent,
     ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.css'
@@ -42,14 +52,26 @@ export class HomeComponent extends PageBaseComponent<void> {
     readonly theme = inject(ThemeService);
     readonly share = inject(ShareService);
     readonly appName = ContestoSito.config.appName;
-    readonly speech = inject(SpeechService);
     readonly auth = inject(AuthService);
 
     /** Canvas raw emesso dalla [imgRender] directive: serve a download/share. */
     readonly imgCanvas = signal<HTMLCanvasElement | null>(null);
 
-    // --- Signal scrivibile: aggiornato al cambio lingua, modificabile dall'utente ---
-    readonly speechDemoText = signal(this.translate.translate('speechPlaceholder'));
+    readonly getMarkdownHtml = () => this.markdownHtml;
+    readonly demoActionText = signal('Testo di esempio per copia e condivisione.');
+    readonly getDemoText = () => this.demoActionText();
+    readonly getDemoBlob = () => new Blob([this.demoActionText()], { type: 'text/plain' });
+
+    readonly demoPdfOpen: PdfActionConfig = { url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf', openInTab: true };
+    readonly demoPdfDownload: PdfActionConfig = { url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf', openInTab: false };
+    readonly demoMail: MailActionConfig = { to: 'info@esempio.it', subject: 'Contatto dal sito', body: 'Salve,\n\n' };
+
+    readonly heroStats = [
+        { value: 8,  label: 'heroStatServices' },
+        { value: 4,  label: 'heroStatDirectives' },
+        { value: 6,  label: 'heroStatComponents' },
+        { value: 5,  label: 'heroStatQrTypes' },
+    ] as const;
 
     // --- Laboratorio Markdown ---
     markdownInput = '';
@@ -272,15 +294,44 @@ asset.getUrl('nomeAsset', 480)
 <a [appAssetHref]="'documento'">
   Scarica PDF
 </a>`,
+
+        actionComponents:
+`// Funzioni stabili come proprietà freccia
+getText = () => this.myText();
+getBlob = () => new Blob([this.myText()], {
+  type: 'text/plain'
+});
+
+// Copia negli appunti
+<app-copy-action [action]="getText"
+                 [showLabel]="true" />
+
+// Web Share API
+<app-share-action [action]="getText"
+                  [showLabel]="true" />
+
+// Sintesi vocale TTS
+<app-speech-action [action]="getText"
+                   [showLabel]="true"
+                   labelStop="speechPlaying" />
+
+// Download file
+<app-download-action [action]="getBlob"
+                     filename="file.txt"
+                     [showLabel]="true" />
+
+// PDF (openInTab: true = nuova scheda)
+pdfCfg = { url: '/doc.pdf', openInTab: true };
+<app-pdf-action [config]="pdfCfg"
+                [showLabel]="true" />
+
+// Email predefinita
+mailCfg = { to: 'info@...',
+            subject: 'Oggetto',
+            body: 'Testo...' };
+<app-mail-action [config]="mailCfg"
+                 [showLabel]="true" />`,
     } as const;
-
-    constructor() {
-        super();
-
-        effect(() => {
-            this.speechDemoText.set(this.translate.translate('speechPlaceholder'));
-        });
-    }
 
     // ==================== Laboratorio Markdown ====================
 
@@ -395,14 +446,6 @@ asset.getUrl('nomeAsset', 480)
         }
     }
 
-    toggleSpeech(): void {
-        if (this.speech.isSpeaking()) {
-            this.speech.stop();
-        } else {
-            this.speech.speak(this.speechDemoText());
-        }
-    }
-
     // ==================== Sistema & API ====================
 
     async callSocialApi(): Promise<void> {
@@ -422,10 +465,6 @@ asset.getUrl('nomeAsset', 480)
     resolveAssetResized(width: AssetWidth): void {
         this.assetResizeWidth.set(width);
         this.appliedAssetId.set(this.assetId);
-    }
-
-    copyToClipboard(text: string): void {
-        this.share.copyText(text);
     }
 
     get apiStatus(): string {

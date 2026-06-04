@@ -1,12 +1,105 @@
-<!-- INTRO -->
-<section class="mb-4">
-    <h1 class="mb-2">{{ 'dashboardHome' | translate }}</h1>
-    <p class="lead mb-1" [innerHTML]="translate.translate('createdBy', appName)"></p>
-    <p class="text-muted mb-0">{{ 'welcomeConsole' | translate }}</p>
+<!-- ════════════════════════════════════════════════════ HERO -->
+<section class="pb-5 border-bottom mb-5">
+    <div class="row g-4 align-items-center">
+
+        <div class="col-lg-8">
+            <h1 class="display-5 fw-bold mb-2">{{ appName }}</h1>
+            <p class="lead text-muted mb-3">{{ 'heroTagline' | translate }}</p>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="badge text-bg-primary">Angular 19</span>
+                <span class="badge text-bg-secondary">Signals</span>
+                <span class="badge text-bg-secondary">SSR</span>
+                <span class="badge text-bg-secondary">PWA</span>
+                <span class="badge text-bg-secondary">Bootstrap 5</span>
+                <span class="badge text-bg-success">WCAG AA</span>
+                <span class="badge text-bg-secondary">i18n</span>
+                <span class="badge text-bg-secondary">TypeScript</span>
+            </div>
+        </div>
+
+        <div class="col-lg-4 d-none d-lg-block">
+            <div class="row row-cols-2 g-3">
+                @for (stat of heroStats; track stat.label) {
+                    <div class="col">
+                        <div class="border rounded p-3 text-center bg-body-tertiary h-100 d-flex flex-column align-items-center justify-content-center gap-1">
+                            <span class="fs-2 fw-bold text-primary lh-1">{{ stat.value }}</span>
+                            <span class="small text-uppercase text-muted">{{ stat.label | translate }}</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
 </section>
 
-<!-- FUNZIONALITA' PRINCIPALI -->
-<section class="mb-4">
+<!-- ═══════════════════════════════════════ SEZIONE: AZIONI -->
+<div class="section-label" aria-hidden="true">
+    <i class="fa-solid fa-bolt-lightning"></i>
+    {{ 'sectionActions' | translate }}
+</div>
+<section class="mb-5">
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="row g-0">
+
+                <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
+                    <h2 class="card-title mb-1 h5">{{ 'actionComponentsTitle' | translate }}</h2>
+                    <p class="text-muted small mb-3">{{ 'actionComponentsDesc' | translate }}</p>
+
+                    <label class="form-label" for="demoActionInput">{{ 'actionDemoInputLabel' | translate }}</label>
+                    <textarea class="form-control mb-3" id="demoActionInput" rows="2"
+                              [ngModel]="demoActionText()"
+                              (ngModelChange)="demoActionText.set($event)"></textarea>
+
+                    <p class="small fw-semibold text-muted mb-2">{{ 'actionTextFileGroup' | translate }}</p>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+                        <app-copy-action [action]="getDemoText" [showLabel]="true" />
+                        <app-share-action [action]="getDemoText" [showLabel]="true" />
+                        <app-speech-action [action]="getDemoText" [showLabel]="true" labelStop="speechPlaying" />
+                        <app-download-action [action]="getDemoBlob" filename="demo.txt" [showLabel]="true" />
+                    </div>
+
+                    <p class="small fw-semibold text-muted mb-2">{{ 'actionPdfMailGroup' | translate }}</p>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+                        <app-pdf-action [config]="demoPdfOpen" [showLabel]="true" />
+                        <app-pdf-action [config]="demoPdfDownload" [showLabel]="true" />
+                        <app-mail-action [config]="demoMail" [showLabel]="true" />
+                    </div>
+
+                    <p class="small fw-semibold text-muted mb-2">{{ 'actionIconOnly' | translate }}</p>
+                    <div class="d-flex gap-1 align-items-center">
+                        <app-copy-action [action]="getDemoText" />
+                        <app-share-action [action]="getDemoText" />
+                        <app-speech-action [action]="getDemoText" labelStop="speechPlaying" />
+                        <app-download-action [action]="getDemoBlob" filename="demo.txt" />
+                        <app-pdf-action [config]="demoPdfOpen" />
+                        <app-pdf-action [config]="demoPdfDownload" />
+                        <app-mail-action [config]="demoMail" />
+                    </div>
+                </div>
+
+                @if (auth.isLoggedIn()) {
+                    <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                        <label class="small fw-semibold text-muted mb-2" for="code-actions">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-actions"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.actionComponents"></textarea>
+                    </div>
+                }
+
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════ SEZIONE: GENERATORI -->
+<div class="section-label" aria-hidden="true">
+    <i class="fa-solid fa-wand-magic-sparkles"></i>
+    {{ 'sectionGenerators' | translate }}
+</div>
+<section class="mb-5">
     <div class="row g-3">
 
         <!-- Markdown -->
@@ -21,8 +114,7 @@
 
                             <label class="form-label" for="markdownInput">{{ 'markdownInputLabel' | translate }}</label>
                             <textarea class="form-control"
-                                      id="markdownInput"
-                                      rows="6"
+                                      id="markdownInput" rows="6"
                                       [(ngModel)]="markdownInput"
                                       (ngModelChange)="onMarkdownChange()"
                                       (keydown.control.enter)="renderMarkdown()"
@@ -44,16 +136,15 @@
                             <small class="text-muted d-block mt-2">{{ 'markdownShortcutHint' | translate }}</small>
 
                             <p class="form-label mt-3 mb-1" id="markdownPreviewLabel">{{ 'markdownPreviewTitle' | translate }}</p>
-                            <div class="border rounded p-3 markdown-preview theme-demo-surface"
+                            <div class="border rounded p-3 bg-body-tertiary"
+                                 style="min-height: 180px;"
                                  aria-labelledby="markdownPreviewLabel"
                                  [innerHTML]="markdownPreview"></div>
 
                             @if (markdownHtml) {
                                 <p class="form-label mt-3 mb-1">{{ 'markdownHtmlOutputTitle' | translate }}</p>
-                                <pre class="border rounded p-2 mb-2 theme-demo-surface"><code>{{ markdownHtml }}</code></pre>
-                                <button class="btn btn-sm btn-outline-primary" (click)="copyToClipboard(markdownHtml)">
-                                    <i class="fa-solid fa-copy me-1"></i>{{ 'copyHtml' | translate }}
-                                </button>
+                                <pre class="border rounded p-2 mb-2 bg-body-tertiary"><code>{{ markdownHtml }}</code></pre>
+                                <app-copy-action [action]="getMarkdownHtml" label="copyHtml" [showLabel]="true" />
                             }
                         </div>
 
@@ -72,7 +163,7 @@
             </div>
         </div>
 
-        <!-- Demo immagini -->
+        <!-- Image Builder -->
         <div class="col-12 col-xl-6">
             <div class="card h-100">
                 <div class="card-body p-0">
@@ -85,9 +176,7 @@
                             <div class="row g-3 align-items-start">
                                 <div class="col-sm-5">
                                     <label class="form-label" for="imgText">{{ 'imageTextPlaceholder' | translate }}</label>
-                                    <textarea class="form-control mb-3"
-                                              id="imgText"
-                                              rows="3"
+                                    <textarea class="form-control mb-3" id="imgText" rows="3"
                                               [(ngModel)]="imgText"
                                               (ngModelChange)="onImageInputChange()"></textarea>
 
@@ -101,17 +190,24 @@
                                                (input)="onImageInputChange()">
                                     </div>
 
-                                    <button class="btn btn-outline-secondary btn-sm" (click)="resetHomeImage()">{{ 'resetAction' | translate }}</button>
+                                    <button class="btn btn-outline-secondary btn-sm" (click)="resetHomeImage()">
+                                        {{ 'resetAction' | translate }}
+                                    </button>
                                 </div>
 
                                 <div class="col-sm-7">
-                                    <div class="border rounded d-flex align-items-center justify-content-center p-3 image-preview-shell theme-demo-surface"
+                                    <div class="border rounded d-flex align-items-center justify-content-center p-3 bg-body-tertiary"
+                                         style="min-height: 260px;"
                                          [appContextMenu]="imgContextMenuOptions()">
                                         <img [imgRender]="imgConfig()"
                                              (canvasChange)="imgCanvas.set($event)"
-                                             class="img-fluid rounded border image-preview-canvas cursor-context-menu"
+                                             class="img-fluid rounded border d-block h-auto cursor-context-menu"
                                              [attr.alt]="translate.translate('imgBuilderTitle') + ': ' + (imgText || 'Hello World')">
                                     </div>
+                                    <p class="small text-muted mt-2 mb-0">
+                                        <i class="fa-solid fa-hand-pointer me-1" aria-hidden="true"></i>
+                                        {{ 'imgContextMenuHint' | translate }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -134,252 +230,189 @@
     </div>
 </section>
 
-<!-- QR CODE -->
-<section class="mb-4">
-    <div class="row g-3">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body p-0">
-                    <div class="row g-0">
+<!-- ═══════════════════════════════════════ SEZIONE: QR CODE -->
+<div class="section-label" aria-hidden="true">
+    <i class="fa-solid fa-qrcode"></i>
+    {{ 'sectionQr' | translate }}
+</div>
+<section class="mb-5">
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="row g-0">
 
-                        <div class="col-12 p-3" [class.col-lg-8]="auth.isLoggedIn()">
-                            <h2 class="card-title mb-1 h5">{{ 'qrCodeTitle' | translate }}</h2>
-                            <p class="text-muted small mb-3">
-                                {{ 'qrCodeDesc' | translate }}
-                            </p>
+                <div class="col-12 p-3" [class.col-lg-8]="auth.isLoggedIn()">
+                    <h2 class="card-title mb-1 h5">{{ 'qrCodeTitle' | translate }}</h2>
+                    <p class="text-muted small mb-3">{{ 'qrCodeDesc' | translate }}</p>
 
-                            <div class="row g-4 align-items-start">
-                                <div class="col-md-5">
-                                    <label class="form-label" for="qrType">{{ 'qrType' | translate }}</label>
-                                    <select class="form-select mb-3" id="qrType"
-                                            [(ngModel)]="qrType" (ngModelChange)="onQrTypeChange()">
-                                        <option value="text">{{ 'qrTypeText' | translate }}</option>
-                                        <option value="whatsapp">{{ 'qrTypeWhatsapp' | translate }}</option>
-                                        <option value="email">{{ 'qrTypeEmail' | translate }}</option>
-                                        <option value="wifi">{{ 'qrTypeWifi' | translate }}</option>
-                                        <option value="sepa">{{ 'qrTypeSepa' | translate }}</option>
+                    <div class="row g-4 align-items-start">
+                        <div class="col-md-5">
+                            <label class="form-label" for="qrType">{{ 'qrType' | translate }}</label>
+                            <select class="form-select mb-3" id="qrType"
+                                    [(ngModel)]="qrType" (ngModelChange)="onQrTypeChange()">
+                                <option value="text">{{ 'qrTypeText' | translate }}</option>
+                                <option value="whatsapp">{{ 'qrTypeWhatsapp' | translate }}</option>
+                                <option value="email">{{ 'qrTypeEmail' | translate }}</option>
+                                <option value="wifi">{{ 'qrTypeWifi' | translate }}</option>
+                                <option value="sepa">{{ 'qrTypeSepa' | translate }}</option>
+                            </select>
+
+                            @switch (qrType) {
+                                @case ('text') {
+                                    <label class="form-label" for="qrText">{{ 'qrContent' | translate }}</label>
+                                    <textarea class="form-control mb-3" id="qrText" rows="3"
+                                              [(ngModel)]="qrText"
+                                              [placeholder]="translate.translate('qrContentPlaceholder')"></textarea>
+                                }
+                                @case ('whatsapp') {
+                                    <label class="form-label" for="qrPhone">{{ 'qrPhone' | translate }}</label>
+                                    <input type="tel" id="qrPhone" class="form-control mb-2"
+                                           [(ngModel)]="qrPhone" placeholder="+393331234567">
+                                    <label class="form-label" for="qrWhatsappText">{{ 'qrWhatsappText' | translate }}</label>
+                                    <textarea class="form-control mb-3" id="qrWhatsappText" rows="2"
+                                              [(ngModel)]="qrWhatsappText"></textarea>
+                                }
+                                @case ('email') {
+                                    <label class="form-label" for="qrEmail">{{ 'qrEmailRecipient' | translate }}</label>
+                                    <input type="email" id="qrEmail" class="form-control mb-2"
+                                           [(ngModel)]="qrEmail" placeholder="info@esempio.it">
+                                    <label class="form-label" for="qrEmailSubject">{{ 'qrEmailSubject' | translate }}</label>
+                                    <input type="text" id="qrEmailSubject" class="form-control mb-2"
+                                           [(ngModel)]="qrEmailSubject">
+                                    <label class="form-label" for="qrEmailBody">{{ 'qrEmailBody' | translate }}</label>
+                                    <textarea class="form-control mb-3" id="qrEmailBody" rows="2"
+                                              [(ngModel)]="qrEmailBody"></textarea>
+                                }
+                                @case ('wifi') {
+                                    <label class="form-label" for="qrSsid">{{ 'qrSsid' | translate }}</label>
+                                    <input type="text" id="qrSsid" class="form-control mb-2"
+                                           [(ngModel)]="qrSsid" placeholder="NomeWifi">
+                                    <label class="form-label" for="qrWifiPassword">{{ 'qrWifiPassword' | translate }}</label>
+                                    <input type="text" id="qrWifiPassword" class="form-control mb-2"
+                                           [(ngModel)]="qrWifiPassword">
+                                    <label class="form-label" for="qrWifiEncryption">{{ 'qrWifiEncryption' | translate }}</label>
+                                    <select id="qrWifiEncryption" class="form-select mb-3"
+                                            [(ngModel)]="qrWifiEncryption">
+                                        <option value="WPA">{{ 'qrWifiEncWpa' | translate }}</option>
+                                        <option value="WEP">{{ 'qrWifiEncWep' | translate }}</option>
+                                        <option value="nopass">{{ 'qrWifiEncNone' | translate }}</option>
                                     </select>
+                                }
+                                @case ('sepa') {
+                                    <label class="form-label" for="qrIban">{{ 'qrIban' | translate }}</label>
+                                    <input type="text" id="qrIban" class="form-control mb-2"
+                                           [(ngModel)]="qrIban" placeholder="IT60 X054 2811 1010 0000 0123 456">
+                                    <label class="form-label" for="qrBeneficiaryName">{{ 'qrBeneficiaryName' | translate }}</label>
+                                    <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
+                                           [(ngModel)]="qrBeneficiaryName">
+                                    <label class="form-label" for="qrAmount">{{ 'qrAmount' | translate }}</label>
+                                    <input type="number" id="qrAmount" class="form-control mb-2"
+                                           [(ngModel)]="qrAmount" min="0.01" step="0.01">
+                                    <label class="form-label" for="qrRemittance">{{ 'qrRemittance' | translate }}</label>
+                                    <input type="text" id="qrRemittance" class="form-control mb-3"
+                                           [(ngModel)]="qrRemittance">
+                                }
+                            }
 
-                                    @switch (qrType) {
-                                        @case ('text') {
-                                            <label class="form-label" for="qrText">{{ 'qrContent' | translate }}</label>
-                                            <textarea class="form-control mb-3" id="qrText" rows="3"
-                                                      [(ngModel)]="qrText"
-                                                      [placeholder]="translate.translate('qrContentPlaceholder')"></textarea>
-                                        }
-                                        @case ('whatsapp') {
-                                            <label class="form-label" for="qrPhone">{{ 'qrPhone' | translate }}</label>
-                                            <input type="tel" id="qrPhone" class="form-control mb-2"
-                                                   [(ngModel)]="qrPhone" placeholder="+393331234567">
-                                            <label class="form-label" for="qrWhatsappText">{{ 'qrWhatsappText' | translate }}</label>
-                                            <textarea class="form-control mb-3" id="qrWhatsappText" rows="2"
-                                                      [(ngModel)]="qrWhatsappText"></textarea>
-                                        }
-                                        @case ('email') {
-                                            <label class="form-label" for="qrEmail">{{ 'qrEmailRecipient' | translate }}</label>
-                                            <input type="email" id="qrEmail" class="form-control mb-2"
-                                                   [(ngModel)]="qrEmail" placeholder="info@esempio.it">
-                                            <label class="form-label" for="qrEmailSubject">{{ 'qrEmailSubject' | translate }}</label>
-                                            <input type="text" id="qrEmailSubject" class="form-control mb-2"
-                                                   [(ngModel)]="qrEmailSubject">
-                                            <label class="form-label" for="qrEmailBody">{{ 'qrEmailBody' | translate }}</label>
-                                            <textarea class="form-control mb-3" id="qrEmailBody" rows="2"
-                                                      [(ngModel)]="qrEmailBody"></textarea>
-                                        }
-                                        @case ('wifi') {
-                                            <label class="form-label" for="qrSsid">{{ 'qrSsid' | translate }}</label>
-                                            <input type="text" id="qrSsid" class="form-control mb-2"
-                                                   [(ngModel)]="qrSsid" placeholder="NomeWifi">
-                                            <label class="form-label" for="qrWifiPassword">{{ 'qrWifiPassword' | translate }}</label>
-                                            <input type="text" id="qrWifiPassword" class="form-control mb-2"
-                                                   [(ngModel)]="qrWifiPassword">
-                                            <label class="form-label" for="qrWifiEncryption">{{ 'qrWifiEncryption' | translate }}</label>
-                                            <select id="qrWifiEncryption" class="form-select mb-3"
-                                                    [(ngModel)]="qrWifiEncryption">
-                                                <option value="WPA">{{ 'qrWifiEncWpa' | translate }}</option>
-                                                <option value="WEP">{{ 'qrWifiEncWep' | translate }}</option>
-                                                <option value="nopass">{{ 'qrWifiEncNone' | translate }}</option>
-                                            </select>
-                                        }
-                                        @case ('sepa') {
-                                            <label class="form-label" for="qrIban">{{ 'qrIban' | translate }}</label>
-                                            <input type="text" id="qrIban" class="form-control mb-2"
-                                                   [(ngModel)]="qrIban" placeholder="IT60 X054 2811 1010 0000 0123 456">
-                                            <label class="form-label" for="qrBeneficiaryName">{{ 'qrBeneficiaryName' | translate }}</label>
-                                            <input type="text" id="qrBeneficiaryName" class="form-control mb-2"
-                                                   [(ngModel)]="qrBeneficiaryName">
-                                            <label class="form-label" for="qrAmount">{{ 'qrAmount' | translate }}</label>
-                                            <input type="number" id="qrAmount" class="form-control mb-2"
-                                                   [(ngModel)]="qrAmount" min="0.01" step="0.01">
-                                            <label class="form-label" for="qrRemittance">{{ 'qrRemittance' | translate }}</label>
-                                            <input type="text" id="qrRemittance" class="form-control mb-3"
-                                                   [(ngModel)]="qrRemittance">
-                                        }
-                                    }
+                            <button class="btn btn-primary btn-sm" (click)="generateQr()">
+                                <i class="fa-solid fa-qrcode me-1"></i>{{ 'qrGenerate' | translate }}
+                            </button>
 
-                                    <button class="btn btn-primary btn-sm" (click)="generateQr()">
-                                        <i class="fa-solid fa-qrcode me-1"></i>{{ 'qrGenerate' | translate }}
-                                    </button>
-
-                                    @if (qrError(); as err) {
-                                        <div class="alert alert-warning mt-3 mb-0 py-2 small">
-                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ err }}
-                                        </div>
-                                    }
+                            @if (qrError(); as err) {
+                                <div class="alert alert-warning mt-3 mb-0 py-2 small">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ err }}
                                 </div>
-
-                                <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
-                                    <div class="border rounded p-3 d-flex align-items-center justify-content-center image-preview-shell theme-demo-surface w-100"
-                                         [appContextMenu]="qrContextMenuOptions()">
-                                        @if (qrConfig()) {
-                                            <img [qrContent]="qrConfig()"
-                                                 (blobChange)="qrBlob.set($event)"
-                                                 (errorChange)="qrError.set($event)"
-                                                 alt="{{ 'qrCodeAlt' | translate }}"
-                                                 class="img-fluid rounded cursor-context-menu"
-                                                 style="max-width: 280px;">
-                                        } @else {
-                                            <span class="text-muted small" [innerHTML]="translate.translate('qrCodeEmpty')">
-                                            </span>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
+                            }
                         </div>
 
-                        @if (auth.isLoggedIn()) {
-                            <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
-                                <label class="small fw-semibold text-muted mb-2" for="code-qr">{{ 'usageCodeLabel' | translate }}</label>
-                                <textarea id="code-qr"
-                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                          readonly spellcheck="false"
-                                          [value]="snippets.qrCode"></textarea>
-                            </div>
-                        }
-
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- COMPONENTI UX -->
-<section class="mb-4">
-    <div class="row g-3">
-
-        <!-- Sintesi Vocale (TTS) -->
-        <div class="col-12 col-xl-6">
-            <div class="card h-100">
-                <div class="card-body p-0">
-                    <div class="row g-0 h-100">
-
-                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
-                            <h2 class="card-title mb-1 h5">{{ 'speechDemoTitle' | translate }}</h2>
-                            <p class="text-muted small mb-3">{{ 'speechDemoDesc' | translate }}</p>
-
-                            <div class="mb-3">
-                                <label class="form-label" for="speechInput">{{ 'speechInputLabel' | translate }}</label>
-                                <textarea class="form-control" id="speechInput" rows="3"
-                                          [ngModel]="speechDemoText()" (ngModelChange)="speechDemoText.set($event)"
-                                          [placeholder]="translate.translate('speechPlaceholder')"></textarea>
-                            </div>
-
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn"
-                                        [ngClass]="speech.isSpeaking() ? 'btn-danger' : 'btn-success'"
-                                        (click)="toggleSpeech()">
-                                    <i class="fa-solid me-1"
-                                       [class.fa-play]="!speech.isSpeaking()"
-                                       [class.fa-stop]="speech.isSpeaking()"></i>
-                                    {{ (speech.isSpeaking() ? 'speechStop' : 'speechPlay') | translate }}
-                                </button>
-
-                                @if (speech.currentVoice()) {
-                                    <span class="badge border voice-badge" [title]="('speechVoiceLabel' | translate)">
-                                        <i class="fa-solid fa-robot me-1"></i>
-                                        {{ speech.currentVoice()?.name }}
-                                    </span>
+                        <div class="col-md-7 d-flex flex-column align-items-center justify-content-center">
+                            <div class="border rounded p-3 d-flex align-items-center justify-content-center bg-body-tertiary w-100"
+                                 style="min-height: 260px;"
+                                 [appContextMenu]="qrContextMenuOptions()">
+                                @if (qrConfig()) {
+                                    <img [qrContent]="qrConfig()"
+                                         (blobChange)="qrBlob.set($event)"
+                                         (errorChange)="qrError.set($event)"
+                                         alt="{{ 'qrCodeAlt' | translate }}"
+                                         class="img-fluid rounded cursor-context-menu"
+                                         style="max-width: 280px;">
+                                } @else {
+                                    <span class="text-muted small" [innerHTML]="translate.translate('qrCodeEmpty')"></span>
                                 }
                             </div>
-
-                            @if (speech.isSpeaking()) {
-                                <div class="mt-2 small text-primary animate-pulse">
-                                    <i class="fa-solid fa-volume-high me-1"></i>
-                                    {{ 'speechPlaying' | translate }}
-                                </div>
-                            }
                         </div>
-
-                        @if (auth.isLoggedIn()) {
-                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                                <label class="small fw-semibold text-muted mb-2" for="code-speech">{{ 'usageCodeLabel' | translate }}</label>
-                                <textarea id="code-speech"
-                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                          readonly spellcheck="false"
-                                          [value]="snippets.speech"></textarea>
-                            </div>
-                        }
-
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Demo modali -->
-        <div class="col-12 col-xl-6">
-            <div class="card h-100">
-                <div class="card-body p-0">
-                    <div class="row g-0 h-100">
-
-                        <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
-                            <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
-                            <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
-
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                <button class="btn btn-outline-primary" (click)="showAlert()">
-                                    <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
-                                </button>
-                                <button class="btn btn-outline-warning" (click)="showConfirm()">
-                                    <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
-                                </button>
-                                <button class="btn btn-outline-info" (click)="showFormModal()">
-                                    <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
-                                </button>
-                            </div>
-
-                            @if (modalResult()) {
-                                <div class="alert border mb-0 theme-demo-surface">
-                                    <i class="fa-solid fa-circle-check text-success me-1"></i>
-                                    {{ modalResult() }}
-                                </div>
-                            }
-                        </div>
-
-                        @if (auth.isLoggedIn()) {
-                            <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
-                                <label class="small fw-semibold text-muted mb-2" for="code-notify">{{ 'usageCodeLabel' | translate }}</label>
-                                <textarea id="code-notify"
-                                          class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
-                                          readonly spellcheck="false"
-                                          [value]="snippets.notify"></textarea>
-                            </div>
-                        }
-
+                @if (auth.isLoggedIn()) {
+                    <div class="col-12 col-lg-4 p-3 d-flex flex-column code-panel">
+                        <label class="small fw-semibold text-muted mb-2" for="code-qr">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-qr"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.qrCode"></textarea>
                     </div>
-                </div>
+                }
+
             </div>
         </div>
-
     </div>
 </section>
 
-<!-- SISTEMA -->
-<section>
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="mb-0 h4">{{ 'systemTitle' | translate }}</h2>
-    </div>
+<!-- ══════════════════════════════════════ SEZIONE: NOTIFICHE -->
+<div class="section-label" aria-hidden="true">
+    <i class="fa-solid fa-comment-dots"></i>
+    {{ 'sectionNotify' | translate }}
+</div>
+<section class="mb-5">
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="row g-0">
 
+                <div class="col-12 p-3" [class.col-lg-7]="auth.isLoggedIn()">
+                    <h2 class="card-title mb-1 h5">{{ 'modalDemoTitle' | translate }}</h2>
+                    <p class="text-muted small mb-3">{{ 'modalDemoDesc' | translate }}</p>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button class="btn btn-outline-primary" (click)="showAlert()">
+                            <i class="fa-solid fa-bell me-1"></i>{{ 'modalAlertBtn' | translate }}
+                        </button>
+                        <button class="btn btn-outline-warning" (click)="showConfirm()">
+                            <i class="fa-solid fa-question me-1"></i>{{ 'modalConfirmBtn' | translate }}
+                        </button>
+                        <button class="btn btn-outline-info" (click)="showFormModal()">
+                            <i class="fa-solid fa-pen-to-square me-1"></i>{{ 'modalFormBtn' | translate }}
+                        </button>
+                    </div>
+
+                    @if (modalResult()) {
+                        <div class="alert border mb-0 bg-body-tertiary">
+                            <i class="fa-solid fa-circle-check text-success me-1"></i>
+                            {{ modalResult() }}
+                        </div>
+                    }
+                </div>
+
+                @if (auth.isLoggedIn()) {
+                    <div class="col-12 col-lg-5 p-3 d-flex flex-column code-panel">
+                        <label class="small fw-semibold text-muted mb-2" for="code-notify">{{ 'usageCodeLabel' | translate }}</label>
+                        <textarea id="code-notify"
+                                  class="form-control form-control-sm font-monospace flex-grow-1 demo-code-textarea"
+                                  readonly spellcheck="false"
+                                  [value]="snippets.notify"></textarea>
+                    </div>
+                }
+
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════ SEZIONE: SISTEMA -->
+<div class="section-label" aria-hidden="true">
+    <i class="fa-solid fa-gear"></i>
+    {{ 'sectionSystem' | translate }}
+</div>
+<section>
     <div class="row g-3">
 
         <!-- Tema -->
@@ -389,12 +422,12 @@
                     <h3 class="mb-2 h6">{{ 'themeAccessibilityTitle' | translate }}</h3>
                     <p class="small text-muted mb-2">{{ 'accessibilityDesc' | translate }}</p>
                     <div class="d-flex gap-2 flex-wrap mb-3">
-                        <span class="badge theme-token-badge"
+                        <span class="badge border font-monospace fw-normal"
                               [style.backgroundColor]="theme.colorTema"
                               [style.color]="theme.colorTemaText">
                             colorTema: {{ theme.colorTema }}
                         </span>
-                        <span class="badge theme-token-badge"
+                        <span class="badge border font-monospace fw-normal"
                               [style.backgroundColor]="theme.colorPrimary"
                               [style.color]="theme.colorPrimaryText">
                             colorPrimary: {{ theme.colorPrimary }}
@@ -457,7 +490,7 @@
                     </div>
 
                     @if (socialResult()) {
-                        <pre class="border rounded p-2 mb-3 api-result-output theme-demo-surface"><code>{{ socialResult() }}</code></pre>
+                        <pre class="border rounded p-2 mb-3 overflow-auto bg-body-tertiary" style="max-height: 140px;"><code>{{ socialResult() }}</code></pre>
                     }
 
                     @if (auth.isLoggedIn()) {
@@ -472,7 +505,7 @@
             </div>
         </div>
 
-        <!-- Asset + Image Resize Playground -->
+        <!-- Asset -->
         <div class="col-12">
             <div class="card">
                 <div class="card-body p-0">
@@ -514,7 +547,8 @@
                                 <img [appAsset]="id"
                                      [appAssetWidth]="assetResizeWidth() ?? undefined"
                                      [alt]="translate.translate('assetPreviewAlt')"
-                                     class="img-fluid rounded border asset-preview-image">
+                                     class="img-fluid rounded border"
+                                     style="max-height: 90px;">
                             }
                         </div>
 

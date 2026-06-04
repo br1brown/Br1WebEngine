@@ -61,15 +61,21 @@
 }
 
 /* ── Focus-visible policy globale (WCAG 2.4.7 / 2.4.11) ────────────────────
-   Garantisce un indicatore di focus visibile e coerente su TUTTI gli elementi
-   interattivi. I browser mostrano il focus solo via tastiera (:focus-visible);
-   il mouse non genera l'anello. Componenti con focus personalizzato (es. .fab,
-   .skip-link) ridefiniscono il loro :focus-visible più sotto.
+   :focus-visible → anello visibile solo per navigazione tastiera.
+   :focus:not(:focus-visible) → rimuove l'indicatore su click/tap mobile
+   (previene il "bottone rimane premuto" su iOS/Android), senza toccare
+   la tastiera. Specificity 0 via :where() per non interferire con override
+   di componenti (es. .fab:focus-visible, SweetAlert2).
    ─────────────────────────────────────────────────────────────────────────── */
 :focus-visible {
     outline: var(--focusRingWidth) solid var(--focusRingColor);
     outline-offset: var(--focusRingOffset);
     border-radius: 2px;
+}
+
+:where(:focus:not(:focus-visible)) {
+    outline: none;
+    box-shadow: none;
 }
 
 html {

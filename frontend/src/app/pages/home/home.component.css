@@ -1,95 +1,35 @@
-/* Stili specifici della pagina iniziale. */
-
-.demo-context-area {
-  cursor: context-menu;
-  min-height: 100px;
-  background-color: var(--colorSurface, #f8f9fa);
-  color: var(--colorSurfaceText, #212529);
-  border-color: var(--colorSurfaceBorder, rgba(0, 0, 0, 0.12)) !important;
-  transition: background-color 0.2s ease;
+/* ── Unico elemento non replicabile con Bootstrap: section label con riga ── */
+.section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--colorPrimary, #3d8bfd);
 }
 
-.demo-context-area:hover {
-  background-color: var(--colorSurfaceHover, #eef1f4);
+.section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--colorSurfaceBorder, rgba(0, 0, 0, 0.1));
 }
 
-.context-textarea {
-  background: transparent;
-  color: inherit;
-  border: 1px dashed color-mix(in srgb, currentColor 24%, transparent);
-  resize: vertical;
-}
-
-.context-textarea:focus {
-  background: color-mix(in srgb, var(--colorSurface, #f8f9fa) 92%, white);
-  border-style: solid;
-  border-color: color-mix(in srgb, currentColor 32%, transparent);
-  box-shadow: none;
-}
-
-.theme-demo-surface {
-  background-color: var(--colorSurface, #f8f9fa);
-  color: var(--colorSurfaceText, #212529);
-  border-color: var(--colorSurfaceBorder, rgba(0, 0, 0, 0.12)) !important;
-}
-
-.markdown-preview {
-  min-height: 180px;
-}
-
-.image-preview-shell {
-  min-height: 260px;
-}
-
-/* Pannello snippet codice: bordo superiore su mobile, sinistro da lg in su */
+/* ── Code panel: bordo in alto su mobile, a sinistra da lg ── */
 .code-panel {
-  border-top: 1px solid var(--colorSurfaceBorder);
+    border-top: 1px solid var(--colorSurfaceBorder);
 }
+
 @media (min-width: 992px) {
-  .code-panel {
-    border-top: none;
-    border-left: 1px solid var(--colorSurfaceBorder);
-  }
+    .code-panel {
+        border-top: none;
+        border-left: 1px solid var(--colorSurfaceBorder);
+    }
 }
 
-.image-preview-canvas {
-  display: block;
-  height: auto;
-  max-width: 100%;
-}
-
-.theme-token-badge {
-  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
-  font-family: var(--bs-font-monospace);
-  white-space: nowrap;
-}
-
-.api-result-output {
-  max-height: 140px;
-  overflow: auto;
-}
-
-.voice-badge {
-  background-color: #e9ecef;
-  color: #343a40;
-}
-
-.asset-preview-image {
-  max-height: 90px;
-}
-
-.demo-code-textarea {
-  resize: none;
-  min-height: 200px;
-}
-
-.demo-code-textarea-sm {
-  resize: none;
-  min-height: 160px;
-}
-
-@media (hover: none) and (pointer: coarse) {
-  .demo-context-area {
-    cursor: default;
-  }
-}
+/* ── Textarea snippet: resize:none non ha utility Bootstrap ── */
+.demo-code-textarea    { resize: none; min-height: 200px; }
+.demo-code-textarea-sm { resize: none; min-height: 160px; }

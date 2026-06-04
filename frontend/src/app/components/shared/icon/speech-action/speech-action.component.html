@@ -1,0 +1,14 @@
+<button class="action-btn d-inline-flex align-items-center gap-2"
+        type="button"
+        [attr.aria-pressed]="isSpeaking()"
+        [title]="displayLabel()"
+        [attr.aria-label]="showLabel() ? null : displayLabel()"
+        (click)="onClick()">
+    <i class="fa-solid action-icon"
+       [class.fa-volume-high]="!isSpeaking()"
+       [class.fa-stop]="isSpeaking()"
+       aria-hidden="true"></i>
+    @if (showLabel()) {
+        <span>{{ displayLabel() }}</span>
+    }
+</button>
