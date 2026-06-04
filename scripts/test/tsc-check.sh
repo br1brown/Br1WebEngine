@@ -11,7 +11,7 @@
 # Exit code:
 #   0  Nessun errore di tipo
 #   1  Uno o più errori TypeScript
-#   2  Node.js non disponibile — test saltato
+#   2  Node.js o TypeScript locale non disponibili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -24,15 +24,21 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+TSC_BIN="${FRONTEND_DIR}/node_modules/typescript/bin/tsc"
 
 if ! command -v node >/dev/null 2>&1; then
     echo "  WARN Node.js non trovato — controllo tsc saltato"
     exit 2
 fi
 
+if [[ ! -f "$TSC_BIN" ]]; then
+    echo "  WARN TypeScript non installato localmente (npm ci --include=dev mancante) — controllo tsc saltato"
+    exit 2
+fi
+
 cd "$FRONTEND_DIR"
 
-if npx tsc --noEmit; then
+if node "$TSC_BIN" --noEmit; then
     echo -e "  ${GREEN}OK${RESET} Controllo dei tipi TypeScript superato"
 else
     echo -e "  ${RED}ERR${RESET} Controllo dei tipi TypeScript fallito" >&2

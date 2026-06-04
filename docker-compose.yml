@@ -32,7 +32,7 @@ services:
       BACKEND_ORIGIN: "http://backend:8080"
       GLOBAL_SETTINGS_PATH: /app/global-settings.json
     ports:
-      - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:${FRONTEND_PORT}"
+      - "${FRONTEND_PORT:?ERRORE: impostare frontend.port in global-settings.json}:3000"
     volumes:
       - ./global-settings.json:/app/global-settings.json:ro
     depends_on:

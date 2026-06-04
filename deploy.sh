@@ -331,8 +331,8 @@ check_port_conflict() {
 
     if [[ -n "$conflicting" ]]; then
         local container_name project_label normalized_proj
-        container_name=$(echo "$conflicting" | awk '{print $1}')
-        project_label=$(echo "$conflicting" | awk '{print $3}')
+        container_name=$(echo "$conflicting" | awk -F'\t' '{print $1}')
+        project_label=$(echo "$conflicting" | awk -F'\t' '{print $3}')
 
         # Docker Compose normalizza il nome progetto (es. rimuove maiuscole e caratteri speciali)
         normalized_proj=$(echo "$COMPOSE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_-]//g')

@@ -11,7 +11,7 @@
 # Exit code:
 #   0  Nessun errore ESLint
 #   1  Una o più violazioni
-#   2  npm non disponibile — test saltato
+#   2  npm o ESLint locale non disponibili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -24,9 +24,15 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
+ESLINT_BIN="${FRONTEND_DIR}/node_modules/.bin/eslint"
 
 if ! command -v npm >/dev/null 2>&1; then
     echo "  WARN npm non trovato — controllo ESLint saltato"
+    exit 2
+fi
+
+if [[ ! -f "$ESLINT_BIN" ]]; then
+    echo "  WARN ESLint non installato localmente (npm ci --include=dev mancante) — controllo saltato"
     exit 2
 fi
 

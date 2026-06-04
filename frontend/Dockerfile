@@ -31,7 +31,8 @@ RUN npm prune --omit=dev
 FROM node:22-alpine
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    DIST_PATH=app
 
 WORKDIR /app
 

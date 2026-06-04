@@ -87,14 +87,13 @@ app.get('/health', (_request, response) => {
 
 /** Rifiuta richieste pubbliche con host non autorizzato prima di raggiungere proxy o SSR */
 app.use((request, response, next) => {
-    // allowedHosts contiene '*' (wildcard) → permetti qualsiasi host, coerente con il
-    // comportamento di @angular/ssr e con il backend AllowAnyOrigin. /health sempre libero.
-    if (nodeCfg.allowedHosts.includes('*') || request.path === '/health') {
+    // /health è sempre libero (usato da monitoraggio e preflight deploy).
+    if (request.path === '/health') {
         next();
         return;
     }
 
-    const requestHost = request.hostname.trim().toLowerCase();
+    const requestHost = (request.hostname ?? '').trim().toLowerCase();
     const isAllowed = nodeCfg.allowedHosts.some((host) => host.toLowerCase() === requestHost);
 
     if (isAllowed) {

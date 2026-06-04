@@ -2,18 +2,11 @@
 <html lang="it">
 <head>
     <meta charset="utf-8">
-    <title>Template</title>
     <!-- Anti-flash: imposta data-bs-theme prima che Bootstrap carichi qualsiasi stile.
-         Esecuzione sincrona → nessun ciclo di rendering con tone sbagliato.
-         _applyPalette (afterNextRender) confermerà lo stesso valore → nessun repaint. -->
-    <script>
-      (function () {
-        var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        var el = document.documentElement;
-        el.setAttribute('data-bs-theme', t);
-        el.setAttribute('data-theme-tone', t);
-      }());
-    </script>
+         Script esterno → coperto da script-src 'self' nella CSP, nessun hash né nonce necessario.
+         Esecuzione sincrona (no defer/async) → nessun ciclo di rendering con tono sbagliato. -->
+    <script src="theme-init.js"></script>
+    <title>Template</title>
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="index, follow">

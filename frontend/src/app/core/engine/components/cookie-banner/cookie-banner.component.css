@@ -141,12 +141,28 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
         grid-template-columns: 1fr;
-        padding: 1rem;
-        gap: 1rem;
+        padding: 0.85rem 1rem;
+        gap: 0.75rem;
         border-radius: 1.25rem;
+    }
+
+    /* Grid 2 colonne: "Rifiuta" | "Accetta" in riga, "Salva" sotto full-width.
+       display:grid!important supera d-flex!important di Bootstrap. */
+    app-cookie-banner .cookie-banner-modern .cookie-banner__actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
     }
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
         width: 100%;
+        min-height: 2.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    /* "Salva scelte" (3° bottone, visibile solo con categorie miste) → riga intera */
+    app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn:last-child:nth-child(3) {
+        grid-column: 1 / -1;
     }
 }

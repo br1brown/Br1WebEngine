@@ -111,27 +111,25 @@ const parsePositiveInt = (value: string | undefined, fallback: number): number =
     return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-/** Sentinella wildcard di @angular/ssr: allowedHosts che contiene '*' → SSR per qualsiasi host
- *  (con un singolo warning all'avvio). È il parallelo concettuale del backend `AllowAnyOrigin`. */
-const ALLOW_ANY_HOST: readonly string[] = ['*'];
+/** Host locali usati come fallback quando frontend.hostname e NG_ALLOWED_HOSTS sono entrambi vuoti.
+ *  @angular/ssr NON riconosce '*' come wildcard globale (fa match solo letterale o '*.dominio'),
+ *  quindi usarlo causa 400 Bad Request per qualsiasi host reale (localhost incluso).
+ *  Il fallback a host locali espliciti permette lo sviluppo locale senza configurazione aggiuntiva. */
+const LOCAL_DEV_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]'];
 
 /**
  * Parsa la lista host separata da virgole. Se il risultato è vuoto (né NG_ALLOWED_HOSTS né
- * frontend.hostname forniscono valori), restituisce ['*'] anziché [].
+ * frontend.hostname forniscono valori), usa LOCAL_DEV_HOSTS come fallback.
  *
- * Motivo: con allowedHosts vuoto @angular/ssr NON apre a tutti — degrada a CSR e logga
- * `ERROR: Bad Request` ad ogni richiesta (e dalla v22 risponderà 400 secco). Il vero
- * "permetti qualsiasi host" è il wildcard '*', coerente con la scelta deliberata del backend
- * di usare AllowAnyOrigin quando CorsOrigins è vuoto: la protezione resta l'API key + l'host
- * check del reverse proxy (NPM) a monte. Per restringere, valorizzare NG_ALLOWED_HOSTS o
- * frontend.hostname.
+ * Per restringere o ampliare l'allowlist: valorizzare NG_ALLOWED_HOSTS (env var, lista
+ * separata da virgola) oppure frontend.hostname in global-settings.json.
  */
 const parseAllowedHosts = (value: string | undefined): readonly string[] => {
     const hosts = (value ?? '')
         .split(',')
         .map((host) => host.trim())
         .filter((host) => host.length > 0);
-    return hosts.length > 0 ? hosts : ALLOW_ANY_HOST;
+    return hosts.length > 0 ? hosts : LOCAL_DEV_HOSTS;
 };
 
 // ── Configurazione lazy per sezione ──────────────────────────────────────────

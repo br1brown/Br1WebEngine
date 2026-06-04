@@ -2,7 +2,8 @@
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    z-index: 1000;
+    /* Sopra il cookie banner (z-index 1050) e il suo pulsante di riapertura */
+    z-index: 1055;
 }
 
 @supports (bottom: env(safe-area-inset-bottom)) {
