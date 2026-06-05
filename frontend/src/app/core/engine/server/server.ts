@@ -31,6 +31,24 @@ const CdnCgiPaths = {
     preview: '/cdn-cgi/preview',
 } as const;
 
+
+const normalizePagePath = (path: string): string => {
+    const normalized = `/${path}`.replace(/\/+/g, '/').replace(/\/$/, '');
+    return normalized || '/';
+};
+
+const knownPagePaths = new Set(
+    ContestoSito.serverRenderEntries.map(entry => normalizePagePath(entry.path))
+);
+
+function getSeoStatusForPath(path: string): number | null {
+    const normalized = normalizePagePath(path);
+    const errorMatch = /^\/error\/(\d{3})$/.exec(normalized);
+    if (errorMatch) return Number(errorMatch[1]);
+    if (normalized === '/error') return 500;
+    return knownPagePaths.has(normalized) ? null : 404;
+}
+
 /** Tentativo di caricamento iniziale del mapping all'avvio del processo (non bloccante:
  *  resolveAssetPath fa hot-reload alla prima richiesta se qui fallisce). */
 loadAssetMapping().then((ok) => {
@@ -206,7 +224,8 @@ app.use(async (request: Request, response: Response, next) => {
         );
         if (!renderedResponse) { next(); return; }
 
-        response.status(renderedResponse.status);
+        const seoStatus = getSeoStatusForPath(request.path);
+        response.status(seoStatus ?? renderedResponse.status);
         response.setHeader('Cache-Control', 'no-cache');
 
         // Inoltra gli header Angular, escludendo quelli che gestiamo noi

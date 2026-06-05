@@ -111,6 +111,16 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function toOpenGraphLocale(lang: string): string {
+    try {
+        const locale = new Intl.Locale(lang).maximize();
+        return locale.region ? `${locale.language}_${locale.region}` : locale.language;
+    } catch {
+        const [base] = lang.split('-');
+        return `${base}_${base.toUpperCase()}`;
+    }
+}
+
 function replaceMeta(
     html: string,
     attr: 'name' | 'property',
@@ -157,6 +167,7 @@ function updateIndexHtml(): void {
     const appName = escapeHtml(ContestoSito.config.appName);
     const description = escapeHtml(ContestoSito.config.description);
     const lang = escapeHtml(DEFAULT_LANG);
+    const ogLocale = escapeHtml(toOpenGraphLocale(DEFAULT_LANG));
     // 'default' è sicuro per qualsiasi tema: apple-mobile-web-app-status-bar-style
     // non supporta media queries e non può adattarsi all'OS preference a runtime.
     const iosStatusBar = 'default';
@@ -186,7 +197,7 @@ function updateIndexHtml(): void {
         ['property', 'og:title', appName],
         ['property', 'og:description', description],
         ['property', 'og:site_name', appName],
-        ['property', 'og:locale', lang],
+        ['property', 'og:locale', ogLocale],
         ['property', 'og:url', BASE_URL],
         ['property', 'og:image', defaultImageUrl],
     ];
@@ -276,7 +287,10 @@ function updateManifest(): void {
 // ── Generazione sitemap.xml ───────────────────────────────────────────────
 
 function buildSitemapXml(entries: SitemapEntry[]): string {
-    const lastmod = new Date().toISOString().split('T')[0];
+    // Google usa <lastmod> solo se e' accurato e verificabile: usare la data
+    // dell'ultimo commit e' piu' affidabile della data di build, che cambierebbe
+    // anche senza modifiche reali ai contenuti.
+    const lastmod = getLastCommitDate();
     const urls = entries
         .map(({ path }) => [
             '  <url>',

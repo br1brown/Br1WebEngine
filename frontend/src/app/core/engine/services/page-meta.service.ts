@@ -1,4 +1,4 @@
-import { inject, Injectable, InjectionToken } from '@angular/core';
+import { CSP_NONCE, inject, Injectable, InjectionToken } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
@@ -40,6 +40,7 @@ export class PageMetaService {
     private readonly meta = inject(Meta);
     private readonly document = inject(DOCUMENT);
     private readonly translate = inject(TranslateService);
+    private readonly cspNonce = inject(CSP_NONCE, { optional: true });
 
     /** Cifratura preview: disponibile solo in SSR, null nel browser. */
     private readonly encryptFn = inject(SSR_PREVIEW_ENCRYPT_FN, { optional: true });
@@ -105,18 +106,13 @@ export class PageMetaService {
             this.meta.updateTag({ name: 'twitter:description', content: description });
         }
 
-        // Gestione URL e Origin
-        // In SSR, document.URL riflette l'indirizzo richiesto dal client.
-        const url = this.document.URL;
+        const canonicalUrl = this.getCanonicalUrl();
+        const origin = this.getCanonicalOrigin(canonicalUrl);
 
-        const origin = this.frontendOrigin
-            || this.document.location?.origin
-            || (() => { try { return new URL(url).origin; } catch { return ''; } })();
-
-        this.meta.updateTag({ property: 'og:url', content: url });
+        this.meta.updateTag({ property: 'og:url', content: canonicalUrl });
 
         // Gestione del tag rel="canonical"
-        this.updateCanonical(url);
+        this.updateCanonical(canonicalUrl);
 
         // Aggiorna og:type (default: website)
         this.meta.updateTag({ property: 'og:type', content: ogType || 'website' });
@@ -149,7 +145,7 @@ export class PageMetaService {
         }
 
         // Aggiorna JSON-LD structured data
-        this.updateStructuredData(pageTitle || appName, description, imageUrl, structuredDataType || 'WebPage');
+        this.updateStructuredData(pageTitle || appName, description, imageUrl, structuredDataType || 'WebPage', canonicalUrl);
     }
 
     /**
@@ -161,35 +157,81 @@ export class PageMetaService {
         const allLangs = this.translate.availableLangs();
 
         const localeFormat = (lang: string): string => {
-            const [base] = lang.split('-');
-            return `${base}_${base.toUpperCase()}`;
+            try {
+                const locale = new Intl.Locale(lang).maximize();
+                return locale.region ? `${locale.language}_${locale.region}` : locale.language;
+            } catch {
+                const [base] = lang.split('-');
+                return `${base}_${base.toUpperCase()}`;
+            }
         };
 
         this.meta.updateTag({ property: 'og:locale', content: localeFormat(currentLang) });
 
-        // Alternate locales per le altre lingue disponibili
+        // Alternate locales per le altre lingue disponibili. remove+add evita
+        // che Meta.updateTag sovrascriva un solo tag quando le lingue sono > 2.
+        this.document
+            .querySelectorAll('meta[property="og:locale:alternate"]')
+            .forEach(tag => tag.remove());
         allLangs
             .filter(l => l !== currentLang)
             .forEach(lang => {
-                this.meta.updateTag({ property: 'og:locale:alternate', content: localeFormat(lang) });
+                this.meta.addTag({ property: 'og:locale:alternate', content: localeFormat(lang) });
             });
     }
 
     /**
-     * Aggiorna il tag script JSON-LD con structured data.
-     * Accetta imageUrl come stringa, null o undefined.
+     * Aggiorna gli script JSON-LD con structured data coerenti con il canonical.
+     *
+     * Vengono emessi blocchi separati per WebPage, Organization, WebSite e,
+     * quando utile, BreadcrumbList: separarli rende il grafo piu' leggibile ai
+     * validator e permette di aggiornare ogni entita' senza sovrascrivere le altre.
      * @param schemaType Tipo Schema.org (@type), es. 'WebPage', 'Article'. Default: 'WebPage'.
      */
-    private updateStructuredData(title: string, description?: string | null, imageUrl?: string | null, schemaType: string = 'WebPage'): void {
+    private updateStructuredData(
+        title: string,
+        description?: string | null,
+        imageUrl?: string | null,
+        schemaType: string = 'WebPage',
+        canonicalUrl: string = this.getCanonicalUrl(),
+    ): void {
         const { appName } = ContestoSito.config;
-        const url = this.document.URL;
+        const siteUrl = this.getSiteUrl(canonicalUrl);
+        const currentLang = this.translate.currentLang();
+        const organizationId = `${siteUrl}#organization`;
+        const websiteId = `${siteUrl}#website`;
+        const pageId = `${canonicalUrl}#webpage`;
 
-        const structuredData = {
+        const organization = {
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            '@id': organizationId,
+            name: appName,
+            url: siteUrl,
+            logo: `${siteUrl}icons/icon-512x512.png`,
+        };
+
+        const website = {
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            '@id': websiteId,
+            url: siteUrl,
+            name: appName,
+            ...(ContestoSito.config.description && { description: ContestoSito.config.description }),
+            inLanguage: currentLang,
+            publisher: { '@id': organizationId },
+        };
+
+        const webPage = {
             '@context': 'https://schema.org',
             '@type': schemaType,
+            '@id': pageId,
             name: title,
             ...(description && { description }),
-            url,
+            url: canonicalUrl,
+            inLanguage: currentLang,
+            isPartOf: { '@id': websiteId },
+            publisher: { '@id': organizationId },
             // Se imageUrl è null, undefined o stringa vuota, l'oggetto image non viene aggiunto
             ...(imageUrl && {
                 image: {
@@ -197,24 +239,84 @@ export class PageMetaService {
                     url: imageUrl
                 }
             }),
-            publisher: {
-                '@type': 'Organization',
-                name: appName
-            }
         };
 
-        // Logica per rimuovere il vecchio script e appendere il nuovo...
-        const existing = this.document.querySelector('script[type="application/ld+json"]');
-        if (existing) {
-            existing.remove();
-        }
+        const graph: object[] = [organization, website, webPage];
+        const breadcrumb = this.buildBreadcrumbData(title, canonicalUrl, siteUrl);
+        if (breadcrumb) graph.push(breadcrumb);
 
-        const script = this.document.createElement('script');
-        script.type = 'application/ld+json';
-        script.textContent = JSON.stringify(structuredData);
-        this.document.head.appendChild(script);
+        this.document
+            .querySelectorAll('script[type="application/ld+json"][data-br1-jsonld]')
+            .forEach(script => script.remove());
+
+        graph.forEach((data, index) => {
+            const script = this.document.createElement('script');
+            script.type = 'application/ld+json';
+            script.setAttribute('data-br1-jsonld', String(index));
+            if (this.cspNonce) script.nonce = this.cspNonce;
+            script.textContent = JSON.stringify(data);
+            this.document.head.appendChild(script);
+        });
     }
 
+    /**
+     * Costruisce un canonical stabile: niente query/hash e, in SSR, origin forzato
+     * a FRONTEND_BASE_URL. Evita canonical divergenti tra HTML iniziale e idratazione.
+     */
+    private getCanonicalUrl(): string {
+        try {
+            const parsed = new URL(this.document.URL);
+            parsed.search = '';
+            parsed.hash = '';
+
+            const configuredOrigin = this.frontendOrigin?.replace(/\/$/, '');
+            if (configuredOrigin) {
+                const configured = new URL(configuredOrigin);
+                parsed.protocol = configured.protocol;
+                parsed.host = configured.host;
+            }
+
+            return parsed.toString();
+        } catch {
+            return this.frontendOrigin?.replace(/\/$/, '') || '/';
+        }
+    }
+
+    private getCanonicalOrigin(canonicalUrl: string): string {
+        try { return new URL(canonicalUrl).origin; } catch { return ''; }
+    }
+
+    private getSiteUrl(canonicalUrl: string): string {
+        const origin = this.getCanonicalOrigin(canonicalUrl);
+        return origin ? `${origin}/` : '/';
+    }
+
+    private buildBreadcrumbData(title: string, canonicalUrl: string, siteUrl: string): object | null {
+        const path = (() => {
+            try { return new URL(canonicalUrl).pathname; } catch { return '/'; }
+        })();
+
+        if (path === '/') return null;
+
+        return {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+                {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: ContestoSito.config.appName,
+                    item: siteUrl,
+                },
+                {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: title,
+                    item: canonicalUrl,
+                },
+            ],
+        };
+    }
 
     /**
      * Gestisce il tag canonical per evitare problemi di contenuti duplicati.
