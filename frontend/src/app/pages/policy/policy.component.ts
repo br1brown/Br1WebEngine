@@ -10,8 +10,7 @@ import type { Profile } from '../../core/engine/dto/profile.dto';
 @Component({
     selector: 'app-policy',
     imports: [MarkdownPipe, ProfileRenderComponent],
-    templateUrl: './policy.component.html',
-    styleUrl: './policy.component.css'
+    templateUrl: './policy.component.html'
 })
 export class PolicyComponent extends PageBaseComponent<string> {
     private readonly cookieConsent = inject(CookieConsentService);

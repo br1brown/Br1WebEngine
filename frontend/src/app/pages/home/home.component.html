@@ -53,30 +53,30 @@
                               [ngModel]="demoActionText()"
                               (ngModelChange)="demoActionText.set($event)" readonly></textarea>
 
-                    <p class="small fw-semibold text-muted mb-2">{{ 'actionTextFileGroup' | translate }}</p>
+                    <p class="small fw-semibold text-muted mb-2">{{ 'demoActionsGroup' | translate }}</p>
                     <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
                         <app-copy-action [action]="getDemoText" [showLabel]="true" />
                         <app-share-action [action]="getDemoText" [showLabel]="true" />
                         <app-speech-action [action]="getDemoText" [showLabel]="true" labelStop="speechPlaying" />
                         <app-download-action [action]="getDemoBlob" filename="demo.txt" [showLabel]="true" />
-                    </div>
-
-                    <p class="small fw-semibold text-muted mb-2">{{ 'actionPdfMailGroup' | translate }}</p>
-                    <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+                        <app-print-action [showLabel]="true" />
                         <app-pdf-action [config]="demoPdfOpen" [showLabel]="true" />
                         <app-pdf-action [config]="demoPdfDownload" [showLabel]="true" />
-                        <app-mail-action [config]="demoMail" [showLabel]="true" />
                     </div>
 
-                    <p class="small fw-semibold text-muted mb-2">{{ 'actionIconOnly' | translate }}</p>
-                    <div class="d-flex gap-1 align-items-center">
-                        <app-copy-action [action]="getDemoText" />
-                        <app-share-action [action]="getDemoText" />
-                        <app-speech-action [action]="getDemoText" labelStop="speechPlaying" />
-                        <app-download-action [action]="getDemoBlob" filename="demo.txt" />
-                        <app-pdf-action [config]="demoPdfOpen" />
-                        <app-pdf-action [config]="demoPdfDownload" />
-                        <app-mail-action [config]="demoMail" />
+                    <p class="small fw-semibold text-muted mb-2">{{ 'demoContactsGroup' | translate }}</p>
+                    <div class="d-flex flex-wrap gap-3 align-items-center mb-4">
+                        <app-mail-contact [config]="demoMail" [showLabel]="true" />
+                        <app-phone-contact [number]="demoPhone" [showLabel]="true" />
+                        <app-whatsapp-contact [config]="demoWhatsapp" [showLabel]="true" />
+                        <app-telegram-contact [handle]="demoTelegram" [showLabel]="true" />
+                    </div>
+
+                    <p class="small fw-semibold text-muted mb-2">{{ 'demoNavGroup' | translate }}</p>
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        @for (s of demoSocials; track s.type) {
+                            <app-social-link [type]="s.type" [value]="s.value" [showLabel]="true" />
+                        }
                     </div>
                 </div>
 

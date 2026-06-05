@@ -1,0 +1,26 @@
+<a class="text-decoration-none d-inline-flex align-items-center gap-2"
+   [class.text-reset]="variant() === 'badge'"
+   [class.text-white]="variant() === 'button'"
+   [class.rounded-pill]="variant() === 'button'"
+   [class.link-badge--button]="variant() === 'button'"
+   [class.pe-4]="variant() === 'button' && showText()"
+   [class.pe-2]="variant() === 'button' && !showText()"
+   [style.background-color]="variant() === 'button' ? (color() || '#333') : null"
+   [class.flex-column]="layout() === 'responsive'"
+   [class.flex-sm-row]="layout() === 'responsive'"
+   [class.flex-row]="layout() === 'row'"
+   [class.text-start]="layout() === 'row'"
+   [class.w-100]="fullWidth()"
+   [class.justify-content-center]="fullWidth()"
+   [href]="href()" target="_blank" rel="noopener noreferrer"
+   (click)="handleClick($event)"
+   [attr.title]="showText() ? null : ariaLabel()"
+   [attr.aria-label]="showText() ? null : ariaLabel()">
+    <app-icon [glyph]="glyph()" 
+              [color]="variant() === 'badge' ? color() : 'transparent'" 
+              shape="circle" 
+              [animation]="variant() === 'badge' ? 'lift' : 'none'" />
+    @if (showText()) {
+        <span class="text-break">{{ text() }}</span>
+    }
+</a>

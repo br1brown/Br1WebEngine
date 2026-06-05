@@ -320,6 +320,7 @@ export class ThemeService {
             ['--colorSurfaceText', lt ? p.colorSurfaceTextLt : p.colorSurfaceTextDk],
             // Semantic (tone-adaptive, derivati da brand)
             ['--colorSecondary', lt ? p.colorSecondaryLt : p.colorSecondaryDk],
+            ['--colorSecondaryRgb', ThemeService.hexToRgbTriplet(lt ? p.colorSecondaryLt : p.colorSecondaryDk)],
             ['--colorSecondaryText', lt ? p.colorSecondaryTextLt : p.colorSecondaryTextDk],
             // Bootstrap overrides
             ['--bs-primary', p.colorPrimary],
@@ -369,6 +370,8 @@ export class ThemeService {
             // indipendentemente dal tone globale. Stesso pattern già usato per --colorLinkLt/Dk.
             ['--colorSecondaryLt', p.colorSecondaryLt],
             ['--colorSecondaryDk', p.colorSecondaryDk],
+            ['--colorSecondaryRgbLt', ThemeService.hexToRgbTriplet(p.colorSecondaryLt)],
+            ['--colorSecondaryRgbDk', ThemeService.hexToRgbTriplet(p.colorSecondaryDk)],
             ['--colorHeadingLt', p.colorHeadingLt],
             ['--colorHeadingDk', p.colorHeadingDk],
             ['--colorHeadingRgbLt', ThemeService.hexToRgbTriplet(p.colorHeadingLt)],
@@ -459,6 +462,7 @@ export class ThemeService {
                 `--colorSurfaceText:${s ? p.colorSurfaceTextLt : p.colorSurfaceTextDk};` +
                 // Semantic
                 `--colorSecondary:${s ? p.colorSecondaryLt : p.colorSecondaryDk};` +
+                `--colorSecondaryRgb:${ThemeService.hexToRgbTriplet(s ? p.colorSecondaryLt : p.colorSecondaryDk)};` +
                 `--colorSecondaryText:${s ? p.colorSecondaryTextLt : p.colorSecondaryTextDk};` +
                 // Bootstrap
                 `--bs-body-bg:${s ? p.colorBaseLt : p.colorBaseDk};` +
@@ -537,6 +541,8 @@ export class ThemeService {
             `--colorMutedTextDk:${p.colorMutedTextDk};` +
             `--colorSecondaryLt:${p.colorSecondaryLt};` +
             `--colorSecondaryDk:${p.colorSecondaryDk};` +
+            `--colorSecondaryRgbLt:${ThemeService.hexToRgbTriplet(p.colorSecondaryLt)};` +
+            `--colorSecondaryRgbDk:${ThemeService.hexToRgbTriplet(p.colorSecondaryDk)};` +
             `--colorNavBgLt:${p.colorNavBgLt};` +
             `--colorNavBgDk:${p.colorNavBgDk};` +
             `--colorNavTextLt:${p.colorNavTextLt};` +
@@ -603,8 +609,14 @@ export class ThemeService {
         const C_sec = Math.min(C_t * 0.75, 0.12);
         const H_sec = H_t;
 
-        const secLt = ThemeService.findCompliantColor(C_sec, H_sec, baseLtHex, 4.5, 0.72, -0.01);
-        const secDk = ThemeService.findCompliantColor(C_sec, H_sec, baseDkHex, 4.5, 0.55, +0.01);
+        let secLt = ThemeService.findCompliantColor(C_sec, H_sec, baseLtHex, 4.5, 0.72, -0.01);
+        if (ThemeService.calcContrastRatio(secLt, '#ffffff') < 4.5) {
+            secLt = ThemeService.findCompliantColor(C_sec, H_sec, '#ffffff', 4.5, 0.72, -0.01);
+        }
+        let secDk = ThemeService.findCompliantColor(C_sec, H_sec, baseDkHex, 4.5, 0.55, +0.01);
+        if (ThemeService.calcContrastRatio(secDk, '#000000') < 4.5) {
+            secDk = ThemeService.findCompliantColor(C_sec, H_sec, '#000000', 4.5, 0.55, +0.01);
+        }
 
         // ── Subtle/emphasis system ─────────────────────────────────────────
         const [, C_p, H_p] = ThemeService.hexToOklch(colorPrimary);

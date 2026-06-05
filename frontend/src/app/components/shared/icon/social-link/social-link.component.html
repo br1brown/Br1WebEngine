@@ -1,8 +1,0 @@
-<a class="text-decoration-none text-reset d-inline-flex align-items-center gap-2 flex-column flex-sm-row social-link-hover" [href]="resolvedUrl()" target="_blank" rel="noopener noreferrer"
-   [title]="displayLabel()"
-   [attr.aria-label]="showLabel() ? null : displayLabel()">
-    <app-icon [glyph]="icon()" [color]="brandColor()" shape="circle" animation="lift" />
-    @if (showLabel()) {
-        <span class="social-label">{{ displayLabel() }}</span>
-    }
-</a>

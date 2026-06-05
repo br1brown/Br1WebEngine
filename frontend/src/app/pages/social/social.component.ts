@@ -1,5 +1,5 @@
 import { Component, computed } from '@angular/core';
-import { SocialLinkComponent } from '../../components/shared/icon/social-link/social-link.component';
+import { SocialLinkComponent } from '../../components/shared/navigation/social-link/social-link.component';
 import { PageBaseComponent } from '../page-base.component';
 
 @Component({

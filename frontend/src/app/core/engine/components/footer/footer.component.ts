@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { Profile } from '../../../engine/dto/profile.dto';
 import { ApiService } from '../../../services/api.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
-import { SocialLinkComponent } from '../../../../components/shared/icon/social-link/social-link.component';
+import { SocialLinkComponent } from '../../../../components/shared/navigation/social-link/social-link.component';
 import { LoadingComponent } from '../../../../components/shared/loading/loading.component';
 import { ProfileRenderComponent } from '../../../../components/shared/profile-render/profile-render.component';
 import { FooterNavComponent } from '../footer-nav/footer-nav.component';

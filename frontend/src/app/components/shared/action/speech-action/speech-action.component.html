@@ -1,0 +1,16 @@
+<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+        type="button"
+        [class.w-100]="fullWidth()"
+        [class.active]="isSpeaking()"
+        [attr.aria-pressed]="isSpeaking()"
+        [attr.title]="showLabel() ? null : displayLabel()"
+        [attr.aria-label]="showLabel() ? null : displayLabel()"
+        (click)="onClick()">
+    <i class="fa-solid fs-5"
+       [class.fa-volume-high]="!isSpeaking()"
+       [class.fa-stop]="isSpeaking()"
+       aria-hidden="true"></i>
+    @if (showLabel()) {
+        <span>{{ displayLabel() }}</span>
+    }
+</button>

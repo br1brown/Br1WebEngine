@@ -34,7 +34,7 @@
             <ul class="navbar-nav">
                 @for (item of menuItems; track item.path; let i = $index) {
                 @if (isGroup(item)) {
-                <li class="nav-item nav-dropdown-item">
+                <li class="nav-item d-block d-md-flex align-items-md-center w-100 w-md-auto">
                     <app-nav-dropdown [item]="item"
                                       [open]="isNavDropdownOpen(i)"
                                       (toggle)="onNavDropdownToggle(i)"

@@ -22,12 +22,17 @@ import { AssetDirective } from '../../core/engine/directives/asset.directive';
 import { PageBaseComponent } from '../page-base.component';
 import { ContestoSito } from '../../site';
 import { ALLOWED_WIDTHS, type AssetWidth } from '../../app.config';
-import { CopyActionComponent } from '../../components/shared/icon/copy-action/copy-action.component';
-import { SpeechActionComponent } from '../../components/shared/icon/speech-action/speech-action.component';
-import { DownloadActionComponent } from '../../components/shared/icon/download-action/download-action.component';
-import { ShareActionComponent } from '../../components/shared/icon/share-action/share-action.component';
-import { PdfActionComponent, PdfActionConfig } from '../../components/shared/icon/pdf-action/pdf-action.component';
-import { MailActionComponent, MailActionConfig } from '../../components/shared/icon/mail-action/mail-action.component';
+import { CopyActionComponent } from '../../components/shared/action/copy-action/copy-action.component';
+import { SpeechActionComponent } from '../../components/shared/action/speech-action/speech-action.component';
+import { DownloadActionComponent } from '../../components/shared/action/download-action/download-action.component';
+import { ShareActionComponent } from '../../components/shared/action/share-action/share-action.component';
+import { PrintActionComponent } from '../../components/shared/action/print-action/print-action.component';
+import { PdfActionComponent, PdfActionConfig } from '../../components/shared/action/pdf-action/pdf-action.component';
+import { MailContactComponent, MailContactConfig } from '../../components/shared/contact/mail-contact/mail-contact.component';
+import { PhoneContactComponent } from '../../components/shared/contact/phone-contact/phone-contact.component';
+import { WhatsappContactComponent, WhatsappContactConfig } from '../../components/shared/contact/whatsapp-contact/whatsapp-contact.component';
+import { TelegramContactComponent } from '../../components/shared/contact/telegram-contact/telegram-contact.component';
+import { SocialLinkComponent } from '../../components/shared/navigation/social-link/social-link.component';
 
 @Component({
     selector: 'app-home',
@@ -43,8 +48,13 @@ import { MailActionComponent, MailActionConfig } from '../../components/shared/i
         SpeechActionComponent,
         DownloadActionComponent,
         ShareActionComponent,
+        PrintActionComponent,
         PdfActionComponent,
-        MailActionComponent,
+        MailContactComponent,
+        PhoneContactComponent,
+        WhatsappContactComponent,
+        TelegramContactComponent,
+        SocialLinkComponent,
     ],
     templateUrl: './home.component.html',
 })
@@ -73,11 +83,24 @@ export class HomeComponent extends PageBaseComponent<void> {
 
     readonly demoPdfOpen: PdfActionConfig = { url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf', openInTab: true };
     readonly demoPdfDownload: PdfActionConfig = { url: 'https://www.w3.org/WAI/WCAG21/wcag21.pdf', openInTab: false };
-    readonly demoMail: MailActionConfig = { to: 'info@esempio.it', subject: 'Contatto dal sito', body: 'Salve,\n\n' };
+
+    // --- Contatti ---
+    readonly demoMail: MailContactConfig = { to: 'info@esempio.it', subject: 'Contatto dal sito', body: 'Salve,\n\n' };
+    readonly demoPhone = '+39 02 1234567';
+    readonly demoWhatsapp: WhatsappContactConfig = { phone: '+39 340 1234567', text: 'Ciao! Vi scrivo dal sito.' };
+    readonly demoTelegram = 'telegram';
+
+    // --- Navigazione (handle nudi risolti in URL completo dal componente) ---
+    readonly demoSocials = [
+        { type: 'github', value: 'angular' },
+        { type: 'instagram', value: 'nasa' },
+        { type: 'linkedin', value: 'microsoft' },
+        { type: 'youtube', value: 'google' },
+    ] as const;
 
     readonly heroStats = [
         { value: 8,  label: 'heroStatServices' },
-        { value: 4,  label: 'heroStatDirectives' },
+        { value: 5,  label: 'heroStatDirectives' },
         { value: 6,  label: 'heroStatComponents' },
         { value: 5,  label: 'heroStatQrTypes' },
     ] as const;
@@ -305,41 +328,45 @@ asset.getUrl('nomeAsset', 480)
 </a>`,
 
         actionComponents:
-`// Funzioni stabili come proprietà freccia
+`// ── AZIONI (bottone + servizio) ──
+// Funzione che PRODUCE il dato: il
+// componente fa il resto (servizio,
+// loading, errori), tu non inietti nulla.
 getText = () => this.myText();
-getBlob = () => new Blob([this.myText()], {
-  type: 'text/plain'
-});
+getBlob = () => new Blob([this.myText()]);
 
-// Copia negli appunti
-<app-copy-action [action]="getText"
-                 [showLabel]="true" />
-
-// Web Share API
-<app-share-action [action]="getText"
-                  [showLabel]="true" />
-
-// Sintesi vocale TTS
+<app-copy-action [action]="getText" />
+<app-share-action [action]="getText" />
 <app-speech-action [action]="getText"
-                   [showLabel]="true"
                    labelStop="speechPlaying" />
-
-// Download file
 <app-download-action [action]="getBlob"
-                     filename="file.txt"
-                     [showLabel]="true" />
+                     filename="file.txt" />
+<app-print-action />
 
-// PDF (openInTab: true = nuova scheda)
-pdfCfg = { url: '/doc.pdf', openInTab: true };
-<app-pdf-action [config]="pdfCfg"
-                [showLabel]="true" />
+// PDF: apre in scheda oppure forza il
+// download (fetch→blob, anche cross-origin)
+pdf = { url: '/doc.pdf', openInTab: false };
+<app-pdf-action [config]="pdf" />
 
-// Email predefinita
-mailCfg = { to: 'info@...',
-            subject: 'Oggetto',
-            body: 'Testo...' };
-<app-mail-action [config]="mailCfg"
-                 [showLabel]="true" />`,
+// ── CONTATTI (link a canale dedicato) ──
+mail = { to: 'info@...', subject: '...' };
+<app-mail-contact [config]="mail" />
+<app-phone-contact number="+39..." />
+wa = { phone: '+39...', text: 'Ciao' };
+<app-whatsapp-contact [config]="wa" />
+<app-telegram-contact handle="utente" />
+// override opzionale (es. apri una modale):
+<app-mail-contact [config]="mail"
+                  [action]="openMailModal" />
+
+// ── NAVIGAZIONE (social e link) ──
+// handle nudo → URL profilo completo
+<app-social-link type="github"
+                 value="angular" />
+
+// Comune ai link: [showLabel]="etichetta",
+// [showValue]="dato", entrambe="Etichetta: dato"
+// (es. "PEC: xxx@pec.it"). + [fullWidth]`,
     } as const;
 
     // ==================== Laboratorio Markdown ====================

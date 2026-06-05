@@ -1,0 +1,11 @@
+<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+        type="button"
+        [class.w-100]="fullWidth()"
+        (click)="onClick()"
+        [attr.title]="showLabel() ? null : displayLabel()"
+        [attr.aria-label]="showLabel() ? null : displayLabel()">
+    <i class="fa-solid fa-copy fs-5" aria-hidden="true"></i>
+    @if (showLabel()) {
+        <span>{{ displayLabel() }}</span>
+    }
+</button>

@@ -1,0 +1,17 @@
+<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
+        type="button"
+        [class.w-100]="fullWidth()"
+        [disabled]="loading()"
+        [attr.aria-busy]="loading() || null"
+        [attr.title]="showLabel() ? null : displayLabel()"
+        [attr.aria-label]="showLabel() ? null : displayLabel()"
+        (click)="onClick()">
+    @if (loading()) {
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+    } @else {
+        <i class="fa-solid fa-download fs-5" aria-hidden="true"></i>
+    }
+    @if (showLabel()) {
+        <span>{{ displayLabel() }}</span>
+    }
+</button>

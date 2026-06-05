@@ -54,8 +54,6 @@
   "speechDemoDesc": "Built-in SpeechService: speak, stop, detect the active system voice.",
   "speechInputLabel": "Text to read",
   "speechPlaceholder": "Write something to be read aloud...",
-  "speechPlay": "Listen",
-  "speechStop": "Stop",
   "speechPlaying": "Playing…",
   "speechVoiceLabel": "System voice",
   "modalFormNameLabel": "Name",
@@ -96,5 +94,17 @@
   "qrGenerate": "Generate",
   "qrCodeAlt": "Generated QR Code",
   "qrCodeEmpty": "Configure the fields and press <strong>Generate</strong>",
-  "originalSize": "Original"
+  "originalSize": "Original",
+  "actionComponentsTitle": "Action components",
+  "actionComponentsDesc": "Reusable components split into three families: actions (copy, share, speech, download, print, PDF), contacts (email, phone, WhatsApp, Telegram) and navigation (social). Each one handles its own service and labels: you only pass a function or a config.",
+  "actionDemoInputLabel": "Demo text",
+  "demoActionsGroup": "Actions",
+  "demoContactsGroup": "Contacts",
+  "demoNavGroup": "Navigation",
+  "whatsappCta": "Contact us on WhatsApp",
+  "instagramCta": "Follow us on Instagram",
+  "youtubeCta": "Watch us on YouTube",
+  "socialNav": "Social",
+  "impostazioniNav": "Settings",
+  "sorgentiProgettoNav": "Project Sources"
 }

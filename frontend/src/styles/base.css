@@ -112,6 +112,7 @@ body {
     --bs-primary:                  var(--colorPrimary);
     --bs-primary-rgb:              var(--colorPrimaryRgb);
     --bs-secondary:                var(--colorSecondary);
+    --bs-secondary-rgb:            var(--colorSecondaryRgb);
     --bs-border-color:             var(--colorSurfaceBorder);
     --bs-emphasis-color:           var(--colorHeading);
     --bs-emphasis-color-rgb:       var(--colorHeadingRgb);
@@ -147,6 +148,7 @@ body {
     --bs-heading-color:       var(--colorHeadingLt);
     --bs-border-color:        var(--colorSurfaceBorderLt);
     --bs-secondary:           var(--colorSecondaryLt);
+    --bs-secondary-rgb:       var(--colorSecondaryRgbLt);
     --bs-secondary-bg:        var(--colorMutedBgLt);
     --bs-tertiary-bg:         var(--colorSubtleBgLt);
     --bs-secondary-color:     var(--colorMutedTextLt);
@@ -166,6 +168,7 @@ body {
     --bs-heading-color:       var(--colorHeadingDk);
     --bs-border-color:        var(--colorSurfaceBorderDk);
     --bs-secondary:           var(--colorSecondaryDk);
+    --bs-secondary-rgb:       var(--colorSecondaryRgbDk);
     --bs-secondary-bg:        var(--colorMutedBgDk);
     --bs-tertiary-bg:         var(--colorSubtleBgDk);
     --bs-secondary-color:     var(--colorMutedTextDk);
@@ -216,6 +219,7 @@ body {
    ecc. si risolvono correttamente senza alcun calcolo aggiuntivo. */
 :root {
     --colorSecondary:     #495057;
+    --colorSecondaryRgb:  73, 80, 87;
     --colorSecondaryText: #ffffff;
 }
 
@@ -462,4 +466,31 @@ code {
     footer {
         padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
     }
+}
+
+
+/* Touch target minimo 44px (WCAG 2.5.5 / 2.5.8) per i bottoni icona.
+   Unica regola condivisa: i componenti azione usano le classi Bootstrap
+   (btn btn-outline-secondary) + questa utility, senza CSS per-componente. */
+.btn-touch {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+}
+
+/* Aumentiamo leggermente il padding delle badge (rispetto ai default di Bootstrap)
+   per migliorare il contrasto percepito e la leggibilità visiva (UX).
+   Usiamo gli 'em' così scala proporzionalmente al testo. */
+.badge {
+    --bs-badge-padding-x: 0.9em; /* Default Bootstrap: 0.65em */
+    --bs-badge-padding-y: 0.5em; /* Default Bootstrap: 0.35em */
+    --bs-badge-font-size: 0.875em; /* Default Bootstrap: 0.75em - aumentato per accessibilità (evita l'errore testo troppo piccolo) */
+}
+
+
+/* Touch target minimo 44px (WCAG 2.5.5 / 2.5.8) per i bottoni icona.
+   Unica regola condivisa: i componenti azione usano le classi Bootstrap
+   (btn btn-outline-secondary) + questa utility, senza CSS per-componente. */
+.btn-touch {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
 }

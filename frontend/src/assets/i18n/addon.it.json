@@ -54,8 +54,6 @@
   "speechDemoDesc": "SpeechService integrato: parla, ferma, rileva la voce di sistema in uso.",
   "speechInputLabel": "Testo da leggere",
   "speechPlaceholder": "Scrivi qualcosa da far leggere...",
-  "speechPlay": "Ascolta",
-  "speechStop": "Interrompi",
   "speechPlaying": "In riproduzione…",
   "speechVoiceLabel": "Voce sistema",
   "modalFormNameLabel": "Nome",
@@ -96,5 +94,17 @@
   "qrGenerate": "Genera",
   "qrCodeAlt": "QR Code generato",
   "qrCodeEmpty": "Configura i campi e premi <strong>Genera</strong>",
-  "originalSize": "Originale"
+  "originalSize": "Originale",
+  "actionComponentsTitle": "Componenti azione",
+  "actionComponentsDesc": "Componenti riutilizzabili divisi in tre famiglie: azioni (copia, condivisione, audio, download, stampa, PDF), contatti (email, telefono, WhatsApp, Telegram) e navigazione (social). Ognuno gestisce autonomamente servizio ed etichette: tu passi solo una funzione o una config.",
+  "actionDemoInputLabel": "Testo per la demo",
+  "demoActionsGroup": "Azioni",
+  "demoContactsGroup": "Contatti",
+  "demoNavGroup": "Navigazione",
+  "whatsappCta": "Contattaci su WhatsApp",
+  "instagramCta": "Seguici su Instagram",
+  "youtubeCta": "Guardaci su YouTube",
+  "socialNav": "Social",
+  "impostazioniNav": "Impostazioni",
+  "sorgentiProgettoNav": "Sorgenti progetto"
 }

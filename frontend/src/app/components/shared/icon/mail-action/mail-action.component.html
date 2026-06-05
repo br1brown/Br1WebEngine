@@ -1,9 +1,0 @@
-<a class="action-btn d-inline-flex align-items-center gap-2"
-   [href]="mailtoHref()"
-   [title]="displayLabel()"
-   [attr.aria-label]="showLabel() ? null : displayLabel()">
-    <i class="fa-solid fa-envelope action-icon" aria-hidden="true"></i>
-    @if (showLabel()) {
-        <span>{{ displayLabel() }}</span>
-    }
-</a>

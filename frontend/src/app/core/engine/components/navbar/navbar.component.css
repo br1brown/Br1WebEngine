@@ -41,14 +41,6 @@
     width: auto;
 }
 
-.nav-dropdown-item {
-    display: flex;
-    align-items: center;
-}
-
-
-
-
 /* ── Selettore lingua ─────────────────────────────────────────────── */
 
 .language-picker {
@@ -157,11 +149,6 @@
 
     .navbar-nav {
         gap: 0.35rem;
-    }
-
-    .nav-dropdown-item {
-        display: block;
-        width: 100%;
     }
 }
 

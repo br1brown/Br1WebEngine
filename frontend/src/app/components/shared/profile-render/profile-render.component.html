@@ -1,24 +1,67 @@
-@if (sections().length > 0) {
+@if (sections().length > 0 || hasContacts()) {
     <div class="row mb-4 pb-3">
+
         @for (section of sections(); track section.titleKey) {
-            <div [class]="'mb-3 col-12 col-lg-' + Math.floor(12 / sections().length)">
+            <div class="col-12 mb-3" [class.col-md]="!inColonna()">
                 <div class="fw-bold mb-2">{{ section.titleKey | translate }}</div>
-                <ul class="list-unstyled small">
+                <ul class="list-unstyled">
                     @for (item of section.items; track $index) {
-                        <li [class]="item.itemClass ? 'my-1 ' + item.itemClass : 'my-1'">
+                        <li class="my-1">
                             @if (item.label) { <span>{{ item.label }}:</span>&nbsp; }
-                            <strong>
-                                @switch (item.kind) {
-                                    @case ('link') { <a [href]="item.href">{{ item.value }}</a> }
-                                    @case ('code') { <code>{{ item.value }}</code> }
-                                    @default { <span>{{ item.value }}</span> }
+                            @switch (item.kind) {
+                                @case ('code') {
+                                    <span class="badge rounded-pill border bg-body-secondary text-body font-monospace fw-normal">{{ item.value }}</span>
                                 }
-                            </strong>
+                                @case ('bool') {
+                                    <span class="badge rounded-pill"
+                                          [class.text-bg-success]="item.tone === 'success'"
+                                          [class.text-bg-secondary]="item.tone === 'secondary'"
+                                          [class.text-bg-warning]="item.tone === 'warning'"
+                                          [class.text-bg-danger]="item.tone === 'danger'"
+                                          [class.text-bg-info]="item.tone === 'info'"
+                                          [class.text-bg-primary]="item.tone === 'primary'">{{ item.value }}</span>
+                                }
+                                @default { <strong>{{ item.value }}</strong> }
+                            }
                         </li>
                     }
                 </ul>
             </div>
         }
+
+        @if (hasContacts()) {
+            <div class="col-12 mb-3" [class.col-md]="!inColonna()">
+                <div class="fw-bold mb-2">{{ 'contattiAzienda' | translate }}</div>
+
+                @if (contactItems().length > 0) {
+                    <ul class="list-unstyled mb-2">
+                        @for (item of contactItems(); track $index) {
+                            <li class="my-1">
+                                @if (item.label) { <span>{{ item.label }}:</span>&nbsp; }
+                                <strong>{{ item.value }}</strong>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @if (contacts().length > 0) {
+                    <div class="d-flex flex-column align-items-start gap-2">
+                        @for (contact of contacts(); track contact.key) {
+                            @switch (contact.kind) {
+                                @case ('phone') {
+                                    <app-phone-contact [number]="contact.number" [label]="contact.label" [showLabel]="true" [showValue]="true" />
+                                }
+                                @case ('mail') {
+                                    <app-mail-contact [config]="contact.config" [label]="contact.label" [showLabel]="true" [showValue]="true" />
+                                }
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+
     </div>
+
     <hr />
 }
