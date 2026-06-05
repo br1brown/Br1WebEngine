@@ -6,7 +6,6 @@
  */
 
 import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -89,7 +88,7 @@ export const appConfig: ApplicationConfig = {
         },
         {
             provide: LOCALE_CONFIG,
-            useFactory: (transferState: TransferState, doc: Document): LocaleConfig => {
+            useFactory: (transferState: TransferState): LocaleConfig => {
                 const normLang = (tag: unknown): string | null => {
                     if (typeof tag !== 'string' || !tag.trim()) return null;
                     try { return new Intl.Locale(tag.trim()).language ?? null; } catch { return null; }

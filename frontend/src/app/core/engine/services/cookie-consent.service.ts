@@ -2,7 +2,6 @@ import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { Injectable, computed, inject, isDevMode, PLATFORM_ID, signal } from '@angular/core';
 import { COOKIE_MAP, type CookieKey } from '../../services/cookie-registry';
 import { LOCALE_CONFIG } from '../services/translate.service';
-import { environment } from '../../../../environments/environment';
 import { SITE_CONFIG } from '../siteBuilder';
 import { CookieCategory, CookieConfig } from './cookie/cookie-type';
 

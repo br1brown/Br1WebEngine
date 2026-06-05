@@ -70,7 +70,7 @@ export class ApiService extends BaseApiService {
      * Restituisce l'URL relativo del blob per usarlo direttamente in template
      * (`<img [src]="url">`, `<a [href]="url">`, ecc.) senza scaricare il file in memoria.
      *
-     * Restituisce sempre un path relativo (`/blob/{slug}`) anche in SSR:
+     * Restituisce sempre un path relativo (`/api/blob/{slug}`) anche in SSR:
      * il browser deve poterlo raggiungere tramite il proxy del frontend,
      * non attraverso l'URL interno del backend.
      *
@@ -80,7 +80,7 @@ export class ApiService extends BaseApiService {
      *                Non ha effetto su file non immagine.
      */
     getBlobUrl(slug: string, webopt = true): string {
-        const base = `/${API.blob(slug)}`;
+        const base = `${this.apiProxyPrefix}/${API.blob(slug)}`;
         return webopt ? `${base}?webopt=true` : base;
     }
 

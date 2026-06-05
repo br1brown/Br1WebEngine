@@ -76,6 +76,8 @@ public class BlobController : EngineBlobController
         if (string.IsNullOrEmpty(extension))
             throw new InvalidParametersException();
 
+        Directory.CreateDirectory(uploadsPath);
+
         var slug = GenerateBlobSlug(extension);
         var filePath = Path.Combine(uploadsPath, slug);
 

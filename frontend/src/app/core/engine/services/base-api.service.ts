@@ -74,7 +74,7 @@ export abstract class BaseApiService {
 
     // Configurazioni opzionali per SSR
     private readonly ssrOrigin = inject(SSR_BACKEND_ORIGIN, { optional: true });
-    private readonly ssrApiPrefix = inject(SSR_API_PREFIX, { optional: true }) ?? '';
+    protected readonly apiProxyPrefix = inject(SSR_API_PREFIX, { optional: true }) ?? '/api';
     private readonly ssrApiKey = inject(SSR_API_KEY, { optional: true });
 
     /**
@@ -94,7 +94,7 @@ export abstract class BaseApiService {
      * @param url - Il path relativo dell'endpoint (es. 'users')
      */
     protected resolveUrl(url: string): string {
-        const base = this.ssrOrigin ?? this.ssrApiPrefix ?? '/';
+        const base = this.ssrOrigin ?? this.apiProxyPrefix;
         return BaseApiService.joinUrl(base, url);
     }
 
