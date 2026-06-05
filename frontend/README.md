@@ -51,6 +51,12 @@ Il progetto usa **Bootstrap 5** come sistema di design principale. Non scrivere 
 - Componenti (`card`, `alert`, `btn`, `spinner-border`, `badge`, `list-group`)
 - Responsive (`col-md-6`, `d-none d-lg-block`)
 
+**Cosa va nel file `styles.css` globale:**
+- Stili specifici del progetto finale che sovrascrivono il tema o Bootstrap.
+- Import di CSS di terze parti non gestiti dal framework.
+- Classi di utilità globali non previste da Bootstrap.
+*Nota bene: `base.css` è riservato all'engine e alla gestione avanzata del tema OKLCH, non va modificato con stili di progetto.*
+
 **Cosa va nel file `.css` del componente (solo ciò che Bootstrap non può esprimere):**
 - Posizionamento fisso con `safe-area-inset` (cookie banner, back-to-top)
 - Animazioni CSS (`@keyframes`, transizioni custom)
@@ -1060,7 +1066,7 @@ Network con branding integrato (30+): `facebook`, `instagram`, `twitter`, `linke
 
 ### Componenti di Azione
 
-Famiglia di bottoni icon-first per operazioni su contenuto (testo, Blob, PDF, email). Tutti condividono lo stesso pattern:
+Famiglia di bottoni icon-first per operazioni asincrone su contenuto (testo, Blob, PDF). Tutti condividono lo stesso pattern e includono uno spinner automatico durante l'esecuzione:
 
 - `action` (required) — funzione sincrona o asincrona che produce il contenuto
 - `label` — chiave i18n per il testo del bottone (default predefinito per ogni componente)
@@ -1078,82 +1084,48 @@ Famiglia di bottoni icon-first per operazioni su contenuto (testo, Blob, PDF, em
 ```
 
 #### `app-copy-action`
-
 Copia il testo restituito da `action` negli appunti tramite `ShareService`.
 
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `action` | `() => string \| Promise<string>` (required) | — |
-| `label` | `string` | `'copiaAzione'` |
-| `showLabel` | `boolean` | `false` |
-
 #### `app-share-action`
-
 Condivide il testo tramite Web Share API (con fallback automatico a copia su browser non supportati).
 
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `action` | `() => string \| Promise<string>` (required) | — |
-| `title` | `string` | `''` |
-| `label` | `string` | `'condividiAzione'` |
-| `showLabel` | `boolean` | `false` |
-
 #### `app-speech-action`
-
 Legge il testo ad alta voce tramite `SpeechService`. Bottone toggle: in riproduzione mostra lo stato "stop" e si interrompe automaticamente alla distruzione del componente.
 
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `action` | `() => string \| Promise<string>` (required) | — |
-| `label` | `string` | `'speechPlay'` |
-| `labelStop` | `string` | `'speechStop'` |
-| `showLabel` | `boolean` | `false` |
-
 #### `app-download-action`
-
-Scarica il `Blob` restituito da `action` con il nome file specificato. Mostra uno spinner e disabilita il bottone durante il download.
-
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `action` | `() => Blob \| Promise<Blob>` (required) | — |
-| `filename` | `string` (required) | — |
-| `label` | `string` | `'scaricaAzione'` |
-| `showLabel` | `boolean` | `false` |
+Scarica il `Blob` restituito da `action` con il nome file specificato. 
 
 #### `app-pdf-action`
-
 Apre o scarica un PDF tramite `PdfActionConfig`. `openInTab: true` apre in una nuova scheda, `false` forza il download.
 
-```typescript
-export interface PdfActionConfig {
-    url: string;
-    openInTab: boolean;
-}
+#### `app-print-action`
+Stampa il testo, PDF o HTML restituito dall'action. Apre la finestra di stampa nativa del browser.
+
+### Componenti di Contatto
+
+Famiglia di link (`<a>` tag mascherati da bottoni) che permettono di contattare l'utente attraverso canali esterni senza eseguire logiche complesse in Angular, supportando l'apertura in nuove tab e la corretta indicizzazione SEO.
+
+Tutti i componenti condividono le configurazioni standard:
+- `config` (required) — oggetto con i parametri specifici del canale
+- `label` — chiave i18n
+- `showLabel` — `false` per sola icona (default)
+
+```html
+<app-mail-contact [config]="{ to: 'info@example.com', subject: 'Richiesta' }" [showLabel]="true" />
+<app-whatsapp-contact [config]="{ phone: '+393331234567', text: 'Ciao!' }" />
 ```
 
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `config` | `PdfActionConfig` (required) | — |
-| `label` | `string` | `'apriPdfAzione'` / `'scaricaPdfAzione'` |
-| `showLabel` | `boolean` | `false` |
+#### `app-mail-contact`
+Genera un link `mailto:` precompilato.
 
-#### `app-mail-action`
+#### `app-phone-contact`
+Genera un link `tel:` per chiamate dirette dal dialer.
 
-Genera un link `mailto:` precompilato con destinatario, oggetto e corpo tramite `MailActionConfig`.
+#### `app-whatsapp-contact`
+Genera un link `wa.me` per avviare una chat WhatsApp con testo precompilato.
 
-```typescript
-export interface MailActionConfig {
-    to: string;
-    subject?: string;
-    body?: string;
-}
-```
-
-| Input | Tipo | Default |
-| :--- | :--- | :--- |
-| `config` | `MailActionConfig` (required) | — |
-| `label` | `string` | `'inviaMailAzione'` |
-| `showLabel` | `boolean` | `false` |
+#### `app-telegram-contact`
+Genera un link `t.me` per avviare una chat Telegram.
 
 ---
 
