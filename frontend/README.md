@@ -562,6 +562,8 @@ Tutti i colori di testo su sfondo sono calcolati per garantire contrasto WCAG AA
 - Funziona sia in light che dark mode per i colori brand-derived
 - I colori semantici fissi delegano a Bootstrap che li calibra per entrambi i toni
 
+**Primary: fill vs foreground.** `colorPrimary` è scurito in OKLCH (hue e chroma preservate) finché garantisce 4.5:1 sul fondo pagina chiaro reale (`baseLt`), e alimenta i **fill** (`--bs-primary`: bottoni, `.bg-primary`, badge) dove il testo sopra si contrasta su `colorPrimaryText`. Quando invece il primary è usato come **foreground** sulla pagina (`.text-primary`, `.border-primary`), un valore tarato sul chiaro risulterebbe scuro-su-scuro in dark mode: per questo esiste la gemella `colorPrimaryDk`, schiarita in OKLCH finché garantisce 4.5:1 sul fondo scuro reale (`baseDk`). Le utility risolvono alla variante giusta via `--colorPrimaryFg`, tone-adaptive come `--colorLink`. Entrambe preservano la chroma del brand: il contrasto WCAG dipende dalla luminanza, non dalla saturazione, quindi una tinta viva resta viva senza costare accessibilità.
+
 ### Cambio Tema a Runtime
 
 `colorTema` è un `WritableSignal` — cambiarlo aggiorna immediatamente palette, CSS vars e tutti i componenti che leggono i signal del tema.

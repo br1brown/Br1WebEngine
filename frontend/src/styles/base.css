@@ -172,6 +172,8 @@ app-root {
     --bs-link-color:          var(--colorLinkLt);
     --bs-link-hover-color:    color-mix(in srgb, var(--colorLinkLt), black 15%);
     --focusRingColor:         var(--colorLinkLt);
+    --colorPrimaryFg:         var(--colorPrimary);
+    --colorPrimaryFgRgb:      var(--colorPrimaryRgb);
     --bs-body-bg:             var(--colorBaseLt);
     --bs-body-color:          var(--colorSurfaceTextLt);
     --bs-body-color-rgb:      var(--colorSurfaceTextRgbLt);
@@ -192,6 +194,8 @@ app-root {
     --bs-link-color:          var(--colorLinkDk);
     --bs-link-hover-color:    color-mix(in srgb, var(--colorLinkDk), white 15%);
     --focusRingColor:         var(--colorLinkDk);
+    --colorPrimaryFg:         var(--colorPrimaryDk);
+    --colorPrimaryFgRgb:      var(--colorPrimaryRgbDk);
     --bs-body-bg:             var(--colorBaseDk);
     --bs-body-color:          var(--colorSurfaceTextDk);
     --bs-body-color-rgb:      var(--colorSurfaceTextRgbDk);
@@ -236,6 +240,20 @@ app-root {
     --bs-btn-active-color:     var(--bs-body-bg);
     --bs-btn-disabled-color:   var(--bs-link-color);
     --bs-btn-disabled-border-color: var(--bs-link-color);
+}
+
+/* Primary come FOREGROUND (testo/bordo sulla pagina) — tone-adaptive WCAG 4.5:1.
+   Le utility .text-primary / .border-primary di Bootstrap risolvono a --bs-primary, che è
+   tarato per 4.5:1 sul fondo CHIARO (baseLt): su pagina scura sarebbe scuro-su-scuro, sotto soglia.
+   Qui le ridirigiamo a --colorPrimaryFg (= colorPrimary in light, colorPrimaryDk in dark), così il
+   primary-come-testo resta AA in entrambi i toni. I FILL (.btn-primary, .bg-primary, .text-bg-primary)
+   restano su --bs-primary = colorPrimary: lì il testo si contrasta su --colorPrimaryText, non sulla pagina.
+   Stesso ragionamento già applicato a link e bottoni outline via --bs-link-color. */
+.text-primary {
+    color: rgba(var(--colorPrimaryFgRgb), var(--bs-text-opacity, 1)) !important;
+}
+.border-primary {
+    border-color: rgba(var(--colorPrimaryFgRgb), var(--bs-border-opacity, 1)) !important;
 }
 
 /* ── Token colori semantici ──────────────────────────────────────────────────
