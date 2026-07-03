@@ -37,7 +37,11 @@ public static class FileUtils
             {
                 return await File.ReadAllTextAsync(filePath, cancellationToken);
             }
-            catch (FileNotFoundException)
+            // File assente ⇒ FileNotFoundException; se manca l'intera cartella dati (dato non
+            // configurato affatto, caso legittimo) ⇒ DirectoryNotFoundException, che NON deriva da
+            // FileNotFoundException. Entrambi sono "risorsa non trovata": mappati a NotFoundException,
+            // così chi legge (es. l'identità) può tradurli in `null` invece di far filtrare un 500.
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
             {
                 throw new NotFoundException(name);
             }
