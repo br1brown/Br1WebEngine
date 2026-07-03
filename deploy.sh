@@ -64,6 +64,24 @@ ok()   { echo -e "  ${GREEN}OK${RESET} $*"; }
 warn() { echo -e "  ${YELLOW}WARN${RESET} $*"; }
 fail() { echo -e "  ${RED}ERR${RESET} $*" >&2; ERRORS=$((ERRORS + 1)); }
 
+# Riavvia un servizio compose SOLO se è attualmente in esecuzione (restart, non rebuild).
+# Usato per riallineare all'ApiKey nuova il lato NON toccato da un deploy parziale, senza
+# che tu debba ricordartene: se non gira, non c'è nulla da riallineare.
+restart_if_running() {
+    local svc="$1" cid
+    cid="$(docker compose "${compose_files[@]}" ps -q "$svc" 2>/dev/null || true)"
+    if [[ -n "$cid" && "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" == "true" ]]; then
+        info "Riavvio '$svc' per riallineare la chiave..."
+        if docker compose "${compose_files[@]}" restart "$svc" >/dev/null 2>&1; then
+            ok "'$svc' riavviato: chiave riallineata"
+        else
+            warn "Riavvio di '$svc' fallito: riavvialo a mano ('docker compose ${compose_files[*]} restart $svc') per evitare 401"
+        fi
+    else
+        info "'$svc' non in esecuzione: nessun riallineamento necessario"
+    fi
+}
+
 ERRORS=0
 
 echo
@@ -78,8 +96,30 @@ echo
 echo -e "${BOLD}Configurazione${RESET}"
 # shellcheck source=scripts/lib/br1-config.sh
 source "${ROOT}/scripts/lib/br1-config.sh"
+
+# Legge Security.ApiKeys[0] da un file JSON (vuoto se il file non c'è o è illeggibile).
+_read_api_key() {
+    [[ -f "$1" ]] || { printf ''; return 0; }
+    BR1_KEYFILE="$1" node --input-type=module --eval "
+import { readFileSync } from 'fs';
+try { const s = JSON.parse(readFileSync(process.env.BR1_KEYFILE, 'utf-8')); process.stdout.write(String(s.Security?.ApiKeys?.[0] ?? '')); }
+catch { process.stdout.write(''); }
+" 2>/dev/null || true
+}
+
+# ApiKey ATTUALE, catturata dal file effective del deploy precedente PRIMA di rigenerarlo:
+# è esattamente la chiave che i container già in esecuzione hanno in cache (l'hanno letta
+# all'avvio dallo stesso file e non la rileggono più).
+OLD_API_KEY="$(_read_api_key "./.br1-settings.effective.json")"
+
 br1_load_config || { echo -e "  ${RED}ERR${RESET} Lettura/merge di global-settings(.local).json fallito (JSON non valido?)" >&2; exit 1; }
 ok "Configurazione letta (${BR1_SETTINGS_FILE})"
+
+# ApiKey NUOVA (dopo la rigenerazione). Se differisce, il lato non deployato ma in esecuzione
+# ha la chiave vecchia in cache e va riavviato per riallinearsi (vedi fondo script).
+NEW_API_KEY="$(_read_api_key "$BR1_SETTINGS_FILE")"
+KEY_CHANGED=false
+[[ "$OLD_API_KEY" != "$NEW_API_KEY" ]] && KEY_CHANGED=true
 
 [[ -z "$COMPOSE_PROJECT_NAME" ]] && fail "COMPOSE_PROJECT_NAME non derivabile da global-settings.json (project.name)"
 [[ -n "$COMPOSE_PROJECT_NAME" && ! "$COMPOSE_PROJECT_NAME" =~ ^[a-z0-9_-]+$ ]] && fail "COMPOSE_PROJECT_NAME contiene caratteri non validi (ammessi: a-z, 0-9, - e _)"
@@ -257,27 +297,19 @@ echo -e "${BOLD}Pulizia${RESET}"
 docker image prune -f --filter "dangling=true" >/dev/null
 ok "Immagini orfane rimosse"
 
-# ── COERENZA CHIAVE FRONTEND↔BACKEND (deploy solo-backend) ───────────────────
-# Ogni deploy rigenera .br1-settings.effective.json (montato read-only in entrambi i
-# container). Il frontend SSR lo legge UNA sola volta all'avvio e lo tiene in cache in
-# memoria (_br1 ??= loadBr1Settings()). Con un deploy --backend SENZA --frontend, il backend
-# riparte e usa l'ApiKey aggiornata, ma il frontend GIÀ IN ESECUZIONE continua a usare quella
-# vecchia in cache → ogni chiamata /api viene rifiutata con 401. Il file è montato (non baked):
-# basta un restart del frontend perché rilegga la config e riallinei la chiave — niente rebuild.
-if [[ "$DEPLOY_BACKEND" == true && "$DEPLOY_FRONTEND" == false ]]; then
+# ── COERENZA CHIAVE FRONTEND↔BACKEND (deploy parziale + ApiKey ruotata) ──────
+# Frontend SSR e backend leggono l'ApiKey dal file effective (montato read-only) UNA sola
+# volta all'avvio e la tengono in cache (frontend: _br1/_backend ??=; backend: ValidKeys
+# catturate alla registrazione DI). Se la chiave è cambiata e hai deployato UN SOLO lato,
+# quello NON deployato ma in esecuzione ha ancora la chiave vecchia → ogni /api va in 401.
+# Il file è montato (non baked): basta riavviare quel lato (restart, non rebuild) perché
+# rilegga la config e si riallinei. Simmetrico: vale in entrambe le direzioni.
+if [[ "$KEY_CHANGED" == true ]]; then
     echo
     echo -e "${BOLD}Coerenza frontend↔backend${RESET}"
-    fe_cid="$(docker compose "${compose_files[@]}" ps -q frontend 2>/dev/null || true)"
-    if [[ -n "$fe_cid" && "$(docker inspect -f '{{.State.Running}}' "$fe_cid" 2>/dev/null)" == "true" ]]; then
-        info "Deploy solo-backend: riavvio il frontend per rileggere la config aggiornata (evita 401 da ApiKey ruotata)..."
-        if docker compose "${compose_files[@]}" restart frontend >/dev/null 2>&1; then
-            ok "Frontend riavviato: config riallineata"
-        else
-            warn "Riavvio del frontend fallito: se hai ruotato l'ApiKey riavvialo a mano ('docker compose ${compose_files[*]} restart frontend') per evitare 401"
-        fi
-    else
-        info "Frontend non in esecuzione: nessun riallineamento necessario"
-    fi
+    info "ApiKey cambiata rispetto al deploy precedente: riallineo i lati non deployati"
+    [[ "$DEPLOY_FRONTEND" == false ]] && restart_if_running frontend
+    [[ "$DEPLOY_BACKEND"  == false ]] && restart_if_running backend
 fi
 
 echo
