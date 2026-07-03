@@ -18,7 +18,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache icu-libs wget
+# icu-libs = solo le librerie ICU; su Alpine i DATI locale (nomi mesi/valute, regole di
+# collazione e formattazione per ogni lingua) stanno nel pacchetto separato icu-data-full.
+# Senza, con GLOBALIZATION_INVARIANT=false qualsiasi cultura non-inglese (it-IT, ...) non
+# trova i dati e ricade sulla root → inglese, rompendo date, numeri, ordinamento e validazioni
+# dipendenti dalla cultura. icu-data-full copre TUTTI i locale: il template regge qualunque
+# lingua configuri il figlio (i dati ICU non sono installabili per singola lingua su Alpine).
+RUN apk add --no-cache icu-libs icu-data-full wget
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 COPY --from=build /app/publish ./
