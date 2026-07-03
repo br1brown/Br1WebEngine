@@ -257,6 +257,29 @@ echo -e "${BOLD}Pulizia${RESET}"
 docker image prune -f --filter "dangling=true" >/dev/null
 ok "Immagini orfane rimosse"
 
+# ── COERENZA CHIAVE FRONTEND↔BACKEND (deploy solo-backend) ───────────────────
+# Ogni deploy rigenera .br1-settings.effective.json (montato read-only in entrambi i
+# container). Il frontend SSR lo legge UNA sola volta all'avvio e lo tiene in cache in
+# memoria (_br1 ??= loadBr1Settings()). Con un deploy --backend SENZA --frontend, il backend
+# riparte e usa l'ApiKey aggiornata, ma il frontend GIÀ IN ESECUZIONE continua a usare quella
+# vecchia in cache → ogni chiamata /api viene rifiutata con 401. Il file è montato (non baked):
+# basta un restart del frontend perché rilegga la config e riallinei la chiave — niente rebuild.
+if [[ "$DEPLOY_BACKEND" == true && "$DEPLOY_FRONTEND" == false ]]; then
+    echo
+    echo -e "${BOLD}Coerenza frontend↔backend${RESET}"
+    fe_cid="$(docker compose "${compose_files[@]}" ps -q frontend 2>/dev/null || true)"
+    if [[ -n "$fe_cid" && "$(docker inspect -f '{{.State.Running}}' "$fe_cid" 2>/dev/null)" == "true" ]]; then
+        info "Deploy solo-backend: riavvio il frontend per rileggere la config aggiornata (evita 401 da ApiKey ruotata)..."
+        if docker compose "${compose_files[@]}" restart frontend >/dev/null 2>&1; then
+            ok "Frontend riavviato: config riallineata"
+        else
+            warn "Riavvio del frontend fallito: se hai ruotato l'ApiKey riavvialo a mano ('docker compose ${compose_files[*]} restart frontend') per evitare 401"
+        fi
+    else
+        info "Frontend non in esecuzione: nessun riallineamento necessario"
+    fi
+fi
+
 echo
 echo -e "  ${GREEN}OK${RESET} Pubblicazione completata (${services[*]})"
 echo "  Log:   docker compose ${compose_files[*]} logs -f"
