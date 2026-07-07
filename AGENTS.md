@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Le **regole trasversali** e le **ricette pratiche** del progetto, per chi ci sviluppa — umano o assistente di coding. `AGENTS.md` è una convenzione neutrale (non legata ad alcuno strumento): un umano la legge come guida, un agente la trova da sé. Gli esempi di codice qui sotto servono soprattutto a un **agente** — gli evitano di scandire mezzo repo per ricavare un pattern; a un umano bastano i puntatori, il codice lo legge direttamente. Il *cosa offre / dove vive* per-feature sta nei README ([frontend](frontend/README.md), [backend](backend/README.md)).
+Le **regole trasversali** e le **ricette pratiche** del progetto, per chi ci sviluppa — umano o assistente di coding. `AGENTS.md` è una convenzione neutrale (non legata ad alcuno strumento): un umano la legge come guida, un agente la trova da sé. Gli esempi di codice qui sotto servono soprattutto a un **agente** — gli evitano di scandire mezzo repo per ricavare un pattern; a un umano bastano i puntatori, il codice lo legge direttamente. Il *cosa offre / dove vive* per-feature sta nei README ([frontend](frontend/README.md), [backend](backend/README.md)); l'implementazione interna dell'Engine non citata per nome in quei README sta in [ENGINE.md](ENGINE.md).
 
 ## La regola d'oro: Engine vs Dominio
 
