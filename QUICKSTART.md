@@ -31,4 +31,8 @@ Risponde `[s/N]`: `N` tiene la demo (comoda per esplorare), `s` parte puliti (*e
 
 Frontend su `http://localhost:3000` (o la porta scelta in `global-settings.local.json`).
 
-Da qui in poi: [frontend/README.md](frontend/README.md) per il DSL `site.ts` e i servizi, [backend/README.md](backend/README.md) per controller/servizi, [DOCKER_README.md](DOCKER_README.md) per deploy e configurazione approfondita.
+Da qui in poi, il primo task guidato passo-passo (non il README intero):
+- Frontend → [Developer Journey: Aggiungere una Pagina](frontend/README.md#developer-journey-aggiungere-una-pagina)
+- Backend → [Developer Journey: Aggiungere un Endpoint](backend/README.md#developer-journey-aggiungere-un-endpoint)
+
+Riferimento completo quando serve: [frontend/README.md](frontend/README.md), [backend/README.md](backend/README.md), [DOCKER_README.md](DOCKER_README.md) per deploy e configurazione approfondita.
