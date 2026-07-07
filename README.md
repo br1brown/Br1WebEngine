@@ -278,20 +278,11 @@ Oltre alla qualità del codice, la CI tiene d'occhio anche:
 
 ## 🚀 Quick Start
 
-Per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file. In breve: [frontend/README.md](frontend/README.md) e [backend/README.md](backend/README.md) per i due progetti, [DOCKER_README.md](DOCKER_README.md) per deploy e configurazione.
-
-### Primo setup di un progetto figlio
-
-```bash
-node setup.mjs "Nome Progetto"
-```
-*Battezza il progetto: imposta `project.name` in `global-settings.json`, genera `global-settings.local.json` con porte e **API key generata**, rinomina gli identificatori npm/Service Worker e `App.sln`. La `SecretKey` JWT resta **vuota**: un figlio nasce col **login spento** e accenderlo è una scelta esplicita (chiave ≥32 char + verifica propria in `AuthController`). Dettagli in [DOCKER_README.md](DOCKER_README.md).*
-
-Poi `setup.mjs` chiede conferma `[s/N]` per la **cerimonia "da template a progetto"** (distruttiva): rimuove la demo (galleria Social + store/`SiteService`/`social.json`, home svuotata a placeholder, `addon.*.json` → `{}`, `BaseController` ridotto a vuoto, `data/identity.json` azzerato a scheletro e `site.ts` riscritto allo scheletro Home + pagine legali, con **login spento di default** — coerente con `SecretKey` vuota — da riaccendere quando imposti il segreto). L'**identità** resta servita dall'Engine (`GET /identity`). Poi elimina **questo README** (la vetrina del template), esegue i controlli statici (lint/tsc/i18n/cicli) come gate, **auto-cancella `setup.mjs`** e chiude con un commit locale `init <Nome>`. Rispondendo `N` resti sul template completo (demo inclusa) e lo rilanci quando sei pronto.
-
-La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
+Per il primo setup passo-passo (`setup.mjs` + Docker) vedi **[QUICKSTART.md](QUICKSTART.md)**. Qui sotto l'alternativa per chi sviluppa in locale senza Docker; per i riferimenti completi vai alla **Mappa della documentazione** in cima a questo file.
 
 ### Avvio Veloce in Locale
+
+La versione Node di riferimento è dichiarata in `.nvmrc` (Node 24 LTS): con nvm basta `nvm install && nvm use`; la CI legge lo stesso file.
 
 **Avvio Backend (.NET 9):**
 ```bash

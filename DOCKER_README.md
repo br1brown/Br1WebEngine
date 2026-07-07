@@ -18,12 +18,7 @@ La configurazione è divisa in tre file per **proprietario** (tutti validati da 
 
 ### Avvio di un progetto derivato
 
-```bash
-# Edita global-settings.json, poi:
-./deploy.sh
-```
-
-`deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
+Per il percorso guidato passo-passo vedi **[QUICKSTART.md](QUICKSTART.md)**. Il meccanismo sotto: `./deploy.sh` legge `global-settings.json`, verifica la configurazione e avvia i container. Il file viene montato in entrambi i container in sola lettura (`/app/global-settings.json:ro`): cambiare il file e rieseguire il deploy è sufficiente per applicare la configurazione a tutti i livelli.
 
 ### Esposizione dei servizi
 
