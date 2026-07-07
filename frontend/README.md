@@ -152,6 +152,10 @@ Estendi il client API aggiungendo path e metodo pubblico in `api.service.ts` (co
 
 Per comporre le UI riusi le direttive dichiarative (`[appPage]` per i link interni, `[appImgRender]`/`[appQrContent]` per immagini e QR generati, `[appContextMenu]` per i menu contestuali), la pipe `markdown` (sanitizzata) e i componenti pronti (`app-link-badge` e le famiglie azione/contatto). La PWA si attiva con `isWebApp`. *Vedi «Aggiungere un Endpoint», «Errori Silenziosi per UI Custom», «NotificationStreamService», «Aggiungere un Nuovo Cookie», «DTO di Sessione e Login», «[appPage]», «Directive di Rendering Dichiarativo», «Componenti di Azione/Contatto».*
 
+### Bundling & build (`angular.json`)
+
+Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di `ng build`), la whitelist `allowedCommonJsDependencies` per librerie di terze parti senza ESM, e gli array `styles`/`scripts`/`assets` per CSS/JS/file globali. Il code-splitting per pagina è già automatico (`site.ts → component: () => import(...)`); per un SDK pesante applichi lo stesso `import()` dinamico a mano, dentro il componente che lo usa. *Vedi «Bundling frontend: budget, code-splitting e i confini del builder».*
+
 ---
 
 ## 🛠️ Developer Journey: Aggiungere una Pagina
@@ -1952,6 +1956,23 @@ Entrambi sono impostati a `project.lastModified` in `global-settings.json` (form
 ### `og:locale`
 
 `og:locale` in `index.html` usa il formato regionale OpenGraph `lingua_REGIONE` (es. `it` → `it_IT`), derivato dalla `DEFAULT_LANG` via `Intl.Locale().maximize()` — coerente con il formato emesso a runtime da `PageMetaService`.
+
+---
+
+## 📦 Bundling frontend: budget, code-splitting e i confini del builder
+
+Il builder è `@angular/build:application` (`angular.json → architect.build.builder`): impacchetta con **esbuild**, ma dietro un'interfaccia dichiarativa — non c'è un `esbuild.config.*`/`webpack.config.*` da aprire ed estendere. È un confine di design, non una lacuna: le leve su cui un progetto figlio interviene stanno tutte in `angular.json`, negli stessi punti di contatto elencati nella tabella «Condivisi con punti di contatto» del [README radice](../README.md).
+
+| Leva | Dove | Effetto |
+| :--- | :--- | :--- |
+| `budgets` (`configurations.production`) | `angular.json` | Soglia di warning/errore sul peso del bundle iniziale (default `850kB`/`1MB`) e per stile-per-componente (`6kB`/`10kB`). **È già il gate anti-regressione**: superarla fa fallire `ng build`, quindi la CI |
+| `allowedCommonJsDependencies` | `angular.json` | Whitelist delle dipendenze CommonJS (niente tree-shaking, altrimenti warning bloccante). Aggiungi qui una libreria di terze parti che non spedisce ESM (`qrcode` è già presente per il template) |
+| `styles` / `scripts` | `angular.json` | CSS/JS globali da `node_modules` caricati prima del bundle applicativo (Bootstrap, FontAwesome, SweetAlert2 sono già qui) |
+| `assets` | `angular.json` | Glob di file copiati così come sono, fuori dal bundle JS |
+
+**Code-splitting: già automatico, segui il pattern esistente.** Ogni pagina in `site.ts` si dichiara con `component: () => import('./pages/.../x.component')`: il router genera un chunk lazy per pagina senza altra configurazione. Per un SDK di terze parti pesante (mappe, player video, chat) applica lo stesso principio a mano — `import()` dinamico dentro il componente/servizio che lo usa, non un import statico in cima al file — così il codice entra nel bundle iniziale solo se e quando serve (e, se l'SDK scrive cookie/Web Storage, dietro il gate del consenso: vedi «Aggiungere un cookie o una voce di Web Storage», [AGENTS.md](../AGENTS.md#persistere-dati-lato-client-cookie-web-storage-consenso)).
+
+**Cosa resta fuori per scelta.** Chunking manuale, plugin esbuild custom o un builder alternativo (webpack, Vite) non sono seam supportati: richiederebbero sostituire `architect.build.builder`, che è scaffold del template (vince il template al merge). Se un progetto arriva davvero a un limite che budget/code-splitting/CommonJS-allowlist non risolvono, è un segnale da portare a monte (Engine), non da aggirare nel figlio.
 
 ---
 
