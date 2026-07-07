@@ -24,6 +24,8 @@ L'Engine si estende **dall'esterno**: si eredita da una classe base, si registra
 
 **Configurazione.** Sicurezza, mailer e lingue si regolano dalle sezioni `Security.*` / `Mail.*` / `Localization.*` (le lingue sono codici a 2 lettere, che il backend arricchisce nelle culture .NET); per i valori liberi di progetto c'è `Custom:`, letta da `IConfiguration`. Gli header di sicurezza del browser vivono in `security-headers.json` (override eccezionale solo dove annotato nella sua `_nota`). *Vedi i riferimenti «SecurityOptions», «MailOptions», «LocalizationOptions», «Sezione Custom» e il [README root](../README.md) per la policy di override.*
 
+**Parlare con un servizio esterno.** Chiamare un'API di terze parti è un `HttpClient` tipizzato (`AddHttpClient<T>`) registrato nel blocco `── SERVIZI APPLICATIVI ──`, con URL/chiavi in configurazione (mai hardcoded); ricevere un webhook è un endpoint su `EngineApiController` con `[AllowAnonymous]` e verifica della firma sul body grezzo. *Vedi «Integrazioni con servizi esterni».*
+
 ---
 
 ## 🚀 Funzionalità Principali dell'Engine
@@ -364,6 +366,94 @@ La firma è `DeliverAsync(DeliveryMessage message, DeliveryChannel channel = Del
 | `Icon` | `string` | Icona del toast (`success` \| `error` \| `info` \| `warning`, default `info`). |
 
 **Demo.** `POST /tasks/demo/import[?email=...]` accoda un import simulato (3 s), risponde `202` (`503` se la coda è satura), e a fine task consegna l'esito scegliendo **esplicitamente `Auto`** (per mostrare il fallback email): toast realtime se la scheda che ha avviato il job è ancora connessa (header `X-Connection-Id`), altrimenti email a `?email=...`. Il `GET /social[?nomi=...]` invece, se il chiamante ha lo stream aperto (header `X-Connection-Id`), consegna col **default `Realtime`**: notifica solo quel client, senza email. Il connectionId in entrambi arriva dall'header `X-Connection-Id`, non più da un parametro `?connectionId=...`.
+
+### 8. Integrazioni con servizi esterni
+
+**Perché è utile:** prima o poi ogni progetto parla con un servizio terzo — un provider di pagamenti, una mappa, un CRM — sia **chiamandolo** (outbound) sia **ricevendone eventi** (webhook, inbound). L'Engine non fornisce un client pronto (non può conoscere l'API di terzi), ma fissa *dove* vivono URL/chiavi e *come* si registra il client, così ogni integrazione segue lo stesso schema invece di reinventarlo endpoint per endpoint.
+
+#### Chiamare un'API esterna (outbound)
+
+Tre passi, stesso schema già visto per `Mail`/`Security`:
+
+1. **Configurazione** — l'URL (se non è un segreto) in `global-settings.json`; la chiave/API secret in `global-settings.local.json` (gitignored) o, in produzione, come **variabile d'ambiente** (`NomeSezione__ApiKey` sovrascrive il JSON, stessa convenzione di `Mail__Password`):
+   ```json
+   // global-settings.json (committabile)
+   "PaymentProvider": { "BaseUrl": "https://api.provider.com/v1" }
+   ```
+   ```json
+   // global-settings.local.json (gitignored)
+   "PaymentProvider": { "ApiKey": "INCOLLA-QUI-LA-CHIAVE" }
+   ```
+
+2. **Binding + registrazione**, nel blocco `── SERVIZI APPLICATIVI ──` di `Program.cs`:
+   ```csharp
+   builder.Services.Configure<PaymentProviderOptions>(builder.Configuration.GetSection("PaymentProvider"));
+   builder.Services.AddHttpClient<PaymentProviderService>(); // client tipizzato: un HttpClient dedicato, pool gestito dal factory
+   ```
+
+3. **Servizio** in `Services/` (mai in `Engine/`): inietta `HttpClient` + `IOptions<PaymentProviderOptions>`, imposta `BaseAddress`/header (es. `Authorization: Bearer …`) nel costruttore, ed espone metodi di dominio (non un wrapper 1:1 di ogni rotta esterna):
+   ```csharp
+   public class PaymentProviderService
+   {
+       private readonly HttpClient _http;
+       public PaymentProviderService(HttpClient http, IOptions<PaymentProviderOptions> options)
+       {
+           _http = http;
+           _http.BaseAddress = new Uri(options.Value.BaseUrl);
+           _http.DefaultRequestHeaders.Authorization = new("Bearer", options.Value.ApiKey);
+       }
+
+       public async Task<PaymentResult> ChargeAsync(ChargeRequest request, CancellationToken ct)
+       {
+           var response = await _http.PostAsJsonAsync("charges", request, ct);
+           if (!response.IsSuccessStatusCode)
+               throw new BadGatewayException(); // 502: il servizio ha risposto, ma con un errore
+           return await response.Content.ReadFromJsonAsync<PaymentResult>(ct)
+               ?? throw new BadGatewayException();
+       }
+   }
+   ```
+
+**Errori verso l'upstream, non verso il client.** Un servizio esterno irraggiungibile o lento non è un `500` generico: è `ServiceUnavailableException()` (503, il servizio non risponde) o `GatewayTimeoutException()` (504, risponde ma troppo tardi) o `BadGatewayException()` (502, risponde ma con un payload/status inatteso) — le stesse eccezioni già mappate in tabella (*vedi «Lancia Eccezioni per gli Errori»*), così il client riceve lo stesso `ProblemDetails` uniforme che riceverebbe per un errore interno.
+
+**Timeout ed enable-gate.** Segui il pattern già usato dal mailer: un timeout esplicito su `HttpClient` (`.AddHttpClient<T>().SetHandlerLifetime(...)` o `Timeout` sul client) e un predicato `IsEnabled` quando la sezione di configurazione è vuota, per fallire subito e in modo esplicito invece di lasciare che la richiesta esterna vada in timeout ad ogni chiamata.
+
+#### Ricevere un webhook (inbound)
+
+Un webhook è un endpoint **pubblico per forza** (il servizio terzo non conosce la tua `X-Api-Key`), quindi la difesa si sposta dalla API key alla **verifica della firma**:
+
+```csharp
+[Route("api/v1/webhooks/payment-provider")]
+public class PaymentWebhookController : EngineApiController
+{
+    public PaymentWebhookController(ILogger<PaymentWebhookController> logger) : base(logger) { }
+
+    [HttpPost]
+    [AllowAnonymous] // bypassa anche l'API key: il chiamante è il servizio terzo, non il tuo frontend
+    public async Task<IActionResult> Receive(CancellationToken ct)
+    {
+        using var reader = new StreamReader(Request.Body);
+        var rawBody = await reader.ReadToEndAsync(ct);           // firma HMAC = sul BODY GREZZO, non sul DTO deserializzato
+
+        if (!Request.Headers.TryGetValue("X-Signature", out var signature)
+            || !WebhookSignature.IsValid(rawBody, signature!, _secret))
+            throw new UnauthorizedException();                  // firma assente o non valida: 401, niente elaborazione
+
+        var evento = JsonSerializer.Deserialize<PaymentEvent>(rawBody)
+            ?? throw new DecodingException();
+
+        BackgroundQueue.TryEnqueue(async (services, ct) =>       // rispondi in fretta, elabora dopo
+            await services.GetRequiredService<PaymentEventHandler>().HandleAsync(evento, ct));
+
+        return Ok();                                             // 200 rapido: il provider spesso ritenta se non risponde entro pochi secondi
+    }
+}
+```
+
+Tre regole non negoziabili:
+- **Verifica sempre la firma sul body grezzo**, prima di qualunque deserializzazione o validazione — un JSON malformato non deve mai raggiungere la logica di dominio senza essere prima autenticato come proveniente dal servizio terzo.
+- **`[AllowAnonymous]` solo sull'azione webhook**, non sull'intero controller: se nello stesso controller servono altre rotte, quelle restano protette dalla API key ereditata da `EngineApiController`.
+- **Rispondi in fretta, elabora in coda.** I provider (Stripe, GitHub…) ritentano l'invio se non ricevono un `2xx` entro pochi secondi: valida la firma, accoda con `BackgroundQueue` (*vedi §7*) ed elabora fuori dalla richiesta HTTP, così un handler lento non genera consegne duplicate.
 
 ---
 

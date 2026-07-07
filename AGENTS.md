@@ -200,6 +200,31 @@ return Accepted();                                             // 202 (503 se la
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 
+**Chiamare un'API esterna** (outbound: URL/chiave in config, client tipizzato, errori verso l'upstream)
+```csharp
+// Program.cs, blocco "── SERVIZI APPLICATIVI ──"
+builder.Services.Configure<PaymentProviderOptions>(builder.Configuration.GetSection("PaymentProvider"));
+builder.Services.AddHttpClient<PaymentProviderService>();   // BaseUrl/ApiKey da IOptions, mai hardcoded
+```
+```csharp
+// Services/PaymentProviderService.cs — errore upstream, non un 500 generico
+if (!response.IsSuccessStatusCode) throw new BadGatewayException();   // 502; vedi anche 503/504
+```
+Dettagli (config `Custom`/sezione dedicata, segreto in `.local.json` o env var, timeout/gate) in [backend/README.md](backend/README.md) §8.
+
+**Ricevere un webhook** (inbound: firma sul body grezzo, non sul DTO)
+```csharp
+[HttpPost, AllowAnonymous]   // pubblico per forza: il chiamante è il servizio terzo, non il tuo frontend
+public async Task<IActionResult> Receive(CancellationToken ct) {
+    var rawBody = await new StreamReader(Request.Body).ReadToEndAsync(ct);
+    if (!WebhookSignature.IsValid(rawBody, Request.Headers["X-Signature"]!, _secret))
+        throw new UnauthorizedException();                 // valida PRIMA di deserializzare
+    BackgroundQueue.TryEnqueue(async (services, ct) => /* elabora fuori dalla richiesta */ );
+    return Ok();                                            // 200 rapido: i provider ritentano se non rispondi in fretta
+}
+```
+Dettagli in [backend/README.md](backend/README.md) §8.
+
 ## Documentazione
 
 Documenta **cosa garantisce e perché**, non il *come* riga-per-riga — il come vive nei commenti del codice, l'unica fonte che non mente ai refactor. Le ricette qui sopra sono **pattern d'uso** (cosa fare), non spiegazioni del motore.

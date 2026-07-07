@@ -179,6 +179,7 @@ Senza scrivere una riga di codice infrastrutturale, dalla scatola esce già tutt
 - **Menu Multilivello**: supporto nativo a navigazione ricorsiva sia nella Navbar (con flyout desktop che evita di uscire dallo schermo e accordion su mobile) sia nel Footer. Basta annidare i gruppi in `site.ts`.
 - **Notifiche realtime**: canale server→client via SSE (`INotificationStream` / `NotificationStreamService`) per spingere notifiche ai client connessi — targeting per broadcast/connessione/gruppo, indipendente dal login, payload che non si ferma al testo. Dettagli in [backend](backend/README.md) e [frontend](frontend/README.md).
 - **Task in background e delivery**: coda generica in-memory (`IBackgroundTaskQueue` + hosted service, scope DI per task) per il pattern "POST risponde subito `202` → lavoro lungo → notifica a fine task", con un `IDeliveryService` che di **default consegna in realtime e stop** (niente email a sorpresa se l'utente è offline) e, su richiesta con `Auto`, aggiunge il **fallback email** quando il destinatario non è connesso.
+- **Integrazioni con servizi esterni**: schema pronto sia per chiamare API di terze parti (client HTTP tipizzato, URL/chiavi in configurazione, mai hardcoded) sia per ricevere webhook in ingresso (endpoint pubblico con verifica della firma sul body grezzo, elaborazione in background). Dettagli in [backend/README.md](backend/README.md).
 
 ---
 
