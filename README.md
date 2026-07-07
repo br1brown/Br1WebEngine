@@ -26,6 +26,26 @@ Cinque file, cinque mestieri diversi. Così sai dove guardare prima di mettere m
 
 ---
 
+## 🗺️ Mappa delle aree tecniche
+
+La tabella sopra dice *in che file* cercare; questa dice *per argomento*, utile a chi arriva senza conoscere il progetto e vuole sapere subito cosa il template gli garantisce già e cosa resta da fare lui. Stato onesto, non arrotondato: **Coperto** = documentato e pronto all'uso, **Parziale** = esiste un punto d'aggancio ma senza guida operativa completa, **Fuori perimetro** = escluso per scelta di design (non una dimenticanza), **Mancante** = lacuna reale.
+
+| Area | Nel template | Stato | Approfondisci |
+| :--- | :--- | :---: | :--- |
+| **Integrazioni con servizi esterni** | Chiamare un'API terza (client HTTP tipizzato, config + segreti separati) e ricevere webhook (firma sul body grezzo, coda background) | Coperto | [backend/README.md](backend/README.md) §8 |
+| **Dati e persistenza** | `FileContentStore` (JSON in RAM, localizzato); nessun ORM/DB relazionale di default — è una scelta, il seam verso un DB reale (`IContentStore`) è già pronto | Coperto | [backend/README.md](backend/README.md) §4 |
+| **Cache e scalabilità multi-istanza** | `IMemoryCache` per-istanza ben documentato; un backplane distribuito (es. Redis) per notifiche/store multi-istanza è un seam segnalato, senza guida implementativa | Parziale | [backend/README.md](backend/README.md) §4, §6 |
+| **Sicurezza** | JWT opzionale, ruoli via claim di sessione, rate limiting, CORS, header di sicurezza, XSS-hardening, segreti fuori da git | Coperto | [backend/README.md](backend/README.md) §1 e «Sistema di Login e Sessioni JWT» |
+| **Asset e risorse** | Immagini (resize/formati server-side) e font centralizzati, ben documentati; CDN solo accennata (whitelisting CSP), niente guida di deploy dietro CDN | Coperto (immagini/font) · Parziale (CDN) | [frontend/README.md](frontend/README.md) — sezioni AssetService, Font |
+| **Bundling frontend** | Nessuna sezione dedicata su come Angular/esbuild impacchetta il progetto o su come intervenirci | Mancante | — |
+| **Configurazione applicativa** | Routing via DSL `site.ts`, i18n su entrambi i lati, errori uniformi (`ProblemDetails`); il logging è solo la property ambient `Logger`, senza strategia su livelli/sink | Coperto (routing/i18n/errori) · Parziale (logging) | [backend/README.md](backend/README.md) §2, «Dove mettere le mani» qui sopra |
+| **DevOps e deploy** | Docker Compose, pipeline CI (lint, i18n, tsc, cicli, a11y, Lighthouse, audit, gitleaks), health check; gestione processo/restart policy non commentata in prosa, nessun `nginx.conf` d'esempio | Coperto (Docker/CI) · Parziale (processo/reverse proxy) | [DOCKER_README.md](DOCKER_README.md) |
+| **Testing e qualità** | Gate automatici (lint/i18n/tsc/cicli/a11y/Lighthouse) in CI; unit/integration/E2E restano **deliberatamente** privati di ogni progetto figlio | Fuori perimetro (per scelta) | «🧪 Test Suite Automatica» qui sotto |
+| **Frontend specifico** | State via Signals nativi (no NgRx), Bootstrap 5 + libreria di componenti propria, SEO/JSON-LD automatico | Coperto | [frontend/README.md](frontend/README.md) |
+| **Manutenzione** | `npm audit` + vulnerabilità NuGet + gitleaks in CI; performance solo tramite gate Lighthouse, nessuna guida di diagnosi oltre il superamento del budget | Coperto (audit) · Parziale (performance) | «Supply chain» qui sotto |
+
+---
+
 ## 🧭 Approccio e Architettura
 
 Filosofia in una riga: nascondere la complessità senza portarti via il controllo. La base è strutturata ma resta leggera — niente cattedrale di astrazioni da reggere a ogni avvio.

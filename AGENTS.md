@@ -19,7 +19,7 @@ Commit narrativi a tema, stile branch + squash: una questione chiusa per commit,
 
 ## Ricette — frontend
 
-**Aggiungere una pagina**
+#### Aggiungere una pagina
 ```typescript
 // site.ts
 export enum PageType { Home, NuovaPagina /* … */ }
@@ -37,7 +37,7 @@ export default class NuovaComponent extends PageBaseComponent { }
 <a [appPage]="PageType.NuovaPagina">Vai</a>   <!-- mai URL grezzi -->
 ```
 
-**Aggiungere un endpoint al client**
+#### Aggiungere un endpoint al client
 ```typescript
 // core/services/api.service.ts
 getArticolo(id: string): Promise<Articolo> {
@@ -45,7 +45,8 @@ getArticolo(id: string): Promise<Articolo> {
 }
 ```
 
-**Persistere dati lato client (cookie, Web Storage, consenso)** — UN registro, UN'API, gated dal consenso. Due varianti, stessa mappa.
+#### Persistere dati lato client (cookie, Web Storage, consenso)
+UN registro, UN'API, gated dal consenso. Due varianti, stessa mappa.
 
 *Voce propria (cookie o Web Storage)*
 ```typescript
@@ -79,7 +80,8 @@ const mb = (await import('mapbox-gl')).default;
 ```
 Una voce `prefix` è **sola dichiarazione**: `consent.set()` su di essa è un no-op (le chiavi reali le scrive l'SDK, non tu — esiste solo per elencarle in policy e pulirle). Vale solo per `storage:'local'|'session'`, mai per i cookie. Le chiavi essenziali del motore (`consent_log`, `bearerToken`) sono **sempre** escluse dalla pulizia per prefisso, anche se il tuo prefisso le includerebbe: scegli comunque un prefisso specifico, per non travolgere anche altre tue voci esatte.
 
-**Leggere `global-settings.json` tipizzato** — il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
+#### Leggere `global-settings.json` tipizzato
+Il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
 ```bash
 npm run generate:types   # → src/app/core/engine/global-settings.types.ts (committato, DO NOT MODIFY)
 ```
@@ -89,7 +91,7 @@ const s = JSON.parse(raw) as GlobalSettings;
 s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
 ```
 
-**SEO: escludere una pagina dall'indice**
+#### SEO: escludere una pagina dall'indice
 ```typescript
 // site.ts — pagina pubblica e SSR ma fuori da sitemap e indice (X-Robots-Tag: noindex).
 // A differenza di requiresAuth NON forza il client-render. Default: noindex false.
@@ -98,7 +100,8 @@ s.Localization?.SupportedLanguages   // tipizzato; `s.Localizaton` non compila
   otherSEO: { noindex: true } }
 ```
 
-**Comporre l'identità da una fonte diversa dal file** — il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. **Dichiari col framework** (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
+#### Comporre l'identità da una fonte diversa dal file
+Il caso base si riempie in `data/identity.json` (campi nello schema engine `Engine/Models/Identity/identity.schema.json`). Per prendere un pezzo da un DB/API si fa l'override del solo metodo dedicato: stesso tipo in ingresso e in uscita, arricchisci e ritorna. **Dichiari col framework** (`DayOfWeek`, `TimeOnly`, codici ISO), non stringhe magiche né nozioni di schema.org: l'Engine deriva resa e JSON-LD.
 ```csharp
 // backend/Store/AppIdentityStore.cs (di proprietà del progetto)
 protected override async Task<SiteIdentity?> ComposeIdentityAsync(
@@ -116,7 +119,8 @@ protected override async Task<SiteIdentity?> ComposeIdentityAsync(
 ```
 Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazione` ISO 3166, lingue in `Localization` — dichiari il codice, il framework (`CultureInfo`/`Intl`) dà nome e formato. Per una proprietà schema.org che il modello non tipizza, valorizza `identity.Extra`: fuso **per ultimo** nel nodo entità brand, sovrascrive i default (anche il `@type`, es. → `LocalBusiness` con `geo`/`openingHoursSpecification`); l'Engine si tiene solo `@context` e `@id`.
 
-**Sito di un'attività fisica (LocalBusiness)** — dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati **sul nodo**. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una **stringa libera** (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta — non serve `extra`, che resta solo per le proprietà *in più* (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
+#### Sito di un'attività fisica (LocalBusiness)
+Dichiara `businessType` (sottotipo schema.org) in `data/identity.json`: l'entità brand diventa quel `@type` con indirizzo e `openingHoursSpecification` portati **sul nodo**. Gli `openingHours` (già tipizzati) non cambiano; l'indirizzo è la `sedeOperativa` (fallback `sedeLegale`); la geo (opzionale per Google, basta l'indirizzo) va in `extra`. `businessType` è una **stringa libera** (qualsiasi sottotipo `LocalBusiness` valido), non un enum: la metti diretta — non serve `extra`, che resta solo per le proprietà *in più* (geo, priceRange…). Non è un enum perché i sottotipi sono 150+ ed evolvono, e tanto `extra` può comunque cambiare `@type`: validità schema.org a carico tuo.
 ```json
 {
   "businessType": "Restaurant",
@@ -126,7 +130,8 @@ Stessa filosofia per gli altri "codici": `Currency` ISO 4217, `SedeLegale.Nazion
 }
 ```
 
-**SEO: dati strutturati (JSON-LD) con campi parlanti** — dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). `kind`: `article` | `faq` | `product` | `event` | `raw`.
+#### SEO: dati strutturati (JSON-LD) con campi parlanti
+Dichiari `kind` + campi, l'Engine traduce in schema.org (`structured-data.ts`). `kind`: `article` | `faq` | `product` | `event` | `raw`.
 ```typescript
 // site.ts — STATICI (es. FAQ con domande fisse)
 otherSEO: { structuredData: { kind: 'faq', questions: [{ question: 'Come?', answer: 'Così.' }] } }
@@ -143,7 +148,8 @@ case PageType.Articolo: {
 
 ## Ricette — backend
 
-**Aggiungere un endpoint** (DTO in `Models/`, logica in `Services/`, thin controller)
+#### Aggiungere un endpoint
+DTO in `Models/`, logica in `Services/`, thin controller:
 ```csharp
 [Route("api/v1/orders")]
 public class OrdersController : EngineProtectedController   // o EngineApiController (solo API key)
@@ -158,7 +164,8 @@ public class OrdersController : EngineProtectedController   // o EngineApiContro
 }
 ```
 
-**Errori** (lancia, non `return BadRequest`)
+#### Errori
+Lancia, non `return BadRequest`:
 ```csharp
 if (user is null) throw new NotFoundException("utente");   // → 404 ProblemDetails localizzato
 ```
@@ -169,20 +176,21 @@ public class PaymentRequiredException : ApiException {
 }
 ```
 
-**Leggere la sessione**
+#### Leggere la sessione
 ```csharp
 var session = User.GetSession<SessionInfo>();   // null se token assente/malformato
 if (session is null) throw new UnauthorizedException();
 ```
 
-**Pubblicare una notifica realtime** (proprietà ambient, niente inject)
+#### Pubblicare una notifica realtime
+Proprietà ambient, niente inject:
 ```csharp
 Notifications.Publish(NotificationTarget.Connection(ConnectionId!),
     new NotificationMessage { Type = "toast",
         Payload = new { messageKey = "fatto", icon = "success" } });
 ```
 
-**Lavoro lungo → risposta subito → notifica/email a fine task**
+#### Task lungo con notifica a fine lavoro (email o realtime)
 ```csharp
 BackgroundQueue.TryEnqueue(async (services, ct) => {
     var store = services.GetRequiredService<IContentStore>();   // scope DI proprio
@@ -194,13 +202,15 @@ BackgroundQueue.TryEnqueue(async (services, ct) => {
 return Accepted();                                             // 202 (503 se la coda è satura)
 ```
 
-**Sostituire un servizio dell'Engine** (vince l'ultima registrazione)
+#### Sostituire un servizio dell'Engine
+Vince l'ultima registrazione:
 ```csharp
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──" — es. l'identità da un DB invece che da identity.json
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
 
-**Chiamare un'API esterna** (outbound: URL/chiave in config, client tipizzato, errori verso l'upstream)
+#### Chiamare un'API esterna
+Outbound: URL/chiave in config, client tipizzato, errori verso l'upstream:
 ```csharp
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──"
 builder.Services.Configure<PaymentProviderOptions>(builder.Configuration.GetSection("PaymentProvider"));
@@ -212,7 +222,8 @@ if (!response.IsSuccessStatusCode) throw new BadGatewayException();   // 502; ve
 ```
 Dettagli (config `Custom`/sezione dedicata, segreto in `.local.json` o env var, timeout/gate) in [backend/README.md](backend/README.md) §8.
 
-**Ricevere un webhook** (inbound: firma sul body grezzo, non sul DTO)
+#### Ricevere un webhook
+Inbound: firma sul body grezzo, non sul DTO:
 ```csharp
 [HttpPost, AllowAnonymous]   // pubblico per forza: il chiamante è il servizio terzo, non il tuo frontend
 public async Task<IActionResult> Receive(CancellationToken ct) {
