@@ -39,6 +39,10 @@ Il Node SSR (`server.ts`) è composto da moduli a scopo singolo, ciascuno testab
 
 `navbar.component.ts`, `footer-nav.component.ts` + `footer-nav-group.component.ts` (footer, ricorsivo), `nav-dropdown.component.ts` + `nav-submenu.component.ts` (flyout desktop / accordion mobile della navbar) e l'atomo `nav-link.component.ts` sono la resa concreta della feature "Menu Multilivello" (già descritta a livello di configurazione in `site.ts`/root README): la scomposizione in più componenti serve a gestire la ricorsione dei gruppi annidati senza duplicare la logica di stato attivo/hover tra footer e navbar. `back-to-top.component.ts` è indipendente: appare dopo 300px di scroll, nessun legame col menu.
 
+### Effetto smoke (`components/smoke-effect/smoke-effect.component.ts`)
+
+Il componente che renderizza l'animazione di particelle. Il *contratto* (`SmokeSettings`, i default, quando si autodisattiva) è già interamente documentato in `frontend/README.md` («Effetto smoke: il contratto `SmokeSettings`») — questa riga esiste solo perché quella sezione non nomina la classe: se cerchi "chi disegna lo smoke" è questo componente, montato da `app.component.ts` (la shell, tua) che gli passa `showSmoke` già calcolato.
+
 ### Overlay del menu contestuale (`components/context-menu/`)
 
 `context-menu-overlay.component.ts` (rendering dell'overlay) e `context-menu.models.ts` (forma di `ContextMenuOption`) sono l'implementazione dietro il selettore `[appContextMenu]` (già documentato). Overlay custom, senza dipendenza da Angular CDK.
