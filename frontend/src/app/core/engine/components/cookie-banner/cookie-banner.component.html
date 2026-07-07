@@ -58,10 +58,14 @@
     @if (cookieConsent.isTechnicalNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'tecniciCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'tecniciCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'tecniciDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'tecniciCategoriaCookie' | translate"
@@ -73,10 +77,14 @@
     @if (cookieConsent.isAnalyticsNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'analyticsCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'analyticsCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'analyticsDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'analyticsCategoriaCookie' | translate"
@@ -88,10 +96,14 @@
     @if (cookieConsent.isProfilingNeeded()) {
         <hr class="mt-0 mb-0">
         <div class="d-flex align-items-center gap-3">
-            <details class="cookie-category flex-grow-1">
-                <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
-                <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
-            </details>
+            @if (panelMode()) {
+                <span class="fw-semibold flex-grow-1">{{ 'profilazioneCategoriaCookie' | translate }}</span>
+            } @else {
+                <details class="cookie-category flex-grow-1">
+                    <summary class="fw-semibold d-flex align-items-center gap-2 user-select-none">{{ 'profilazioneCategoriaCookie' | translate }}</summary>
+                    <p class="small opacity-75 mb-0 mt-1">{{ 'profilazioneDescrizioneCategoriaCookie' | translate }}</p>
+                </details>
+            }
             <div class="form-check form-switch mb-0 flex-shrink-0">
                 <input class="form-check-input" type="checkbox" role="switch"
                        [attr.aria-label]="'profilazioneCategoriaCookie' | translate"
