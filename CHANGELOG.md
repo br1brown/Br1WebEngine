@@ -4,6 +4,16 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Quinta pagina legale: Dichiarazione di Accessibilità
+
+`legalPages` supporta ora uno slot `accessibility`, sullo stesso identico meccanismo di `privacy`/`cookie`/`tos`/`legal` — nessuna pagina nuova da costruire a mano, stesso `PolicyComponent`, stessa interpolazione identità.
+
+- **Rilevanza normativa:** dal 28 giugno 2025 l'European Accessibility Act (Direttiva UE 2019/882) riguarda anche i siti privati nello scope (e-commerce, fatturato >2M€ o ≥10 dipendenti; microimprese escluse) — ma con un adempimento diverso da quello della Pubblica Amministrazione. La PA resta sulla Legge 4/2004 (dichiarazione + obiettivi annuali via piattaforma AGID entro il 31 marzo); i privati seguono invece il D.Lgs. 82/2022 ("informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali). Il Markdown demo copre il primo modello (più adatto a una pagina pubblica di trasparenza); quale regime si applica esattamente va verificato con un consulente legale.
+- **`LegalPagesConfig`/`ResolvedLegalPages`:** nuovo campo opzionale `accessibility?: PageType | null` — slot facoltativo come `privacy`/`tos`/`legal` (nessun errore di build se omesso, a differenza di `cookie`).
+- **`legal-pages.ts`:** nuova voce nel registry (`path: 'accessibilita'`, `markdownSlug: 'accessibility'`) — routing, sitemap, SEO e menu si cablano da soli, stesso meccanismo generico delle altre quattro.
+- **Markdown demo generico** (`assets/legal/accessibility.{it,en}.md`): stato di conformità (WCAG 2.1 AA, lo standard già verificato in CI da `pa11y`), contenuti non accessibili, come è stata redatta, segnalazioni/procedura di attuazione — un template da compilare, non un modulo ufficiale né un testo legale pronto all'uso.
+- **Demo e skeleton "eject" aggiornati in coppia** (`site.ts` e `MINIMAL_SITE_TS` in `setup.mjs`): stesso `PageType.AccessibilityStatement`, stesso posizionamento nel menu (`menuPolicy`, accanto a Privacy/Cookie).
+
 ### Validazione: un unico modulo condiviso, e valuta/orari/telefono in fail-fast
 
 - **Modulo `Validation` condiviso (frontend):** le regole prima sparse (validatori inline di `QrCodeService`, strip del telefono in `ContactUrl`) vivono ora in `core/engine/services/validation.ts` — un solo posto per `phone` (charset + numero singolo + forma dialabile `toDial` + `isE164` stretto), `email`, `url`, `iban`. Lo usano i builder di link (`ContactUrl`) e il generatore QR (`QrCodeService`); nessuna regex duplicata resta nel frontend. **Telefono, Opzione A:** la regola base accetta anche i nazionali (`06/1234567`); l'E.164 stretto (`isE164`) è un controllo *in più* solo dove serve un numero internazionale (WhatsApp/`wa.me`).

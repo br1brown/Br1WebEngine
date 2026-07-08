@@ -213,10 +213,11 @@ export class PolicyComponent extends PageBaseComponent<string> {
      *    (l'elenco cambia → la policy è "aggiornata").
      */
     private readonly legalUpdated: Partial<Record<PageType, Date>> = {
-        [PageType.PrivacyPolicy]:   new Date('2026-07-03'),
-        [PageType.CookiePolicy]:    new Date('2026-07-03'),
-        [PageType.TermsOfService]:  new Date('2026-07-03'),
-        [PageType.LegalNotice]:     new Date('2026-07-03'),
+        [PageType.PrivacyPolicy]:            new Date('2026-07-03'),
+        [PageType.CookiePolicy]:             new Date('2026-07-03'),
+        [PageType.TermsOfService]:           new Date('2026-07-03'),
+        [PageType.LegalNotice]:              new Date('2026-07-03'),
+        [PageType.AccessibilityStatement]:   new Date('2026-07-08'),
     };
 
     /** Info per la riga "ultimo aggiornamento" della pagina corrente (o null se non c'è data).

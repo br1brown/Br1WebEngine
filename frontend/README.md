@@ -1489,15 +1489,17 @@ L'Engine elabora i gruppi in modo automatico:
 Mappi gli slot legali dell'Engine ai tuoi `PageType`; il builder costruisce da solo il contenitore `/policy/*` con le sole pagine valorizzate:
 ```typescript
 legalPages: {
-    privacy: PageType.PrivacyPolicy,
-    cookie:  PageType.CookiePolicy,
-    tos:     PageType.TermsOfService,
-    legal:   PageType.LegalNotice,
+    privacy:       PageType.PrivacyPolicy,
+    cookie:        PageType.CookiePolicy,
+    tos:           PageType.TermsOfService,
+    legal:         PageType.LegalNotice,
+    accessibility: PageType.AccessibilityStatement,
 },
 ```
 - **Slot omesso** → quella pagina non viene creata (es. una vetrina con i soli cookie).
 - **Cookie obbligatoria**: se il sito usa cookie (multilingua, PWA o cookie di progetto) lo slot `cookie` dev'essere valorizzato, altrimenti il build si ferma con un errore esplicito.
-- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …).
+- **Contenuto**: Markdown localizzati in `src/assets/legal/` (slug `privacy`, `cookie`, `TOS`, `legal`, `accessibility` → `<slug>.<lang>.md`); il `PolicyComponent` interpola i placeholder dell'identità del sito (`{{ragioneSociale}}`, `{{partitaIva}}`, …) e `{{companyProfile}}` (blocco identità completo, come in `legal.<lang>.md`).
+- **Dichiarazione di Accessibilità**: slot facoltativo come gli altri tre (non `cookie`) — nessun errore di build se lo ometti. Rilevante dal 28 giugno 2025 per i siti nello scope dell'European Accessibility Act (e-commerce, o fatturato >2M€/≥10 dipendenti, microimprese escluse). **Attenzione:** il regime esatto dipende da chi eroga il sito — Pubblica Amministrazione (Legge 4/2004, dichiarazione + obiettivi annuali via piattaforma AGID) e soggetti privati (D.Lgs. 82/2022, "informazioni sull'accessibilità" ex Allegato IV, senza obiettivi annuali) **non sono lo stesso adempimento**: il Markdown demo è un template generico di trasparenza (stato di conformità, limiti noti, canale di segnalazione), non un modulo ufficiale né un testo legale pronto all'uso — verifica con un consulente legale quale regime si applica al progetto.
 
 **Override per-pagina.** Per gestire una policy a modo tuo (rotta dedicata, contenuto da API invece che da Markdown) dichiari tu stesso la pagina in `pages` con lo stesso `PageType`: la tua vince, l'Engine non la crea e non ne carica il `.md`. Le altre policy restano automatiche.
 

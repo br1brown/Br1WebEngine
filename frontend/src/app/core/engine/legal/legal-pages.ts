@@ -16,10 +16,11 @@ interface LegalPageSpec {
 
 /** Registry delle pagine legali di sistema. L'ordine determina l'ordine delle rotte. */
 const LEGAL_PAGES: readonly LegalPageSpec[] = [
-    { slot: 'privacy', path: 'privacy', titleKey: 'privacyPolicyMenu',    descriptionKey: 'privacyPolicyDescrizione',   markdownSlug: 'privacy' },
-    { slot: 'cookie',  path: 'cookie',  titleKey: 'cookiePolicyMenu',     descriptionKey: 'cookiePolicyDescrizione',    markdownSlug: 'cookie' },
-    { slot: 'tos',     path: 'termini', titleKey: 'terminiPolicyMenu',    descriptionKey: 'terminiPolicyDescrizione',   markdownSlug: 'TOS' },
-    { slot: 'legal',   path: 'legal',   titleKey: 'noteLegaliPolicyMenu', descriptionKey: 'noteLegaliPolicyDescrizione', markdownSlug: 'legal' },
+    { slot: 'privacy',       path: 'privacy',       titleKey: 'privacyPolicyMenu',       descriptionKey: 'privacyPolicyDescrizione',       markdownSlug: 'privacy' },
+    { slot: 'cookie',        path: 'cookie',         titleKey: 'cookiePolicyMenu',       descriptionKey: 'cookiePolicyDescrizione',        markdownSlug: 'cookie' },
+    { slot: 'tos',           path: 'termini',        titleKey: 'terminiPolicyMenu',      descriptionKey: 'terminiPolicyDescrizione',       markdownSlug: 'TOS' },
+    { slot: 'legal',         path: 'legal',          titleKey: 'noteLegaliPolicyMenu',   descriptionKey: 'noteLegaliPolicyDescrizione',    markdownSlug: 'legal' },
+    { slot: 'accessibility', path: 'accessibilita',  titleKey: 'accessibilitaPolicyMenu', descriptionKey: 'accessibilitaPolicyDescrizione', markdownSlug: 'accessibility' },
 ];
 
 // import dinamico → nessun arco statico Engine→dominio; un solo chunk condiviso per le policy.

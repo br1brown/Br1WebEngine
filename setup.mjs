@@ -117,6 +117,7 @@ export enum PageType {
     CookiePolicy,
     TermsOfService,
     LegalNotice,
+    AccessibilityStatement,
     Home,
 }
 
@@ -136,6 +137,7 @@ export const ContestoSito = buildSite({
         cookie: PageType.CookiePolicy,
         tos: PageType.TermsOfService,
         legal: PageType.LegalNotice,
+        accessibility: PageType.AccessibilityStatement,
     },
 
     shell: {
@@ -166,6 +168,7 @@ export const ContestoSito = buildSite({
         h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
                 sg.addPage(PageType.LegalNotice);
@@ -177,6 +180,7 @@ export const ContestoSito = buildSite({
         f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
                 sg.addPage(PageType.LegalNotice);

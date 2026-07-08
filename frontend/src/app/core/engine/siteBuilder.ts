@@ -110,6 +110,8 @@ export interface LegalPagesConfig {
     tos?: PageType | null;
     /** Pagina Note Legali. Contenuto: `legal.<lang>.md`. */
     legal?: PageType | null;
+    /** Pagina Dichiarazione di Accessibilità. Contenuto: `accessibility.<lang>.md`. */
+    accessibility?: PageType | null;
 }
 
 /** Versione risolta di `LegalPagesConfig`: ogni slot è sempre presente (PageType o null). */
@@ -932,6 +934,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
             cookie: definition.legalPages?.cookie ?? null,
             tos: definition.legalPages?.tos ?? null,
             legal: definition.legalPages?.legal ?? null,
+            accessibility: definition.legalPages?.accessibility ?? null,
         },
     };
 }
@@ -944,6 +947,7 @@ function resolveEngineLegalPages(legalPages: ResolvedLegalPages, declared: Reado
         cookie: managed(legalPages.cookie),
         tos: managed(legalPages.tos),
         legal: managed(legalPages.legal),
+        accessibility: managed(legalPages.accessibility),
     };
 }
 

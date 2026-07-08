@@ -29,6 +29,7 @@ export enum PageType {
     CookiePolicy,
     TermsOfService,
     LegalNotice,
+    AccessibilityStatement,
     Home,
     //PERSONALIZZABILI
     Social,
@@ -63,6 +64,7 @@ export const ContestoSito = buildSite({
         cookie: PageType.CookiePolicy,
         tos: PageType.TermsOfService,
         legal: PageType.LegalNotice,
+        accessibility: PageType.AccessibilityStatement,
     },
 
     // Comportamento di navbar/footer/header/pannello (default applicati per ogni flag omesso).
@@ -159,6 +161,7 @@ export const ContestoSito = buildSite({
         h.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             // Esempio di gruppo annidato nell'header: su desktop apre un pannello laterale.
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
@@ -173,6 +176,7 @@ export const ContestoSito = buildSite({
         f.addGroup('menuPolicy', g => {
             g.addPage(PageType.PrivacyPolicy);
             g.addPage(PageType.CookiePolicy);
+            g.addPage(PageType.AccessibilityStatement);
             // Esempio di gruppo annidato: un sottogruppo dentro un gruppo.
             g.addGroup('menuLegale', sg => {
                 sg.addPage(PageType.TermsOfService);
