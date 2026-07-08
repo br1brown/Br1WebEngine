@@ -1,0 +1,17 @@
+/* FAB di stampa: stesso angolo di app-back-to-top (bottom-right), ma impilato più in alto —
+   back-to-top compare solo dopo 300px di scroll, questo resta sempre visibile (quando
+   printable()), quindi un offset fisso più alto evita qualunque sovrapposizione senza dover
+   coordinare i due componenti a runtime. */
+.print-fab {
+    position: fixed;
+    bottom: 6rem;
+    right: 2rem;
+    z-index: var(--z-fab);
+}
+
+@supports (bottom: env(safe-area-inset-bottom)) {
+    .print-fab {
+        bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+        right: calc(2rem + env(safe-area-inset-right, 0px));
+    }
+}

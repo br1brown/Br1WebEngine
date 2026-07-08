@@ -1,14 +1,6 @@
 <article class="container row justify-content-center">
     <div class="col-12 col-md-11 col-lg-10">
         @if (pageContent()) {
-            <!-- "Formato alternativo" (richiamato anche dalla Dichiarazione di Accessibilità):
-                 stampa/Salva-come-PDF nativo del browser sul contenuto live, invece di un PDF
-                 statico da tenere allineato a mano. La regola @media print in
-                 styles/engine/base/_print.scss nasconde questo bottone e tutta la chrome della
-                 shell dal risultato stampato. -->
-            <div class="d-flex justify-content-end mb-2 d-print-none">
-                <app-print-action [showLabel]="true" />
-            </div>
             @for (seg of segments(); track $index) {
                 @if (seg.type === 'markdown') {
                     <div [innerHTML]="seg.content | markdown"></div>

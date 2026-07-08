@@ -29,6 +29,8 @@ export interface ShellFlags {
     showFooter?: boolean;
     /** Vista full-bleed (niente pannello/container). Default (assente): off. */
     fitViewport?: boolean;
+    /** Bottone di stampa globale (FAB, gestito dalla shell). Default (assente): mostrato. */
+    printable?: boolean;
 }
 
 /** Chiave RISERVATA in `route.data` sotto cui l'Engine mette i `ShellFlags`. Non usarla nei `data`
@@ -313,6 +315,13 @@ export type LeafPageInput = BasePageInput & {
          * (come showNav/showFooter): se il globale è off nessuna pagina può riattivarlo; se è on,
          * qui puoi solo spegnerlo (`pageFade: false`) su una singola pagina pesante. Default: eredita il globale. */
         pageFade?: boolean;
+        /**
+         * Mostra il FAB di stampa globale (gestito dalla shell, fuori dal pannello contenuti:
+         * stampa/"Salva come PDF" via `window.print()`, con `@media print` che nasconde la chrome
+         * della shell — vedi `styles/engine/base/_print.scss`). Default: true. Spegnilo (`false`)
+         * dove stampare non ha senso: pagine full-bleed interattive (mappe/giochi/dashboard),
+         * login, checkout. Puramente per-pagina, nessun gate globale (come `fitViewport`). */
+        printable?: boolean;
     };
 
     /**
@@ -630,6 +639,7 @@ const normalizeSitePage = (
                 showPanel: layout?.showPanel,
                 showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
                 fitViewport: layout?.fitViewport,
+                printable: layout?.printable,
             } satisfies ShellFlags,
             pageFade: layout?.pageFade,
             ogImage: otherSEO?.ogImage,

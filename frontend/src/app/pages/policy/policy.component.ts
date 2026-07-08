@@ -11,11 +11,10 @@ import type { Identity } from '../../core/engine/dto/identity.dto';
 import { SITE_CONFIG } from '../../core/engine/siteBuilder';
 import { CookieBannerComponent } from '../../core/engine/components/cookie-banner/cookie-banner.component';
 import { LocalizationService } from '../../core/engine/services/localization.service';
-import { PrintActionComponent } from '../../components/shared/action/print-action/print-action.component';
 
 @Component({
     selector: 'app-policy',
-    imports: [MarkdownPipe, IdentityRenderComponent, CookieBannerComponent, PrintActionComponent],
+    imports: [MarkdownPipe, IdentityRenderComponent, CookieBannerComponent],
     templateUrl: './policy.component.html',
     // Gruppi collassabili via <details> nativo (niente JS: il progetto bundle solo il CSS di
     // Bootstrap, non il suo JS — stessa scelta del cookie-banner). Il resto dello stile è tutto

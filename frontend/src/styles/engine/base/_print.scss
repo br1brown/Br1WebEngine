@@ -1,9 +1,25 @@
-/* Stampa (e "Salva come PDF" del browser, via app-print-action su Cookie/Privacy/… Policy):
-   in stampa deve restare SOLO il contenuto della pagina instradata — niente chrome della shell
-   (navbar/footer/FAB fissi/sfondo smoke) e niente identità visiva del pannello-card, pensata per
-   lo schermo. È il "formato alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa
-   il contenuto live così com'è, non un PDF statico da tenere allineato a mano al Markdown. */
+/* Stampa (e "Salva come PDF" del browser, via il FAB globale di app.component — vedi
+   AppComponent.printable/print()): in stampa deve restare SOLO il contenuto della pagina
+   instradata — niente chrome della shell (navbar/footer/FAB fissi/sfondo smoke), niente tema
+   scuro, niente identità visiva del pannello-card, pensata per lo schermo. È il "formato
+   alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa il contenuto live così
+   com'è, non un PDF statico da tenere allineato a mano al Markdown. */
 @media print {
+    /* Il tema (chiaro/scuro) è un vezzo per lo schermo: su carta vogliamo SEMPRE nero su bianco,
+       a prescindere dal tema attivo. Senza questo reset, un utente in tema scuro stamperebbe con
+       lo sfondo scuro di `body` (--colorBase, base.scss) — spreco di inchiostro/toner, e comunque
+       non garantito: molti browser NON stampano i background-color di default, quindi il testo
+       chiaro pensato per un fondo scuro sparirebbe su carta bianca. Va su html/body (non solo su
+       .content-panel sotto): copre anche le pagine senza pannello (layout.showPanel:false) o
+       full-bleed (layout.fitViewport:true), che il pannello non ce l'hanno. color-scheme:light
+       allinea anche i controlli nativi del browser (checkbox, ecc.) allo stesso registro. */
+    html,
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        color-scheme: light !important;
+    }
+
     /* Chrome della shell: mai utile su carta, spesso composta da elementi position:fixed che in
        stampa duplicherebbero su ogni pagina o si sovrapporrebbero al contenuto. */
     app-back-to-top,
@@ -31,20 +47,17 @@
     }
 
     /* .content-panel è una card pensata per lo schermo: sfondo/bordo/ombra/raggio dal tema
-       corrente, ed eventualmente .panel-dark con testo quasi bianco (--colorSurfaceText) su
-       sfondo scuro. Molti browser NON stampano i background-color per default → quel testo
-       chiaro sparirebbe su carta bianca. In stampa forziamo nero su bianco e nessuna identità
-       da card; la griglia (col-lg-10/offset-lg-1, legata a un breakpoint che in stampa non ha
-       senso) si azzera a piena larghezza. Il contenuto (children) resta intoccato: cambia solo
-       il contenitore che lo ospita. */
+       corrente (colore/testo già azzerati sopra da html/body, che il pannello eredita). Qui
+       resta solo da togliere l'identità "da card" e i vincoli di griglia (col-lg-10/offset-lg-1,
+       legati a un breakpoint che in stampa non ha senso) per arrivare a piena larghezza. Il
+       contenuto (children) resta intoccato: cambia solo il contenitore che lo ospita. */
     .content-panel {
         width: 100% !important;
         max-width: 100% !important;
         flex: 0 0 100% !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
-        color: #000 !important;
+        background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         border-radius: 0 !important;

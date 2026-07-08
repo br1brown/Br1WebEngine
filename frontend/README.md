@@ -901,6 +901,19 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 **Lato pagina serve una cosa sola:** fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento — layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
+### Stampa/PDF: `layout.printable`
+
+Ogni pagina è **stampabile per default**: un FAB globale (icona stampante, gestito dalla shell in `app.component.ts`/`.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina: nasconde navbar/footer/FAB fissi/smoke, forza tema chiaro (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) e toglie l'identità "da card" al pannello contenuti (sfondo/bordo/ombra/griglia), lasciando solo il contenuto della pagina.
+
+Spegnilo dove stampare non ha senso — form di login, checkout, viste `fitViewport` interattive (mappe/giochi/dashboard):
+```typescript
+// site.ts
+{ path: 'login', title: 'loginNav', pageType: PageType.Login,
+  component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
+  layout: { printable: false } }
+```
+Puramente per-pagina, nessun gate globale (come `fitViewport`). Il flag controlla solo la **comparsa del FAB**: se l'utente stampa comunque da tastiera/menu del browser, il `@media print` pulisce la resa a prescindere — non c'è modo (né motivo) di impedire la stampa nativa del browser.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)

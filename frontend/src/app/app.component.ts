@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, makeStateKey, PLATFORM_ID, TransferState } from '@angular/core';
-import { isPlatformServer } from '@angular/common';
+import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 
 import { ContestoSito } from './site';
@@ -34,6 +34,7 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
     selector: 'app-root',
     imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
     templateUrl: './app.component.html',
+    styleUrl: './app.component.scss',
     // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
     // (= large viewport, barre ritratte), che su mobile spinge le viste full-bleed sotto la
     // chrome del browser. Ora la dà base.scss su `app-root` con `min-height: 100dvh` (+ fallback
@@ -72,6 +73,9 @@ export class AppComponent {
 
     readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
 
+    // Bottone di stampa globale (FAB): puramente per-pagina, nessun gate globale — come fitViewport.
+    readonly printable = computed(() => this.shellFlags().printable ?? true);
+
     // Nota: `prefers-reduced-motion` NON entra qui — sarebbe un signal client-only (matchMedia) che
     // il server non legge, causando un mismatch di idratazione (SSR rende lo smoke, il client lo toglie).
     // Il rispetto del reduced-motion vive dentro SmokeEffectComponent (non anima, canvas vuoto), così
@@ -89,5 +93,11 @@ export class AppComponent {
         }
 
         inject(VersionCheckService).init();
+    }
+
+    /** Stampa/"Salva come PDF" via il dialogo nativo del browser. Il `@media print` in
+     *  `styles/engine/base/_print.scss` fa il resto (nasconde la chrome, forza tema chiaro). */
+    print(): void {
+        if (isPlatformBrowser(this.platformId)) window.print();
     }
 }
