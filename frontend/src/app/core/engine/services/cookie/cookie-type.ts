@@ -52,22 +52,27 @@ export const CONSENT_KEYS = {
 } as const;
 
 export const CONSENT_COOKIE_MAP = {
-    /** Memorizza le preferenze dell'utente sui cookie tecnici */
+    /** Memorizza le preferenze dell'utente sui cookie tecnici. Max-Age 180 giorni (vedi
+     *  CookieConsentService.CONSENT_MAX_AGE_SECONDS): durationKey esplicito per non farlo
+     *  ricadere sul default "1 anno" della Cookie Policy. */
     [CONSENT_KEYS.technical]: {
         category: ConsentCategory.Technical,
         descriptionKey: 'consentTechnicalDescrizioneListaCookie',
+        durationKey: 'durataSeiMesiListaCookie',
         valueType: 'boolean'
     },
     /** Memorizza le preferenze dell'utente sui cookie analitici */
     [CONSENT_KEYS.analytics]: {
         category: ConsentCategory.Technical,
         descriptionKey: 'consentAnalyticsDescrizioneListaCookie',
+        durationKey: 'durataSeiMesiListaCookie',
         valueType: 'boolean'
     },
     /** Memorizza le preferenze dell'utente sui cookie di profilazione */
     [CONSENT_KEYS.profiling]: {
         category: ConsentCategory.Technical,
         descriptionKey: 'consentProfilingDescrizioneListaCookie',
+        durationKey: 'durataSeiMesiListaCookie',
         valueType: 'boolean'
     }
 } as const satisfies Readonly<Record<string, CookieConfig>>;

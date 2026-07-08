@@ -25,7 +25,8 @@
     </section>
 } @else if (!cookieConsent.responded()) {
     <div class="cookie-banner cookie-banner-modern"
-         role="alert"
+         role="region"
+         [attr.aria-label]="'titoloPannelloCookie' | translate"
          aria-live="polite">
         <div class="cookie-banner__shell surface-elevated align-items-center mx-auto" [class.cookie-banner__shell--detailed]="hasDetailedCategories()">
             <div class="cookie-banner__content">
@@ -36,9 +37,8 @@
                     </div>
                 }
             </div>
-            <!-- Rifiuta tutto: outline-secondary (neutro adattivo, non spinge verso
-                 l'accettazione). Accetta / Salva: btn-success (verde universale,
-                 segnale positivo indipendente dal colorTema del sito). -->
+            <!-- Rifiuta/Accetta tutto: stesso stile outline-secondary, pari peso visivo (vedi
+                 template #consentActions). Solo Salva scelte resta btn-success. -->
             <div class="cookie-banner__actions d-flex flex-column-reverse flex-md-row flex-wrap gap-3 justify-content-md-end">
                 <ng-container [ngTemplateOutlet]="consentActions"></ng-container>
             </div>
@@ -116,7 +116,11 @@
 
 <!-- Azioni — condivise da banner e pannello. Rifiuta/Accetta tutto hanno senso solo se esiste
      almeno una categoria non tecnica su cui applicarsi in blocco; Salva scelte è sempre presente
-     (anche con la sola categoria tecnica, per confermare il toggle). -->
+     (anche con la sola categoria tecnica, per confermare il toggle).
+     Rifiuta e Accetta condividono LO STESSO stile (outline-secondary): pari peso visivo richiesto
+     da EDPB/Garante — un "Accetta" pieno/verde contro un "Rifiuta" in outline nudgerebbe l'utente
+     verso il consenso (dark pattern). Solo "Salva scelte" resta evidenziato: non è un'alternativa
+     accetta/rifiuta, conferma qualunque combinazione l'utente abbia scelto (anche tutta negativa). -->
 <ng-template #consentActions>
     @if (hasDetailedCategories()) {
         <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
@@ -124,7 +128,7 @@
                 (click)="reject()">
             {{ 'rifiutaTuttiBannerCookie' | translate }}
         </button>
-        <button class="btn btn-success fw-semibold text-nowrap rounded-pill flex-fill"
+        <button class="btn btn-outline-secondary fw-semibold text-nowrap rounded-pill flex-fill"
                 type="button"
                 (click)="accept()">
             {{ 'accettaTuttiBannerCookie' | translate }}

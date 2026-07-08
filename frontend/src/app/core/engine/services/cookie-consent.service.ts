@@ -88,6 +88,11 @@ export function buildPhysicalCookieKey(rawKey: CookieKey | EngineCookieKey, conf
 @Injectable({ providedIn: 'root' })
 export class CookieConsentService {
     public static readonly NGSW_WORKER = 'ngsw-worker.js';
+    /** Durata della memoria del consenso: 180 giorni. Oltre questa soglia il Garante Privacy
+     *  (Linee guida cookie 2021, confermate nell'aggiornamento 2024-25) richiede di riproporre
+     *  il banner — più corta del Max-Age di default di `set()` (1 anno), usato per i cookie
+     *  applicativi generici che non sono soggetti a questo vincolo. */
+    private static readonly CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 
     private readonly document = inject(DOCUMENT);
     private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -268,17 +273,17 @@ export class CookieConsentService {
         if (!this.isBrowser) return;
         try {
             if (this.isTechnicalNeeded())
-                this.setCookie(CONSENT_KEYS.technical, this._technicalAccepted());
+                this.setCookie(CONSENT_KEYS.technical, this._technicalAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
                 this.removeCookie(CONSENT_KEYS.technical);
 
             if (this.isAnalyticsNeeded())
-                this.setCookie(CONSENT_KEYS.analytics, this._analyticsAccepted());
+                this.setCookie(CONSENT_KEYS.analytics, this._analyticsAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
                 this.removeCookie(CONSENT_KEYS.analytics);
 
             if (this.isProfilingNeeded())
-                this.setCookie(CONSENT_KEYS.profiling, this._profilingAccepted());
+                this.setCookie(CONSENT_KEYS.profiling, this._profilingAccepted(), CookieConsentService.CONSENT_MAX_AGE_SECONDS);
             else
                 this.removeCookie(CONSENT_KEYS.profiling);
 
