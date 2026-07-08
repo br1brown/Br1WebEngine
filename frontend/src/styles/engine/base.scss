@@ -9,6 +9,7 @@
 //   utilities       → effetti (shake/zoom/carosello), .surface-elevated, .fab, code
 //   motion          → .page-fade (fade-in d'ingresso pagina) + guardia reduced-motion
 //   a11y            → forced-colors, reduced-motion, skip-link, safe-area, touch target
+//   print           → @media print: nasconde la chrome della shell, neutralizza .content-panel
 
 @use 'base/tokens';
 @use 'base/base';
@@ -17,3 +18,4 @@
 @use 'base/utilities';
 @use 'base/motion';
 @use 'base/a11y';
+@use 'base/print';

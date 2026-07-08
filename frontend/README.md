@@ -524,6 +524,13 @@ export class AnalyticsService {
 ```
 Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()` — sono due consensi giuridicamente distinti anche per Google.
 
+### Altri due obblighi da tenere presenti (fuori scope Engine oggi)
+
+Nessuno dei due è una feature del template — nessun chatbot, nessuna generazione IA, nessuna newsletter integrata — ma diventano rilevanti nel momento in cui un progetto figlio li aggiunge:
+
+- **AI Act, trasparenza — dal 2 agosto 2026.** Se il progetto aggiunge un chatbot: avviso esplicito e immediatamente percepibile al primo messaggio ("Stai parlando con un sistema di IA"), non un testo nascosto in fondo alla pagina. Se pubblica contenuti (testo/immagini/video) generati da IA senza revisione editoriale umana: etichettatura visibile. Riguarda anche le PMI, non solo i grandi provider — l'Engine non ha nulla da gestire finché non esiste il chatbot/i contenuti, ma la scadenza è vicina: pianificalo per tempo.
+- **Newsletter/marketing — consenso separato dal consenso cookie.** Se il progetto aggiunge un form di iscrizione: l'autorizzazione a scrivere all'indirizzo email **non** è una categoria di `ConsentCategory` — quel sistema gestisce storage/tracciamento lato browser (Technical/Analytics/Profiling), non il permesso di inviare comunicazioni. Serve una checkbox dedicata, non pre-spuntata, e — se il progetto fa anche profilazione sugli iscritti — una seconda checkbox separata per quello: consensi granulari e specifici, non raggruppati in uno solo.
+
 ---
 
 ## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)

@@ -14,6 +14,14 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 - **Markdown demo generico** (`assets/legal/accessibility.{it,en}.md`): stato di conformità (WCAG 2.1 AA, lo standard già verificato in CI da `pa11y`), contenuti non accessibili, come è stata redatta, segnalazioni/procedura di attuazione — un template da compilare, non un modulo ufficiale né un testo legale pronto all'uso.
 - **Demo e skeleton "eject" aggiornati in coppia** (`site.ts` e `MINIMAL_SITE_TS` in `setup.mjs`): stesso `PageType.AccessibilityStatement`, stesso posizionamento nel menu (`menuPolicy`, accanto a Privacy/Cookie).
 
+### Pagine legali: "formato alternativo" stampabile/PDF, senza un file statico da mantenere
+
+Le 5 pagine legali (`PolicyComponent`) hanno ora un bottone `app-print-action` che stampa/"Salva come PDF" il contenuto **live** della pagina — il formato alternativo richiamato dalla Dichiarazione di Accessibilità, senza il rischio di un PDF statico che va fuori sincrono col Markdown o con `identity.json` a ogni modifica.
+
+- **Nuovo partial `styles/engine/base/_print.scss`**, registrato in `base.scss`: `@media print` nasconde la chrome della shell (navbar/footer/FAB fissi/sfondo smoke) e neutralizza `.content-panel` (niente sfondo/bordo/ombra/raggio da card, niente vincoli di griglia legati a un breakpoint) — resta solo il contenuto della pagina, nero su bianco.
+- **Specificità CSS, non ovvio:** `app-navbar`/`app-footer` applicano `d-block` come host class; l'utility Bootstrap `.d-block{display:block!important}` ha specificità di classe (0,1,0), più alta del solo selettore di tag (0,0,1) — a parità di `!important` un semplice `app-navbar{display:none!important}` **perde**. Selettore composito `app-navbar.d-block`/`app-footer.d-block` per pareggiare e vincere. Verificato con screenshot Playwright in `media: 'print'` prima e dopo il fix (il bug era silenzioso: nessun errore, semplicemente navbar/footer restavano visibili in stampa).
+- **`policy.component.html`**: bottone in alto, `d-print-none` così non compare nel risultato stampato di se stesso.
+
 ### Validazione: un unico modulo condiviso, e valuta/orari/telefono in fail-fast
 
 - **Modulo `Validation` condiviso (frontend):** le regole prima sparse (validatori inline di `QrCodeService`, strip del telefono in `ContactUrl`) vivono ora in `core/engine/services/validation.ts` — un solo posto per `phone` (charset + numero singolo + forma dialabile `toDial` + `isE164` stretto), `email`, `url`, `iban`. Lo usano i builder di link (`ContactUrl`) e il generatore QR (`QrCodeService`); nessuna regex duplicata resta nel frontend. **Telefono, Opzione A:** la regola base accetta anche i nazionali (`06/1234567`); l'E.164 stretto (`isE164`) è un controllo *in più* solo dove serve un numero internazionale (WhatsApp/`wa.me`).

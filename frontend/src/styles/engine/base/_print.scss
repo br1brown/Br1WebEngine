@@ -1,0 +1,52 @@
+/* Stampa (e "Salva come PDF" del browser, via app-print-action su Cookie/Privacy/… Policy):
+   in stampa deve restare SOLO il contenuto della pagina instradata — niente chrome della shell
+   (navbar/footer/FAB fissi/sfondo smoke) e niente identità visiva del pannello-card, pensata per
+   lo schermo. È il "formato alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa
+   il contenuto live così com'è, non un PDF statico da tenere allineato a mano al Markdown. */
+@media print {
+    /* Chrome della shell: mai utile su carta, spesso composta da elementi position:fixed che in
+       stampa duplicherebbero su ogni pagina o si sovrapporrebbero al contenuto. */
+    app-back-to-top,
+    app-cookie-banner,
+    app-smoke-effect {
+        display: none !important;
+    }
+
+    /* app-navbar/app-footer applicano `d-block` come host class (vedi i rispettivi component.ts):
+       l'utility Bootstrap `.d-block { display: block !important; }` ha specificità di classe
+       (0,1,0), più alta del solo selettore di tag (0,0,1) — a parità di !important vincerebbe
+       lei, non il display:none qui sotto, e navbar/footer resterebbero visibili in stampa. Il
+       selettore composito tag.d-block pareggia la specificità (0,1,1) e la batte. Se in futuro
+       cambia la classe host di uno dei due componenti, aggiorna questo selettore di conseguenza. */
+    app-navbar.d-block,
+    app-footer.d-block {
+        display: none !important;
+    }
+
+    /* #main-content porta il gutter dello schermo (.container-fluid/.py-4, applicati via class
+       binding in app.component.html): in stampa i margini di pagina del browser bastano da soli. */
+    #main-content {
+        padding: 0 !important;
+        max-width: none !important;
+    }
+
+    /* .content-panel è una card pensata per lo schermo: sfondo/bordo/ombra/raggio dal tema
+       corrente, ed eventualmente .panel-dark con testo quasi bianco (--colorSurfaceText) su
+       sfondo scuro. Molti browser NON stampano i background-color per default → quel testo
+       chiaro sparirebbe su carta bianca. In stampa forziamo nero su bianco e nessuna identità
+       da card; la griglia (col-lg-10/offset-lg-1, legata a un breakpoint che in stampa non ha
+       senso) si azzera a piena larghezza. Il contenuto (children) resta intoccato: cambia solo
+       il contenitore che lo ospita. */
+    .content-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+}
