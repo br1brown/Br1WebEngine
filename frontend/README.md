@@ -912,6 +912,10 @@ Ogni pagina è **sempre stampabile, senza configurazione e senza bottone dedicat
 
 È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità — vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa **puntuale** su una pagina specifica (non è nel template di default, ma il building block c'è già).
 
+### Navigazione SPA: focus e annuncio agli screen reader
+
+Un cambio pagina qui non ricarica il documento — è il router Angular a sostituire il contenuto sotto `<router-outlet>` — quindi il browser **non** sposta da solo il focus né annuncia nulla, come farebbe invece con un normale link multi-pagina. Senza intervento, chi naviga da tastiera o screen reader resta "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. L'Engine applica l'approccio duale raccomandato (2025/2026): `AppComponent` ascolta `NavigationEnd` (saltando il primo, quello del caricamento iniziale — lì il focus del browser va lasciato dov'è) e sposta il focus su `#main-content` (`tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione), mentre una regione `role="status" aria-live="polite"` annuncia il nuovo titolo (`PageMetaService.announcedTitle`, lo stesso testo del `<title>`) — il solo focus non basta perché alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non lo annunciano sempre in modo affidabile. Nessuna configurazione: vale su ogni pagina, presente e futura.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)

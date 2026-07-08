@@ -13,7 +13,7 @@
     <app-navbar />
 }
 
-<main id="main-content" class="flex-grow-1"
+<main id="main-content" tabindex="-1" class="flex-grow-1"
       [class.container-fluid]="!fitViewport()"
       [class.py-4]="!fitViewport()"
       [class.fit-viewport]="fitViewport()">
@@ -40,3 +40,8 @@
 @if (showFooter()) {
     <app-footer />
 }
+
+<!-- Regione live per screen reader: annuncia (polite) il titolo della pagina ad ogni navigazione
+     SPA, come backup del focus programmatico su #main-content (vedi app.component.ts) — alcune
+     combinazioni screen reader/browser non annunciano sempre in modo affidabile il solo focus. -->
+<div class="visually-hidden" role="status" aria-live="polite">{{ pageMeta.announcedTitle() }}</div>

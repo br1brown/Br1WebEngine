@@ -4,6 +4,16 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Navigazione SPA: focus e annuncio agli screen reader ad ogni cambio pagina
+
+Un cambio pagina in una SPA non ricarica il documento — il browser non sposta da solo il focus né annuncia nulla, come farebbe con un normale link multi-pagina. Chi naviga da tastiera o screen reader restava "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. Nessuna configurazione: vale su ogni pagina, presente e futura.
+
+- **Approccio duale (best practice 2025/2026):** `AppComponent` ascolta `Router.events` (`NavigationEnd`, saltando il **primo** — il caricamento iniziale, dove il focus va lasciato dov'è il browser lo mette di default) e sposta il focus su `#main-content` (nuovo `tabindex="-1"`, programmaticamente focalizzabile senza entrare nell'ordine di tabulazione a schermo). In parallelo, una regione `role="status" aria-live="polite"` annuncia il nuovo titolo.
+- **`PageMetaService.announcedTitle`:** nuovo signal, valorizzato dentro `setPageMeta()` con lo stesso testo già scritto nel `<title>` del browser — nessuna logica duplicata, un solo punto di verità per il titolo di pagina.
+- **Perché entrambi:** il solo focus non basta — alcune combinazioni screen reader/browser (NVDA+Firefox, VoiceOver+Safari) non annunciano sempre in modo affidabile l'elemento appena focalizzato; la regione live è il backup.
+- **Cambio lingua non innesca il focus:** `setLanguage()` non naviga (nessun `NavigationEnd`), quindi non sposta mai il focus — solo `announcedTitle` si aggiorna (il titolo tradotto viene comunque annunciato, utile di per sé).
+- Verificato con Playwright (server SSR reale + backend .NET reale): caricamento iniziale non ruba il focus, navigazioni SPA successive (via `routerLink`, non full-reload) spostano correttamente il focus su `#main-content` e la regione live rispecchia il nuovo `document.title`.
+
 ### Quinta pagina legale: Dichiarazione di Accessibilità
 
 `legalPages` supporta ora uno slot `accessibility`, sullo stesso identico meccanismo di `privacy`/`cookie`/`tos`/`legal` — nessuna pagina nuova da costruire a mano, stesso `PolicyComponent`, stessa interpolazione identità.
