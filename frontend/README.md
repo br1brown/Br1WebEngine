@@ -901,24 +901,16 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 **Lato pagina serve una cosa sola:** fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento — layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
-### Stampa/PDF: `layout.printable`
+### Stampa/PDF
 
-Ogni pagina è **stampabile per default**: un FAB globale (`app-print-action[fab]=true`, gestito dalla shell in `app.component.ts`/`.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina:
+Ogni pagina è **sempre stampabile, senza configurazione**: un FAB globale (`app-print-action[fab]=true`, montato incondizionatamente in `app.component.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Nessun flag da impostare né da dimenticare: ogni pagina, presente e futura, nasce già con l'impostazione corretta. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina:
 - **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
 - **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
 - **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
 - **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
+- **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy): altrimenti un accordion collassato stamperebbe solo l'intestazione, non il contenuto.
 
-Spegnilo dove stampare non ha senso — form di login, checkout, viste `fitViewport` interattive (mappe/giochi/dashboard):
-```typescript
-// site.ts
-{ path: 'login', title: 'loginNav', pageType: PageType.Login,
-  component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
-  layout: { printable: false } }
-```
-Puramente per-pagina, nessun gate globale (come `fitViewport`). Il flag controlla solo la **comparsa del FAB**: se l'utente stampa comunque da tastiera/menu del browser, il `@media print` pulisce la resa a prescindere — non c'è modo (né motivo) di impedire la stampa nativa del browser.
-
-**Eccezione: le pagine legali non si possono spegnere.** Su `privacy`/`cookie`/`tos`/`legal`/`accessibility` il builder forza `printable: true` a prescindere da cosa scrivi in `layout` — sono il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità, non un'opzione. Vale anche se sostituisci la pagina auto-generata con una tua (stesso `PageType` in `pages`, che normalmente vince su tutto): non su questo. Stesso principio già visto per `showNav`/`showFooter` — un livello sopra (lì il globale di sito, qui "è una pagina legale") prevale su una svista nel singolo `layout`.
+Non esiste un modo per "spegnere" la stampa su una pagina: anche stampando da tastiera/menu del browser invece che dal FAB, il `@media print` pulisce comunque la resa — non c'è modo (né motivo) di impedire la stampa nativa. Se una pagina full-bleed (mappe/giochi/dashboard) non ha contenuto sensato da stampare, resta comunque innocuo: la stampa mostrerà solo quel contenuto, senza chrome.
 
 ---
 
@@ -1921,7 +1913,7 @@ Apre la finestra di stampa nativa del browser tramite `window.print()`. Non rich
 | :--- | :--- | :--- |
 | `fab` | `boolean` | `false` (default): bottone outline standard. `true`: variante FAB (cerchio, sola icona, stessa forma di `app-back-to-top`) — pensata per un uso fisso/globale; non combinarla con `showLabel`/`fullWidth`. Il posizionamento (`position: fixed`, `z-index`) resta a carico di chi la usa — non è il componente a deciderlo. |
 
-Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco, in entrambe le varianti): un bottone "stampa" non ha senso nel risultato stampato di se stesso. È il building block dietro il FAB globale di stampa — vedi «Stampa/PDF: `layout.printable`» più sopra.
+Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco, in entrambe le varianti): un bottone "stampa" non ha senso nel risultato stampato di se stesso. È il building block dietro il FAB globale di stampa — vedi «Stampa/PDF» più sopra.
 
 ### Componenti di Contatto
 

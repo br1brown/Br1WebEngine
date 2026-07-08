@@ -1,10 +1,10 @@
-/* Stampa (e "Salva come PDF" del browser, via il FAB globale di app.component — vedi
-   AppComponent.printable + app-print-action[fab]=true): in stampa deve restare SOLO il
-   contenuto della pagina instradata, più il minimo indispensabile di contesto legale (la riga
-   di copyright del footer). Via: navbar, FAB fissi (back-to-top/cookie-banner), sfondo smoke,
-   tema scuro, identità visiva del pannello-card, pensata per lo schermo. È il "formato
-   alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa il contenuto live così
-   com'è, non un PDF statico da tenere allineato a mano al Markdown. */
+/* Stampa (e "Salva come PDF" del browser, via il FAB globale sempre presente in
+   app.component.html — app-print-action[fab]=true): in stampa deve restare SOLO il contenuto
+   della pagina instradata, più il minimo indispensabile di contesto legale (la riga di
+   copyright del footer). Via: navbar, FAB fissi (back-to-top/cookie-banner), sfondo smoke, tema
+   scuro, identità visiva del pannello-card, pensata per lo schermo. È il "formato alternativo"
+   richiamato dalla Dichiarazione di Accessibilità: stampa il contenuto live così com'è, non un
+   PDF statico da tenere allineato a mano al Markdown. */
 @media print {
     /* Il tema (chiaro/scuro) è un vezzo per lo schermo: su carta vogliamo SEMPRE nero su bianco,
        a prescindere dal tema attivo. Senza questo reset, un utente in tema scuro stamperebbe con

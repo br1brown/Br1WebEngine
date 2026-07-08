@@ -74,9 +74,6 @@ export class AppComponent {
 
     readonly showFooter = computed(() => ContestoSito.config.showFooter && (this.shellFlags().showFooter ?? true));
 
-    // Bottone di stampa globale (FAB): puramente per-pagina, nessun gate globale — come fitViewport.
-    readonly printable = computed(() => this.shellFlags().printable ?? true);
-
     // Nota: `prefers-reduced-motion` NON entra qui — sarebbe un signal client-only (matchMedia) che
     // il server non legge, causando un mismatch di idratazione (SSR rende lo smoke, il client lo toglie).
     // Il rispetto del reduced-motion vive dentro SmokeEffectComponent (non anima, canvas vuoto), così

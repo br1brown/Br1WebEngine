@@ -128,8 +128,6 @@ export const ContestoSito = buildSite({
             pageType: PageType.Login,
             description: 'loginDesc',
             component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
-            // Esempio di layout.printable: stampare un form di login non ha senso.
-            layout: { printable: false },
         },
         {
             path: 'impostazioni',
