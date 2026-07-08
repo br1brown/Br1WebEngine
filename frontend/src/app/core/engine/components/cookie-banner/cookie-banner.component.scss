@@ -62,19 +62,27 @@ app-cookie-banner .cookie-banner a:hover {
 }
 
 app-cookie-banner .cookie-banner-modern {
-    padding: 0 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     pointer-events: none;
 }
 
+/* Barra fissa full-width in fondo alla pagina (pattern standard "cookie bar",
+   non più una card fluttuante centrata): nessun margine laterale, niente raggio. */
 /* bg/color/box-shadow vengono dalla utility .surface-elevated nell'HTML */
 app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
     pointer-events: auto;
-    width: min(100%, 1080px);
-    padding: 1.25rem 1.4rem;
+    width: 100%;
+    max-width: none;
+    padding: 1.25rem max(1.4rem, env(safe-area-inset-right, 0px)) 1.25rem max(1.4rem, env(safe-area-inset-left, 0px));
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 1rem 1.25rem;
-    border-radius: 1.5rem;
+    border-radius: 0;
+    /* .surface-elevated (nell'HTML) dà un'ombra pensata per una card isolata;
+       qui la barra è agganciata al bordo schermo, quindi serve solo il distacco
+       dal contenuto sopra. */
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.15);
 }
 
 app-cookie-banner .cookie-banner-modern .cookie-banner__content {
@@ -163,16 +171,14 @@ app-cookie-banner .cookie-banner-modern .cookie-banner__actions .btn {
 
 @media (max-width: #{lib.$bp-md - 0.02px}) {
     app-cookie-banner .cookie-banner-modern {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     app-cookie-banner .cookie-banner-modern .cookie-banner__shell {
         grid-template-columns: 1fr;
-        padding: 0.85rem 1rem;
+        padding: 0.85rem max(1rem, env(safe-area-inset-right, 0px)) 0.85rem max(1rem, env(safe-area-inset-left, 0px));
         gap: 0.75rem;
-        border-radius: 1.25rem;
+        border-radius: 0;
     }
 
     /* Grid 2 colonne: "Rifiuta" | "Accetta" in riga, "Salva" sotto full-width.
