@@ -903,14 +903,14 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 ### Stampa/PDF
 
-Ogni pagina è **sempre stampabile, senza configurazione**: un FAB globale (`app-print-action[fab]=true`, montato incondizionatamente in `app.component.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Nessun flag da impostare né da dimenticare: ogni pagina, presente e futura, nasce già con l'impostazione corretta. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina:
+Ogni pagina è **sempre stampabile, senza configurazione e senza bottone dedicato**: i browser espongono già la stampa in modo prominente (Ctrl+P, menu, condivisione) — un bottone nel template la replicherebbe soltanto, pratica ormai considerata superata. Quello che l'Engine garantisce è la **resa**: un `@media print` condiviso (`styles/engine/base/_print.scss`, globale — non per-pagina) ripulisce automaticamente **qualunque** pagina, presente e futura (anche una che il progetto figlio scrive da sé domani, es. un articolo se il figlio è una testata giornalistica):
 - **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
 - **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
 - **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
 - **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
-- **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy): altrimenti un accordion collassato stamperebbe solo l'intestazione, non il contenuto.
+- **`<details>` chiusi si aprono da soli** (es. i gruppi cookie della Cookie Policy, o un accordion FAQ in un articolo): altrimenti stamperebbero solo l'intestazione, non il contenuto (`AppComponent`, ascolta `matchMedia('print')`).
 
-Non esiste un modo per "spegnere" la stampa su una pagina: anche stampando da tastiera/menu del browser invece che dal FAB, il `@media print` pulisce comunque la resa — non c'è modo (né motivo) di impedire la stampa nativa. Se una pagina full-bleed (mappe/giochi/dashboard) non ha contenuto sensato da stampare, resta comunque innocuo: la stampa mostrerà solo quel contenuto, senza chrome.
+È anche il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità — vedi `app-print-action` più sotto se un progetto vuole comunque un bottone di stampa **puntuale** su una pagina specifica (non è nel template di default, ma il building block c'è già).
 
 ---
 
@@ -1907,13 +1907,7 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 | `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`.
-
-| Input aggiuntivo | Tipo | Descrizione |
-| :--- | :--- | :--- |
-| `fab` | `boolean` | `false` (default): bottone outline standard. `true`: variante FAB (cerchio, sola icona, stessa forma di `app-back-to-top`) — pensata per un uso fisso/globale; non combinarla con `showLabel`/`fullWidth`. Il posizionamento (`position: fixed`, `z-index`) resta a carico di chi la usa — non è il componente a deciderlo. |
-
-Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco, in entrambe le varianti): un bottone "stampa" non ha senso nel risultato stampato di se stesso. È il building block dietro il FAB globale di stampa — vedi «Stampa/PDF» più sopra.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale — vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
 
 ### Componenti di Contatto
 

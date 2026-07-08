@@ -11,7 +11,6 @@ import { NavbarComponent } from './core/engine/components/navbar/navbar.componen
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
 import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
-import { PrintActionComponent } from './components/shared/action/print-action/print-action.component';
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
@@ -33,9 +32,8 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
  */
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, PrintActionComponent, TranslatePipe],
+    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
     templateUrl: './app.component.html',
-    styleUrl: './app.component.scss',
     // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
     // (= large viewport, barre ritratte), che su mobile spinge le viste full-bleed sotto la
     // chrome del browser. Ora la dà base.scss su `app-root` con `min-height: 100dvh` (+ fallback
