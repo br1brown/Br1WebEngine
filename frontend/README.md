@@ -918,6 +918,8 @@ Spegnilo dove stampare non ha senso — form di login, checkout, viste `fitViewp
 ```
 Puramente per-pagina, nessun gate globale (come `fitViewport`). Il flag controlla solo la **comparsa del FAB**: se l'utente stampa comunque da tastiera/menu del browser, il `@media print` pulisce la resa a prescindere — non c'è modo (né motivo) di impedire la stampa nativa del browser.
 
+**Eccezione: le pagine legali non si possono spegnere.** Su `privacy`/`cookie`/`tos`/`legal`/`accessibility` il builder forza `printable: true` a prescindere da cosa scrivi in `layout` — sono il "formato alternativo" richiesto dalla Dichiarazione di Accessibilità, non un'opzione. Vale anche se sostituisci la pagina auto-generata con una tua (stesso `PageType` in `pages`, che normalmente vince su tutto): non su questo. Stesso principio già visto per `showNav`/`showFooter` — un livello sopra (lì il globale di sito, qui "è una pagina legale") prevale su una svista nel singolo `layout`.
+
 ---
 
 ## 🌍 Internazionalizzazione (i18n)

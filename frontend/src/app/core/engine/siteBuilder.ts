@@ -320,7 +320,14 @@ export type LeafPageInput = BasePageInput & {
          * stampa/"Salva come PDF" via `window.print()`, con `@media print` che nasconde la chrome
          * della shell — vedi `styles/engine/base/_print.scss`). Default: true. Spegnilo (`false`)
          * dove stampare non ha senso: pagine full-bleed interattive (mappe/giochi/dashboard),
-         * login, checkout. Puramente per-pagina, nessun gate globale (come `fitViewport`). */
+         * login, checkout. Puramente per-pagina, nessun gate globale (come `fitViewport`) — **con
+         * un'eccezione**: sulle pagine legali (`legalPages`: privacy/cookie/tos/legal/accessibility)
+         * `printable` è sempre forzato a `true` dal builder, anche se qui lo dichiari `false` —
+         * sono per definizione il "formato alternativo" richiesto dalla Dichiarazione di
+         * Accessibilità, non un'opzione. Vale anche se sostituisci la pagina auto-generata con una
+         * tua (stesso `PageType` in `pages`): la tua dichiarazione vince su tutto il resto, ma non
+         * su questo — stesso principio di showNav/showFooter, dove il livello sopra (qui: "è una
+         * pagina legale") prevale su una svista nel singolo `layout`. */
         printable?: boolean;
     };
 
@@ -1053,6 +1060,29 @@ function sanitizePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>):
 }
 
 /**
+ * Le pagine legali (privacy/cookie/tos/legal/accessibility) sono SEMPRE stampabili: non è
+ * un'opzione, sono per definizione il "formato alternativo" richiesto dalla Dichiarazione di
+ * Accessibilità. Forza `shell.printable = true` su ognuna, indipendentemente da come ci è
+ * arrivata — auto-generata da `buildPolicySection` (non lo imposta mai, è già `true` di
+ * default: no-op) o dichiarata a mano dal progetto con lo stesso `PageType` (vince
+ * sull'auto-creazione, ma non su questo: una svista con `layout.printable: false` sulla pagina
+ * di progetto non deve spegnere il FAB su una pagina legale). Stesso principio del gate globale
+ * su showNav/showFooter: un livello sopra (qui: "è una pagina legale") prevale sul singolo.
+ */
+function forceLegalPagesPrintable(pages: readonly SitePage[], legalPages: ResolvedLegalPages): void {
+    const legalTypes = new Set(Object.values(legalPages).filter((t): t is PageType => t != null));
+    if (legalTypes.size === 0) return;
+
+    const walk = (nodes: readonly SitePage[]): void => {
+        for (const node of nodes) {
+            if (node.kind === 'parent') { walk(node.children); continue; }
+            if (node.kind === 'leaf' && legalTypes.has(node.pageType)) node.shell.printable = true;
+        }
+    };
+    walk(pages);
+}
+
+/**
  * Limiti di profondità della navigazione (header e footer condividono la stessa struttura).
  * Livello 1 = voci di primo livello; ogni discesa in `children` aggiunge un livello.
  */
@@ -1145,6 +1175,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
 
     const policySection = buildPolicySection(engineLegalPages);
     const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages);
+    forceLegalPagesPrintable(sitePages, finalConfig.legalPages);
 
     const { rawHeader, rawFooter } = collectNavigation(definition);
 
