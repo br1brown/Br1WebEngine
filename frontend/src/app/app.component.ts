@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, makeStateKey, PLATFORM_ID, TransferState } from '@angular/core';
-import { isPlatformServer } from '@angular/common';
+import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 
 import { ContestoSito } from './site';
@@ -94,5 +94,26 @@ export class AppComponent {
         }
 
         inject(VersionCheckService).init();
+
+        // <details> chiusi (es. i gruppi cookie della Cookie Policy) non stampano il loro
+        // contenuto: è comportamento corretto di `<details>`, sia a schermo sia in stampa, ma
+        // sul "formato alternativo" stampato vogliamo vedere tutto, non un elenco di intestazioni
+        // collassate senza modo di espanderle su carta. matchMedia('print'), non
+        // beforeprint/afterprint: più affidabile in Safari (anteprima di stampa basata su
+        // preview, dove beforeprint/afterprint non sempre scattano). Riapre solo i `<details>`
+        // che erano chiusi, e li richiude — solo quelli — appena usciti dalla stampa: uno che
+        // l'utente aveva già aperto a mano resta aperto anche dopo.
+        if (isPlatformBrowser(this.platformId)) {
+            let reopenedByPrint: HTMLDetailsElement[] = [];
+            window.matchMedia('print').addEventListener('change', ({ matches }) => {
+                if (matches) {
+                    reopenedByPrint = Array.from(document.querySelectorAll('details:not([open])'));
+                    reopenedByPrint.forEach(d => { d.open = true; });
+                } else {
+                    reopenedByPrint.forEach(d => { d.open = false; });
+                    reopenedByPrint = [];
+                }
+            });
+        }
     }
 }
