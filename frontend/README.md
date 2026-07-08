@@ -467,6 +467,63 @@ buildPhysicalCookieKey(rawKey, config);
 
 La lista finale è l'unione di `activeEngine()` (voci built-in: lingua se multilingua, Service Worker se `isWebApp`, memorie del consenso, più `consent_log` e `bearerToken` su Web Storage) e `COOKIE_MAP` (voci del progetto). Per ogni voce il `PolicyComponent` mostra **mezzo** (Cookie / Archiviazione locale / di sessione), **provider** (con link se `providerUrl` è dichiarato; assente = «Prima parte») e **durata**. Le descrizioni usano le `descriptionKey`, le durate le `durationKey`; le etichette di categoria e mezzo le chiavi i18n in `basic.{lang}.json`.
 
+### Google Consent Mode v2 — ricetta pronta (non attiva di default)
+
+L'Engine resta **provider-agnostico**: `COOKIE_MAP` nasce vuoto e nessun tag Google è caricato finché non lo aggiungi tu. Ma se il progetto usa (o userà) GA4/Google Ads, dal 28 marzo 2024 Google **richiede** il Consent Mode v2 — senza, i tag degradano o smettono di funzionare in UE. Non è nell'Engine perché è specifico di un vendor terzo (romperebbe la neutralità e obbligherebbe ogni sito a portarsi dietro codice morto); è però già cablato tutto il necessario lato consenso — questa è la ricetta da applicare il giorno in cui attivi Google, quattro punti, tutti nel Dominio:
+
+**1. `src/index.html` — stub di default, PRIMA di qualsiasi script `gtag.js`/GTM.** Consenso negato finché l'utente non risponde (obbligatorio: deve caricare prima del tag stesso):
+```html
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
+    'wait_for_update': 500
+  });
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX"></script>
+<script>
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXX');
+</script>
+```
+Aggiungilo a mano solo quando attivi davvero GA/Ads: prima di allora è codice morto che non ha ragione di stare nel seed di ogni sito.
+
+**2. `security-headers.json` — whitelisting CSP.** La CSP di default è `script-src 'self'` / `connect-src 'self'`: senza estenderla, il browser blocca `gtag.js` in silenzio. Usa l'override eccezionale già documentato nella `_nota` del file:
+```
+script-src 'self' {SCRIPT_NONCE_PLACEHOLDER} https://www.googletagmanager.com;
+connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com
+```
+
+**3. `cookie-registry.ts` — censisci i cookie di Google.** Stesso pattern già mostrato sopra per `_ga` (`provider: 'Google Analytics'`, `providerUrl`, `durationKey`): categoria `Analytics` per GA4, `Profiling` per Google Ads/remarketing.
+
+**4. Un servizio di progetto che aggiorna il consenso reattivamente.** Stesso pattern di gating già documentato (`effect()` su un signal di `CookieConsentService`), qui rivolto a `gtag('consent', 'update', …)` invece che al caricamento di uno script:
+```typescript
+// core/services/analytics.service.ts — iniettato una volta da app.component.ts (la shell)
+declare const gtag: (...args: unknown[]) => void;
+
+@Injectable({ providedIn: 'root' })
+export class AnalyticsService {
+    private readonly consent = inject(CookieConsentService);
+
+    constructor() {
+        effect(() => {
+            if (typeof gtag !== 'function') return;
+            gtag('consent', 'update', {
+                analytics_storage: this.consent.analyticsAccepted() ? 'granted' : 'denied',
+                ad_storage: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_user_data: this.consent.profilingAccepted() ? 'granted' : 'denied',
+                ad_personalization: this.consent.profilingAccepted() ? 'granted' : 'denied',
+            });
+        });
+    }
+}
+```
+Mappatura sulle categorie di questo Engine: `analytics_storage` ← `analyticsAccepted()`; `ad_storage`/`ad_user_data`/`ad_personalization` (pubblicità comportamentale) ← `profilingAccepted()`, non `analyticsAccepted()` — sono due consensi giuridicamente distinti anche per Google.
+
 ---
 
 ## 🎨 Tema e Sistema di Colori (OKLCH + WCAG)

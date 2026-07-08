@@ -23,6 +23,16 @@ La pagina Cookie Policy passa da un elenco piatto (una card per voce, ingestibil
 - **"Ultimo aggiornamento":** data per pagina legale (dizionario per `PageType` nella PolicyComponent, hardcoded a mano), resa con `<time>` semantico e formattata per lingua via `Intl`.
 - **A11y:** verificato con pa11y (WCAG 2.1 AA) su cookie/privacy/termini, anche coi gruppi espansi: nessuna violazione.
 
+### Cookie banner: barra fissa full-width, pari peso Accetta/Rifiuta, consenso 180gg
+
+Allineamento allo standard di settore 2026 (bottom-bar non modale, tre azioni a pari peso) e alle Linee guida del Garante Privacy.
+
+- **Layout:** da card fluttuante centrata (max-width 1080px, radius 1.5rem) a barra fissa full-width agganciata ai tre bordi, come la maggior parte dei siti — niente più raggio, ombra verso l'alto per il distacco visivo dal contenuto.
+- **Pari peso Accetta/Rifiuta:** i due bottoni condividono ora lo stesso stile `outline-secondary` — un "Accetta" pieno/verde contro un "Rifiuta" in outline è il dark pattern esplicitamente vietato dalla guidance EDPB sui banner cookie (pari prominenza visiva, non solo dimensione). "Salva scelte" resta evidenziato: non è un'alternativa accetta/rifiuta, conferma qualunque combinazione di toggle.
+- **Memoria del consenso a 180 giorni** (`CookieConsentService.CONSENT_MAX_AGE_SECONDS`), non più 1 anno: oltre questa soglia il Garante richiede di riproporre il banner. `durationKey` dedicato in `CONSENT_COOKIE_MAP` così la Cookie Policy dichiara "6 mesi" invece di ereditare il default "1 anno".
+- **ARIA:** `role="alert"` (implicitamente assertive) sostituito da `role="region"` + `aria-label` sul banner principale — non è un'interruzione urgente ma un landmark non modale, coerente con WCAG 2.2/ARIA per i consent banner.
+- **Nuovo in `frontend/README.md`:** ricetta pronta (non attiva di default) per Google Consent Mode v2 — obbligatorio da marzo 2024 per chi usa GA4/Google Ads in UE. Quattro punti nel Dominio (stub di default in `index.html`, whitelisting CSP in `security-headers.json`, censimento in `cookie-registry.ts`, `effect()` di aggiornamento reattivo): l'Engine resta provider-agnostico, la ricetta si applica solo il giorno in cui Google viene davvero attivato.
+
 ### Consenso: censire una famiglia di chiavi Web Storage (`match: 'prefix'`)
 
 - **Nuovo campo `match` in `CookieConfig`** (`'exact'` default | `'prefix'`): una **singola** voce del `COOKIE_MAP` può rappresentare un'intera **famiglia di chiavi** che condividono un prefisso. Serve per gli SDK di terza parte che scrivono più chiavi con **suffisso dinamico** (tipicamente derivato dal token/sessione, es. `sdk.telemetria:<hash>`, `sdk.telemetria.uuid:<hash>`) e che non si possono censire una a una.
