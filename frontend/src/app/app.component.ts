@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, makeStateKey, PLATFORM_ID, TransferState } from '@angular/core';
-import { isPlatformBrowser, isPlatformServer } from '@angular/common';
+import { isPlatformServer } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 
 import { ContestoSito } from './site';
@@ -11,6 +11,7 @@ import { NavbarComponent } from './core/engine/components/navbar/navbar.componen
 import { SmokeEffectComponent } from './core/engine/components/smoke-effect/smoke-effect.component';
 import { BackToTopComponent } from './core/engine/components/back-to-top/back-to-top.component';
 import { CookieBannerComponent } from './core/engine/components/cookie-banner/cookie-banner.component';
+import { PrintActionComponent } from './components/shared/action/print-action/print-action.component';
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
@@ -32,7 +33,7 @@ const SHELL_FLAGS_STATE_KEY = makeStateKey<ShellFlags>(SHELL_DATA_KEY);
  */
 @Component({
     selector: 'app-root',
-    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, TranslatePipe],
+    imports: [RouterOutlet, NavbarComponent, FooterComponent, SmokeEffectComponent, BackToTopComponent, CookieBannerComponent, PrintActionComponent, TranslatePipe],
     templateUrl: './app.component.html',
     styleUrl: './app.component.scss',
     // L'altezza minima (viewport) NON è più l'utility .min-vh-100: Bootstrap la fissa a 100vh
@@ -93,11 +94,5 @@ export class AppComponent {
         }
 
         inject(VersionCheckService).init();
-    }
-
-    /** Stampa/"Salva come PDF" via il dialogo nativo del browser. Il `@media print` in
-     *  `styles/engine/base/_print.scss` fa il resto (nasconde la chrome, forza tema chiaro). */
-    print(): void {
-        if (isPlatformBrowser(this.platformId)) window.print();
     }
 }

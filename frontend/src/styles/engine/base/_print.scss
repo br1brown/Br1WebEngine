@@ -1,7 +1,8 @@
 /* Stampa (e "Salva come PDF" del browser, via il FAB globale di app.component — vedi
-   AppComponent.printable/print()): in stampa deve restare SOLO il contenuto della pagina
-   instradata — niente chrome della shell (navbar/footer/FAB fissi/sfondo smoke), niente tema
-   scuro, niente identità visiva del pannello-card, pensata per lo schermo. È il "formato
+   AppComponent.printable + app-print-action[fab]=true): in stampa deve restare SOLO il
+   contenuto della pagina instradata, più il minimo indispensabile di contesto legale (la riga
+   di copyright del footer). Via: navbar, FAB fissi (back-to-top/cookie-banner), sfondo smoke,
+   tema scuro, identità visiva del pannello-card, pensata per lo schermo. È il "formato
    alternativo" richiamato dalla Dichiarazione di Accessibilità: stampa il contenuto live così
    com'è, non un PDF statico da tenere allineato a mano al Markdown. */
 @media print {
@@ -28,15 +29,33 @@
         display: none !important;
     }
 
-    /* app-navbar/app-footer applicano `d-block` come host class (vedi i rispettivi component.ts):
-       l'utility Bootstrap `.d-block { display: block !important; }` ha specificità di classe
-       (0,1,0), più alta del solo selettore di tag (0,0,1) — a parità di !important vincerebbe
-       lei, non il display:none qui sotto, e navbar/footer resterebbero visibili in stampa. Il
-       selettore composito tag.d-block pareggia la specificità (0,1,1) e la batte. Se in futuro
-       cambia la classe host di uno dei due componenti, aggiorna questo selettore di conseguenza. */
-    app-navbar.d-block,
-    app-footer.d-block {
+    /* app-navbar applica `d-block` come host class (vedi navbar.component.ts): l'utility
+       Bootstrap `.d-block { display: block !important; }` ha specificità di classe (0,1,0),
+       più alta del solo selettore di tag (0,0,1) — a parità di !important vincerebbe lei, non
+       il display:none qui sotto, e la navbar resterebbe visibile in stampa. Il selettore
+       composito tag.d-block pareggia la specificità (0,1,1) e la batte. Se in futuro cambia la
+       classe host del componente, aggiorna questo selettore di conseguenza. */
+    app-navbar.d-block {
         display: none !important;
+    }
+
+    /* app-footer NON è chrome pura come la navbar: porta la riga di ragione sociale/copyright,
+       informazione legittima su un documento stampato — quindi non si nasconde del tutto, si
+       SEMPLIFICA. Via l'identità estesa (indirizzo/social/orari, con relativo accordion — un
+       controllo interattivo non ha senso su carta) e il menu di navigazione (link non
+       cliccabili, già ridondanti col contenuto): resta solo il blocco finale "© anno · ragione
+       sociale". Sfondo/bordo colorati dal tema (.theme-bg, come navbar) si azzerano allo
+       stesso nero-su-bianco forzato su html/body sopra. */
+    .site-footer {
+        background: transparent !important;
+        color: inherit !important;
+        border-top: none !important;
+        margin-top: 1rem !important;
+
+        app-loading,
+        app-footer-nav {
+            display: none !important;
+        }
     }
 
     /* #main-content porta il gutter dello schermo (.container-fluid/.py-4, applicati via class

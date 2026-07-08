@@ -1,5 +1,11 @@
-<button class="btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2"
-        type="button"
+<!-- d-print-none statico + [class] dinamico: Angular unisce classi statiche e binding sullo
+     stesso elemento, quindi convivono senza conflitti. Un bottone "stampa" non ha senso nel
+     proprio stesso risultato stampato, in nessuna delle due varianti. -->
+<button type="button"
+        class="d-print-none"
+        [class]="fab()
+            ? 'surface-elevated fab rounded-circle d-flex align-items-center justify-content-center fs-5'
+            : 'btn btn-outline-secondary btn-touch d-inline-flex align-items-center justify-content-center gap-2'"
         [class.w-100]="fullWidth()"
         [attr.title]="showLabel() ? null : displayLabel()"
         [attr.aria-label]="showLabel() ? null : displayLabel()"

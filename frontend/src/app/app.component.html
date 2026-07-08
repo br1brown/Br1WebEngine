@@ -6,12 +6,7 @@
 <app-cookie-banner />
 
 @if (printable()) {
-    <button type="button"
-            class="print-fab surface-elevated fab rounded-circle d-flex align-items-center justify-content-center fs-5 d-print-none"
-            (click)="print()"
-            [attr.aria-label]="'stampaAzione' | translate">
-        <i class="fa-solid fa-print" aria-hidden="true"></i>
-    </button>
+    <app-print-action class="print-fab" [fab]="true" />
 }
 
 @if (showSmoke()) {

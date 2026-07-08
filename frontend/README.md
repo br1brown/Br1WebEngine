@@ -903,7 +903,11 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
 
 ### Stampa/PDF: `layout.printable`
 
-Ogni pagina è **stampabile per default**: un FAB globale (icona stampante, gestito dalla shell in `app.component.ts`/`.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina: nasconde navbar/footer/FAB fissi/smoke, forza tema chiaro (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) e toglie l'identità "da card" al pannello contenuti (sfondo/bordo/ombra/griglia), lasciando solo il contenuto della pagina.
+Ogni pagina è **stampabile per default**: un FAB globale (`app-print-action[fab]=true`, gestito dalla shell in `app.component.ts`/`.html` — **non** dal singolo componente pagina, essendo fuori dal `<router-outlet>` come navbar/footer) chiama `window.print()`. Un `@media print` condiviso (`styles/engine/base/_print.scss`) fa il resto in automatico su **qualunque** pagina:
+- **Via del tutto:** navbar, i FAB fissi (`app-back-to-top`, `app-cookie-banner` — icone/pulsanti di UI, mai contenuto), lo sfondo smoke.
+- **Forzato tema chiaro** (nero su bianco, a prescindere dal tema attivo — la stampa non è mai scura) su `html`/`body`, così vale anche fuori dal pannello contenuti.
+- **Pannello contenuti** spogliato dell'identità "da card" (sfondo/bordo/ombra/griglia): resta solo il contenuto.
+- **Footer semplificato, non nascosto:** la riga di copyright/ragione sociale è informazione legittima su un documento stampato, quindi resta — via solo l'identità estesa (indirizzo/social/orari, con l'eventuale accordion interattivo) e il menu di navigazione (link non cliccabili su carta).
 
 Spegnilo dove stampare non ha senso — form di login, checkout, viste `fitViewport` interattive (mappe/giochi/dashboard):
 ```typescript
@@ -1909,7 +1913,13 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 | `config` | `PdfActionConfig` (required) | `{ url: string; openInTab: boolean }` — URL del PDF e modalità di apertura |
 
 #### `app-print-action`
-Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action` né altri input aggiuntivi: stampa il contenuto della pagina corrente così com'è.
+Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`.
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `fab` | `boolean` | `false` (default): bottone outline standard. `true`: variante FAB (cerchio, sola icona, stessa forma di `app-back-to-top`) — pensata per un uso fisso/globale; non combinarla con `showLabel`/`fullWidth`. Il posizionamento (`position: fixed`, `z-index`) resta a carico di chi la usa — non è il componente a deciderlo. |
+
+Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco, in entrambe le varianti): un bottone "stampa" non ha senso nel risultato stampato di se stesso. È il building block dietro il FAB globale di stampa — vedi «Stampa/PDF: `layout.printable`» più sopra.
 
 ### Componenti di Contatto
 
