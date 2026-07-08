@@ -82,6 +82,14 @@ const mb = (await import('mapbox-gl')).default;
 ```
 Una voce `prefix` è **sola dichiarazione**: `consent.set()` su di essa è un no-op (le chiavi reali le scrive l'SDK, non tu — esiste solo per elencarle in policy e pulirle). Vale solo per `storage:'local'|'session'`, mai per i cookie. Le chiavi essenziali del motore (`consent_log`, `bearerToken`) sono **sempre** escluse dalla pulizia per prefisso, anche se il tuo prefisso le includerebbe: scegli comunque un prefisso specifico, per non travolgere anche altre tue voci esatte.
 
+#### Google Consent Mode v2 (predisposizione, non attiva di default)
+Ricetta completa (snippet interi) in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2". Qui solo la mappa di proprietà, perché è quella che conta per non romperla al prossimo merge:
+
+1. `src/index.html` (**Dominio**) — stub `gtag('consent','default',{...:'denied'})` PRIMA di qualunque `gtag.js`/GTM.
+2. `security-headers.json` (**Scaffold, con eccezione dichiarata** nella `_nota` del file) — whitelist CSP per i domini Google (`script-src`/`connect-src`). **Attenzione:** è Scaffold, quindi un `git merge template/main` lo sovrascrive con la versione del template a ogni merge — l'override CSP **non sopravvive da solo**, va riapplicato a mano dopo ogni merge dal template.
+3. `cookie-registry.ts` (**Dominio**) — censisci `_ga`/`_gid` ecc.: categoria `Analytics` (GA4) o `Profiling` (Ads/remarketing) — sono due consensi distinti anche per Google.
+4. Un `effect()` di progetto (**Dominio**, es. `core/services/analytics.service.ts`) che chiama `gtag('consent','update', {...})` sui signal `analyticsAccepted()`/`profilingAccepted()` di `CookieConsentService` — stesso pattern di gating della ricetta sopra.
+
 #### Leggere `global-settings.json` tipizzato
 Il tipo `GlobalSettings` è **generato dallo schema** (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
 ```bash
