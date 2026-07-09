@@ -4,6 +4,14 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Doc: tre snippet duplicati fra README e AGENTS.md, disallineati per drift
+
+Controllati tutti i punti dove AGENTS.md e i README (frontend/backend) trattano lo stesso argomento — non per titolo di sezione, per contenuto reale — per capire dove la separazione "README = cosa offre / AGENTS.md = ricetta pronta" (già dichiarata in apertura di AGENTS.md) fosse rispettata e dove no. La maggioranza dei casi era già corretta (es. "Aggiungere una pagina" e "JSON-LD" nel README frontend rimandano già ad AGENTS.md senza ripetere codice) o legittimamente complementare (tutorial esteso in un file, ricetta compatta nell'altro, non lo stesso testo due volte). Tre punti erano invece codice pressoché identico ripetuto in entrambi i file, senza alcun rimando fra loro — a rischio di andare fuori sincrono al primo refactor toccato da un lato solo:
+
+- **`frontend/README.md` §"Aggiungere un Endpoint"** (ApiService): duplicava l'esempio `getArticolo`/`api_get` già in AGENTS.md. Ora rimanda lì, mantenendo i tre passi concettuali e la nota su `FormData` (uniche a questo file).
+- **`AGENTS.md` §"Persistere dati lato client"**: la mappa `COOKIE_MAP` completa (con la variante `match: 'prefix'`) è coperta in modo più esteso nel README frontend — condensato a match del pattern già usato dalla ricetta gemella "Google Consent Mode v2" (solo la forma di chiamata `consent.set/get`, rimando al README per la struttura della voce).
+- **`backend/README.md` §"Leggere la Sessione"**: aveva lo stesso codice di AGENTS.md ma, a differenza delle sezioni vicine ("Notifiche Realtime", "Task in Background"), mancava il rimando "Ricetta rapida" che quelle già usano — aggiunto per coerenza interna al file.
+
 ### `a11y-test.sh`: pagine auditate in parallelo (con un limite), Lighthouse resta seriale apposta
 
 Valutato se applicare la parallelizzazione anche dentro i singoli script, non solo fra loro a livello di job CI. Risposta diversa per i due strumenti, verificata separatamente:

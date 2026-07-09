@@ -1166,6 +1166,7 @@ public IActionResult Ping()
     return Ok(new { status = "ok", session });
 }
 ```
+Ricetta rapida: [AGENTS.md](../AGENTS.md#leggere-la-sessione).
 
 ### Logout
 

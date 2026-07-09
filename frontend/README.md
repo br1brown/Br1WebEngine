@@ -1120,15 +1120,7 @@ La convenzione vive inline in `api.service.ts`. Tre passi:
 2. **Metodo pubblico** — esponi un metodo dedicato che chiama l'helper protetto del `BaseApiService`: `api_get<T>()` / `api_post<T>()` per le chiamate una-tantum, `api_resource<T>()` per i dati reattivi (si ri-fetchano al cambio di signal, es. lingua).
 3. **(Opzionale) ContentResolver** — se l'endpoint alimenta una pagina al primo render, aggiungi un `case` in `ContentResolver.loadResolved()` (vedi *Developer Journey → Passo 5*).
 
-```typescript
-// 1. Path
-const API = { /* … */ articolo: (id: string) => `articolo/${encodeURIComponent(id)}` } as const;
-
-// 2. Metodo pubblico — la gestione errori/notifica è automatica via interceptor
-getArticolo(id: string): Promise<Articolo> {
-    return this.api_get<Articolo>(API.articolo(id));
-}
-```
+Esempio (path parametrico + metodo che ne consuma il risultato): [AGENTS.md](../AGENTS.md#aggiungere-un-endpoint-al-client).
 
 > **Upload multipart/`FormData`:** per gli endpoint che ricevono file usa `this.api_post_form<T>(path, formData)` invece di `api_post` — è quello che usa già `uploadBlob`. Non impostare `Content-Type` a mano: il browser lo aggiunge con il boundary corretto; per il resto passa per le stesse `build_api_Headers` e l'`apiErrorInterceptor`.
 

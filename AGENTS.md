@@ -48,39 +48,14 @@ getArticolo(id: string): Promise<Articolo> {
 ```
 
 #### Persistere dati lato client (cookie, Web Storage, consenso)
-UN registro, UN'API, gated dal consenso. Due varianti, stessa mappa.
-
-*Voce propria (cookie o Web Storage)*
+UN registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), UN'API, gated dal consenso — registrare una voce basta per: toggle nel banner, riga in policy (mezzo/provider/durata), pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
 ```typescript
-// core/services/cookie-registry.ts — registra la voce; storage:'local'|'session' = Web Storage (omesso = cookie)
-export const COOKIE_MAP = {
-  'mioSalvataggio': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json',
-                      descriptionKey: 'mioSalvataggioDescrizioneListaCookie' },
-  '_ga': { category: ConsentCategory.Analytics, provider: 'Google Analytics',      // terza parte, opzionali:
-           providerUrl: 'https://policies.google.com/privacy', durationKey: 'gaDurataListaCookie' }, // link + durata
-} as const satisfies Readonly<Record<string, CookieConfig>>;
-// nel componente/service — instrada sul mezzo, tipizzato su valueType
+// nel componente/service — instrada sul mezzo (cookie o Web Storage) in base a come la voce è
+// registrata, tipizzato su valueType
 this.consent.set('mioSalvataggio', { x: 1 });   // gated dal consenso; in SSR è no-op (Web Storage browser-only)
 const v = this.consent.get('mioSalvataggio');    // → tipo da valueType | null
 ```
-Registrare la voce basta per: toggle nel banner, riga in policy (con mezzo, provider e durata), pulizia alla revoca. Campi opzionali per la dichiarazione standard nella policy: `provider` (omesso = prima parte), `providerUrl` (link cliccabile alla policy del terzo), `durationKey` (durata i18n; default "1 anno"). **MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto il `CookieConsentService` e `TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`.
-
-*Famiglia di chiavi di uno SDK di terza parte (`match: 'prefix'`)* — quando un SDK (mappe, player video, chat…) scrive nel Web Storage più chiavi con un suffisso che non controlli (token, uuid di sessione: `sdk.evento:<hash>`), non le censisci una a una: una voce con `match: 'prefix'` le censisce e le rimuove tutte insieme.
-```typescript
-// core/services/cookie-registry.ts
-'mapbox.eventData': { category: ConsentCategory.Analytics, storage: 'local', match: 'prefix',
-                      provider: 'Mapbox', providerUrl: 'https://www.mapbox.com/legal/privacy',
-                      descriptionKey: 'storageDescMapbox' },
-// → in policy una riga sola ("mapbox.eventData"); alla revoca Analytics sparisce ogni chiave
-//   che inizia per "mapbox.eventData" (…:xyz, .uuid:xyz, .uuidTimestamp:xyz compresi).
-```
-```typescript
-// nel componente che carica l'SDK — IL GATING STA A TE: senza consenso non importi l'SDK,
-// altrimenti scrive comunque le sue chiavi prima che tu possa pulirle.
-if (!this.consent.analyticsAccepted()) { this.fail('erroreConsenso'); return; }
-const mb = (await import('mapbox-gl')).default;
-```
-Una voce `prefix` è **sola dichiarazione**: `consent.set()` su di essa è un no-op (le chiavi reali le scrive l'SDK, non tu — esiste solo per elencarle in policy e pulirle). Vale solo per `storage:'local'|'session'`, mai per i cookie. Le chiavi essenziali del motore (`consent_log`, `bearerToken`) sono **sempre** escluse dalla pulizia per prefisso, anche se il tuo prefisso le includerebbe: scegli comunque un prefisso specifico, per non travolgere anche altre tue voci esatte.
+**MAI `localStorage`/`sessionStorage` diretti** (lo vieta una regola ESLint, eccetto `CookieConsentService`/`TokenService`): tutto passa dal gate, l'inventario in policy resta completo. `setCookie/getCookie/removeCookie` sono alias deprecati di `set/get/remove`. Su una voce `match: 'prefix'` (famiglia di chiavi di un SDK terzo) il gating sta a te: carica l'SDK solo dopo il consenso della sua categoria, altrimenti scrive le sue chiavi prima che tu possa pulirle.
 
 #### Google Consent Mode v2 (predisposizione, non attiva di default)
 Ricetta completa (snippet interi) in [frontend/README.md](frontend/README.md) §"Google Consent Mode v2". Qui solo la mappa di proprietà, perché è quella che conta per non romperla al prossimo merge:
