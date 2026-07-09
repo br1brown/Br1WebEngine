@@ -12,6 +12,18 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 - **Retry mirato sui soli errori transitori:** `NO_NAVSTART`, `NO_FCP`, `NO_LCP`, `PAGE_HUNG`, `TARGET_CRASHED`, `PROTOCOL_TIMEOUT` e simili (sintomi di timing/risorse, non di una pagina rotta) vengono ritentati una volta prima di dichiarare fallimento. Errori deterministici (`DNS_FAILURE`, `INVALID_URL`, `ERRORED_DOCUMENT_REQUEST` — una 404 vera) restano fail-fast, senza retry sprecato: verificato che una pagina inesistente fallisce ancora al primo tentativo.
 - **Verificato in locale** (server SSR reale + backend .NET reale, tutte le 8 pagine demo): stesso esito del comportamento precedente ma con un solo avvio Chrome invece di 8.
 
+### CI: stesso trattamento per `a11y-test.sh` (pa11y) — un solo browser, non uno a pagina
+
+Stesso pattern del punto sopra, stessa causa: la CLI pa11y invocata una volta a pagina apriva e chiudeva un intero Chromium ad ogni URL. L'API JS di pa11y espone per questo un'opzione `browser` — passandole un'istanza Puppeteer già avviata, pa11y apre solo una nuova *tab* per pagina invece di un intero processo, il pattern che pa11y stesso documenta per testare più URL in sequenza.
+
+- Lo script ora genera un piccolo runner Node temporaneo (`frontend/.a11y-run-*.cjs`, autopulito a fine corsa) che lancia Puppeteer una volta sola e vi passa ogni pagina; l'output resta identico (stesso reporter `cli` di pa11y, stesso formato "OK/ERR" del resto della suite).
+- **Fallback invariato:** se `pa11y` non è un pacchetto locale (npm ci non eseguito, si scarica al volo via `npx`) resta il vecchio comportamento CLI-per-pagina — percorso già degradato, non quello raccomandato.
+- **Verificato in locale**, stessi 8 path: nessuna violazione, un solo avvio Chromium invece di 8; verificato anche il percorso di errore (pagina irraggiungibile → fallimento corretto, conteggio esatto) e quello di successo.
+
+### Pulizia `.gitignore`: due pattern morti, mai stati corretti
+
+Trovati controllando dove i due script sopra scrivono davvero i loro file temporanei: `frontend/lh-report.json` non ha mai corrisposto a nulla (il report è sempre stato nominato con PID, `lh-report-$$.json`, e scritto dalla working directory dello script — root del repo in CI, non `frontend/`) e `frontend/ssr-server*.log` non ha zero riferimenti in tutto il repo, nessuno script lo produce. Corretti in `lh-report-*.json` (radice, glob sul PID) e rimossa la voce morta.
+
 ### Navigazione SPA: focus e annuncio agli screen reader ad ogni cambio pagina
 
 Un cambio pagina in una SPA non ricarica il documento — il browser non sposta da solo il focus né annuncia nulla, come farebbe con un normale link multi-pagina. Chi naviga da tastiera o screen reader restava "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. Nessuna configurazione: vale su ogni pagina, presente e futura.

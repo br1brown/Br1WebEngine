@@ -54,5 +54,5 @@ frontend/public/
 # (non ignorato): il generatore importa site.ts → environment.ts, quindi serve un
 # "seed" per farlo partire (chicken-and-egg). Si rigenera identico, niente rumore in git.
 .claude
-frontend/lh-report.json
-frontend/ssr-server*.log
+lh-report-*.json
+frontend/.a11y-run-*.cjs
