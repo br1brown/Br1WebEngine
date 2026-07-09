@@ -12,32 +12,31 @@ export type {
 // PageType — identita' di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
 //
-// Ogni pagina del sito DEVE avere un valore qui. A poche pagine basterebbe
-// un enum piatto; qui è assemblato da più file (uno per area tematica:
-// pages/app.pages.ts, pages/legal.pages.ts, ...) perché a un numero alto
-// di pagine un unico enum diventa lungo da scorrere e da mantenere in
-// ordine. Per aggiungere un'area: crea `pages/<area>.pages.ts` con lo
+// Ogni pagina del sito DEVE avere un valore qui. PageType è assemblato in
+// quest'unico oggetto a partire da più file — uno per area tematica sotto
+// pages/ (qui: pages/app.pages.ts, pages/legal.pages.ts, ...): ogni area
+// resta un file breve e indipendente, che si apre e si mantiene da solo
+// senza scorrere le altre.
+//
+// Per aggiungere una pagina in un'area esistente: aggiungi un ID
+// all'oggetto dell'area (es. AppPages), poi usalo nella sua dichiarazione.
+// Il resto (rotte, menu, sitemap) si aggiorna da solo.
+//
+// Per aggiungere un'area nuova: crea `pages/<area>.pages.ts` con lo
 // stesso pattern (oggetto `as const` di ID stringa + array di
 // dichiarazioni), poi aggiungilo qui sotto negli spread.
 //
-// Per aggiungere una pagina in un'area esistente: aggiungi un ID
-// all'oggetto dell'area, poi usalo nella sua dichiarazione. Il resto
-// (rotte, menu, sitemap) si aggiorna da solo.
-//
-// Perche' un oggetto e non un enum?
-// - Stesse garanzie di un enum: se rinomini un path (es. "chi-siamo" →
-//   "about"), cambi UNA riga nella dichiarazione della pagina. Menu,
-//   footer, link interni continuano a funzionare perche' puntano a
-//   PageType.ChiSiamo, non alla stringa del path. Se rimuovi un valore,
-//   TypeScript segnala tutti i punti del codice che ancora lo usano.
-// - A differenza di un enum numerico, gli ID sono stringhe stabili e
-//   leggibili (es. "app.home") anche fuori da TypeScript — in query
-//   string (?returnPageType=...), log, messaggi d'errore del builder.
-// - A differenza di un enum unico, ogni area vive nel proprio file: puoi
-//   aprire solo "legal" per toccare il legale, senza scorrere le altre
-//   aree. E niente collisioni: enum numerici separati partirebbero tutti
-//   da 0 (stessa chiave di Map interna al builder); ID stringa prefissati
-//   per area sono unici per costruzione.
+// Perche' PageType e non il path grezzo?
+// - Se rinomini un path (es. "chi-siamo" → "about"), cambi UNA riga
+//   nella dichiarazione della pagina. Menu, footer, link interni
+//   continuano a funzionare perche' puntano a PageType.ChiSiamo, non
+//   alla stringa del path. Se rimuovi un valore, TypeScript segnala
+//   tutti i punti del codice che ancora lo usano.
+// - Gli ID sono stringhe stabili e leggibili (es. "app.home") anche
+//   fuori da TypeScript — in query string (?returnPageType=...), log,
+//   messaggi d'errore del builder.
+// - Ogni area vive nel proprio file, con ID prefissati (es. "legal.",
+//   "app.") unici per costruzione anche sommando più aree.
 //
 export const PageType = {
     ...LegalPages,

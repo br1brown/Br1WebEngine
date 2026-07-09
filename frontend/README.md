@@ -55,7 +55,7 @@ Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterC
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
 ### 1. Stabilità dei Riferimenti: `PageType`
-Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/` — uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`), invece di un unico enum piatto: a poche pagine non cambia nulla, a un centinaio evita un solo file lunghissimo da scorrere. Ogni area segue lo stesso pattern — un oggetto `as const` di ID stringa (prefissati per area: leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
+Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/` — uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`): ogni area resta un file breve e indipendente, da aprire e mantenere senza scorrere le altre. Ogni area segue lo stesso pattern — un oggetto `as const` di ID stringa (prefissati per area: leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
 ```typescript
 // pages/blog.pages.ts
 export const BlogPages = { List: 'blog.list', Post: 'blog.post' } as const;
@@ -71,7 +71,7 @@ export type PageType = (typeof PageType)[keyof typeof PageType];
 // ...
 pages: () => [...appPagesDecl, ...blogPagesDecl],
 ```
-Aggiungere una nuova area è un file + una riga di spread; aggiungere una pagina in un'area esistente resta un identificatore nell'oggetto dell'area, come prima con l'enum.
+Aggiungere una nuova area è un file + una riga di spread; aggiungere una pagina in un'area esistente è un nuovo identificatore nell'oggetto dell'area più la sua dichiarazione.
 
 ### 2. Componenti Pagina vs Componenti UI
 - **`pages/`**: Sono le schermate. Ereditano da `PageBaseComponent` per ottenere l'accesso rapido ad API, logger e traduttore senza iniezioni ridondanti.
@@ -1636,7 +1636,7 @@ La directive `PageDirective` traduce un `PageType` nel path corrispondente e lo 
 | Caratteristica | Dettaglio |
 | :--- | :--- |
 | Comportamento | Identico a `[routerLink]` — SPA navigation, keyboard, right-click "Apri in nuova scheda" |
-| Fallback | Se il `PageType` non è registrato in `site.ts`, naviga verso `/` **in silenzio**: nessun errore a runtime né a compile-time (il `PageType` esiste come enum, manca solo la rotta). Un link che porta a casa senza motivo apparente di solito è un `PageType` dichiarato nell'enum ma mai aggiunto a `pages`. |
+| Fallback | Se il `PageType` non è registrato in `site.ts`, naviga verso `/` con un avviso in console (solo in dev-mode — nessun errore a runtime né a compile-time, il `PageType` è comunque valido come identificatore, manca solo la rotta). Un link che porta a casa senza motivo apparente di solito è un `PageType` dichiarato ma mai aggiunto a `pages`. |
 | `href` | Bindato esplicitamente: RouterLink come `hostDirective` non aggiorna il proprio `@HostBinding` via effect → senza questo binding, l'elemento avrebbe `href=null` e cursore testo invece di cursore link |
 | Tipo | `input.required<PageType>()` — errore TypeScript a compile-time se mancante |
 

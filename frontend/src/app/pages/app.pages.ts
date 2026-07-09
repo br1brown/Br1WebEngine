@@ -5,11 +5,10 @@ import type { SitePageInput } from '../core/engine/siteBuilder';
 // ═══════════════════════════════════════════════════════════════════════
 //
 // Un file per area tematica (qui la demo: "app"; un progetto reale aggiunge
-// le proprie — es. "shop", "blog") invece di un unico enum piatto in
-// site.ts: a poche pagine non fa differenza, a cento sì (vedi il commento
-// "Perché un oggetto e non un enum" in site.ts). Ogni ID è una stringa
-// prefissata per area — leggibile in query string/log, univoca per
-// costruzione (niente collisioni numeriche tra enum separati).
+// le proprie — es. "shop", "blog"), assemblato in site.ts (vedi il
+// commento "PageType — identita' di ogni pagina" lì). Ogni ID è una
+// stringa prefissata per area — leggibile in query string/log, univoca
+// per costruzione anche sommando più aree.
 //
 export const AppPages = {
     Home: 'app.home',

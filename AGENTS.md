@@ -22,7 +22,7 @@ Commit narrativi a tema, stile branch + squash: una questione chiusa per commit,
 ## Ricette — frontend
 
 #### Aggiungere una pagina
-`PageType` è assemblato in `site.ts` da file di area sotto `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`), non un enum unico — a un'area esistente basta un nuovo ID + una nuova dichiarazione nello stesso file:
+`PageType` è assemblato in `site.ts` da file di area sotto `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`) — a un'area esistente basta un nuovo ID + una nuova dichiarazione nello stesso file:
 ```typescript
 // pages/app.pages.ts (o il file dell'area giusta)
 export const AppPages = { Home: 'app.home', NuovaPagina: 'app.nuovaPagina' /* … */ } as const;
