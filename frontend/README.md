@@ -1918,6 +1918,13 @@ Apre o scarica un PDF. Usa `config` al posto di `action`: lavora direttamente su
 #### `app-print-action`
 Apre la finestra di stampa nativa del browser tramite `window.print()`. Non richiede `action`. Non è montato da nessuna parte nel template di default (niente bottone di stampa globale — vedi «Stampa/PDF» più sopra, che copre la resa senza bisogno di un bottone): usalo se un progetto vuole comunque un'affordance di stampa puntuale su una pagina specifica (es. una fattura, un articolo). Si auto-esclude sempre dalla propria stampa (`d-print-none` intrinseco): un bottone "stampa" non ha senso nel risultato stampato di se stesso.
 
+#### `app-like-action`
+Registra un apprezzamento tramite `action` (nessun contenuto prodotto o trasformato: segnala solo un evento). Bottone a stato piatto: una volta `liked`, il click è no-op (niente "togli mi piace") e il bottone resta attivo (`.active`, `aria-pressed="true"`).
+
+| Input aggiuntivo | Tipo | Descrizione |
+| :--- | :--- | :--- |
+| `liked` | `boolean` | Stato iniziale "già piaciuto" (default `false`) |
+
 ### Componenti di Contatto
 
 Famiglia di link (`<a>` tag mascherati da bottoni) che permettono di contattare l'utente attraverso canali esterni senza eseguire logiche complesse in Angular, supportando l'apertura in nuove tab e la corretta indicizzazione SEO.
