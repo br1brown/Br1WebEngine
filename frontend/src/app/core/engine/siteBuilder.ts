@@ -1034,13 +1034,30 @@ function processPages(
     return walk(pages, '');
 }
 
+/** Avvisa (solo in dev) che uno slot puntava a un PageType non registrato ed è stato azzerato:
+ *  altrimenti l'effetto (login/brand/pagina legale che smette di funzionare) è silenzioso. */
+function warnUnresolvedSlot(slotName: string, type: PageType): void {
+    if (isDevMode()) {
+        console.warn(`[SiteBuilder] Slot "${slotName}" punta a "${String(type)}", non registrato (disabilitato o mai dichiarato in pages). Slot azzerato.`);
+    }
+}
+
 /** Azzera gli slot (`loginPage`, `homePage`, `legalPages`) che puntano a pagine non registrate. */
 function sanitizePageRefs(config: SiteConfig, pageMap: Map<PageType, PageInfo>): void {
-    if (config.loginPage && !pageMap.has(config.loginPage)) config.loginPage = null;
-    if (config.homePage && !pageMap.has(config.homePage)) config.homePage = null;
+    if (config.loginPage && !pageMap.has(config.loginPage)) {
+        warnUnresolvedSlot('loginPage', config.loginPage);
+        config.loginPage = null;
+    }
+    if (config.homePage && !pageMap.has(config.homePage)) {
+        warnUnresolvedSlot('homePage', config.homePage);
+        config.homePage = null;
+    }
     for (const slot of Object.keys(config.legalPages) as (keyof ResolvedLegalPages)[]) {
         const ref = config.legalPages[slot];
-        if (ref != null && !pageMap.has(ref)) config.legalPages[slot] = null;
+        if (ref != null && !pageMap.has(ref)) {
+            warnUnresolvedSlot(`legalPages.${slot}`, ref);
+            config.legalPages[slot] = null;
+        }
     }
 }
 
@@ -1098,6 +1115,9 @@ function resolveNavigation(items: RawNavItem[], pageMap: Map<PageType, PageInfo>
         .map((item): NavLink | null => {
             if (item.kind === 'page') {
                 const entry = pageMap.get(item.type);
+                if (!entry && isDevMode()) {
+                    console.warn(`[SiteBuilder] addPage("${String(item.type)}") non risolve a nessuna pagina registrata (disabilitata o mai dichiarata in pages): voce di navigazione esclusa.`);
+                }
                 return entry ? { label: entry.title, path: entry.path, isExternal: entry.isExternal } : null;
             }
             if (isRawGroup(item)) {
