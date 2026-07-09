@@ -108,18 +108,22 @@ export type {
 } from './core/engine/siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
-// ENUM PageType — identità di ogni pagina
+// PageType — identità di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
 // Ogni pagina DEVE avere un valore qui. Aggiungine uno e usalo in
 // pages / headerNav / footerNav: rotte, menu e sitemap si aggiornano da soli.
-export enum PageType {
-    PrivacyPolicy,
-    CookiePolicy,
-    TermsOfService,
-    LegalNotice,
-    AccessibilityStatement,
-    Home,
-}
+// A poche pagine un oggetto piatto come questo basta; se il progetto cresce,
+// dividilo in più file (uno per area tematica, sotto pages/) e assemblalo
+// qui con lo spread — pattern descritto in AGENTS.md § "Aggiungere una pagina".
+export const PageType = {
+    PrivacyPolicy: 'legal.privacy',
+    CookiePolicy: 'legal.cookie',
+    TermsOfService: 'legal.tos',
+    LegalNotice: 'legal.notice',
+    AccessibilityStatement: 'legal.accessibility',
+    Home: 'home',
+} as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
 
 // Struttura del sito: opzioni globali, pagine e menu. Identità ed estetica
 // (nome, versione, lingue, descrizione, tema) vivono in global-settings.json.

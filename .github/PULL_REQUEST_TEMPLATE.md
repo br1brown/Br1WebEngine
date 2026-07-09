@@ -16,7 +16,7 @@
 - [ ] (Backend) Non ho aggiunto logica di business all'interno della cartella `Engine/`.
 - [ ] (Backend) I miei controller ereditano da `EngineApiController` o `EngineProtectedController`.
 - [ ] (Frontend) Non ho manipolato manualmente il DOM (garantendo il funzionamento dell'idratazione SSR).
-- [ ] (Frontend) Le nuove pagine sono dichiarate rigorosamente in `site.ts` usando l'enum `PageType`.
+- [ ] (Frontend) Le nuove pagine sono dichiarate rigorosamente tramite `PageType` (nel file dell'area giusta sotto `pages/*.pages.ts`, assemblato in `site.ts`).
 
 ## Testing
 <!--- Per favore descrivi i test che hai eseguito per verificare i tuoi cambiamenti. -->

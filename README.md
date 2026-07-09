@@ -143,7 +143,7 @@ sul **dominio vince il figlio**. Sui path engine prendi la versione del template
 \* `security-headers.json`: unica eccezione, l'override documentato nella `_nota` (vedi sopra).
 
 > **Dominio a contratto fisso.** Alcuni file di Dominio sono **importati dall'Engine per path e nome**: il figlio ne cambia liberamente il **corpo**, ma deve preservarne **path, nome dell'export e forma** — altrimenti l'Engine non compila. Non sono "campo libero", sono punti di contatto a contratto fisso:
-> - `site.ts` → `ContestoSito` (da `buildSite`), enum `PageType`, tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
+> - `site.ts` → `ContestoSito` (da `buildSite`), `PageType` (un oggetto `as const`, tipicamente assemblato da file di area sotto `pages/*.pages.ts`, ma l'Engine pretende solo che `site.ts` lo esporti con questo nome — la forma interna è libera), tipi `SmokeSettings`/`SitePageInput`. È il DSL: l'Engine lo legge ovunque (routing, builder, meta, tema…).
 > - `pages/content.resolver.ts` → `ContentResolver` (con `loadResolved`), `ResolvedPage`, `contentLoaderResolver` — usati da `routing.ts` e `PageBaseComponent`. Aggiungi `case` allo switch, non rinominare gli export.
 > - `core/services/api.service.ts` → la classe `ApiService` iniettabile (`PageBaseComponent` espone `this.api`). La estendi con metodi, non la elimini.
 > - `components/shared/user-nav/` → `UserNavComponent` / selettore `app-user-nav`, montato dalla navbar dell'Engine. Personalizzi l'interno, non il selettore/export.

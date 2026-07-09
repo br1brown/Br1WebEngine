@@ -1,4 +1,6 @@
 import { buildSite } from './core/engine/siteBuilder';
+import { AppPages, appPagesDecl } from './pages/app.pages';
+import { LegalPages, legalSlots } from './pages/legal.pages';
 
 export type {
     SiteConfig,
@@ -7,35 +9,41 @@ export type {
 } from './core/engine/siteBuilder';
 
 // ═══════════════════════════════════════════════════════════════════════
-// ENUM PageType — identita' di ogni pagina
+// PageType — identita' di ogni pagina
 // ═══════════════════════════════════════════════════════════════════════
 //
-// Ogni pagina del sito DEVE avere un valore qui.
+// Ogni pagina del sito DEVE avere un valore qui. A poche pagine basterebbe
+// un enum piatto; qui è assemblato da più file (uno per area tematica:
+// pages/app.pages.ts, pages/legal.pages.ts, ...) perché a un numero alto
+// di pagine un unico enum diventa lungo da scorrere e da mantenere in
+// ordine. Per aggiungere un'area: crea `pages/<area>.pages.ts` con lo
+// stesso pattern (oggetto `as const` di ID stringa + array di
+// dichiarazioni), poi aggiungilo qui sotto negli spread.
 //
-// Per aggiungere una pagina: aggiungi un valore all'enum, poi usalo
-// nella chiamata defineSitePages sotto. Il resto (rotte, menu, sitemap)
-// si aggiorna da solo.
+// Per aggiungere una pagina in un'area esistente: aggiungi un ID
+// all'oggetto dell'area, poi usalo nella sua dichiarazione. Il resto
+// (rotte, menu, sitemap) si aggiorna da solo.
 //
-// Perche' un enum e non stringhe?
-// - Se rinomini un path (es. "chi-siamo" → "about"), cambi UNA riga
-//   in defineSitePages. Menu, footer, link interni continuano a
-//   funzionare perche' puntano a PageType.ChiSiamo, non alla stringa.
-// - Se rimuovi un valore dall'enum, TypeScript ti segnala tutti i punti
-//   del codice che ancora lo usano. Con le stringhe lo scopri a runtime.
+// Perche' un oggetto e non un enum?
+// - Stesse garanzie di un enum: se rinomini un path (es. "chi-siamo" →
+//   "about"), cambi UNA riga nella dichiarazione della pagina. Menu,
+//   footer, link interni continuano a funzionare perche' puntano a
+//   PageType.ChiSiamo, non alla stringa del path. Se rimuovi un valore,
+//   TypeScript segnala tutti i punti del codice che ancora lo usano.
+// - A differenza di un enum numerico, gli ID sono stringhe stabili e
+//   leggibili (es. "app.home") anche fuori da TypeScript — in query
+//   string (?returnPageType=...), log, messaggi d'errore del builder.
+// - A differenza di un enum unico, ogni area vive nel proprio file: puoi
+//   aprire solo "legal" per toccare il legale, senza scorrere le altre
+//   aree. E niente collisioni: enum numerici separati partirebbero tutti
+//   da 0 (stessa chiave di Map interna al builder); ID stringa prefissati
+//   per area sono unici per costruzione.
 //
-export enum PageType {
-    //IMPORTANTI
-    PrivacyPolicy,
-    CookiePolicy,
-    TermsOfService,
-    LegalNotice,
-    AccessibilityStatement,
-    Home,
-    //PERSONALIZZABILI
-    Social,
-    Impostazioni,
-    Login,
-}
+export const PageType = {
+    ...LegalPages,
+    ...AppPages,
+} as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE MASTER DEL SITO
@@ -59,13 +67,8 @@ export const ContestoSito = buildSite({
 
     // Pagine legali: mappa gli slot dell'Engine ai tuoi PageType; il builder crea le rotte
     // /policy/*. Slot omesso = pagina assente. `cookie` obbligatoria se il sito usa cookie.
-    legalPages: {
-        privacy: PageType.PrivacyPolicy,
-        cookie: PageType.CookiePolicy,
-        tos: PageType.TermsOfService,
-        legal: PageType.LegalNotice,
-        accessibility: PageType.AccessibilityStatement,
-    },
+    // Tutto il resto del legale (ID, date di aggiornamento) vive in pages/legal.pages.ts.
+    legalPages: legalSlots,
 
     // Comportamento di navbar/footer/header/pannello (default applicati per ogni flag omesso).
     shell: {
@@ -93,7 +96,7 @@ export const ContestoSito = buildSite({
     //   path         → segmento URL (es. "chi-siamo" → /chi-siamo)
     //   title        → chiave di traduzione per il titolo pagina
     //   enabled      → false = esclusa da rotte, menu e sitemap
-    //   pageType     → identita' della pagina (vedi enum sopra)
+    //   pageType     → identita' della pagina (vedi PageType sopra)
     //
     // Campi opzionali:
     //   requiresAuth → true = richiede login (JWT), altrimenti redirect
@@ -105,38 +108,10 @@ export const ContestoSito = buildSite({
     //
     // Il componente DEVE estendere PageBaseComponent.
     //
+    // Le dichiarazioni vivono nel file della loro area (pages/app.pages.ts qui sotto);
+    // aggiungi un'area nuova con uno spread in più.
     pages: () => [
-        {
-            path: '',
-            title: '',
-            pageType: PageType.Home,
-            description: 'homeDesc',
-            otherSEO: { ogImage: 'img4k' },
-            component: () => import('./pages/home/home.component').then(m => m.HomeComponent),
-        },
-        {
-            path: 'social-feed',
-            title: 'socialNav',
-            pageType: PageType.Social,
-            description: 'socialDesc',
-            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-            layout: { showPanel: false },
-        },
-        {
-            path: 'login',
-            title: 'loginNav',
-            pageType: PageType.Login,
-            description: 'loginDesc',
-            component: () => import('./pages/login/login.component').then(m => m.LoginComponent),
-        },
-        {
-            path: 'impostazioni',
-            title: 'impostazioniNav',
-            requiresAuth: true,
-            pageType: PageType.Impostazioni,
-            description: 'settingsDesc',
-            component: () => import('./pages/social/social.component').then(m => m.SocialComponent),
-        },
+        ...appPagesDecl,
     ],
 
     // ── NAVIGAZIONE (header e footer) ─────────────────────────────────────

@@ -40,7 +40,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
 | `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build. Lo consumi tramite token, signal e direttive — non lo modifichi |
-| `site.ts` | Tuo | Il DSL del sito: enum `PageType`, pagine, menu, shell, tema. È il primo file che apri |
+| `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
 | `components/shared/**` | Tuo (riusabili) | Le famiglie pronte — azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer. Riusabili così come sono, ma di proprietà del figlio: estendibili e modificabili |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
@@ -54,11 +54,24 @@ Il confine non è arbitrario: `app.component.ts` (che è *tuo*) importa `FooterC
 
 ## 📜 Le Regole del Gioco (cosa impone l'Engine)
 
-### 1. Stabilità dei Riferimenti: L'Enum `PageType`
-Per ogni schermata aggiungi un identificatore all'enum `PageType` in `site.ts` e naviga sempre tramite quell'ID, così il link resta valido anche cambiando l'URL.
+### 1. Stabilità dei Riferimenti: `PageType`
+Per ogni schermata aggiungi un identificatore a `PageType`, l'identità stabile della pagina, e naviga sempre tramite quell'ID (mai l'URL), così il link resta valido anche cambiando il path. `PageType` è assemblato in `site.ts` dai file di area sotto `pages/` — uno per gruppo tematico (la demo ha `app.pages.ts` e `legal.pages.ts`), invece di un unico enum piatto: a poche pagine non cambia nulla, a un centinaio evita un solo file lunghissimo da scorrere. Ogni area segue lo stesso pattern — un oggetto `as const` di ID stringa (prefissati per area: leggibili anche fuori da TypeScript, in query string o log) più l'array delle relative dichiarazioni pagina:
 ```typescript
-export enum PageType { Home, AboutUs }
+// pages/blog.pages.ts
+export const BlogPages = { List: 'blog.list', Post: 'blog.post' } as const;
+export const blogPagesDecl: SitePageInput[] = [
+    { path: 'blog', pageType: BlogPages.List, title: 'blogNav', component: () => import('./blog/list.component').then(m => m.ListComponent) },
+];
 ```
+```typescript
+// site.ts
+import { BlogPages, blogPagesDecl } from './pages/blog.pages';
+export const PageType = { ...LegalPages, ...AppPages, ...BlogPages } as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
+// ...
+pages: () => [...appPagesDecl, ...blogPagesDecl],
+```
+Aggiungere una nuova area è un file + una riga di spread; aggiungere una pagina in un'area esistente resta un identificatore nell'oggetto dell'area, come prima con l'enum.
 
 ### 2. Componenti Pagina vs Componenti UI
 - **`pages/`**: Sono le schermate. Ereditano da `PageBaseComponent` per ottenere l'accesso rapido ad API, logger e traduttore senza iniezioni ridondanti.
@@ -162,7 +175,7 @@ Il peso del bundle si regola con `budgets` (soglie warning/errore, già gate di 
 
 Per creare una nuova schermata, segui questo workflow per mantenere integro e type-safe il routing dell'Engine:
 
-1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nell'enum centrale in `src/app/site.ts`.
+1. **Registrare l'identità:** Aggiungi un nuovo `PageType` nel file della sua area (`src/app/pages/*.pages.ts`) — una nuova area è un nuovo file dello stesso pattern, assemblato in `src/app/site.ts`.
 2. **Dichiarare la rotta:** Aggiungi la configurazione della pagina nell'array `pages` di `site.ts` (definendo path, SEO ed eventuali guardie).
 3. **Creare il componente:** Crea il componente in `pages/` estendendo `PageBaseComponent` per ereditare i servizi dell'Engine (api, traduzioni, asset, notify e meta-tag automatici).
 4. **Proteggere la pagina (opzionale):** Usa `requiresAuth: true` nella dichiarazione in `site.ts` per demandare all'Engine il controllo auth e il redirect.
@@ -446,7 +459,7 @@ La pagina Cookie Policy deve elencare categorie e cookie usati dal sito (richies
 | `{{cookieList}}` | **Elenco riepilogo-first**: le voci (cookie **e** Web Storage) raggruppate per categoria in pannelli collassabili (`<details>` nativo), **chiusi di default** — così regge anche con centinaia di voci. Header del gruppo con nome, conteggio e descrizione della categoria; per ogni voce: nome fisico, mezzo, descrizione, **provider** (cliccabile se ha `providerUrl`) e **durata**. |
 | `{{cookieCategories}}` | Card delle categorie presenti (Technical / Analytics / Profiling). *Ridondante col nuovo `{{cookieList}}`, che ne fonde già le descrizioni negli header: il markdown demo non lo usa più, ma il token resta supportato per chi lo vuole.* |
 
-**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
+**Extra automatici, solo sulla Cookie Policy** (identificata per `PageType`): oltre ai placeholder, il `PolicyComponent` aggiunge da sé la riga **«Ultimo aggiornamento»** (data per pagina legale dal dizionario `legalUpdated` in `pages/legal.pages.ts`, `Date` hardcoded, resa con `<time>` semantico e formattata per lingua via `Intl`), la sezione **«Come controllare i cookie»** (guide dei browser localizzate per lingua) e un **pannello di gestione del consenso in pagina** (il cookie-banner in `panelMode`: stessi toggle/pulsanti, in-flusso, mostrato dopo che si è risposto).
 
 I dati provengono direttamente da `CookieConsentService`: il `PolicyComponent` legge i signal reattivi e costruisce le liste localizzate.
 

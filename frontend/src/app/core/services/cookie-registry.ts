@@ -23,8 +23,8 @@ import { type CookieConfig } from "../engine/services/cookie/cookie-type";
  *                      providerUrl: 'https://policies.google.com/privacy', durationKey: 'cookieDurataGa' },  // cookie di terza parte
  *   'mioSalvataggio': { category: ConsentCategory.Technical, storage: 'local', valueType: 'json', ... },     // localStorage
  *
- * NB: la data di "ultimo aggiornamento" delle pagine legali NON sta qui — vive indicizzata per
- *     PageType nella PolicyComponent (`legalUpdated`), il punto da cui passano tutte le policy.
+ * NB: la data di "ultimo aggiornamento" delle pagine legali NON sta qui — vive in
+ *     `pages/legal.pages.ts` (`legalUpdated`), accanto agli ID delle pagine legali.
  */
 export const COOKIE_MAP = {
 

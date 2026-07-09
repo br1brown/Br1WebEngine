@@ -39,18 +39,10 @@ export class LoginComponent extends PageBaseComponent<void> {
         await this.router.navigateByUrl(path ?? '/');
     }
 
-    /**
-     * Legge il `returnPageType` dalla querystring e lo interpreta come `PageType`.
-     * Accetta sia il valore numerico (`"0"`) sia il nome enum (`"Home"`).
-     */
+    /** Legge il `returnPageType` dalla querystring e lo valida come `PageType` registrato. */
     private getReturnPageType(): PageType | null {
         const raw = this.route.snapshot.queryParamMap.get('returnPageType');
         if (raw == null) return null;
-
-        const asNumber = Number(raw);
-        if (!isNaN(asNumber) && asNumber in PageType) return asNumber;
-
-        const asName = (PageType as Record<string, unknown>)[raw];
-        return typeof asName === 'number' ? asName : null;
+        return (Object.values(PageType) as string[]).includes(raw) ? (raw as PageType) : null;
     }
 }

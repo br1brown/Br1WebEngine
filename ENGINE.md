@@ -65,4 +65,4 @@ Tiene il `connectionId` corrente in un signal separato da `NotificationStreamSer
 
 ### Pagine legali (`legal/legal-pages.ts`)
 
-Definisce la forma fissa di ogni pagina legale (slot, path sotto `/policy/`, componente, `PageType`) consumata da `siteBuilder.ts` per auto-cablare le pagine dichiarate in `legalPages`. Il progetto figlio non tocca questo file: agisce sugli slot in `site.ts`.
+Definisce la forma fissa di ogni pagina legale (slot, path sotto `/policy/`, componente, `PageType`) consumata da `siteBuilder.ts` per auto-cablare le pagine dichiarate in `legalPages`. Il progetto figlio non tocca questo file: agisce sugli slot in `site.ts` (nella demo, valorizzati in `pages/legal.pages.ts` e assemblati lì).

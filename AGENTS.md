@@ -22,14 +22,21 @@ Commit narrativi a tema, stile branch + squash: una questione chiusa per commit,
 ## Ricette — frontend
 
 #### Aggiungere una pagina
+`PageType` è assemblato in `site.ts` da file di area sotto `pages/*.pages.ts` (uno per gruppo tematico, es. `app.pages.ts`), non un enum unico — a un'area esistente basta un nuovo ID + una nuova dichiarazione nello stesso file:
 ```typescript
-// site.ts
-export enum PageType { Home, NuovaPagina /* … */ }
-pages: (ctx) => [
-  { path: 'nuova', pageType: PageType.NuovaPagina, title: 'Nuova',
+// pages/app.pages.ts (o il file dell'area giusta)
+export const AppPages = { Home: 'app.home', NuovaPagina: 'app.nuovaPagina' /* … */ } as const;
+export const appPagesDecl: SitePageInput[] = [
+  { path: 'nuova', pageType: AppPages.NuovaPagina, title: 'Nuova',
     requiresAuth: false,                       // true → protetta (guard + redirect), SSR off
-    component: () => import('./pages/nuova/nuova.component') },
+    component: () => import('./nuova/nuova.component') },
 ];
+```
+```typescript
+// site.ts — invariato se l'area esiste già; una riga di spread per una nuova area
+export const PageType = { ...LegalPages, ...AppPages } as const;
+export type PageType = (typeof PageType)[keyof typeof PageType];
+pages: (ctx) => [...appPagesDecl],
 ```
 ```typescript
 // pages/nuova/nuova.component.ts — estende la base: this.api / translate / asset / notify già pronti

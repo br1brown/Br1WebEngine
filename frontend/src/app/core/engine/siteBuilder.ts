@@ -62,11 +62,13 @@ export const SHELL_DATA_KEY = 'engineShell';
 //   - getSitemapEntries() per la sitemap
 //
 // PRINCIPIO DI IDENTITA':
-//   Il PageType enum e' l'identita' stabile di ogni pagina. Path, titoli e
-//   componenti possono cambiare; il PageType no. Menu, footer, guard, sitemap
-//   e link interni referenziano sempre il PageType, mai stringhe. Se un path
-//   cambia, basta aggiornare defineSitePages: tutti i riferimenti si risolvono
-//   automaticamente perche' passano dalla mappa PageType → path.
+//   PageType e' l'identita' stabile di ogni pagina (un oggetto letterale nel
+//   Dominio — la forma esatta non riguarda l'Engine, che lo consuma solo per
+//   tipo). Path, titoli e componenti possono cambiare; il PageType no. Menu,
+//   footer, guard, sitemap e link interni referenziano sempre il PageType,
+//   mai path o stringhe grezze. Se un path cambia, basta aggiornare
+//   defineSitePages: tutti i riferimenti si risolvono automaticamente
+//   perche' passano dalla mappa PageType → path.
 //
 
 /**

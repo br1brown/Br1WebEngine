@@ -4,6 +4,18 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### `PageType`: da enum unico a oggetto assemblato per aree (scala oltre le poche pagine della demo)
+
+Un enum piatto in `site.ts` regge bene le poche pagine della demo, ma un progetto figlio che arriva a decine o centinaia di pagine si ritrova a scorrere e mantenere in ordine un unico blocco sempre più lungo — segnalato da un caso reale (100+ pagine su domini diversi). Valutate le alternative (namespace/sotto-enum annidati, enum multipli fusi in unione): entrambe rompono il tipo piatto unico che `getPath`/`addPage`/`[appPage]` si aspettano — i secondi collidono anche silenziosamente, perché gli enum numerici ripartono tutti da 0 e finiscono per condividere la stessa chiave nella `Map` interna del builder.
+
+- `PageType` è ora un oggetto `as const` di ID stringa (es. `'app.home'`), assemblato in `site.ts` per spread da più file — uno per area tematica sotto `pages/*.pages.ts` (la demo: `app.pages.ts`, `legal.pages.ts`). A poche pagine il pattern costa un file in più e nient'altro; a molte, ogni area si apre e si mantiene per conto suo. Stesse garanzie dell'enum (refactor-safe, TypeScript segnala ogni uso di un ID rimosso) — cambia solo il costrutto.
+- Contratto fisso invariato: l'Engine importa `PageType` da `site.ts` per path e nome (vedi README § «Dominio a contratto fisso»), non per come è dichiarato — un enum, un oggetto o un re-export sono equivalenti dal suo punto di vista. Nessuna modifica alle firme dell'Engine.
+- Il legale (`pages/legal.pages.ts`) ora porta anche `legalUpdated` (le date di "ultimo aggiornamento", prima hardcoded in `policy.component.ts`): tutto ciò che un figlio compila per il legale — ID, slot, date — vive in un solo file.
+- `siteBuilder.ts` e la direttiva `[appPage]` avvisano ora in dev-mode quando uno slot (`loginPage`/`homePage`/`legalPages.*`), una voce di navigazione (`addPage`) o un link (`[appPage]`) puntano a un `PageType` non registrato — prima l'esito era silenzioso (slot azzerato, voce di menu scomparsa, link a `/`) e con un ID numerico il messaggio non sarebbe stato comunque leggibile.
+- `setup.mjs` (eject) genera lo stesso pattern nel `site.ts` minimale, restando coerente con la demo.
+
+Per i figli esistenti: `site.ts` è Dominio (vince il figlio al merge), quindi un enum numerico già in uso continua a funzionare invariato — la migrazione è per scelta, non forzata dal merge.
+
 ### Doc: tre snippet duplicati fra README e AGENTS.md, disallineati per drift
 
 Controllati tutti i punti dove AGENTS.md e i README (frontend/backend) trattano lo stesso argomento — non per titolo di sezione, per contenuto reale — per capire dove la separazione "README = cosa offre / AGENTS.md = ricetta pronta" (già dichiarata in apertura di AGENTS.md) fosse rispettata e dove no. La maggioranza dei casi era già corretta (es. "Aggiungere una pagina" e "JSON-LD" nel README frontend rimandano già ad AGENTS.md senza ripetere codice) o legittimamente complementare (tutorial esteso in un file, ricetta compatta nell'altro, non lo stesso testo due volte). Tre punti erano invece codice pressoché identico ripetuto in entrambi i file, senza alcun rimando fra loro — a rischio di andare fuori sincrono al primo refactor toccato da un lato solo:

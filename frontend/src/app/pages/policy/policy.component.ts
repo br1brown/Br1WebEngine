@@ -4,7 +4,7 @@ import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
 import { CookieConsentService, buildPhysicalCookieKey } from '../../core/engine/services/cookie-consent.service';
 import { ConsentCategory, CookieConfig, EngineCookieKey, StorageMedium } from '../../core/engine/services/cookie/cookie-type';
 import { COOKIE_MAP, type CookieKey } from '../../core/services/cookie-registry';
-import { PageType } from '../../site';
+import { legalUpdated } from '../legal.pages';
 import { IdentityRenderComponent } from '../../components/shared/identity-render/identity-render.component';
 import { IdentityService } from '../../core/engine/services/identity.service';
 import type { Identity } from '../../core/engine/dto/identity.dto';
@@ -203,28 +203,12 @@ export class PolicyComponent extends PageBaseComponent<string> {
     /** Etichetta dell'affordance "mostra elenco" (nascosta quando il pannello è aperto). */
     readonly showListLabel = computed(() => this.translate.translate('mostraElencoListaCookie'));
 
-    /**
-     * Data di "ultimo aggiornamento" per pagina legale, indicizzata per `PageType` e hardcoded a
-     * mano (formato ISO `YYYY-MM-DD`). Sta qui perché tutte le pagine legali passano da questo
-     * componente: è il punto unico. Volutamente NON da git/filesystem (la mtime non sopravvive a
-     * clone/Docker → varrebbe la data di build). `PageType` senza data → nessuna riga mostrata.
-     *
-     * ⚠️ COOKIE: aggiorna la data di `CookiePolicy` ogni volta che modifichi `COOKIE_MAP`
-     *    (l'elenco cambia → la policy è "aggiornata").
-     */
-    private readonly legalUpdated: Partial<Record<PageType, Date>> = {
-        [PageType.PrivacyPolicy]:            new Date('2026-07-03'),
-        [PageType.CookiePolicy]:             new Date('2026-07-03'),
-        [PageType.TermsOfService]:           new Date('2026-07-03'),
-        [PageType.LegalNotice]:              new Date('2026-07-03'),
-        [PageType.AccessibilityStatement]:   new Date('2026-07-08'),
-    };
-
     /** Info per la riga "ultimo aggiornamento" della pagina corrente (o null se non c'è data).
+     *  Le date sono in `pages/legal.pages.ts` (vicino agli ID delle pagine legali che rappresentano).
      *  La data la formatta il servizio (culture-aware e reattivo, nessun `Intl` qui);
      *  l'attributo `datetime` porta l'ISO per un <time> semantico. */
     private policyUpdate(): { label: string; iso: string; formatted: string } | null {
-        const date = this.legalUpdated[this.pageType()];
+        const date = legalUpdated[this.pageType() as keyof typeof legalUpdated];
         if (!date || isNaN(date.getTime())) return null;
         return {
             label: this.translate.translate('ultimoAggiornamentoPolicy'),
