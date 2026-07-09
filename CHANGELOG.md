@@ -4,6 +4,14 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### CI: Lighthouse riusa un solo Chrome per tutte le pagine, invece di un avvio a testa
+
+`lighthouse-test.sh` lanciava un Chrome a freddo per ogni pagina scoperta da `/health` (uno per URL, avviato e distrutto ogni volta). Con poche pagine costava solo tempo; ma la pressione su CPU/memoria del runner CI — già condiviso coi container backend/frontend sotto test — sale a ogni riavvio, terreno tipico per `NO_NAVSTART`/`NO_FCP` (la trace di performance viene registrata prima che Chrome sia davvero pronto a navigare): il rischio di flake cresce con ogni pagina aggiunta al sito, non solo con l'ultima.
+
+- **Chrome persistente:** un solo processo headless avviato all'inizio dello script (porta di debug remota su una porta libera, verificata pronta via polling su `/json/version`), riusato per tutte le pagine passando `--port` a Lighthouse invece di `--chrome-flags` — il pattern che Lighthouse stesso raccomanda per audit multi-URL. Se `CHROME_PATH` non è risolto (bundled/npx) si ricade sul comportamento precedente, un avvio per pagina.
+- **Retry mirato sui soli errori transitori:** `NO_NAVSTART`, `NO_FCP`, `NO_LCP`, `PAGE_HUNG`, `TARGET_CRASHED`, `PROTOCOL_TIMEOUT` e simili (sintomi di timing/risorse, non di una pagina rotta) vengono ritentati una volta prima di dichiarare fallimento. Errori deterministici (`DNS_FAILURE`, `INVALID_URL`, `ERRORED_DOCUMENT_REQUEST` — una 404 vera) restano fail-fast, senza retry sprecato: verificato che una pagina inesistente fallisce ancora al primo tentativo.
+- **Verificato in locale** (server SSR reale + backend .NET reale, tutte le 8 pagine demo): stesso esito del comportamento precedente ma con un solo avvio Chrome invece di 8.
+
 ### Navigazione SPA: focus e annuncio agli screen reader ad ogni cambio pagina
 
 Un cambio pagina in una SPA non ricarica il documento — il browser non sposta da solo il focus né annuncia nulla, come farebbe con un normale link multi-pagina. Chi naviga da tastiera o screen reader restava "fermo" sul link appena attivato, dentro un contenuto ormai sostituito. Nessuna configurazione: vale su ogni pagina, presente e futura.
