@@ -15,7 +15,7 @@
 #   0 3 * * * cd /percorso/progetto && ./backup.sh >> backups/backup.log 2>&1
 #
 # Ripristino di un volume da un archivio (ESEMPIO, sovrascrive i dati!):
-#   docker run --rm -v <progetto>_uploads-data:/data -v "$PWD/backups":/b alpine \
+#   docker run --rm -v <progetto>_uploads-data:/data -v "$PWD/backups":/b alpine:3.22 \
 #     sh -c 'rm -rf /data/* && tar xzf /b/uploads-data-AAAAmmGG-HHMMSS.tar.gz -C /data'
 # =============================================================================
 
@@ -63,10 +63,14 @@ for vol_suffix in uploads-data db-data; do
 
     archive="${BACKUP_DIR}/${vol_suffix}-${STAMP}.tar.gz"
     # Container effimero alpine: monta il volume in sola lettura e lo comprime.
+    # Tag pinnato (non ":latest" implicito, quello che risolve "alpine" nudo): uno script di
+    # backup gira spesso da cron, senza controllo umano — una breaking change silenziosa
+    # nell'immagine "latest" (es. comportamento di tar/busybox) romperebbe i backup notturni
+    # senza che nessuno se ne accorga fino al giorno del ripristino, il momento peggiore possibile.
     if docker run --rm \
         -v "${vol}:/data:ro" \
         -v "$(cd "$BACKUP_DIR" && pwd):/backup" \
-        alpine tar czf "/backup/$(basename "$archive")" -C /data . ; then
+        alpine:3.22 tar czf "/backup/$(basename "$archive")" -C /data . ; then
         ok "Creato $(basename "$archive") ($(du -h "$archive" 2>/dev/null | cut -f1))"
         backed_up=$((backed_up + 1))
     else
