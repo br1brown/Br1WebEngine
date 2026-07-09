@@ -16,6 +16,12 @@
 # Variabili d'ambiente:
 #   PUPPETEER_EXECUTABLE_PATH   Override Chrome/Chromium (auto-rilevato se assente)
 #   A11Y_TIMEOUT                Timeout per pagina in ms (default: 30000)
+#   A11Y_CONCURRENCY            Pagine auditate in parallelo (default: 3) — pa11y misura
+#                                struttura/DOM, non tempi, quindi la contesa di risorse fra
+#                                pagine concorrenti rallenta ma non falsa il risultato (a
+#                                differenza di Lighthouse, che invece resta seriale apposta).
+#                                Limitato per non esaurire la memoria del runner con troppe
+#                                tab Puppeteer aperte insieme.
 #
 # Exit code:
 #   0  Nessuna violazione trovata
@@ -83,6 +89,7 @@ mod.get('${BASE_URL}/health', res => {
 fi
 
 TIMEOUT="${A11Y_TIMEOUT:-30000}"
+CONCURRENCY="${A11Y_CONCURRENCY:-3}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 PA11Y_CONFIG="${SCRIPT_DIR}/pa11y.json"
@@ -115,7 +122,7 @@ fi
 
 FAILURES=0
 
-# ─── pa11y locale disponibile: un solo browser riusato per tutte le pagine ────
+# ─── pa11y locale disponibile: un solo browser riusato, pagine in parallelo ───
 # La CLI pa11y invocata una volta a pagina (comportamento precedente) apre e
 # chiude un intero Chromium ad ogni URL — stesso pattern, stesso costo/rischio
 # già corretto in lighthouse-test.sh (pressione CPU/memoria crescente sul
@@ -123,8 +130,14 @@ FAILURES=0
 # ha più pagine). L'API JS di pa11y espone proprio per questo un'opzione
 # `browser`: passando un'istanza Puppeteer già avviata, pa11y apre solo una
 # nuova *tab* per ogni pagina invece di un intero processo Chromium — il
-# pattern che pa11y stesso documenta per testare più URL in sequenza.
+# pattern che pa11y stesso documenta per testare più URL, qui anche in
+# CONCORRENZA (limitata, vedi A11Y_CONCURRENCY sopra): a differenza di
+# Lighthouse — dove il team stesso sconsiglia audit concorrenti sulla stessa
+# macchina perché la contesa di CPU/rete falsa il punteggio di performance —
+# pa11y misura struttura/DOM (axe-core/HTML_CodeSniffer), non tempi: pagine
+# in parallelo rallentano sotto contesa ma non alterano l'esito.
 if [[ -f "${FRONTEND_DIR}/node_modules/pa11y/package.json" ]]; then
+    info "Concorrenza: ${CONCURRENCY} pagine in parallelo (A11Y_CONCURRENCY per cambiarla)"
     RUNNER="${FRONTEND_DIR}/.a11y-run-$$.cjs"
     trap 'rm -f "$RUNNER"' EXIT
 
@@ -135,12 +148,52 @@ const pa11y = require('pa11y');
 const puppeteer = require('puppeteer');
 const cliReporter = require('pa11y/lib/reporters/cli');
 
-const [, , baseUrl, configPath, timeoutArg, ...rawPaths] = process.argv;
+const [, , baseUrl, configPath, timeoutArg, concurrencyArg, ...rawPaths] = process.argv;
 const timeout = Number(timeoutArg) || 30000;
+const concurrency = Math.max(1, Number(concurrencyArg) || 3);
 const { chromeLaunchConfig, ...pa11yOptions } = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 const isTTY = process.stdout.isTTY;
 const paint = (code, s) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
+
+// Pool a concorrenza limitata: `concurrency` worker "tirano" dalla stessa coda finché non
+// si esaurisce. Ogni pagina bufferizza il proprio output (non lo stampa subito) così i blocchi
+// restano leggibili anche se le pagine finiscono in un ordine diverso da quello di partenza —
+// li stampiamo tutti insieme, in ordine originale, a pool esaurito.
+async function runPool(items, limit, worker) {
+    const results = new Array(items.length);
+    let next = 0;
+    async function pull() {
+        while (next < items.length) {
+            const i = next++;
+            results[i] = await worker(items[i]);
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, pull));
+    return results;
+}
+
+async function auditPage(browser, raw) {
+    const path = '/' + raw.replace(/^\/+/, '');
+    const url = baseUrl + path;
+    const out = [`  Controllo ${paint('1', url)} ...`];
+    let failed = false;
+
+    try {
+        const result = await pa11y(url, { ...pa11yOptions, browser, timeout });
+        if (result.issues.length === 0) {
+            out.push(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.1 AA — ${path}`);
+        } else {
+            out.push(cliReporter.results(result));
+            out.push(`  ${paint('31', 'ERR')} Violazioni WCAG 2.1 AA — ${path}`);
+            failed = true;
+        }
+    } catch (err) {
+        out.push(`  ${paint('31', 'ERR')} pa11y non ha completato (${err.message}) — ${path}: NON misurato, tratto come fallimento`);
+        failed = true;
+    }
+    return { out, failed };
+}
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -150,25 +203,11 @@ const paint = (code, s) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
 
     let failures = 0;
     try {
-        for (const raw of rawPaths) {
-            const path = '/' + raw.replace(/^\/+/, '');
-            const url = baseUrl + path;
-            console.log(`  Controllo ${paint('1', url)} ...`);
-
-            try {
-                const result = await pa11y(url, { ...pa11yOptions, browser, timeout });
-                if (result.issues.length === 0) {
-                    console.log(`  ${paint('32', 'OK')} Nessuna violazione WCAG 2.1 AA — ${path}`);
-                } else {
-                    process.stdout.write(cliReporter.results(result) + '\n');
-                    console.error(`  ${paint('31', 'ERR')} Violazioni WCAG 2.1 AA — ${path}`);
-                    failures++;
-                }
-            } catch (err) {
-                console.error(`  ${paint('31', 'ERR')} pa11y non ha completato (${err.message}) — ${path}: NON misurato, tratto come fallimento`);
-                failures++;
-            }
+        const results = await runPool(rawPaths, concurrency, raw => auditPage(browser, raw));
+        for (const { out, failed } of results) {
+            console.log(out.join('\n'));
             console.log('');
+            if (failed) failures++;
         }
     } finally {
         await browser.close();
@@ -184,7 +223,7 @@ const paint = (code, s) => (isTTY ? `\x1b[${code}m${s}\x1b[0m` : s);
 NODEEOF
 
     runner_exit=0
-    node "$RUNNER" "$BASE_URL" "$PA11Y_CONFIG" "$TIMEOUT" "${PATHS[@]}" || runner_exit=$?
+    node "$RUNNER" "$BASE_URL" "$PA11Y_CONFIG" "$TIMEOUT" "$CONCURRENCY" "${PATHS[@]}" || runner_exit=$?
     rm -f "$RUNNER"
 
     # Il runner Node gestisce già il conteggio per-pagina e stampa il proprio riepilogo finale

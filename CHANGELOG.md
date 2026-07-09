@@ -4,6 +4,13 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### `a11y-test.sh`: pagine auditate in parallelo (con un limite), Lighthouse resta seriale apposta
+
+Valutato se applicare la parallelizzazione anche dentro i singoli script, non solo fra loro a livello di job CI. Risposta diversa per i due strumenti, verificata separatamente:
+
+- **pa11y (`a11y-test.sh`): sì.** Misura struttura/DOM (axe-core/HTML_CodeSniffer), non tempi — la contesa di risorse fra pagine concorrenti rallenta ma non falsa l'esito. È anche il pattern che pa11y stesso documenta per il proprio tooling CI. Il browser persistente introdotto in precedenza ora audita le pagine con un **pool a concorrenza limitata** (nuovo `A11Y_CONCURRENCY`, default 3): abbastanza per un guadagno reale senza esaurire la memoria del runner aprendo troppe tab Puppeteer insieme. Ogni pagina bufferizza il proprio output e lo stampa tutto insieme, in ordine originale, a fine corsa — leggibile anche se le pagine finiscono in un ordine diverso da quello di partenza. Verificato in locale (8 pagine, backend/SSR reali): ~17.6s seriale → ~11.7s con concorrenza 3, stesso esito; verificato anche che i conteggi di fallimento restano esatti sotto concorrenza (3 pagine irraggiungibili in parallelo → 3 fallimenti contati, non un numero sballato da una race condition).
+- **Lighthouse (`lighthouse-test.sh`): no.** È la guidance ufficiale del team Lighthouse: gli audit di performance misurano condizioni reali (`--throttling-method=provided`, già in uso qui), quindi Chrome in concorrenza sulla stessa macchina si contende CPU/rete e si falsano a vicenda i punteggi — non un rischio teorico, sconsigliato esplicitamente da Google. Parallelizzare lì reintrodurrebbe silenziosamente la flakiness appena eliminata (punteggi sbagliati anziché errori). Resta seriale.
+
 ### CI: accessibilità e Lighthouse non si bloccano più a vicenda nel job "Test live"
 
 I due audit erano step sequenziali senza `continue-on-error`: se l'audit di accessibilità falliva, quello Lighthouse non partiva nemmeno — un push con un problema di accessibilità E uno di performance li segnalava uno alla volta, a colpi di push-e-riattendi (~7 minuti a giro) invece che in un solo run.
