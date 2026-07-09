@@ -4,6 +4,13 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### CI: accessibilità e Lighthouse non si bloccano più a vicenda nel job "Test live"
+
+I due audit erano step sequenziali senza `continue-on-error`: se l'audit di accessibilità falliva, quello Lighthouse non partiva nemmeno — un push con un problema di accessibilità E uno di performance li segnalava uno alla volta, a colpi di push-e-riattendi (~7 minuti a giro) invece che in un solo run.
+
+- Entrambi gli step ora hanno `continue-on-error: true` (girano sempre fino in fondo, indipendenti l'uno dall'altro) e un `id`. Un nuovo step finale "Esito test live" (`if: always()`) rilegge esplicitamente `steps.a11y.outcome` / `steps.lighthouse.outcome` e fa fallire il job se anche uno solo dei due non è `success` — `continue-on-error` a livello di step farebbe risultare lo step (e di riflesso il job, se non controllato) sempre verde anche a script fallito, quindi va riletto a mano, non lasciato al default.
+- Notare per il futuro: GitHub ha introdotto step realmente paralleli in-job (`background`/`wait`/`parallel`, changelog 25 giugno 2026) che risparmierebbero anche il tempo — ma a due settimane dal rilascio la semantica di propagazione del fallimento non è ancora documentata nell'annuncio stesso: prematuro adottarla su una CI di template ereditata da ogni progetto figlio. Il pattern `continue-on-error` + `outcome` resta quello stabile, verificato.
+
 ### `backup.sh`: immagine Alpine pinnata (non più `:latest` implicito)
 
 Il container effimero usato per comprimere i volumi (`docker run --rm ... alpine tar czf ...`) usava `alpine` senza tag, che Docker risolve in `:latest`. `backup.sh` è pensato per girare da cron ogni notte, senza controllo umano: una breaking change silenziosa nell'immagine `latest` romperebbe i backup senza che nessuno se ne accorga fino al giorno del ripristino — il momento peggiore possibile per scoprirlo. Pinnato a `alpine:3.22` (major.minor, non una patch esatta: riceve comunque gli aggiornamenti di sicurezza sullo stesso tag, verificato attivo su Docker Hub). Allineato anche l'esempio di ripristino nell'header dello script.

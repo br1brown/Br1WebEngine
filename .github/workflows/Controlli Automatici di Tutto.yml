@@ -165,11 +165,35 @@ jobs:
       - name: Avvia stack
         run: bash scripts/test/public-test.sh
 
+      # I due audit sono indipendenti (uno non ha bisogno che l'altro sia passato): con
+      # continue-on-error entrambi girano SEMPRE fino in fondo, invece che il secondo
+      # non partire mai se il primo fallisce — così un push con UN problema di accessibilità
+      # E uno di performance li segnala tutti e due nello stesso run, non uno alla volta a
+      # colpi di push-e-riattendi. continue-on-error a livello di step, però, fa risultare lo
+      # STEP (e quindi di riflesso il job, se non controllato) sempre "verde" anche se lo
+      # script è davvero fallito — va riletto esplicitamente via `outcome` nello step
+      # "Esito test live" sotto, che è quello che decide se il job fallisce davvero.
       - name: Audit di accessibilità
+        id: a11y
+        continue-on-error: true
         run: bash scripts/test/a11y-test.sh http://localhost:8088
 
       - name: Audit Lighthouse
+        id: lighthouse
+        continue-on-error: true
         run: bash scripts/test/lighthouse-test.sh http://localhost:8088
+
+      - name: Esito test live
+        if: always()
+        run: |
+          a11y="${{ steps.a11y.outcome }}"
+          lighthouse="${{ steps.lighthouse.outcome }}"
+          echo "Accessibilità: ${a11y}"
+          echo "Lighthouse:    ${lighthouse}"
+          if [[ "$a11y" != "success" || "$lighthouse" != "success" ]]; then
+            echo "::error::Test live falliti — accessibilità: ${a11y}, lighthouse: ${lighthouse}"
+            exit 1
+          fi
 
       - name: Butta giù
         if: always()
