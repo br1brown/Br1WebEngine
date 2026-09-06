@@ -174,6 +174,32 @@ s.listen(0, () => { const p = s.address().port; s.close(() => console.log(p)); }
     fi
 fi
 
+# Rileva se una pagina è noindex leggendo l'header X-Robots-Tag della risposta stessa
+# (segnale già pubblico su quella pagina — nessuna lista aggregata da esporre). Serve perché
+# l'audit "is-crawlable" di Lighthouse pesa da solo il 31% del punteggio SEO — abbastanza da
+# far fallire l'intera categoria da solo (per design di Lighthouse stesso: una pagina non
+# raggiungibile dai crawler rende irrilevante il resto della SEO) — e fallisce sempre su una
+# pagina noindex per definizione: pagine come login o le policy legali (vedi site.ts) non sono
+# "SEO carenti", sono deliberatamente fuori indice. Niente soglia più bassa da indovinare: su
+# queste pagine la categoria `seo` non viene proprio misurata (`--only-categories` la esclude,
+# più veloce che calcolarla per poi ignorarla) — le altre categorie, in particolare
+# `performance` che riguarda l'esperienza reale dell'utente, restano verificate al livello pieno.
+is_noindex_path() {
+    URL_TO_CHECK="$1" node -e "
+const url = process.env.URL_TO_CHECK;
+const client = url.startsWith('https:') ? require('https') : require('http');
+let done = false;
+const write = (val) => { if (!done) { done = true; process.stdout.write(val); } };
+const req = client.get(url, res => {
+    const robots = String(res.headers['x-robots-tag'] || '').toLowerCase();
+    write(robots.includes('noindex') ? '1' : '0');
+    res.resume();
+});
+req.setTimeout(10000, () => { req.destroy(); write('0'); });
+req.on('error', () => write('0'));
+"
+}
+
 # Codici runtimeError di Lighthouse considerati transitori — sintomi di timing/risorse
 # (Chrome non ancora pronto, trace non registrata, tab bloccata), non di una pagina
 # realmente rotta: vale la pena ritentare una volta prima di dichiarare fallimento.
@@ -190,17 +216,22 @@ for path in "${PATHS[@]}"; do
 
     echo -e "  Controllo ${BOLD}${URL}${RESET} ..."
 
+    IS_NOINDEX="$(is_noindex_path "$URL")"
+
     attempt=1
     page_result=1   # 0 = ok, 1 = fallimento finale, 2 = transitorio (si ritenta)
 
     while [[ $attempt -le $MAX_ATTEMPTS ]]; do
         REPORT="lh-report-$$-${attempt}.json"
 
+        CATEGORIES="performance,accessibility,best-practices"
+        [[ "$IS_NOINDEX" != "1" ]] && CATEGORIES="${CATEGORIES},seo"
+
         LH_ARGS=(
             --output=json
             --output-path="$REPORT"
             --throttling-method=provided
-            --only-categories=performance,accessibility,best-practices,seo
+            --only-categories="$CATEGORIES"
             --timeout="$TIMEOUT"
             --quiet
         )
@@ -227,20 +258,24 @@ for path in "${PATHS[@]}"; do
         fi
 
         node_exit=0
-        node -e "
+        REPORT="$REPORT" TRANSIENT_RUNTIME_ERRORS="$TRANSIENT_RUNTIME_ERRORS" THRESHOLD_FILE="$THRESHOLD_FILE" IS_NOINDEX="$IS_NOINDEX" node -e "
 const fs = require('fs');
-const report = JSON.parse(fs.readFileSync('${REPORT}', 'utf8'));
-const transient = new Set('${TRANSIENT_RUNTIME_ERRORS}'.split('|'));
+const report = JSON.parse(fs.readFileSync(process.env.REPORT, 'utf8'));
+const transient = new Set(process.env.TRANSIENT_RUNTIME_ERRORS.split('|'));
 if (report.runtimeError && report.runtimeError.code !== 'NO_ERROR') {
     process.stderr.write('    SKIP ' + report.runtimeError.code + ': ' + report.runtimeError.message + '\n');
     process.exit(transient.has(report.runtimeError.code) ? 2 : 3);
 }
-const thresholds = JSON.parse(fs.readFileSync('${THRESHOLD_FILE}', 'utf8'));
+const thresholds = JSON.parse(fs.readFileSync(process.env.THRESHOLD_FILE, 'utf8'));
+const isNoindex = process.env.IS_NOINDEX === '1';
 const cats = report.categories;
 let failures = 0;
 for (const [key, min] of Object.entries(thresholds)) {
     const cat = cats[key];
-    if (!cat) continue;
+    if (!cat) {
+        if (key === 'seo' && isNoindex) console.log('    SKIP seo: pagina noindex, categoria non misurata');
+        continue;
+    }
     const score = Math.round((cat.score ?? 0) * 100);
     const pass = score >= min;
     const label = pass ? 'OK  ' : 'FAIL';

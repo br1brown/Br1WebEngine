@@ -62,8 +62,8 @@ if node -e "process.exit(process.platform==='win32'?0:1)" 2>/dev/null && command
 fi
 
 mapfile -t LANGS < <(
-    node -e "
-const s = JSON.parse(require('fs').readFileSync('${SETTINGS_JSON}', 'utf-8'));
+    SETTINGS_JSON="$SETTINGS_JSON" node -e "
+const s = JSON.parse(require('fs').readFileSync(process.env.SETTINGS_JSON, 'utf-8'));
 const rawLangs = s.Localization?.SupportedLanguages;
 const langs = (Array.isArray(rawLangs) && rawLangs.length > 0)
     ? rawLangs
@@ -103,11 +103,11 @@ check_catalog() {
     [[ $missing_files -gt 0 ]] && return 1
 
     # Calcola l'unione di tutte le chiavi e segnala quelle mancanti per lingua
-    node -e "
+    LANGS_JSON="$langs_json" I18N_DIR="$I18N_DIR" CATALOG="$catalog" node -e "
 const fs   = require('fs');
-const langs = ${langs_json};
-const dir   = '${I18N_DIR}';
-const cat   = '${catalog}';
+const langs = JSON.parse(process.env.LANGS_JSON);
+const dir   = process.env.I18N_DIR;
+const cat   = process.env.CATALOG;
 
 const keysets = new Map(langs.map(l => [
     l,
