@@ -70,6 +70,7 @@ export const SHELL_DATA_KEY = 'engineShell';
 //   - I NavLink[] per header e footer, con i PageType risolti nei path reali
 //   - getPath(PageType) per lookup runtime
 //   - getSitemapEntries() per la sitemap
+//   - getAuditPaths() per gli audit live, separati dalla superficie SEO
 //
 // PRINCIPIO DI IDENTITA':
 //   PageType e' l'identita' stabile di ogni pagina (un oggetto letterale nel
@@ -916,6 +917,11 @@ export interface BuiltSite {
     getLegalSlug: (type: PageType) => string | null;
     /** Restituisce le voci della sitemap (path + metadati + lingua), una per pagina per lingua. */
     getSitemapEntries: () => SitemapEntry[];
+    /**
+     * Restituisce i percorsi pubblici SSR per gli audit live. Include le pagine `noindex`
+     * (ad esempio le policy legali), ma non rotte protette o parametriche senza URL concreta.
+     */
+    getAuditPaths: () => string[];
     /** Restituisce le pagine con `dynamicParams` dichiarato — una entry per PAGINA (non per
      *  lingua): il catalogo di slug è dato di dominio, non cambia per lingua, solo il template
      *  dell'URL cambia (`pathByLang`). Consumata dall'endpoint di sitemap dinamica. */
@@ -1064,12 +1070,40 @@ function normalizeLoginPage(input: SiteDefinition['loginPage']): { page: PageTyp
     return { page: input, showInHeader: false };
 }
 
+// #RGB o #RRGGBB, stesso pattern di global-settings.schema.json. Quello schema però vale solo
+// per chi edita global-settings.json in un editor che lo legge (VS Code) — chiunque altro (un
+// valore incollato con canale alpha da un design tool, un editor diverso, un valore generato)
+// arriverebbe altrimenti a ThemeService.normalizeHex(), che tronca qualunque stringa a 6 cifre
+// esadecimali in silenzio, nessun avviso. Validato qui una sola volta, a monte di ogni consumer.
+const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/** Valida i campi colore opzionali di `site` (global-settings.json): un valore fuori da
+ *  #RGB/#RRGGBB blocca il build con un errore esplicito invece di essere troncato in silenzio. */
+function validateColorFields(cfg: { colorTema?: string; colorSecondary?: string; colorBackground?: string; colorText?: string; colorInfo?: string }): void {
+    const fields: readonly (readonly [string, string | undefined])[] = [
+        ['colorTema', cfg.colorTema],
+        ['colorSecondary', cfg.colorSecondary],
+        ['colorBackground', cfg.colorBackground],
+        ['colorText', cfg.colorText],
+        ['colorInfo', cfg.colorInfo],
+    ];
+    for (const [name, value] of fields) {
+        if (value != null && !HEX_COLOR_PATTERN.test(value)) {
+            throw new Error(
+                `[SiteBuilder] site.${name}="${value}" non è un colore hex valido (atteso #RGB o ` +
+                `#RRGGBB, es. "#131e55" — niente canale alpha) in global-settings.json.`
+            );
+        }
+    }
+}
+
 /**
  * SiteConfig finale: identità ed estetica da `environment.ts` (global-settings.json),
  * struttura e comportamento da `site.ts` (`definition`). I default li applica qui.
  */
 function buildFinalConfig(definition: SiteDefinition): SiteConfig {
     const cfg = environment.config;
+    validateColorFields(cfg);
     const shell = definition.shell ?? {};
     const login = normalizeLoginPage(definition.loginPage);
     return {
@@ -1125,6 +1159,7 @@ function processPages(
     serverRenderEntries: ServerRenderEntry[],
     dynamicPages: Map<PageType, DynamicPageEntry>,
     contentLoaders: Map<PageType, ContentLoader>,
+    auditPaths: string[],
     loginPageType: PageType | null,
     lang: string,        // lingua di QUESTA chiamata — buildSite() chiama processPages() una volta per lingua.
     defaultLang: string, // serve a pageMapKey()/resolveLangPrefix() per sapere quando NON prefissare/comporre.
@@ -1181,7 +1216,14 @@ function processPages(
             // requiresAuth → 'client' (i bot non loggano, l'SSR è inutile); altrimenti renderMode esplicito o 'server'.
             // noindex NON forza il client-render: la pagina resta SSR/pubblica, solo non indicizzabile.
             // Una entry per QUESTA variante-lingua: con N lingue, N entry per la stessa pagina logica.
-            serverRenderEntries.push({ path: fullPath, renderMode: page.requiresAuth ? 'client' : (page.renderMode ?? 'server'), requiresAuth: !!page.requiresAuth, noindex });
+            const renderMode = page.requiresAuth ? 'client' : (page.renderMode ?? 'server');
+            serverRenderEntries.push({ path: fullPath, renderMode, requiresAuth: !!page.requiresAuth, noindex });
+
+            // Audit e sitemap hanno scopi distinti: una policy noindex resta una pagina
+            // pubblica da verificare. I path parametrici non hanno ancora un URL visitabile.
+            if (!page.requiresAuth && renderMode === 'server' && !hasUnresolvedPathParam(fullPath)) {
+                auditPaths.push(fullPath);
+            }
 
             // Fuori dalla sitemap le pagine protette, quelle noindex e le rotte parametriche (un
             // `<loc>` con `:xxx` letterale non sarebbe un URL vero — vedi hasUnresolvedPathParam).
@@ -1447,6 +1489,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     const serverRenderEntries: ServerRenderEntry[] = [];
     const dynamicPages = new Map<PageType, DynamicPageEntry>();
     const contentLoaders = new Map<PageType, ContentLoader>();
+    const auditPaths: string[] = [];
     const defaultLang = environment.defaultLang; // letto una volta, riusato in tutto il resto della funzione.
     let sitemap: SitemapEntry[] = [];
     // Un giro per lingua configurata (environment.availableLanguages, da global-settings.json via
@@ -1457,7 +1500,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
             // processPages POPOLA pageMap/serverRenderEntries/dynamicPages per riferimento
             // (side-effect) e RITORNA solo le voci sitemap di questa lingua — da qui il concat
             // invece di un'assegnazione.
-            processPages(sitePages, pageMap, serverRenderEntries, dynamicPages, contentLoaders, finalConfig.loginPage ?? null, lang, defaultLang)
+            processPages(sitePages, pageMap, serverRenderEntries, dynamicPages, contentLoaders, auditPaths, finalConfig.loginPage ?? null, lang, defaultLang)
         );
     }
 
@@ -1503,6 +1546,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
         getPageInfo: (type: PageType, lang = defaultLang) => pageMap.get(pageMapKey(type, lang, defaultLang)) ?? null,
         getLegalSlug: (type: PageType) => legalSlugFor(managedLegalPages, type),
         getSitemapEntries: () => sitemap, // già con lang per entry — generate-statics.ts la usa per raggruppare le varianti e generare hreflang.
+        getAuditPaths: () => auditPaths,
         getDynamicPages: () => Array.from(dynamicPages.values()),
         getContentLoader: (type: PageType) => contentLoaders.get(type) ?? null,
     };

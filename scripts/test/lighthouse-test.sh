@@ -15,11 +15,12 @@
 # Variabili d'ambiente:
 #   CHROME_PATH      Override Chrome/Chromium (auto-rilevato se assente)
 #   LH_TIMEOUT       Timeout per pagina in ms (default: 60000)
+#   LIGHTHOUSE_DYNAMIC_MAX URL dinamiche dalla sitemap da auditare (default: 20)
 #
 # Exit code:
 #   0  Tutti i budget rispettati
 #   1  Una o più pagine sotto soglia
-#   2  Dipendenze non disponibili — test saltato
+#   2  Dipendenze non disponibili, o path da auditare non scopribili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -51,36 +52,30 @@ shift
 if [[ $# -gt 0 ]]; then
     PATHS=("$@")
 else
-    # Nessun path specificato: scoperta automatica dal server.
-    # /health restituisce a11yPaths — l'elenco delle pagine interne pubbliche
-    # derivato da ContestoSito.getSitemapEntries() (no externalUrl, no requiresAuth).
-    # Aggiungere una pagina in site.ts la include automaticamente nell'audit.
-    mapfile -t PATHS < <(
-        node -e "
-const http  = require('http');
-const https = require('https');
-const mod   = '${BASE_URL}'.startsWith('https') ? https : http;
-mod.get('${BASE_URL}/health', res => {
-    let raw = '';
-    res.on('data', c => raw += c);
-    res.on('end', () => {
-        try {
-            const paths = JSON.parse(raw).a11yPaths;
-            if (Array.isArray(paths) && paths.length) {
-                paths.forEach(p => console.log(p));
-            } else {
-                console.log('/');
-            }
-        } catch { console.log('/'); }
-    });
-}).on('error', () => console.log('/'));
-" 2>/dev/null
-    )
-    info "Path auto-scoperti da ${BASE_URL}/health: ${PATHS[*]}"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # `$(...)` invece di `mapfile < <(...)`: vedi a11y-test.sh — con la process substitution un
+    # fallimento di discover-audit-paths.cjs sparirebbe in silenzio e il budget check sotto,
+    # su un array vuoto, uscirebbe "tutti i budget rispettati" senza aver controllato nulla.
+    if ! DISCOVERED="$(node "${SCRIPT_DIR}/discover-audit-paths.cjs" "$BASE_URL" "${LIGHTHOUSE_DYNAMIC_MAX:-20}")"; then
+        fail "Scoperta path fallita — server non raggiungibile o endpoint /health o /sitemap.xml non validi"
+        exit 2
+    fi
+    # Vedi a11y-test.sh: `mapfile <<< ""` produrrebbe un array di UN elemento (stringa vuota), non
+    # un array vuoto — il controllo sotto non lo vedrebbe e finirebbe per auditare "/" comunque.
+    if [[ -z "$DISCOVERED" ]]; then
+        PATHS=()
+    else
+        mapfile -t PATHS <<< "$DISCOVERED"
+    fi
+    if [[ ${#PATHS[@]} -eq 0 ]]; then
+        warn "Nessun path da auditare — controllo saltato"
+        exit 2
+    fi
+    info "Path auto-scoperti (statiche + sitemap dinamica): ${PATHS[*]}"
 fi
 
 TIMEOUT="${LH_TIMEOUT:-60000}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 THRESHOLD_FILE="${SCRIPT_DIR}/lighthouse.json"
 
 if node -e "process.exit(process.platform==='win32'?0:1)" 2>/dev/null && command -v cygpath >/dev/null 2>&1; then

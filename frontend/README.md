@@ -2087,7 +2087,7 @@ L'endpoint `/health` restituisce JSON strutturato (non una stringa generica):
 { "status": "ok", "mode": "ssr", "a11yPaths": ["/home", "/chi-siamo", "..."] }
 ```
 
-`a11yPaths` è la lista di tutte le pagine indicizzabili, usato da sistemi di monitoraggio per verificare la salute dell'SSR e pilotare test automatici di accessibilità (Lighthouse, axe-core) su tutte le pagine del sito.
+`a11yPaths` è la lista delle pagine pubbliche SSR statiche per gli audit live. È intenzionalmente separata dalla sitemap: include le pagine `noindex`, comprese le policy legali, perché restano superficie utente da verificare con Pa11y e Lighthouse. Gli script la uniscono alle URL concrete di `/sitemap.xml`, quindi includono anche le pagine `dynamicParams` enumerate dal backend nello stack di test. Pa11y ne controlla fino a 100 (`A11Y_DYNAMIC_MAX`) e Lighthouse fino a 20 (`LIGHTHOUSE_DYNAMIC_MAX`); oltre il tetto selezionano un campione distribuito e deterministico. Pagine protette e client-only restano escluse.
 
 ### Status Code SEO-Aware
 

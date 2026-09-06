@@ -66,6 +66,13 @@ export class ShellNavService {
      *  la reattività di chi il login lo usa davvero. */
     private lastResolvedKey: string | null = null;
 
+    /** Contatore monotono: ogni `resolve()` cattura il proprio valore e lo confronta prima di
+     *  scrivere sui signal. Cambio lingua/login due volte di fretta avvia due `resolve()` in
+     *  parallelo — senza questa guardia, la rete potrebbe far arrivare per prima la risposta del
+     *  giro PIÙ VECCHIO e sovrascrivere quella corretta del giro nuovo. Puramente locale (nessun
+     *  round-trip, nessuno stato lato server): non c'entra con l'invalidazione di token/sessione. */
+    private generation = 0;
+
     constructor() {
         effect(() => {
             const lang = this.translate.currentLang();
@@ -81,13 +88,15 @@ export class ShellNavService {
 
     /** Risolve header e footer per `lang` e aggiorna i signal. Le due sezioni sono indipendenti:
      *  un resolver che fallisce (es. API giù, gruppo annidato oltre il limite) svuota solo la
-     *  propria sezione, mai anche l'altra. */
+     *  propria sezione, mai anche l'altra — mai voci pensate per lo stato precedente (es. link
+     *  autenticati rimasti visibili dopo un logout il cui resolver è fallito). */
     async resolve(lang: string): Promise<void> {
         // Sincrono, PRIMA di ogni await: garantisce che l'effect() sopra veda già la guardia
         // valorizzata quando Angular lo esegue per la prima volta (schedulazione asincrona,
         // sempre dopo la fine del blocco sincrono corrente). Stessa chiave (lingua+login) letta
         // qui e nell'effect: sincrona anche lei, per lo stesso motivo.
         this.lastResolvedKey = `${lang}:${this.tokenService.isLoggedIn()}`;
+        const generation = ++this.generation;
 
         if (this.transferState.hasKey(SHELL_NAV_STATE_KEY)) {
             const cached = this.transferState.get(SHELL_NAV_STATE_KEY, { header: [], footer: [] });
@@ -98,11 +107,14 @@ export class ShellNavService {
         }
 
         await Promise.all([
-            this.resolveInto('header', this.resolver.header, lang, this._header),
-            this.resolveInto('footer', this.resolver.footer, lang, this._footer),
+            this.resolveInto('header', this.resolver.header, lang, this._header, generation),
+            this.resolveInto('footer', this.resolver.footer, lang, this._footer, generation),
         ]);
+        // Un resolve() più recente è partito nel frattempo (cambio lingua/login a raffica): i suoi
+        // risultati sono già nei signal, questo giro non ha più nulla di attendibile da trasferire.
+        if (generation !== this.generation) return;
         // In SSR: passa il risultato al client, che altrimenti rifarebbe subito lo stesso fetch
-        // appena idratato. Anche a una sezione fallita (rimasta sul suo valore precedente): meglio
+        // appena idratato. Anche a una sezione fallita (svuotata, vedi resolveInto): meglio
         // trasferire quello che c'è che rifare comunque entrambe le chiamate lato client.
         this.transferState.set(SHELL_NAV_STATE_KEY, { header: this._header(), footer: this._footer() });
     }
@@ -112,16 +124,24 @@ export class ShellNavService {
         run: ShellNavResolver['header'],
         lang: string,
         target: WritableSignal<NavLink[]>,
+        generation: number,
     ): Promise<void> {
-        if (!run) { target.set([]); return; }
+        // Un resolve() più recente potrebbe aver già scritto sul signal mentre questo giro era in
+        // volo: un giro vecchio che scrive per ultimo (fine solo per ordine di arrivo in rete, non
+        // di partenza) sovrascriverebbe un risultato più fresco con uno stantio.
+        const isCurrent = () => generation === this.generation;
+        if (!run) { if (isCurrent()) target.set([]); return; }
         try {
             const raw: RawNavItem[] = [];
             await runInInjectionContext(this.injector, () => run(createNavSectionBuilder(raw), { lang, getPath: this.getPath }));
             const resolved = resolveNavItems(raw, this.getPageInfo, lang);
             validateNavDepth(resolved, section);
-            target.set(resolved);
+            if (isCurrent()) target.set(resolved);
         } catch (err) {
             console.error(`[ShellNavService] Risoluzione ${section} fallita:`, err);
+            // Svuota, non lascia lo stato precedente: quello poteva appartenere a un login/lingua
+            // diversi (vedi doc di resolve()) — mostrare voci sbagliate è peggio di non mostrarne.
+            if (isCurrent()) target.set([]);
         }
     }
 }

@@ -24,11 +24,12 @@
 #                                condiviso, dà falsi positivi intermittenti con 3+ pagine insieme.
 #                                Alza questo valore solo se hai già verificato che il tuo set di
 #                                pagine non ne risente.
+#   A11Y_DYNAMIC_MAX            URL dinamiche dalla sitemap da auditare (default: 100).
 #
 # Exit code:
 #   0  Nessuna violazione trovata
 #   1  Una o più violazioni WCAG trovate
-#   2  Dipendenze non disponibili — test saltato
+#   2  Dipendenze non disponibili, o path da auditare non scopribili — test saltato
 # =============================================================================
 
 set -euo pipefail
@@ -63,36 +64,33 @@ shift
 if [[ $# -gt 0 ]]; then
     PATHS=("$@")
 else
-    # Nessun path specificato: scoperta automatica dal server.
-    # /health restituisce a11yPaths — l'elenco delle pagine interne pubbliche
-    # derivato da ContestoSito.getSitemapEntries() (no externalUrl, no requiresAuth).
-    mapfile -t PATHS < <(
-        node -e "
-const http  = require('http');
-const https = require('https');
-const mod   = '${BASE_URL}'.startsWith('https') ? https : http;
-mod.get('${BASE_URL}/health', res => {
-    let raw = '';
-    res.on('data', c => raw += c);
-    res.on('end', () => {
-        try {
-            const paths = JSON.parse(raw).a11yPaths;
-            if (Array.isArray(paths) && paths.length) {
-                paths.forEach(p => console.log(p));
-            } else {
-                console.log('/');
-            }
-        } catch { console.log('/'); }
-    });
-}).on('error', () => console.log('/'));
-" 2>/dev/null
-    )
-    info "Path auto-scoperti da ${BASE_URL}/health: ${PATHS[*]}"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # `$(...)` invece di `mapfile < <(...)`: un fallimento di discover-audit-paths.cjs (server giù,
+    # /sitemap.xml mancante, JSON malformato) deve fermare lo script qui — con la process substitution
+    # l'exit code del comando sostituito si perde, PATHS resterebbe vuoto in silenzio e il ciclo di
+    # audit sotto, su un array vuoto, uscirebbe con successo senza aver controllato nessuna pagina.
+    if ! DISCOVERED="$(node "${SCRIPT_DIR}/discover-audit-paths.cjs" "$BASE_URL" "${A11Y_DYNAMIC_MAX:-100}")"; then
+        fail "Scoperta path fallita — server non raggiungibile o endpoint /health o /sitemap.xml non validi"
+        exit 2
+    fi
+    # DISCOVERED vuoto → nessun path scoperto: un `mapfile <<< ""` produrrebbe comunque un array di
+    # UN elemento (stringa vuota, per via del newline finale del here-string), non un array vuoto —
+    # il controllo sotto non lo vedrebbe e finirebbe per auditare "/" anche su un sito senza pagine.
+    if [[ -z "$DISCOVERED" ]]; then
+        PATHS=()
+    else
+        mapfile -t PATHS <<< "$DISCOVERED"
+    fi
+    if [[ ${#PATHS[@]} -eq 0 ]]; then
+        warn "Nessun path da auditare — controllo saltato"
+        exit 2
+    fi
+    info "Path auto-scoperti (statiche + sitemap dinamica): ${PATHS[*]}"
 fi
 
 TIMEOUT="${A11Y_TIMEOUT:-30000}"
 CONCURRENCY="${A11Y_CONCURRENCY:-2}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 FRONTEND_DIR="${SCRIPT_DIR}/../../frontend"
 PA11Y_CONFIG="${SCRIPT_DIR}/pa11y.json"
 
@@ -142,6 +140,17 @@ if [[ -f "${FRONTEND_DIR}/node_modules/pa11y/package.json" ]]; then
     info "Concorrenza: ${CONCURRENCY} pagine in parallelo (A11Y_CONCURRENCY per cambiarla)"
     RUNNER="${FRONTEND_DIR}/.a11y-run-$$.cjs"
     trap 'rm -f "$RUNNER"' EXIT
+
+    # Git Bash/MSYS converte ogni argomento che inizia con `/` in un path Windows:
+    # le route `/policy/...` finirebbero quindi in Pa11y come `C:/Program Files/Git/...`.
+    # Disabilitiamo la conversione solo per Node e convertiamo esplicitamente i due file locali
+    # che Node deve leggere. Su Linux/macOS le variabili restano invariate.
+    NODE_RUNNER="$RUNNER"
+    NODE_CONFIG="$PA11Y_CONFIG"
+    if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+        NODE_RUNNER="$(cygpath -w "$RUNNER")"
+        NODE_CONFIG="$(cygpath -w "$PA11Y_CONFIG")"
+    fi
 
     cat > "$RUNNER" <<'NODEEOF'
 'use strict';
@@ -225,7 +234,7 @@ async function auditPage(browser, raw) {
 NODEEOF
 
     runner_exit=0
-    node "$RUNNER" "$BASE_URL" "$PA11Y_CONFIG" "$TIMEOUT" "$CONCURRENCY" "${PATHS[@]}" || runner_exit=$?
+    MSYS_NO_PATHCONV=1 node "$NODE_RUNNER" "$BASE_URL" "$NODE_CONFIG" "$TIMEOUT" "$CONCURRENCY" "${PATHS[@]}" || runner_exit=$?
     rm -f "$RUNNER"
 
     # Il runner Node gestisce già il conteggio per-pagina e stampa il proprio riepilogo finale

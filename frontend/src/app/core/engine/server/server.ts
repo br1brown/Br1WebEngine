@@ -174,7 +174,7 @@ app.get('/health', (_request, response) => {
     response.json({
         status: 'ok',
         mode: 'ssr',
-        a11yPaths: ContestoSito.getSitemapEntries().map(e => e.path),
+        a11yPaths: ContestoSito.getAuditPaths(),
     });
 });
 
