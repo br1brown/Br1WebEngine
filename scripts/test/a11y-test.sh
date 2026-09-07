@@ -2,7 +2,10 @@
 # =============================================================================
 # a11y-test.sh  —  Accessibility audit su server in esecuzione
 #
-# Esegue pa11y (WCAG 2.1 AA) sulle pagine indicate e stampa le violazioni.
+# Esegue pa11y (WCAG 2.1 AA, motori axe-core + HTML_CodeSniffer — vedi pa11y.json) sulle
+# pagine indicate e stampa le violazioni puntuali. Unico check di accessibilità della CI:
+# la categoria "accessibility" di Lighthouse è volutamente esclusa da lighthouse-test.sh,
+# perché darebbe solo uno score aggregato su un sottoinsieme di queste stesse regole axe-core.
 # Viene chiamato da scripts/deploy.sh nella fase isolata di Pre-flight; può anche girare
 # in isolamento per audit rapidi in locale.
 #

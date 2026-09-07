@@ -5,8 +5,34 @@
 // concrete di /sitemap.xml, che include le pagine dynamicParams enumerate dal backend.
 // Uso: node discover-audit-paths.cjs BASE_URL MAX_DYNAMIC
 
+const fs = require('fs');
 const http = require('http');
 const https = require('https');
+
+// Lingue "altre" (tutte tranne DefaultLanguage) da global-settings.json — unica sorgente di
+// verità, stesso pattern di i18n-check.sh. Servono a scartare, fra le URL dinamiche di sitemap.xml,
+// le varianti-lingua non-default: le pagine dinamiche condividono template/markup fra lingue (solo
+// il testo cambia), quindi auditarle anche in "en" non aggiunge segnale — vedi lo stesso
+// ragionamento in siteBuilder.ts (auditPaths statiche, filtrate a monte a lang === defaultLang).
+// Se global-settings.json non è leggibile (script copiato fuori dal repo), niente filtro: si torna
+// al comportamento precedente, tutte le lingue incluse.
+let otherLangs = [];
+try {
+    const settings = JSON.parse(fs.readFileSync(`${__dirname}/../../global-settings.json`, 'utf8'));
+    const defaultLang = settings.Localization?.DefaultLanguage || 'it';
+    const supported = Array.isArray(settings.Localization?.SupportedLanguages) && settings.Localization.SupportedLanguages.length > 0
+        ? settings.Localization.SupportedLanguages
+        : [defaultLang];
+    otherLangs = supported.filter(lang => lang !== defaultLang);
+} catch { /* vedi commento sopra: nessun filtro applicato */ }
+
+// Una URL è in lingua "altra" se il primo segmento del path è uno dei codici in otherLangs —
+// lo stesso schema di prefissazione di resolveLangPrefix() in siteBuilder.ts (`/${lang}` per
+// tutto tranne defaultLang, che non ha prefisso).
+function isOtherLangPath(urlPath) {
+    if (otherLangs.length === 0) return false;
+    return otherLangs.includes(urlPath.split('/')[1] || '');
+}
 
 const [baseUrlArg, maxDynamicArg] = process.argv.slice(2);
 if (!baseUrlArg) {
@@ -59,8 +85,8 @@ function sitemapPaths(xml) {
     return paths;
 }
 
-// Distribuisce il campione nell'ordine stabile della sitemap: con contenuti multilingua
-// non finisce per controllare soltanto la prima lingua o soltanto i primi record.
+// Distribuisce il campione nell'ordine stabile della sitemap (già filtrata a defaultLang, vedi
+// isOtherLangPath sopra): non finisce per controllare soltanto i primi record.
 function sampleEvenly(paths, limit) {
     if (limit === 0 || paths.length <= limit) return paths;
     return Array.from({ length: limit }, (_, index) => paths[Math.floor(index * paths.length / limit)]);
@@ -69,11 +95,11 @@ function sampleEvenly(paths, limit) {
 (async () => {
     const [healthRaw, xml] = await Promise.all([get('/health'), get('/sitemap.xml')]);
     const health = JSON.parse(healthRaw);
-    if (!Array.isArray(health.a11yPaths)) throw new Error('/health non contiene a11yPaths');
+    if (!Array.isArray(health.auditPaths)) throw new Error('/health non contiene auditPaths');
 
-    const staticPaths = health.a11yPaths;
+    const staticPaths = health.auditPaths;
     const staticSet = new Set(staticPaths);
-    const dynamicPaths = sitemapPaths(xml).filter(path => !staticSet.has(path));
+    const dynamicPaths = sitemapPaths(xml).filter(path => !staticSet.has(path) && !isOtherLangPath(path));
     const selectedDynamic = sampleEvenly(dynamicPaths, maxDynamic);
     const paths = [...new Set([...staticPaths, ...selectedDynamic])];
 

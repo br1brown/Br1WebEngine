@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lighthouse-test.sh  —  Performance & accessibility budget check (Lighthouse)
+# lighthouse-test.sh  —  Performance/best-practices/SEO budget check (Lighthouse)
 #
 # Esegue Lighthouse sulle pagine indicate e verifica che i punteggi per
 # categoria non scendano sotto le soglie definite in lighthouse.json.
+#
+# Categoria "accessibility" volutamente ESCLUSA: la fa già a11y-test.sh (Pa11y, motori
+# axe-core + HTML_CodeSniffer, WCAG2AA), con l'elenco puntuale delle violazioni — Lighthouse
+# darebbe solo uno score aggregato su un sottoinsieme delle stesse regole axe-core, un
+# secondo segnale pass/fail meno informativo del primo sulla stessa cosa.
 #
 # Utilizzo:
 #   ./lighthouse-test.sh BASE_URL [PATH ...]
@@ -224,7 +229,7 @@ for path in "${PATHS[@]}"; do
     while [[ $attempt -le $MAX_ATTEMPTS ]]; do
         REPORT="lh-report-$$-${attempt}.json"
 
-        CATEGORIES="performance,accessibility,best-practices"
+        CATEGORIES="performance,best-practices"
         [[ "$IS_NOINDEX" != "1" ]] && CATEGORIES="${CATEGORIES},seo"
 
         LH_ARGS=(

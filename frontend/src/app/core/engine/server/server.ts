@@ -174,7 +174,9 @@ app.get('/health', (_request, response) => {
     response.json({
         status: 'ok',
         mode: 'ssr',
-        a11yPaths: ContestoSito.getAuditPaths(),
+        // Endpoint pubblici da auditare live in CI (Pa11y + Lighthouse, non solo accessibilità
+        // nonostante il vecchio nome "a11yPaths" — rinominato per riflettere entrambi gli usi).
+        auditPaths: ContestoSito.getAuditPaths(),
     });
 });
 

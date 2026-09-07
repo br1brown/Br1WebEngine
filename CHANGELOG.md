@@ -4,6 +4,25 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Lighthouse: rimossa la categoria `accessibility`, ora la copre solo Pa11y (axe-core + HTML_CodeSniffer)
+
+Le due categorie duplicavano parzialmente la verifica di accessibilità di ogni pagina: `a11y-test.sh` (Pa11y) girava già con l'elenco puntuale delle violazioni WCAG 2.1 AA, mentre la categoria `accessibility` di Lighthouse — basata anch'essa su axe-core, un sottoinsieme delle stesse regole — restituiva solo uno score 0-100 contro una soglia (80), senza dire dove intervenire.
+
+- `pa11y.json`: aggiunto `"runners": ["axe", "htmlcs"]` (pa11y di default usa solo `htmlcs`) — stessa copertura di regole di Lighthouse (axe-core) più HTML_CodeSniffer, con violazioni puntuali per entrambe invece di un punteggio cieco.
+- `lighthouse.json`: rimossa la soglia `accessibility`.
+- `lighthouse-test.sh`: rimossa `accessibility` da `--only-categories` — un audit in meno da calcolare per pagina, tempo di CI ridotto.
+- Verificato: entrambi i runner (`axe.js`/`htmlcs.js`) sono già bundlati in `pa11y` (nessuna dipendenza nuova); sintassi degli script invariata, nessun cambio di interfaccia.
+
+### Audit live (Pa11y/Lighthouse): solo lingua di default, `/health` rinomina `a11yPaths` → `auditPaths`
+
+Con N lingue configurate, `a11y-test.sh`/`lighthouse-test.sh` auditavano ogni pagina UNA VOLTA PER LINGUA (es. 19 pagine statiche × 2 lingue = 38 URL): tempo di CI moltiplicato per il numero di lingue senza guadagno reale, perché le varianti-lingua di una stessa pagina condividono template/markup/componenti — cambia solo il testo tradotto, e un audit di accessibilità o performance dà lo stesso esito in ogni lingua.
+
+- `siteBuilder.ts`: `getAuditPaths()` ora include solo le pagine nella lingua di default (`Localization.DefaultLanguage`) — filtro applicato dove le pagine SSR pubbliche vengono raccolte per l'audit (nuova condizione `isLiveAuditEndpoint`, nome scelto per riflettere che l'elenco serve a verificare endpoint pubblici in CI, non necessariamente presenti in sitemap: una policy `noindex` resta pubblica e va comunque auditata). Sitemap/SEO restano invariati: coprono tutte le lingue per l'hreflang, dominio distinto da questo.
+- `discover-audit-paths.cjs`: le URL dinamiche prese da `/sitemap.xml` (pagine con `dynamicParams`, enumerate dal backend) sono filtrate allo stesso modo, leggendo `Localization.DefaultLanguage`/`SupportedLanguages` da `global-settings.json` (stessa fonte di verità di `i18n-check.sh`).
+- `/health` **rinomina `a11yPaths` → `auditPaths`**: il vecchio nome sottintendeva solo l'accessibilità, ma l'elenco alimenta anche Lighthouse (performance/best-practices/SEO).
+- **Breaking per chi legge `/health` direttamente** (script esterni, monitoraggio custom che leggono il campo per nome): aggiornare il riferimento da `a11yPaths` ad `auditPaths`.
+- Verificato: build di produzione frontend (type-check incluso); `/health` su un'istanza locale conferma l'elenco ridotto alla sola lingua di default (nessun path con prefisso `/en/...`).
+
 ### Menu header/footer: da `site.ts` (build-time) a `nav.ts` (dato, risolto a runtime)
 
 `headerNav`/`footerNav` vivevano dentro `buildSite()`, eseguiti una volta sola, in modo sincrono, al caricamento del modulo — insieme a `PageType`/`pageMap`/`routes`, che DEVONO restare così (Angular vuole `routes` statico al bootstrap). Ma quali voci mostrare in header/footer, in che ordine, con che etichetta, non è struttura del sito: è un dato, potenzialmente diverso per utente loggato o gestito da un pannello admin — e la forma sincrona non lasciava spazio per collegarlo a un'API.

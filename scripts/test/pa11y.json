@@ -1,6 +1,7 @@
 {
   "standard": "WCAG2AA",
   "level": "error",
+  "runners": ["axe", "htmlcs"],
   "hideElements": ".swal2-container",
   "wait": 400,
   "chromeLaunchConfig": {

@@ -1219,9 +1219,17 @@ function processPages(
             const renderMode = page.requiresAuth ? 'client' : (page.renderMode ?? 'server');
             serverRenderEntries.push({ path: fullPath, renderMode, requiresAuth: !!page.requiresAuth, noindex });
 
-            // Audit e sitemap hanno scopi distinti: una policy noindex resta una pagina
-            // pubblica da verificare. I path parametrici non hanno ancora un URL visitabile.
-            if (!page.requiresAuth && renderMode === 'server' && !hasUnresolvedPathParam(fullPath)) {
+            // Endpoint pubblico raggiungibile da auditare live in CI (Pa11y/Lighthouse, vedi
+            // getAuditPaths()) — non necessariamente in sitemap: una policy noindex resta pubblica
+            // e va verificata comunque, solo esclusa dai motori di ricerca (scopo distinto dalla
+            // sitemap/SEO, che invece copre tutte le lingue per l'hreflang). I path parametrici non
+            // hanno ancora un URL visitabile, quindi restano fuori. Solo defaultLang: le
+            // varianti-lingua di una stessa pagina condividono template, markup e componenti — cambia
+            // solo il testo tradotto — quindi un audit di accessibilità o performance darebbe lo
+            // stesso esito in ogni lingua; includerle tutte moltiplicherebbe solo il tempo di CI
+            // (N pagine × M lingue) senza aggiungere segnale.
+            const isLiveAuditEndpoint = !page.requiresAuth && renderMode === 'server' && !hasUnresolvedPathParam(fullPath) && lang === defaultLang;
+            if (isLiveAuditEndpoint) {
                 auditPaths.push(fullPath);
             }
 

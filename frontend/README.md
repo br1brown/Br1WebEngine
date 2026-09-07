@@ -2084,10 +2084,10 @@ Cosa resta fuori per scelta: chunking manuale, plugin esbuild custom o un builde
 L'endpoint `/health` restituisce JSON strutturato (non una stringa generica):
 
 ```json
-{ "status": "ok", "mode": "ssr", "a11yPaths": ["/home", "/chi-siamo", "..."] }
+{ "status": "ok", "mode": "ssr", "auditPaths": ["/home", "/chi-siamo", "..."] }
 ```
 
-`a11yPaths` è la lista delle pagine pubbliche SSR statiche per gli audit live. È intenzionalmente separata dalla sitemap: include le pagine `noindex`, comprese le policy legali, perché restano superficie utente da verificare con Pa11y e Lighthouse. Gli script la uniscono alle URL concrete di `/sitemap.xml`, quindi includono anche le pagine `dynamicParams` enumerate dal backend nello stack di test. Pa11y ne controlla fino a 100 (`A11Y_DYNAMIC_MAX`) e Lighthouse fino a 20 (`LIGHTHOUSE_DYNAMIC_MAX`); oltre il tetto selezionano un campione distribuito e deterministico. Pagine protette e client-only restano escluse.
+`auditPaths` è la lista delle pagine pubbliche SSR statiche per gli audit live (nome scelto perché alimenta sia Pa11y che Lighthouse, non solo l'accessibilità). È intenzionalmente separata dalla sitemap: include le pagine `noindex`, comprese le policy legali, perché restano superficie utente da verificare con Pa11y e Lighthouse; contiene però solo la lingua di default (`Localization.DefaultLanguage`), perché le varianti-lingua di una stessa pagina condividono template e markup — cambia solo il testo tradotto — e un audit strutturale/di performance darebbe lo stesso esito in ogni lingua. Gli script la uniscono alle URL concrete di `/sitemap.xml` (anch'esse filtrate alla sola lingua di default, stesso motivo), quindi includono anche le pagine `dynamicParams` enumerate dal backend nello stack di test. Pa11y ne controlla fino a 100 (`A11Y_DYNAMIC_MAX`) e Lighthouse fino a 20 (`LIGHTHOUSE_DYNAMIC_MAX`); oltre il tetto selezionano un campione distribuito e deterministico. Pagine protette e client-only restano escluse.
 
 ### Status Code SEO-Aware
 
