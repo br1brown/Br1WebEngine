@@ -383,6 +383,10 @@ export class ThemeService {
         el.setAttribute('data-theme-tone', tone);
 
         const link = lt ? p.colorLinkLt : p.colorLinkDk;
+        // Fissi Lt/Dk (non tone-adaptive sull'OS): servono al ponte CSS dei subtheme [data-bs-theme]
+        // nidificati, stesso motivo di --colorLinkLt/Dk sotto — vedi commento su "Varianti Lt/Dk separate".
+        const linkHoverLt = ThemeService.mixHexColors(p.colorLinkLt, '#000000', 0.15);
+        const linkHoverDk = ThemeService.mixHexColors(p.colorLinkDk, '#ffffff', 0.15);
         const fontFamily = resolvedFonts.webStack;
         const vars: [string, string][] = [
             // Font
@@ -417,10 +421,23 @@ export class ThemeService {
             // Link + focus ring — tone-adaptive: contrasto leggibile del link sul pannello
             ['--colorLinkLt', p.colorLinkLt],
             ['--colorLinkDk', p.colorLinkDk],
+            // Triple RGB fisse Lt/Dk di link e link-hover: senza queste, un subtheme [data-bs-theme]
+            // nidificato (es. pannello forced-light dentro pagina dark, vedi app.component.html) fa
+            // ricadere Bootstrap sul SUO --bs-link-color-rgb di stock (#0d6efd) — la mixin
+            // theme-bridge in _lib.scss sovrascrive --bs-link-color (hex) ma non la variante -rgb,
+            // che è quella che il CSS compilato di Bootstrap usa davvero per il colore del testo dei
+            // link (`a { color: rgba(var(--bs-link-color-rgb), ...) }`) e per il suo hover
+            // (`a:hover { --bs-link-color-rgb: var(--bs-link-hover-color-rgb) }`). Risultato pratico:
+            // link su un pannello a tema forzato restavano blu Bootstrap invece del brand, a volte
+            // sotto soglia WCAG AA (bug trovato da a11y-test.sh dopo l'aggiunta del runner axe-core).
+            ['--colorLinkRgbLt', ThemeService.hexToRgbTriplet(p.colorLinkLt)],
+            ['--colorLinkRgbDk', ThemeService.hexToRgbTriplet(p.colorLinkDk)],
+            ['--colorLinkHoverRgbLt', ThemeService.hexToRgbTriplet(linkHoverLt)],
+            ['--colorLinkHoverRgbDk', ThemeService.hexToRgbTriplet(linkHoverDk)],
             ['--colorLink', link],
             ['--focusRingColor', link],
             ['--bs-link-color', link],
-            ['--bs-link-hover-color', ThemeService.mixHexColors(link, lt ? '#000000' : '#ffffff', 0.15)],
+            ['--bs-link-hover-color', lt ? linkHoverLt : linkHoverDk],
             // Surfaces (tone-adaptive)
             ['--colorBase', lt ? p.colorBaseLt : p.colorBaseDk],
             ['--colorSurface', lt ? p.colorSurfaceLt : p.colorSurfaceDk],
