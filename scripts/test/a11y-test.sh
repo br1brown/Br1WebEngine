@@ -6,6 +6,17 @@
 # pagine indicate e stampa le violazioni puntuali. Unico check di accessibilità della CI:
 # la categoria "accessibility" di Lighthouse è volutamente esclusa da lighthouse-test.sh,
 # perché darebbe solo uno score aggregato su un sottoinsieme di queste stesse regole axe-core.
+#
+# `levelCapWhenNeedsReview: "warning"` in pa11y.json: axe-core a volte non riesce a
+# determinare con certezza lo sfondo effettivo di un elemento (es. un elemento
+# `position: fixed` a schermo intero sovrapposto, come lo smoke-effect decorativo del
+# template) e marca color-contrast come "incomplete"/needsFurtherReview — NON una
+# violazione confermata, un "non sono sicuro, verifica a mano". Senza questo cap pa11y la
+# promuove comunque a `error` (in base al solo impact) e blocca la CI su un falso allarme;
+# con level:"error" in cima a questo file, capparla a "warning" la filtra dai risultati
+# riportati. Le violazioni CONFERMATE (non "incomplete") restano `error` e bloccano CI
+# come prima — questo tocca solo i casi dubbi.
+#
 # Viene chiamato da scripts/deploy.sh nella fase isolata di Pre-flight; può anche girare
 # in isolamento per audit rapidi in locale.
 #

@@ -92,6 +92,9 @@ jobs:
             exit 1
           fi
 
+      - name: Invarianti SiteBuilder
+        run: bash scripts/test/site-builder-check.sh
+
       - name: Genera icone
         working-directory: frontend
         run: npm run generate:icons

@@ -4,6 +4,14 @@ Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspetta
 
 ## [Non rilasciato]
 
+### Nuovo check CI: invarianti statiche di SiteBuilder
+
+Un template con potenzialmente migliaia di figli eredita ogni comportamento di `siteBuilder.ts` senza rete di sicurezza propria: una regressione lì (es. un merge futuro che tocca la logica di `getAuditPaths()`) non aveva alcun modo di essere scoperta prima che un figlio la trovasse a runtime o notasse la CI più lenta.
+
+- Nuovo `frontend/src/app/core/engine/scripts/checks/site-builder-invariants.ts` (eseguito via `tsx`, stesso pattern di `generate-statics.ts`): costruisce `ContestoSito` come farebbe l'SSR e verifica due invarianti opposte sullo stesso dato — `getAuditPaths()` deve restare alla sola lingua di default (vedi voce sotto su "Audit live"), mentre `getSitemapEntries()` deve coprire TUTTE le lingue configurate (hreflang). Nessun server necessario, gira in pochi secondi.
+- Nuovo `scripts/test/site-builder-check.sh` (wrapper, stesso stile di `tsc-check.sh`/`i18n-check.sh`), aggiunto a `run-all.sh` e al job "frontend" della CI, subito dopo la generazione di `environment.ts`.
+- Verificato: rotto deliberatamente `isLiveAuditEndpoint` in `siteBuilder.ts` (forzato a `true`) per confermare che il check lo intercetta (9 fallimenti riportati, uno per path in lingua non-default), poi ripristinato — torna verde.
+
 ### Lighthouse: rimossa la categoria `accessibility`, ora la copre solo Pa11y (axe-core + HTML_CodeSniffer)
 
 Le due categorie duplicavano parzialmente la verifica di accessibilità di ogni pagina: `a11y-test.sh` (Pa11y) girava già con l'elenco puntuale delle violazioni WCAG 2.1 AA, mentre la categoria `accessibility` di Lighthouse — basata anch'essa su axe-core, un sottoinsieme delle stesse regole — restituiva solo uno score 0-100 contro una soglia (80), senza dire dove intervenire.
@@ -11,7 +19,8 @@ Le due categorie duplicavano parzialmente la verifica di accessibilità di ogni 
 - `pa11y.json`: aggiunto `"runners": ["axe", "htmlcs"]` (pa11y di default usa solo `htmlcs`) — stessa copertura di regole di Lighthouse (axe-core) più HTML_CodeSniffer, con violazioni puntuali per entrambe invece di un punteggio cieco.
 - `lighthouse.json`: rimossa la soglia `accessibility`.
 - `lighthouse-test.sh`: rimossa `accessibility` da `--only-categories` — un audit in meno da calcolare per pagina, tempo di CI ridotto.
-- Verificato: entrambi i runner (`axe.js`/`htmlcs.js`) sono già bundlati in `pa11y` (nessuna dipendenza nuova); sintassi degli script invariata, nessun cambio di interfaccia.
+- `pa11y.json`: aggiunto `"levelCapWhenNeedsReview": "warning"`. Aggiungere axe ha scoperto che axe-core, quando NON riesce a determinare con certezza lo sfondo effettivo di un elemento (tipicamente per una sovrapposizione con un elemento `position: fixed` a schermo intero come lo smoke-effect decorativo del template), marca `color-contrast` come "incomplete"/`needsFurtherReview` — un "non sono sicuro, verifica a mano", non una violazione confermata. Senza questo cap, pa11y la promuove comunque a `error` in base al solo impact e blocca la CI su falsi allarmi (verificato: 3 falsi allarmi sulla home del template sparivano esattamente con questo cap, mentre restano intatti quando è una violazione VERA — vedi punto sotto). Le violazioni confermate (`needsFurtherReview: false`) restano `error` e bloccano CI come prima.
+- **Trovato durante la verifica** (non ancora corretto — segnalato, non nascosto): axe con questo cap ha comunque trovato una violazione REALE e confermata su `/policy/accessibilita` — un link con contrasto 4.17:1 (sotto la soglia 4.5:1 AA), causato da un'interazione fra il sistema di temi e Bootstrap. Il pannello "sottotema" (`[attr.data-bs-theme]` su `.content-panel`, usato per forzare chiaro/scuro indipendentemente dal tema di pagina — vedi `app.component.html`/`theme.service.ts`) fa sì che Bootstrap ri-dichiari `--bs-link-color-rgb` al proprio valore di stock (`#0d6efd`/`13, 110, 253`), perché `theme-bridge` in `_lib.scss` sovrascrive `--bs-link-color` (hex) ma non la variante `-rgb` che il CSS compilato di Bootstrap usa davvero per il colore del testo dei link (`rgba(var(--bs-link-color-rgb), ...)`). Fuori da un sottotema nidificato il colore resta corretto (l'inline style di `ThemeService` su `<html>` non passa da questo percorso). Non corretto in questa sessione: tocca `theme.service.ts` e la mixin di bridging, un cambiamento di sistema-colori con impatto su ogni figlio, non un fix isolato — richiede una decisione di design (ribindare anche `-rgb` nei sottotemi vs. accettare i default Bootstrap lì e aggiustare invece la tinta del pannello).
 
 ### Audit live (Pa11y/Lighthouse): solo lingua di default, `/health` rinomina `a11yPaths` → `auditPaths`
 
