@@ -115,7 +115,7 @@ protected async onFilesConfirmed(files: File[]): Promise<void> {
 `labels` (input opzionale, `UploadFormLabels`) sovrascrive i testi campo per campo — non passato, ciascuno ricade sulla chiave i18n di default. Per servire/recuperare il file caricato, vedi la ricetta backend "Caricare/servire un file" più sotto (`getBlobUrl(slug)`/`getBlob(slug)` sul client).
 
 #### Persistere dati lato client (cookie, Web Storage, consenso)
-Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-un-cookie-o-una-voce-di-web-storage). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
+Un registro (`COOKIE_MAP` in `core/services/cookie-registry.ts`), un'API, gated dal consenso: registrare una voce basta per toggle nel banner, riga in policy (mezzo/provider/durata) e pulizia alla revoca. Ricetta completa (shape della voce, campi opzionali, la variante `match: 'prefix'` per famiglie di chiavi di SDK di terza parte) in [frontend/README.md](frontend/README.md#aggiungere-voci-in-cookie_map). Qui solo la forma di chiamata, che è quella che serve scrivendo codice:
 ```typescript
 // nel componente/service — instrada sul mezzo (cookie o Web Storage) in base a come la voce è
 // registrata, tipizzato su valueType
