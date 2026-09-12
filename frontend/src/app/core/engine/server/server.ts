@@ -24,7 +24,7 @@ import { fileExists } from './fs-utils';
 import { apiProxyHandler } from './routes/api-proxy';
 import { cdnAssetHandler } from './routes/cdn-asset';
 import { ogPreviewHandler } from './routes/og-preview';
-import { dynamicSitemapHandler, revalidateSitemapHandler, dynamicAuditPathsHandler } from './routes/dynamic-sitemap';
+import { dynamicSitemapHandler, revalidateSitemapHandler, dynamicAuditPathsHandler, dynamicLlmsTxtHandler } from './routes/dynamic-sitemap';
 import { securityTxtHandler } from './routes/dynamic-security-txt';
 import { customFontFilePath } from './custom-font-detect';
 import { resolvedFonts } from '../../../../styles/font-config';
@@ -204,6 +204,7 @@ app.get(CdnCgiPaths.preview, ogPreviewHandler);
 
 /** Endpoint sitemap.xml generato a runtime. */
 app.get('/sitemap.xml', dynamicSitemapHandler);
+app.get('/llms.txt', dynamicLlmsTxtHandler);
 
 /** Invalidazione on-demand della cache sitemap da backend. */
 app.post('/internal/revalidate-sitemap', revalidateSitemapHandler);

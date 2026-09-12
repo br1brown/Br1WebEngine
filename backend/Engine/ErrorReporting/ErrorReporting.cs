@@ -29,6 +29,32 @@ public sealed record ErrorReport
 
     /// <summary>Stack trace, se disponibile. Nessun troncamento qui: lo decide l'implementazione in base al trasporto.</summary>
     public string? StackTrace { get; init; }
+
+    /// <summary><c>"server"</c> (default, bug lato API) o <c>"client"</c> (eccezione JS non gestita
+    /// nel browser di un visitatore, vedi <see cref="Backend.Controllers.EngineClientErrorController"/>)
+    /// — distingue le due fonti nello stesso canale di allerta, senza due sistemi separati.</summary>
+    public string Source { get; init; } = "server";
+}
+
+/// <summary>
+/// Payload inviato dal browser per un'eccezione JavaScript non gestita — vedi
+/// <see cref="Backend.Controllers.EngineClientErrorController"/> e, lato frontend,
+/// <c>frontend/README.md</c> § Error Tracking. Tutti i campi opzionali: un <c>Error</c> del
+/// browser non garantisce sempre uno stack o un nome tipizzato.
+/// </summary>
+public sealed record ClientErrorReport
+{
+    /// <summary><c>Error.message</c> dell'eccezione originale.</summary>
+    public string? Message { get; init; }
+
+    /// <summary><c>Error.name</c> (es. <c>TypeError</c>).</summary>
+    public string? ExceptionType { get; init; }
+
+    /// <summary>Percorso della pagina (<c>location.pathname</c>) in cui l'errore si è verificato.</summary>
+    public string? Path { get; init; }
+
+    /// <summary><c>Error.stack</c>, se disponibile.</summary>
+    public string? StackTrace { get; init; }
 }
 
 /// <summary>

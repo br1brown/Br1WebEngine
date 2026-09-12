@@ -19,7 +19,7 @@ L'Engine si estende ereditando o registrando servizi in DI, mai modificando `Eng
 - **Dati personali (Oblio/Export)**: Implementa `IPersonalDataStore`. Gli endpoint `GET/DELETE /me/data` sono già pronti e protetti. (Ricetta: [AGENTS.md](../AGENTS.md#esportare-e-cancellare-i-dati-personali)).
 - **Configurazione**: Usa le sezioni `Security.*`, `Mail.*`, `Localization.*`, e `Custom:` di `global-settings.json`. Header web in `security-headers.json`.
 - **Servizi esterni**: Registra un `HttpClient` tipizzato. Per i webhook, usa `EngineApiController` con `[AllowAnonymous]` e valida la firma sul body grezzo.
-- **Error reporting**: Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per ricevere POST automatici sugli errori ≥500.
+- **Error reporting**: Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per ricevere POST automatici sugli errori ≥500 (server) e sulle eccezioni JS non gestite nel browser (client, via `EngineClientErrorController`).
 
 ---
 
@@ -343,11 +343,12 @@ builder.Services.AddSingleton<IPersonalDataStore, AppPersonalDataStore>();
 
 - Imposta `ErrorReporting.WebhookUrl` in `global-settings.local.json` per abilitare le notifiche proattive.
 - **Webhook POST**: un error handler invia in automatico un JSON struct con dettagli (stack trace, path, timestamp) in background per ogni eccezione applicativa (status ≥ 500) o non gestita.
+- **Anche lato client**: `EngineClientErrorController` (`POST diagnostics/ui-fault`, sola API Key — funziona pure per visitatori anonimi) riceve le eccezioni JavaScript non gestite nel browser (vedi frontend README § Error Tracking, `ClientErrorReportingService`) e le accoda allo stesso `IErrorReportingService` — `source: "client"` le distingue da quelle server nello stesso canale.
 - Utile per inoltrare ad allarmi Slack/Discord o a servizi centralizzati.
 
 ```json
 {
-  "project": "Nome Progetto",
+  "project": "Nome Progetto", "source": "server",
   "message": "...", "exceptionType": "System.NullReferenceException",
   "statusCode": 500, "path": "/api/v1/orders", "method": "POST",
   "stackTrace": "...", "timestamp": "2026-08-24T10:00:00Z"

@@ -1,6 +1,53 @@
 # Changelog
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
+### `llms.txt`: da file generato al build a endpoint runtime, con pagine dinamiche (`dynamicParams`)
+
+Come `sitemap.xml`, `llms.txt` generato a build time perdeva del tutto le pagine parametriche (i cataloghi dinamici) perché non enumerabili al build. È stato quindi promosso da asset statico a rotta dinamica.
+
+- `public/llms.txt` **non è più generato da `generate-statics.ts`**: `llms.txt` è ora un endpoint (`GET /llms.txt`, `server/routes/dynamic-sitemap.ts`), montato nel Node SSR prima dello static handler. Ripete esattamente l'architettura collaudata per la sitemap: si unisce alle pagine statiche usando la stessa logica di `dynamicParams` interrogando il backend a runtime.
+- **Condivisione cache e logica**: Usa la stessa cache e logica di invalidamento via `POST /internal/revalidate-sitemap` introdotta per la sitemap.
+- **Breaking, solo se l'infrastruttura di deploy assume `llms.txt` come file statico**: stesso disclaimer di `sitemap.xml`. Un CDN che by-passa il Node SSR per file `.txt` potrebbe restituire 404 se non instradato correttamente.
+- Verificato: build di produzione frontend e type-check puliti.
+
+
+### Error tracking client-side: le eccezioni JS del browser arrivano allo stesso webhook di quelle server
+
+`IErrorReportingService` (backend) segnalava già i bug lato API (§ voce precedente in questo stesso ambito, § 10 di `backend/README.md`) — ma un'eccezione JavaScript nel browser di un visitatore non passa da nessuna richiesta HTTP fallita, quindi non ci arrivava mai. Completa il meccanismo esistente sul lato che mancava, invece di costruirne uno separato.
+
+- **Backend**: nuovo `EngineClientErrorController` (`POST diagnostics/ui-fault`, sola API Key — funziona anche per visitatori anonimi, stesso schema di `EngineNotificationStreamController`). Accoda a `IErrorReportingService.ReportAsync` esattamente come `ApiExceptionHandler` fa per i bug server. `ErrorReport` ha un nuovo campo opzionale `Source` (`"server"` default, `"client"` per questo endpoint) per distinguere le due fonti nello stesso canale — nessuna rottura per chi già consuma `ErrorReport`/`EngineErrorReporting`, è additivo.
+- **Frontend**: nuovo `ClientErrorReportingService`, `ErrorHandler` globale registrato in `app.config.ts`. Copre sia gli errori che Angular già traccia sia — punto rilevante per un'app **zoneless** come questa, verificato dal vivo: senza `zone.js` un `ErrorHandler` da solo non riceve un errore da un `setTimeout` nudo o un listener DOM aggiunto a mano — quelli fuori da un contesto Angular, tramite `window.addEventListener('error'/'unhandledrejection')`. Spento in sviluppo, nessuna destinazione se il webhook backend non è configurato.
+- Non breaking, additivo, zero-config per i figli.
+- **Verificato**: `tsc --noEmit` pulito, build di produzione completa (browser + server); test dal vivo in Chromium sulla build di produzione — un errore fuori da un contesto Angular (che senza i listener `window` sarebbe passato inosservato, confermato) genera correttamente una `POST diagnostics/ui-fault` con `message`/`exceptionType`/`path`/`stackTrace`. Lato backend, `dotnet build` pulito (0 warning, 0 errori) e test end-to-end dal vivo (`dotnet run` + un webhook fittizio locale): la richiesta del browser arriva a `EngineClientErrorController`, viene accodata e il webhook riceve il JSON atteso con `source: "client"`; verificati anche il 401 senza API key e i fallback (`"(nessun messaggio)"`/`"ClientError"`) su un payload vuoto.
+
+### Nuovo `WebVitalsService`: Core Web Vitals reali, raccolte ma senza destinazione di default
+
+Il template misurava tanto (Lighthouse/pa11y in CI, contrasto WCAG calcolato) ma nulla di com'è davvero l'esperienza per chi visita il sito — solo audit sintetici, mai un utente reale con la sua connessione. `WebVitalsService` chiude questo buco lato Engine, senza decidere nulla che non gli spetti.
+
+- Raccoglie LCP, INP, CLS, FCP, TTFB via la libreria `web-vitals` (zero dipendenze proprie). `init()` chiamato da `app.component.ts` accanto a `VersionCheckService.init()` — stesso punto, stesso pattern.
+- Deliberatamente **senza destinazione di rete di default**: dove mandare questi dati (endpoint proprio, GA4, altro RUM) è una scelta di progetto, non dell'Engine. Zero chiamate in uscita aggiunte: le metriche finiscono in un signal (`metrics()`) osservabile con un `effect()` per chi vuole spedirle altrove, e in console (`console.debug`) solo in sviluppo.
+- Non breaking, additivo: nessun figlio deve toccare nulla per riceverlo al merge — se nessuno legge `metrics()`, il servizio non fa altro che ascoltare eventi già emessi dal browser.
+- Verificato: `tsc --noEmit` pulito, build di produzione completa (bundle browser + server) senza errori.
+
+### `ImgBuilderService`: `drawImageCroppedTop` riassorbito in `drawImageFit` come terzo `fit: 'cropTop'`
+
+Nello stesso giro che ha tolto lo sfondo sfocato da `'fittedCaption'` (voce sotto), il ritaglio-dal-basso era finito in un metodo a sé (`drawImageCroppedTop`), chiamato da `buildFittedCaptionCanvas` con un proprio `fillRect` di sfondo scritto a mano — un secondo percorso di compositing immagine, parallelo a `drawImageBackground`/`drawImageFit` che già servono `'pill'`/`'caption'`. Nessun bug, ma due framework invece di uno per lo stesso servizio.
+
+- `drawImageFit` prende ora un terzo `fit: 'cropTop'` (stessa logica che aveva `drawImageCroppedTop`, spostata dentro senza modifiche). `drawImageCroppedTop` rimosso.
+- `buildFittedCaptionCanvas` disegna la zona immagine con lo stesso `drawImageBackground` di `'pill'`/`'caption'` (`{ fit: 'cropTop' }`), non più con un `fillRect` + chiamata a parte: un solo punto di compositing per tutto il servizio, `'fittedCaption'` sceglie solo un `fit` che gli altri stili non usano di default.
+- Non breaking (`drawImageCroppedTop` era privato, nessun consumer esterno) e non cambia il risultato: stessa identica matematica, solo spostata. Verificato: `tsc --noEmit` pulito; ri-eseguita la batteria di verifica automatica (6 rapporti immagine × 3 risoluzioni native × 2 lunghezze testo, 36 combinazioni con confronto atteso/ottenuto sulle dimensioni) — 36/36 identiche a prima del refactor, pixel per pixel per costruzione.
+
+### `ImgBuilderService`: `'fittedCaption'` non sfoca più l'immagine — due zone separate, immagine sempre nitida ed eventualmente ritagliata
+
+Con testo molto lungo su un'immagine di rapporto standard, `canvasH` cresce oltre l'altezza naturale dell'immagine per far entrare tutto il testo a scala 1. Il comportamento di base (`'blurred'`+`'contain'`, un solo canvas condiviso fra immagine e fascia testo) lasciava sempre una quota di sfondo sfocato visibile per riempire lo scarto fra il riquadro nitido e il resto del canvas — spostabile (un primo tentativo, `foregroundAlign: 'top'`, l'ha spinta tutta sotto invece che divisa sopra/sotto) ma non eliminabile: la sfocatura restava comunque una scelta di ripiego, non quello che l'utente aveva caricato.
+
+Ripensato da zero: **niente più sfondo sfocato in `'fittedCaption'`**, in nessun caso.
+
+- `buildFittedCaptionCanvas` non condivide più un canvas unico fra immagine e testo: compone due zone indipendenti, immagine sopra e fascia testo sotto, con la stessa dissolvenza (scrim + fade) che `buildCaption` usa già in `position: 'bottom'` — non più una riga netta fra le due.
+- L'immagine è sempre disegnata nitida e a piena larghezza. Se la sua altezza naturale supera il tetto (nuova opzione `FittedCaptionOptions.maxImageRatio`, frazione della larghezza canvas, default `0.6`) viene ritagliata dal basso — mai zoomata sui lati (a differenza di un `'cover'` su un canvas più alto, che dovrebbe sacrificare i lati di un'immagine larga), mai deformata. Se l'immagine è già più bassa del tetto, nessun ritaglio.
+- La fascia testo è dimensionata sul solo contenuto reale (`fitTextBlocks`), non più sul tetto "60% di canvasH" pensato per il vecchio canvas condiviso: niente più spazio vuoto sprecato intorno al testo.
+- **Breaking, ma senza consumer reali** (verificato su tutto l'albero + figli, `'fittedCaption'` non aveva ancora un caller reale): `ImageCanvasOptions.foregroundAlign` rimosso (introdotto e già superato nello stesso giro, l'approccio "contain centrato/ancorato" non esiste più). `FittedCaptionOptions.minImageRatio` sostituito da `maxImageRatio` (semantica opposta: non più una quota minima di immagine da lasciare visibile in un canvas condiviso, ma un tetto massimo alla zona immagine, ora indipendente). `imgOpts` per `'fittedCaption'` accetta solo `width`/`backdropColor` (`background`/`foreground`/`fit`/`insetHeightRatio` non si applicano più: l'unico modo in cui questo stile mostra un'immagine, ora, è questo). Rimosso anche `ImgBuilderService.fitCaptionHeight` (pubblico ma senza consumer esterni, mai documentato in questo README): la sua logica non serve più a `'fittedCaption'`, che misura la fascia testo per conto proprio.
+- Verificato: `tsc --noEmit` pulito sul frontend del template; batteria di rendering dal vivo in browser su 7 rapporti immagine (da 21:9 a 9:16) × 3 lunghezze di testo (corto/medio/lungo, con e senza sottotitolo) — 21 combinazioni, zero errori, testo mai troncato, nessuna immagine deformata o sfocata; sanity check su `style: 'plain'` (nessuna immagine coinvolta) per escludere regressioni sugli stili che non passano da questo percorso.
 
 ### `ImgBuilderService`: un solo `buildCanvas`/`buildBlob`/`buildFile` per stile — e `'fittedCaption'`, mai più ellissi sul testo generato
 
@@ -22,7 +69,7 @@ Portati dal Dominio di due figli (Br1Gaming, agnese) dopo che ciascuno aveva tro
 - `_bootstrap-theme.scss`: `--bs-navbar-brand-color`/`--bs-navbar-brand-hover-color` sovrascritti in `.navbar.theme-bg` a livello di CSS globale (non scoped component-style) — rete di sicurezza per le pagine client-only dove lo scoped style di Bootstrap verrebbe comunque scartato: contrasto garantito anche lì.
 - `notification.service.ts`: l'import bare `sweetalert2` (`dist/sweetalert2.all.js`) inietta il proprio CSS base via `<style>` **senza nonce** — scartato in silenzio, la modale perdeva `position:fixed` e appariva in fondo alla pagina. Si importa ora `sweetalert2/dist/sweetalert2.esm.js` (stesso JS, niente auto-injection) e il CSS base va staticamente in `angular.json` → `styles` (nuovo `sweetalert2-esm.d.ts` per i tipi, assenti su quell'entry point).
 - Non breaking: nessun contratto di Dominio cambia. Un figlio con questa stessa classe di sintomi (stili scoped che spariscono solo su rotte client-only, o modali/dropdown di librerie terze fuori posto) la eredita gratis al merge.
-- **Non incluso qui, di proposito**: un workaround WebKit iOS distinto per elementi `position:fixed` comparsi dopo il primo paint (banner cookie, modale SweetAlert2), trovato nello stesso giro di debug di un figlio. Non escludibile che fosse solo un altro sintomo del bug CSP sopra (il sintomo osservato — "si vede nel punto dov'è nel flusso invece che ancorato" — è coerente anche con uno stile mai applicato del tutto) e non con un vero bug di compositing separato: senza un dispositivo iOS reale su cui isolarlo dal fix CSP, non ci fidiamo a tenerlo. Patch pronta in `patches/webkit-fixed-position-reflow.patch`, da riapplicare (`git apply patches/webkit-fixed-position-reflow.patch`) solo se il sintomo si ripresenta *dopo* questo fix su un device reale.
+- **Workaround WebKit iOS valutato e scartato**: un fix distinto per elementi `position:fixed` comparsi dopo il primo paint (banner cookie, modale SweetAlert2), trovato nello stesso giro di debug di un figlio, era stato tenuto fuori di proposito (`patches/webkit-fixed-position-reflow.patch`, mai applicato) perché non era chiaro se fosse un bug di compositing separato o solo un altro sintomo del bug CSP sopra. Verificato su device reale dopo questo fix: il sintomo non si ripresenta, era davvero solo quello — patch rimossa dal repo, nessun workaround aggiuntivo necessario.
 - Verificato: `tsc --noEmit` pulito sul frontend del template.
 
 ### `backend.csproj`: `data/*.md` ora copiati in `/publish` (non solo i `.json`)

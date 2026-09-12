@@ -146,6 +146,52 @@ export async function dynamicSitemapHandler(_req: Request, res: Response): Promi
     }
 }
 
+let llmsCached: SitemapCacheEntry | null = null;
+let llmsInFlight: Promise<string> | null = null;
+
+async function computeLlmsTxt(): Promise<string> {
+    const [staticEntries, dynamicEntries] = [ContestoSito.getSitemapEntries(), await getDynamicEntries()];
+    const baseUrl = serverEnv.site.baseUrl || 'https://example.com';
+    const entries = [...staticEntries, ...dynamicEntries];
+    const desc = environment.config.description?.[environment.defaultLang] ?? '';
+
+    const lines = [
+        `# ${environment.appName}`,
+        '',
+        `> ${desc}`,
+        '',
+        '## Pagine',
+        ...entries.map(({ path }) => `- ${baseUrl}${path}`),
+    ];
+
+    return lines.join('\n') + '\n';
+}
+
+export async function dynamicLlmsTxtHandler(_req: Request, res: Response): Promise<void> {
+    res.set('Cache-Control', 'no-cache');
+
+    const cacheEnabled = ContestoSito.config.dynamicSitemapCache;
+    const now = Date.now();
+    if (cacheEnabled && llmsCached && llmsCached.expiresAt > now) {
+        res.type('text/plain').send(llmsCached.xml);
+        return;
+    }
+
+    try {
+        llmsInFlight ??= computeLlmsTxt().finally(() => { llmsInFlight = null; });
+        const txt = await llmsInFlight;
+        if (cacheEnabled) llmsCached = { xml: txt, expiresAt: now + CACHE_TTL_MS };
+        res.type('text/plain').send(txt);
+    } catch (err) {
+        console.error('[dynamic-sitemap] llms.txt generazione fallita:', err);
+        if (cacheEnabled && llmsCached) {
+            res.type('text/plain').send(llmsCached.xml);
+            return;
+        }
+        res.status(500).type('text/plain').send('Errore nella generazione di llms.txt.');
+    }
+}
+
 /**
  * `POST /internal/revalidate-sitemap`: azzera la cache in-process, così la richiesta successiva
  * a `/sitemap.xml` ricalcola invece di aspettare il TTL. Chiamato dal backend via `SitemapNotifier`,
@@ -159,6 +205,7 @@ export function revalidateSitemapHandler(req: Request, res: Response): void {
     // A cache disattivata sono sempre già null: qui diventa un no-op innocuo.
     cached = null;
     entriesCache = null;
+    llmsCached = null;
     res.status(204).end();
 }
 

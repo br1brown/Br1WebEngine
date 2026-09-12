@@ -6,16 +6,15 @@
  * - src/environments/environment.ts → identità/estetica del progetto iniettate nel bundle
  * - public/manifest.webmanifest → nome, descrizione, colori
  * - public/robots.txt        → user-agent, disallow, sitemap URL
- * - public/llms.txt          → indice del sito per i crawler AI (convenzione llms.txt)
  * - public/theme-init.js     → script anti-flash del tema, referenziato da index.html
  *
- * security.txt (RFC 9116) NON è qui: è un endpoint runtime (routes/dynamic-security-txt.ts),
- * non un file di build — il contatto viene dall'identità del sito, dato modificabile senza
- * redeploy come ogni altro contatto di progetto.
+ * security.txt (RFC 9116), sitemap.xml e llms.txt NON sono qui: sono endpoint runtime,
+ * non file di build — il contatto viene dall'identità del sito, mentre sitemap/llms
+ * includono rotte dinamiche (es. catalogo) non enumerabili a build time.
  *
  * Solo index.html ed environment.ts sono generati MA versionati (seed: type-check e build
  * passano anche prima della prima esecuzione). Tutto ciò che finisce in public/ (manifest,
- * robots, llms, theme-init, icons) è solo output di build, gitignored
+ * robots, theme-init, icons) è solo output di build, gitignored
  * (public/ è ignorata per intero): lo rigenera il pre-hook prebuild.
  *
  * Eseguire con:
@@ -183,7 +182,7 @@ const SITE_CONFIG_OUT = {
 const INDEX = join(ROOT, 'src', 'index.html');
 const MANIFEST = join(ROOT, 'public', 'manifest.webmanifest');
 const ROBOTS = join(ROOT, 'public', 'robots.txt');
-const LLMS = join(ROOT, 'public', 'llms.txt');
+
 const THEME_INIT = join(ROOT, 'public', 'theme-init.js');
 
 // Rimuove lo slash finale per evitare doppi slash negli URL generati
@@ -451,23 +450,7 @@ function updateRobots(): void {
     console.log(`[statics] robots.txt aggiornato`);
 }
 
-// ── Generazione llms.txt (indice per crawler AI) ──────────────────────────
 
-function updateLlms(): void {
-    const entries = ContestoSito.getSitemapEntries();
-
-    const lines = [
-        `# ${APP_NAME}`,
-        '',
-        `> ${DESCRIPTION}`,
-        '',
-        '## Pagine',
-        ...entries.map(({ path }) => `- ${BASE_URL}${path}`),
-    ];
-
-    writeFileSync(LLMS, lines.join('\n') + '\n', 'utf8');
-    console.log(`[statics] llms.txt aggiornato (${entries.length} pagine)`);
-}
 
 // ── Generazione theme-init.js (anti-flash tema, pre-idratazione) ───────────
 
@@ -502,7 +485,7 @@ function main(): void {
     updateIndexHtml();
     updateManifest();
     updateRobots();
-    updateLlms();
+
     updateThemeInit();
 }
 

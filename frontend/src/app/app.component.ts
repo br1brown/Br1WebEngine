@@ -16,6 +16,7 @@ import { CookieBannerComponent } from './core/engine/components/cookie-banner/co
 import { BreadcrumbComponent } from './core/engine/components/breadcrumb/breadcrumb.component';
 import { PageMetaService } from './core/engine/services/page-meta.service';
 import { VersionCheckService } from './core/engine/services/version-check.service';
+import { WebVitalsService } from './core/engine/services/web-vitals.service';
 import { TranslatePipe } from './core/engine/pipes/translate.pipe';
 
 /**
@@ -97,6 +98,7 @@ export class AppComponent {
         }
 
         inject(VersionCheckService).init();
+        inject(WebVitalsService).init();
 
         // Riapre temporaneamente in stampa i tag <details> chiusi (es. Cookie Policy) 
         // per renderne visibile l'intero contenuto.

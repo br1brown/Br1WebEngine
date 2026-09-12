@@ -3,7 +3,7 @@
  * La struttura del sito vive in `site.ts` (condivisa con gli script di build).
  */
 
-import { ApplicationConfig, TransferState, inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, ErrorHandler, TransferState, inject, isDevMode, provideAppInitializer, provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
 import { provideServiceWorker } from '@angular/service-worker';
@@ -15,6 +15,7 @@ import { TranslateService } from './core/engine/services/translate.service';
 import { SSR_API_PREFIX } from './core/engine/services/base-api.service';
 import { apiErrorInterceptor } from './core/engine/interceptors/api-error.interceptor';
 import { isTechnicalOptionalConsentGiven } from './core/engine/services/cookie-consent.service';
+import { ClientErrorReportingService } from './core/engine/services/client-error-reporting.service';
 import { ContestoSito } from './site';
 import { SITE_CONFIG } from './core/engine/siteBuilder';
 import { SHELL_NAV_RESOLVER, ShellNavService } from './core/engine/services/shell-nav.service';
@@ -86,6 +87,10 @@ export const appConfig: ApplicationConfig = {
             enabled: !isDevMode() && ContestoSito.config.isWebApp && isTechnicalOptionalConsentGiven(),
             registrationStrategy: 'registerWhenStable:30000'
         }),
+        // Segnala al backend (diagnostics/ui-fault → IErrorReportingService) ogni eccezione JS non
+        // gestita nel browser. No-op di rete finché il webhook non è configurato (§ ErrorReporting
+        // in global-settings.local.json) e comunque spento in sviluppo — vedi il servizio.
+        { provide: ErrorHandler, useClass: ClientErrorReportingService },
         {
             provide: SSR_API_PREFIX,
             useValue: API_PREFIX,

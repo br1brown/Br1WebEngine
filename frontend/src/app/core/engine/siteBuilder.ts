@@ -789,7 +789,7 @@ function processPages(
                         });
                     }
                 } else if (isDevMode()) {
-                    console.warn(`[SiteBuilder] "${fullPath}" è una rotta parametrica: esclusa da sitemap/llms.txt (il catalogo concreto arriva da un'API a runtime, non enumerabile a build time). Aggiungi \`dynamicParams\` alla pagina per includerla nella sitemap dinamica.`);
+                    console.warn(`[SiteBuilder] "${fullPath}" è una rotta parametrica: esclusa da sitemap/llms.txt statici (il catalogo concreto arriva da un'API a runtime, non enumerabile a build time). Aggiungi \`dynamicParams\` alla pagina per includerla in sitemap.xml e llms.txt dinamici.`);
                 }
                 return [];
             }

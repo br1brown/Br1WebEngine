@@ -49,6 +49,7 @@ internal sealed class EngineErrorReporting : IErrorReportingService
             var payload = new
             {
                 project = _projectName,
+                source = report.Source,
                 message = report.Message,
                 exceptionType = report.ExceptionType,
                 statusCode = report.StatusCode,
