@@ -525,15 +525,19 @@ export type SitePageContext = {
 export interface SiteShellConfig {
     /**
      * Nome di un preset di design system (`design-system-presets.ts`): un default comodo per
-     * `forceThemeTone`/`panelSurface` insieme, invece di impostarli uno per uno. Un campo
-     * impostato esplicitamente qui sotto vince sempre sul preset. I nomi non sono un contratto
-     * fisso — possono cambiare, non fanno danno a un figlio che non li usa.
+     * l'intero bundle di leve granulari sotto (`forceThemeTone`, `panelSurface`, `navSurface`,
+     * `roleChrome`, `fixedTopHeader`, `pageFade`, `showBreadcrumb`, override colore), invece di
+     * impostarle una per una. Un campo impostato esplicitamente qui sotto (o nel JSON per i colori)
+     * vince sempre sul preset. I nomi non sono un contratto fisso — possono cambiare, non fanno
+     * danno a un figlio che non li usa.
      */
     designSystem?: DesignSystemPresetName;
     /**
-     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
-     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
-     * studiato dal grafico. Default: assente — segue l'OS come sempre. Impostabile anche
+     * Asse "aderenza al tema del browser": assente = **auto**, segue `prefers-color-scheme` come
+     * sempre; `'light'`/`'dark'` = **strict**, fissa l'intero sito su quel tono ignorando l'OS —
+     * utile per un design a palette fissa dove un tema derivato dall'OS romperebbe il contrasto
+     * studiato dal grafico. Un solo campo per entrambi i fatti (se è strict, e quale tono): non può
+     * rappresentare uno stato invalido ("strict ma senza dire quale tono"). Impostabile anche
      * indirettamente scegliendo un `designSystem` che lo preveda (vedi sopra).
      */
     forceThemeTone?: 'light' | 'dark';
@@ -543,9 +547,12 @@ export interface SiteShellConfig {
     showFooter?: boolean;
     /** Mostra il pannello contenuti (`.content-panel`). Default: true. */
     showPanel?: boolean;
-    /** Mostra il breadcrumb sulle pagine interne. Default: `false`. */
+    /** Mostra il breadcrumb sulle pagine interne. Default: `false` — o il default del `designSystem`
+     *  attivo se lo mappa. Un valore esplicito qui vince sempre sul preset. */
     showBreadcrumb?: boolean;
-    /** Fissa la navbar in alto allo scroll. Default: false. */
+    /** Fissa la navbar in alto allo scroll. Default: false — o il default del `designSystem` attivo
+     *  se lo mappa (un'esperienza immersiva/istituzionale può volerla sempre fissa o sempre statica
+     *  come parte della propria identità). Un valore esplicito qui vince sempre sul preset. */
     fixedTopHeader?: boolean;
     /** Mostra il campanellino delle notifiche realtime. Default: false. */
     showNotifications?: boolean;
@@ -565,7 +572,8 @@ export interface SiteShellConfig {
      * `designSystem` che lo preveda (es. `muro`); un valore esplicito qui vince sempre sul preset.
      */
     navSurface?: 'brand' | 'body';
-    /** Fade-in d'ingresso pagina. Default: true. */
+    /** Fade-in d'ingresso pagina. Default: true — o il default del `designSystem` attivo se lo
+     *  mappa. Un valore esplicito qui vince sempre sul preset. */
     pageFade?: boolean;
 }
 
@@ -781,30 +789,37 @@ function resolveRoleChrome(role: PageRole, preset: DesignSystemPreset | undefine
  *  di pagina — evita di rifare due volte il lookup di `shell.designSystem`. */
 function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; preset: DesignSystemPreset | undefined } {
     const cfg = environment.config;
-    validateColorFields(cfg);
     const shell = definition.shell ?? {};
     const preset = resolveDesignSystemPreset(shell.designSystem);
-    // Un campo esplicito (shell.forceThemeTone/panelSurface in site.ts) vince sempre sul preset —
-    // il preset dà solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio
-    // di addon.json che sovrascrive basic.json, non il contrario).
+    // Un campo esplicito (shell.* in site.ts, o il JSON per i colori) vince sempre sul preset — il
+    // preset dà solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio di
+    // addon.json che sovrascrive basic.json, non il contrario).
     const forceThemeTone = shell.forceThemeTone ?? preset?.forceThemeTone;
+    const colorSecondary = cfg.colorSecondary ?? preset?.colorSecondary;
+    const colorBackground = cfg.colorBackground ?? preset?.colorBackground;
+    const colorText = cfg.colorText ?? preset?.colorText;
+    const colorInfo = cfg.colorInfo ?? preset?.colorInfo;
+    // Validato sui valori RISOLTI (JSON o preset, non solo JSON): un preset con un hex malformato
+    // deve fallire nello stesso identico modo di un JSON malformato, non silenziosamente più avanti
+    // in ThemeService.
+    validateColorFields({ colorTema: cfg.colorTema, colorSecondary, colorBackground, colorText, colorInfo });
     const login = normalizeLoginPage(definition.loginPage);
     const config: SiteConfig = {
         appName: environment.appName,
         version: normalizeVersion(environment.version) || '1.0.0',
         description: cfg.description ?? {},
         colorTema: cfg.colorTema ?? '#888888',
-        colorSecondary: cfg.colorSecondary,
-        colorBackground: cfg.colorBackground,
-        colorText: cfg.colorText,
-        colorInfo: cfg.colorInfo,
+        colorSecondary,
+        colorBackground,
+        colorText,
+        colorInfo,
         designSystem: shell.designSystem ?? null,
         forceThemeTone,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,
         showPanel: shell.showPanel ?? true,
-        showBreadcrumb: shell.showBreadcrumb ?? false,
-        fixedTopHeader: shell.fixedTopHeader ?? false,
+        showBreadcrumb: shell.showBreadcrumb ?? preset?.showBreadcrumb ?? false,
+        fixedTopHeader: shell.fixedTopHeader ?? preset?.fixedTopHeader ?? false,
         showLoginInHeader: login.showInHeader,
         showNotifications: shell.showNotifications ?? false,
         isWebApp: definition.isWebApp ?? false,
@@ -826,7 +841,7 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
         // Ant Design/Carbon la documentano tutti), non un conflitto da disabilitare.
         panelSurface: shell.panelSurface ?? preset?.panelSurface ?? (forceThemeTone ? 'auto' : 'light'),
         navSurface: shell.navSurface ?? preset?.navSurface ?? 'brand',
-        pageFade: shell.pageFade ?? true,
+        pageFade: shell.pageFade ?? preset?.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,
         homePage: definition.homePage ?? null,

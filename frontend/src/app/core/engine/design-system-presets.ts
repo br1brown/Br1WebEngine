@@ -73,6 +73,36 @@ export interface DesignSystemPreset {
         default?: RoleChromeSpec;
         legal?: RoleChromeSpec;
     };
+    /**
+     * Navbar fissa in alto allo scroll. Non è più (solo) una scelta libera del sito: un design
+     * system a esperienza immersiva/istituzionale può volerla sempre fissa (o sempre statica) come
+     * parte della propria identità, non lasciata al caso di ogni progetto figlio. `shell.fixedTopHeader`
+     * in site.ts resta comunque una scappatoia esplicita — vince sempre su questo default.
+     */
+    fixedTopHeader?: boolean;
+    /**
+     * Fade-in d'ingresso pagina. Un design system minimale/istituzionale può preferirlo spento
+     * (transizioni brusche, coerenti con un'estetica più "netta"); il default resta `true`
+     * (`shell.pageFade`) quando nessun design system è attivo o non lo mappa.
+     */
+    pageFade?: boolean;
+    /** Mostra il breadcrumb sulle pagine interne. Come sopra: un design system può volerlo sempre
+     *  presente (siti istituzionali/gerarchici) o sempre assente (siti a pagina singola/immersivi). */
+    showBreadcrumb?: boolean;
+    /**
+     * Default proposti per gli override colore opzionali (`site.colorBackground`/`colorSecondary`/
+     * `colorText`/`colorInfo` in `global-settings.json`) — STESSA matematica di sempre
+     * (`ThemeService.computePalette`), nessun nuovo calcolo: solo un valore di ripiego quando il
+     * JSON non ne dichiara uno proprio. Un valore esplicito nel JSON vince sempre sul preset (stesso
+     * principio di `addon.json` che sovrascrive `basic.json`) — il preset non forza mai una palette,
+     * la propone solo per chi non ha già deciso diversamente. Nessun preset di questo template li usa
+     * oggi (nessun colore specifico da imporre); la leva esiste per i design system che vorranno
+     * davvero una palette secondaria/di sfondo/di testo/di stato coerente con la propria identità.
+     */
+    colorBackground?: string;
+    colorSecondary?: string;
+    colorText?: string;
+    colorInfo?: string;
 }
 
 /**

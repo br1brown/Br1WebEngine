@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `DesignSystemPreset` diventa l'autorità su tutta l'identità di shell (non solo colore/ruoli)
+
+Fin qui un design system copriva colore (`forceThemeTone`/`panelSurface`/`navSurface`) e chrome per ruolo (`roleChrome`) — ma `fixedTopHeader`/`pageFade`/`showBreadcrumb` restavano decisioni che ogni sito figlio ridecideva per conto proprio in `site.ts`, scollegate dal design system scelto. Non è coerente: sono anch'esse parte dell'esperienza (immersiva vs statica, netta vs morbida, gerarchica vs a pagina singola), non meno di nav/footer/pannello.
+
+- Nuovi campi opzionali su `DesignSystemPreset`: `fixedTopHeader`, `pageFade`, `showBreadcrumb`, più gli override colore `colorBackground`/`colorSecondary`/`colorText`/`colorInfo` (gli stessi che `global-settings.json` può già dichiarare — stessa matematica di `ThemeService.computePalette()`, nessun calcolo nuovo: solo un valore di ripiego quando il JSON non ne dichiara uno proprio).
+- Stesso principio di sempre per tutti: un campo esplicito (`shell.*` in site.ts, o il colore nel JSON) vince sempre sul preset — il preset dà solo il default. Nessun preset di questo template popola oggi queste leve nuove (nessun figlio ne ha bisogno adesso); esistono per i design system, propri o di dominio, che vorranno davvero differenziarsi su questi assi.
+- `validateColorFields` ora valida i valori RISOLTI (JSON *oppure* preset), non solo il JSON: un preset con un hex malformato fallisce nello stesso identico modo di un JSON malformato, non silenziosamente più avanti in `ThemeService`.
+- `shell.forceThemeTone` ridocumentato come l'asse "aderenza al tema del browser" (**auto** = assente, segue l'OS; **strict** = `'light'`/`'dark'`, fissa il tono) — stesso campo, stessa forma, solo la lettura concettuale esplicitata: un valore singolo non può rappresentare uno stato invalido ("strict ma senza dire quale tono"), a differenza di due campi separati.
+- Verificato dal vivo (Playwright): un preset di prova con tutti e quattro i campi nuovi popolati (`fixedTopHeader: true`, `pageFade: false`, `showBreadcrumb: true`, `colorBackground: '#3a0a0a'`), attivato SENZA alcun override esplicito in `site.ts`, produce — solo dal default del preset — navbar fissa (classe `.fixed-top`), nessuna classe `.page-fade` sull'host pagina, breadcrumb visibile su una pagina non-home, e `--colorBase` derivato correttamente dal colore proposto. Rimosso il preset di prova, confermato che il sito demo (nessun `designSystem`, valori espliciti in `site.ts`) resta identico a prima. `tsc`/build/lint/i18n/circular-deps/site-builder-check puliti.
+
 ### Nuovo `shell.navSurface`: sfondo di navbar/footer come leva del design system
 
 Segnalato da un caso reale (il design "a muro" di Agnese Subacchi, uno dei preset di questo template): con `muro` attivo — palette fissa scura, nessun pannello sulle pagine di contenuto per un'esperienza uniforme — navbar e footer restavano comunque una superficie IMMERSIVA di brand (comportamento storico, sempre diversa dallo sfondo pagina di proposito), spiccando come una barra a parte sopra/sotto il resto della pagina e vanificando l'uniformità che `muro` promette.

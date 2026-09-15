@@ -572,9 +572,9 @@ readonly themeTone: Signal<'light' | 'dark'>; // Reattivo a prefers-color-scheme
 readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
 ```
 
-### Forzare un Tono Fisso (ignorare l'OS)
+### Forzare un Tono Fisso (ignorare l'OS): auto vs strict
 
-Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico. `shell.forceThemeTone` fissa l'intero sito su un tono, ignorando `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `ThemeService` runtime (nessun listener `matchMedia` montato). Vive in `site.ts`, non in `global-settings.json`: è una decisione su COME si usa il colore (comportamento), non il colore stesso (identità/estetica) — `colorTema` resta l'unico a vivere nel JSON, `forceThemeTone` sta con gli altri flag di comportamento della shell (`showNav`, `panelSurface`, ecc.):
+`shell.forceThemeTone` è l'asse "aderenza al tema del browser": **auto** (assente) segue `prefers-color-scheme` come sempre; **strict** (`'light'`/`'dark'`) fissa l'intero sito su quel tono. Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico — lì serve strict. `forceThemeTone` ignora `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `ThemeService` runtime (nessun listener `matchMedia` montato). Vive in `site.ts`, non in `global-settings.json`: è una decisione su COME si usa il colore (comportamento), non il colore stesso (identità/estetica) — `colorTema` resta l'unico a vivere nel JSON, `forceThemeTone` sta con gli altri flag di comportamento della shell (`showNav`, `panelSurface`, ecc.). Un solo campo per entrambi i fatti (se è strict, e quale tono) invece di due separati: non può rappresentare uno stato invalido ("strict ma senza dire quale tono"):
 ```typescript
 // site.ts
 buildSite({
@@ -587,7 +587,7 @@ buildSite({
 
 ### Preset di Design System (`shell.designSystem`)
 
-`forceThemeTone` e `panelSurface` sono le due leve granulari; `shell.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano:
+`forceThemeTone`, `panelSurface`, `navSurface`, `roleChrome`, `fixedTopHeader`, `pageFade`, `showBreadcrumb` e gli override colore (`colorBackground`/`colorSecondary`/`colorText`/`colorInfo`) sono le leve granulari; `shell.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente (in `shell`, o nel JSON per i colori) vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano. Un design system non è (più) solo colore: è l'autorità unica su tutto ciò che è decisione di ESPERIENZA/IDENTITÀ del sito, non di singola pagina né di singolo progetto — la navbar fissa, il fade d'ingresso, la presenza del breadcrumb non sono più "cosa decide il sito per conto suo", sono "cosa decide il design system attivo", esattamente come nav/footer/pannello per ruolo:
 ```typescript
 // site.ts — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
 buildSite({
@@ -623,6 +623,25 @@ buildSite({
         navSurface: 'body', // navbar/footer indistinguibili dal fondo pagina
     },
 });
+```
+
+#### Altre leve: `fixedTopHeader`, `pageFade`, `showBreadcrumb`, override colore
+
+Un design system può proporre un default anche per:
+
+- `fixedTopHeader` (navbar fissa allo scroll) e `pageFade` (fade-in d'ingresso pagina) — parte dell'identità di un'esperienza (immersiva vs statica, netta vs morbida), non un dettaglio che ogni progetto figlio ridecide da zero.
+- `showBreadcrumb` (gate globale — la visibilità per-pagina resta un'euristica separata, vedi sotto).
+- `colorBackground`/`colorSecondary`/`colorText`/`colorInfo`: gli stessi override opzionali che `global-settings.json` può già dichiarare (`site.colorBackground` ecc.), ora proponibili anche da un preset. Stessa identica matematica di `ThemeService.computePalette()` — nessun nuovo calcolo: solo un valore di ripiego quando il JSON non ne dichiara uno proprio. Un colore esplicito nel JSON vince **sempre** sul preset (stesso principio di `addon.json` su `basic.json`) — il preset non impone mai una palette, la propone solo a chi non ha già deciso diversamente.
+
+Nessun preset di questo template popola oggi queste leve (nessun colore specifico da imporre, nessuna navbar fissa da forzare) — esistono per i design system, propri o di dominio, che vorranno davvero differenziarsi su questi assi, con lo stesso identico meccanismo "il preset dà il default, un valore esplicito vince sempre":
+```typescript
+// design-system-presets.ts — esempio, nessun preset di questo template lo fa oggi
+'istituzionale-rigido': {
+    fixedTopHeader: true,
+    pageFade: false,
+    showBreadcrumb: true,
+    colorBackground: '#f4f1ea', // proposto, ma global-settings.json vince se imposta il proprio
+},
 ```
 
 Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign. I nomi dei preset non sono un contratto fisso: possono cambiare, l'unico modo per cui questo diventa un problema è se un figlio ha scritto `designSystem: 'nome'` a mano.
@@ -1571,14 +1590,14 @@ shell: {                           // comportamento di navbar / footer / header 
     showNav: true,                 // mostra la navbar (false nasconde anche il language picker)
     showFooter: true,              // mostra il footer
     showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
-    fixedTopHeader: false,         // navbar fissa in alto allo scroll
+    fixedTopHeader: false,         // navbar fissa in alto allo scroll — o il default del designSystem attivo se lo mappa
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
-    forceThemeTone: undefined,     // fissa l'intero sito su un tono, ignora l'OS ('light'|'dark', assente = segue l'OS)
+    forceThemeTone: undefined,     // asse auto/strict: fissa l'intero sito su un tono, ignora l'OS ('light'|'dark' = strict, assente = auto/segue l'OS)
     panelSurface: 'light',         // tono del pannello contenuti, a prescindere dal tema OS ('light'|'dark'|'auto')
     navSurface: 'brand',           // sfondo/testo di navbar/footer: 'brand' (immersivo, storico) o 'body' (come lo sfondo pagina, nessuna cesura)
-    designSystem: undefined,       // preset nominato che imposta forceThemeTone/panelSurface/navSurface/roleChrome insieme (vedi design-system-presets.ts)
-    pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
-    showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
+    designSystem: undefined,       // preset nominato che imposta l'intero bundle di leve sopra/sotto insieme (vedi design-system-presets.ts)
+    pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo) — o il default del designSystem attivo
+    showBreadcrumb: false,         // gate globale del breadcrumb (default false) — o il default del designSystem attivo; la visibilità per pagina resta un'euristica, vedi sotto
 },
 
 isWebApp: false,                   // funzionalità PWA (Service Worker, aggiornamenti, install offline) — default false, opt-in
