@@ -203,7 +203,7 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
-   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelForcedLight, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
+   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelSurface, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
     /**
@@ -232,6 +232,10 @@ export interface GlobalSettings {
      * Override opzionale del colore informativo (badge/alert '.text-bg-info', '.alert-info', '.btn-outline-info'). A differenza di colorSecondary/colorBackground/colorText NON ha un fallback derivato dal brand: se assente, Bootstrap 5.3 gestisce '--bs-info*' per intero coi suoi blocchi tono-adattivi nativi. warning/success/danger restano sempre fissi (significato universale, non personalizzabile).
      */
     colorInfo?: string;
+    /**
+     * Forza l'intero sito su un tono, ignorando prefers-color-scheme: utile per un design a palette fissa dove un tema derivato dall'OS romperebbe il contrasto studiato dal grafico. Ometti per seguire l'OS come sempre (comportamento di sempre, reattivo in tempo reale). Impostato: SSR, script anti-flash e ThemeService si fissano tutti sullo stesso tono, e site.ts → shell.panelSurface non ha più nulla da forzare a parte (ignorato, con warning in dev mode se non è 'auto').
+     */
+    forceThemeTone?: "light" | "dark";
     /**
      * Effetto particellare di sfondo. Ometti o enable:false per disattivarlo.
      */

@@ -90,6 +90,17 @@ export interface SiteConfig {
     colorText?: string;
     /** Override opzionale del colore informativo. */
     colorInfo?: string;
+    /**
+     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
+     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
+     * studiato dal grafico. Da `global-settings.json` → `site.forceThemeTone`, come `colorTema`.
+     * Default: assente — segue l'OS come sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
+     * Diverso da `shell.panelSurface`: quello forza SOLO il pannello contenuti su un tono
+     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Mutuamente esclusivi:
+     * quando è impostato, `panelSurface` non ha più nulla da forzare a parte e viene ignorato
+     * (con un warning in dev mode se qualcuno lo imposta comunque a un valore diverso da `'auto'`).
+     */
+    forceThemeTone?: 'light' | 'dark';
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
     /** Indica se l'header deve essere visibile. */
@@ -108,8 +119,12 @@ export interface SiteConfig {
     isWebApp: boolean;
     /** Configurazione dell'effetto smoke. */
     smoke: SmokeSettings;
-    /** Forza il pannello contenuti chiaro indipendentemente dal tema OS. Default: `true`. */
-    panelForcedLight: boolean;
+    /**
+     * Tono del pannello contenuti, indipendente dall'OS che governa navbar/footer/sfondo.
+     * `'auto'` = segue l'ambiente come il resto del sito. Default: `'light'` (comportamento
+     * storico del template). Ignorato se `forceThemeTone` è impostato — vedi quel campo.
+     */
+    panelSurface: 'light' | 'dark' | 'auto';
     /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. */
     pageFade: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (default /error/401). */
@@ -487,8 +502,12 @@ export interface SiteShellConfig {
     fixedTopHeader?: boolean;
     /** Mostra il campanellino delle notifiche realtime. Default: false. */
     showNotifications?: boolean;
-    /** Pannello contenuti sempre chiaro. Default: true. */
-    panelForcedLight?: boolean;
+    /**
+     * Tono del pannello contenuti (`.content-panel`), indipendente dall'OS. `'auto'` = segue
+     * l'ambiente come navbar/footer. Default: `'light'`. Ignorato se `forceThemeTone` (config di
+     * sito, `global-settings.json`) è impostato — i due non possono essere attivi insieme.
+     */
+    panelSurface?: 'light' | 'dark' | 'auto';
     /** Fade-in d'ingresso pagina. Default: true. */
     pageFade?: boolean;
 }
@@ -694,6 +713,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         colorBackground: cfg.colorBackground,
         colorText: cfg.colorText,
         colorInfo: cfg.colorInfo,
+        forceThemeTone: cfg.forceThemeTone,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,
         showPanel: shell.showPanel ?? true,
@@ -713,7 +733,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
         resolveBreadcrumb: definition.resolveBreadcrumb,
         resolveBlobImageUrl: definition.resolveBlobImageUrl,
-        panelForcedLight: shell.panelForcedLight ?? true,
+        panelSurface: shell.panelSurface ?? 'light',
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,

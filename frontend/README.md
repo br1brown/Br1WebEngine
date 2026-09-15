@@ -572,6 +572,18 @@ readonly themeTone: Signal<'light' | 'dark'>; // Reattivo a prefers-color-scheme
 readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
 ```
 
+### Forzare un Tono Fisso (ignorare l'OS)
+
+Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico. `site.forceThemeTone` (`global-settings.json` → `site`, come `colorTema`) fissa l'intero sito su un tono, ignorando `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `ThemeService` runtime (nessun listener `matchMedia` montato):
+```jsonc
+// global-settings.json
+"site": {
+    "colorTema": "#4a0e1e",
+    "forceThemeTone": "dark"   // 'light' | 'dark' — assente = segue l'OS come sempre
+}
+```
+`themeTone` riflette il valore forzato invece della preferenza OS; `theme.panelTone` (sotto) diventa sempre `null` — vedi perché nella sezione sul pannello.
+
 ### Leggere il tema in un componente
 
 Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, non hardcodare i valori: leggi i signal di `ThemeService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi, cambiano da soli al cambio di brand (`setColorTema`) o di tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
@@ -594,15 +606,17 @@ this.theme.prefersReducedMotion();  // true → disattiva animazioni/auto-play
 
 Sono signal di sola lettura usati dall'Engine stesso: `QrCodeService` e `ImgBuilderService`, ad esempio, leggono `colorPrimary()`/`colorPrimaryText()` per colorare QR e immagini in modo conforme quando non passi colori espliciti.
 
-Pannello forzato chiaro dentro una pagina scura: se hai un riquadro che deve restare in tono chiaro a prescindere dal tema OS (es. un pannello di anteprima), bind `panelBootstrapTheme` all'attributo Bootstrap, così tutto il sottoalbero usa il subtema corretto:
+Pannello forzato su un tono dentro una pagina che segue l'OS: se hai un riquadro che deve restare su un tono fisso a prescindere dal tema OS (es. il pannello contenuti centrale, o un riquadro di anteprima), bind `panelTone` all'attributo Bootstrap e alle classi CSS, così tutto il sottoalbero usa il subtema corretto:
 
 ```html
-<div [attr.data-bs-theme]="theme.panelBootstrapTheme">
-    <!-- contenuto sempre in tono chiaro se shell.panelForcedLight è true -->
+<div [attr.data-bs-theme]="theme.panelTone"
+     [class.panel-light]="theme.panelTone === 'light'"
+     [class.panel-dark]="theme.panelTone === 'dark'">
+    <!-- contenuto sul tono di shell.panelSurface, a prescindere dal tema OS -->
 </div>
 ```
 
-`panelBootstrapTheme` vale `'light'` quando `shell.panelForcedLight` è attivo, altrimenti `null` (nessun forzamento).
+`panelTone` vale `shell.panelSurface` (`'light'|'dark'`) quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). **Mutuamente esclusivo con `site.forceThemeTone`** (`global-settings.json`): se quello è impostato, `panelTone` è sempre `null` — l'ambiente stesso è già il tono forzato su tutto il sito, il pannello non ha nulla da forzare a parte. Impostare `panelSurface` a un valore diverso da `'auto'` insieme a `forceThemeTone` produce solo un warning in dev mode, nessun effetto.
 
 ### Metodi Statici (SSR-Safe)
 
@@ -1489,7 +1503,7 @@ shell: {                           // comportamento di navbar / footer / header 
     showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
-    panelForcedLight: true,        // pannello contenuti sempre chiaro, a prescindere dal tema OS
+    panelSurface: 'light',         // tono del pannello contenuti, a prescindere dal tema OS ('light'|'dark'|'auto')
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
     showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
 },
@@ -1727,9 +1741,9 @@ site.legalPages;  // LegalPageSpec[] risolte (array, una voce per pagina legale 
 site.homePage;    // PageType del brand (o null)
 site.loginPage;   // PageType di redirect non-auth (o null)
 
-// Flag di shell appiattiti al top-level di SiteConfig (boolean; significato di ciascuno nel
-// blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
-// showLoginInHeader, showNotifications, panelForcedLight, pageFade
+// Flag di shell appiattiti al top-level di SiteConfig (boolean salvo dove indicato; significato
+// di ciascuno nel blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
+// showLoginInHeader, showNotifications, panelSurface ('light'|'dark'|'auto'), pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
 

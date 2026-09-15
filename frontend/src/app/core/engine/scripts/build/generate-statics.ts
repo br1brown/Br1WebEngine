@@ -107,11 +107,11 @@ const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
 // COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/
-// showLoginInHeader/showNotifications/panelForcedLight/isWebApp/onlyPlainImage) sono migrati in site.ts,
+// showLoginInHeader/showNotifications/panelSurface/isWebApp/onlyPlainImage) sono migrati in site.ts,
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
 // è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'forceThemeTone', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
@@ -123,6 +123,9 @@ const COLOR_OVERRIDES = {
     text: SITE_CONFIG.colorText,
     info: SITE_CONFIG.colorInfo,
 };
+// site.forceThemeTone (global-settings.json): sito fissato su un tono, ignora prefers-color-scheme
+// sia nello script anti-flash sotto sia nel background_color del manifest PWA.
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined = SITE_CONFIG.forceThemeTone;
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -301,6 +304,7 @@ export interface AppSiteConfig {
     colorBackground?: string;
     colorText?: string;
     colorInfo?: string;
+    forceThemeTone?: 'light' | 'dark';
     smoke?: {
         enable?: boolean;
         color?: string;
@@ -411,7 +415,7 @@ function updateManifest(): void {
         description: DESCRIPTION,
         lang: DEFAULT_LANG,
         theme_color: palette.colorPrimary,
-        background_color: palette.naturalTone === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
+        background_color: (FORCE_THEME_TONE ?? palette.naturalTone) === 'light' ? palette.colorBaseLt : palette.colorBaseDk,
         display: "standalone",
         scope: "./",
         start_url: "./",
@@ -463,7 +467,16 @@ function updateThemeInit(): void {
     // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
     // servito da express.static: va materializzato qui perché public/ è gitignored,
     // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
-    const script = `(function () {
+    // Tono forzato (site.forceThemeTone): valore baked-in, niente matchMedia — nessun ascolto di
+    // prefers-color-scheme da rimuovere in seguito, lo script è già deterministico dal boot.
+    const script = FORCE_THEME_TONE
+        ? `(function () {
+    var el = document.documentElement;
+    el.setAttribute('data-bs-theme', '${FORCE_THEME_TONE}');
+    el.setAttribute('data-theme-tone', '${FORCE_THEME_TONE}');
+}());
+`
+        : `(function () {
     var t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     var el = document.documentElement;
     el.setAttribute('data-bs-theme', t);

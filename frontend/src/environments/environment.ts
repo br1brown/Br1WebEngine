@@ -8,6 +8,7 @@ export interface AppSiteConfig {
     colorBackground?: string;
     colorText?: string;
     colorInfo?: string;
+    forceThemeTone?: 'light' | 'dark';
     smoke?: {
         enable?: boolean;
         color?: string;

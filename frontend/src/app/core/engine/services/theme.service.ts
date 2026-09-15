@@ -276,16 +276,17 @@ export class ThemeService {
     /** Signal `#000000` o `#ffffff` — testo leggibile su `--colorSecondary`. CSS: `--colorSecondaryTextLt` */
     readonly colorSecondaryText: Signal<'#000000' | '#ffffff'>;
     /**
-     * `true` se `shell.panelForcedLight` è `true` in site.ts.
-     * Il pannello contenuti centrale resta in tono chiaro indipendentemente dalla preferenza OS.
+     * Tono effettivo del pannello contenuti (`.content-panel`), indipendente dalla preferenza OS
+     * che governa navbar/footer/sfondo — da `shell.panelSurface` in site.ts (`'light'|'dark'`),
+     * `null` se `'auto'` (segue l'ambiente) o se `forceThemeTone` è impostato (in quel caso vince
+     * sempre lui: l'ambiente stesso è già il tono forzato, il pannello non ha nulla da forzare a
+     * parte). Guida sia l'attributo Bootstrap sia le classi CSS, un'unica fonte di verità:
+     * `<div [attr.data-bs-theme]="theme.panelTone" [class.panel-light]="theme.panelTone === 'light'"
+     *       [class.panel-dark]="theme.panelTone === 'dark'">`.
      */
-    readonly panelForcedLight: boolean;
-    /**
-     * `'light'` se il pannello è forzato in chiaro, `null` altrimenti.
-     * Passare a `[attr.data-bs-theme]` per forzare il sottotema Bootstrap nel pannello:
-     * `<div [attr.data-bs-theme]="theme.panelBootstrapTheme">`.
-     */
-    readonly panelBootstrapTheme: 'light' | null;
+    readonly panelTone: 'light' | 'dark' | null;
+    // Da global-settings.json → site.forceThemeTone. null = segue l'OS (comportamento di sempre).
+    private readonly _forcedThemeTone: 'light' | 'dark' | undefined;
 
     // ── OS-reactive signals ───────────────────────────────────────────────
 
@@ -332,11 +333,29 @@ export class ThemeService {
         this.colorPrimaryRgb    = computed(() => this._palette().colorPrimaryRgb);
         this.colorSecondary     = computed(() => this._palette().colorSecondaryLt);
         this.colorSecondaryText = computed(() => this._palette().colorSecondaryTextLt);
-        this.panelForcedLight   = ContestoSito.config.panelForcedLight;
-        this.panelBootstrapTheme = this.panelForcedLight ? 'light' : null;
+        // Da global-settings.json → site.forceThemeTone: sito intero fissato su un tono, mai riletto dall'OS.
+        this._forcedThemeTone = ContestoSito.config.forceThemeTone;
+        // Con forceThemeTone impostato, l'ambiente stesso è già il tono forzato: panelSurface non
+        // ha più nulla da forzare a parte, e uno diverso da 'auto' impostato comunque è quasi
+        // certo un residuo dimenticato — avviso in dev, nessun effetto in nessun caso (i due non
+        // possono essere attivi insieme). Senza forceThemeTone resta il comportamento di sempre:
+        // panelSurface pinna il pannello indipendentemente dall'OS che governa il resto.
+        const panelSurface = ContestoSito.config.panelSurface;
+        if (isDevMode() && this._forcedThemeTone && panelSurface !== 'auto') {
+            console.warn(
+                `[ThemeService] shell.panelSurface ('${panelSurface}') è ignorato perché ` +
+                `site.forceThemeTone ('${this._forcedThemeTone}') è impostato: i due non possono ` +
+                `essere attivi insieme, vince sempre forceThemeTone. Imposta panelSurface a 'auto' ` +
+                `(o rimuovilo) per silenziare questo avviso.`
+            );
+        }
+        this.panelTone = this._forcedThemeTone
+            ? null
+            : (panelSurface === 'auto' ? null : panelSurface);
 
-        // 3. themeTone inizializzato con naturalTone (SSR-safe, senza leggere prefers-color-scheme).
-        this._themeTone = signal(this._palette().naturalTone);
+        // 3. themeTone inizializzato col tono forzato se presente, altrimenti naturalTone
+        //    (SSR-safe, senza leggere prefers-color-scheme).
+        this._themeTone = signal(this._forcedThemeTone ?? this._palette().naturalTone);
         this.themeTone = this._themeTone.asReadonly();
         this._prefersReducedMotion = signal(false);
         this.prefersReducedMotion = this._prefersReducedMotion.asReadonly();
@@ -350,14 +369,22 @@ export class ThemeService {
 
         if (!isPlatformBrowser(this.platformId)) return;
 
+        this._prefersReducedMotion.set(
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
+
+        // 5-6. Tono forzato: mai leggere né ascoltare prefers-color-scheme — resta quello
+        //      configurato per tutta la sessione, un eventuale cambio OS non ha effetto.
+        if (this._forcedThemeTone) {
+            window.matchMedia('(prefers-reduced-motion: reduce)')
+                .addEventListener('change', e => this._prefersReducedMotion.set(e.matches));
+            return;
+        }
+
         // 5. Aggiorna con le preferenze OS reali (client-only).
         const osTone: 'light' | 'dark' =
             window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         this._themeTone.set(osTone);
-
-        this._prefersReducedMotion.set(
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        );
 
         // 6. Ascolta i cambiamenti OS in tempo reale.
         window.matchMedia('(prefers-color-scheme: dark)')
@@ -629,26 +656,30 @@ export class ThemeService {
         return p;
     }
 
-    /** Produce tutti i tag `<head>` del tema: `<meta name="theme-color">` + `<style id="theme-init">`. */
-    static buildThemeHeadTags(colorTema: string, overrides?: PaletteOverrides): string {
+    /** Produce tutti i tag `<head>` del tema: `<meta name="theme-color">` + `<style id="theme-init">`.
+     *  `forcedTone`: da `ContestoSito.config.forceThemeTone` — se impostato, entrambi i tag
+     *  ignorano `prefers-color-scheme` e si fissano su quel tono. */
+    static buildThemeHeadTags(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null): string {
         const p = ThemeService._getCachedPalette(colorTema, overrides);
-        return ThemeService._buildThemeColorMetaFromPalette(p) + '\n' + ThemeService._buildThemeStyleTagFromPalette(p);
+        return ThemeService._buildThemeColorMetaFromPalette(p, forcedTone) + '\n' + ThemeService._buildThemeStyleTagFromPalette(p, forcedTone);
     }
 
     /** Produce solo `<style id="theme-init">` senza il meta theme-color. Utile per render parziale o testing. */
-    static buildThemeStyleTag(colorTema: string, overrides?: PaletteOverrides): string {
-        return ThemeService._buildThemeStyleTagFromPalette(ThemeService._getCachedPalette(colorTema, overrides));
+    static buildThemeStyleTag(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null): string {
+        return ThemeService._buildThemeStyleTagFromPalette(ThemeService._getCachedPalette(colorTema, overrides), forcedTone);
     }
 
     /**
      * Produce il blocco `<style id="theme-init">` da iniettare nell'HTML SSR prima di `</head>`.
      * Posizionato dopo il `<link>` di Bootstrap → stessa specificità (0,1,0), posizione successiva
      * → nostro `:root` vince la cascade senza bisogno di inline styles.
-     * I `@media` blocks delegano al browser la scelta del tone in base all'OS.
+     * I `@media` blocks delegano al browser la scelta del tone in base all'OS — OMESSI del tutto
+     * se `forcedTone` è impostato: senza quei blocchi nessun cambio di `prefers-color-scheme` può
+     * più sovrascrivere le CSS vars, il `:root` col tono forzato resta l'unica dichiarazione.
      * Se `resolvedFonts.custom` è impostato, aggiunge `@font-face` nello STESSO tag — così
      * `_ensureCustomFontFace` (client) lo trova già pronto ed evita un duplicato.
      */
-    private static _buildThemeStyleTagFromPalette(p: PaletteTokens): string {
+    private static _buildThemeStyleTagFromPalette(p: PaletteTokens, forcedTone?: 'light' | 'dark' | null): string {
 
         const surfaces = (tone: 'light' | 'dark'): string => {
             const s = tone === 'light';
@@ -804,9 +835,11 @@ export class ThemeService {
         return (
             `<style id="theme-init">` +
             (resolvedFonts.custom ? ThemeService._buildFontFaceRule() : '') +
-            `:root{${base}${surfaces(p.naturalTone)}}` +
-            `@media(prefers-color-scheme:light){:root{${surfaces('light')}}}` +
-            `@media(prefers-color-scheme:dark){:root{${surfaces('dark')}}}` +
+            `:root{${base}${surfaces(forcedTone ?? p.naturalTone)}}` +
+            (forcedTone
+                ? ''
+                : `@media(prefers-color-scheme:light){:root{${surfaces('light')}}}` +
+                  `@media(prefers-color-scheme:dark){:root{${surfaces('dark')}}}`) +
             `</style>`
         );
     }
@@ -816,13 +849,17 @@ export class ThemeService {
      * del browser (barra indirizzi, status bar PWA). Usa colorBase* come sfondo perché
      * si fonde con la UI — comportamento atteso per le progressive web app.
      */
-    static buildThemeColorMeta(colorTema: string, overrides?: PaletteOverrides): string {
-        return ThemeService._buildThemeColorMetaFromPalette(ThemeService.computePalette(colorTema, overrides));
+    static buildThemeColorMeta(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null): string {
+        return ThemeService._buildThemeColorMetaFromPalette(ThemeService.computePalette(colorTema, overrides), forcedTone);
     }
 
-    // Produce i due <meta name="theme-color"> per light e dark.
+    // Produce i due <meta name="theme-color"> per light e dark — o uno solo, senza media query,
+    // se forcedTone è impostato (coerente col resto della pagina, fissata su quel tono).
     // Usa colorBase* (sfondo pagina) perché si fonde con il chrome del browser (barra indirizzi, status bar PWA).
-    private static _buildThemeColorMetaFromPalette(p: PaletteTokens): string {
+    private static _buildThemeColorMetaFromPalette(p: PaletteTokens, forcedTone?: 'light' | 'dark' | null): string {
+        if (forcedTone) {
+            return `<meta name="theme-color" content="${forcedTone === 'light' ? p.colorBaseLt : p.colorBaseDk}">`;
+        }
         return (
             `<meta name="theme-color" media="(prefers-color-scheme:light)" content="${p.colorBaseLt}">` +
             `<meta name="theme-color" media="(prefers-color-scheme:dark)"  content="${p.colorBaseDk}">`
