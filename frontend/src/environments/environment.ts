@@ -4,10 +4,6 @@
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
     smoke?: {
         enable?: boolean;
         color?: string;

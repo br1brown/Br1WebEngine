@@ -47,7 +47,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `nav.ts` | Tuo | Le voci di menu (navbar/footer), risolte a runtime da `ShellNavService` (Engine) tramite l'injection token `SHELL_NAV_RESOLVER` — lo implementi tu, l'Engine lo consuma |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). Due esempi vivi, entrambi legati all'auth: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto; `user-nav/` è invece Dominio a contratto fisso (non un'estensione di base Engine): `navbar.component.ts` lo importa per path e nome, il corpo è libero — vedi «Componenti Pronti all'Uso» |
+| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). Tre esempi vivi: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto; `user-nav/` è Dominio a contratto fisso (non un'estensione di base Engine): `navbar.component.ts` lo importa per path e nome, il corpo è libero — vedi «Componenti Pronti all'Uso»; `design-systems/esempio.design-system.ts` estende un preset dell'Engine (`extendDesignSystem`) con una palette propria — vedi «Preset di Design System» |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
@@ -498,16 +498,29 @@ I colori semantici fissi (warning, info, success, danger) non sono derivati dal 
 
 ### Override opzionali (secondario, sfondo, testo, info)
 
-`site.colorSecondary` / `site.colorBackground` / `site.colorText` / `site.colorInfo` in `global-settings.json` sostituiscono hue e chroma di una singola catena di derivazione — pipeline OKLCH/WCAG e varianti light/dark/subtle/emphasis restano quelle di sempre. Un solo hex per campo copre entrambi i toni, come `colorTema`.
+`colorSecondary`/`colorBackground`/`colorText`/`colorInfo` sostituiscono hue e chroma di una singola catena di derivazione — pipeline OKLCH/WCAG e varianti light/dark/subtle/emphasis restano quelle di sempre. Un solo hex per campo copre entrambi i toni, come `colorTema`. **Non vivono in `global-settings.json`**: l'unico colore di identità che il JSON dichiara resta `colorTema` — questi quattro sono sempre e solo una proposta del design system attivo (`DesignSystemPreset.colorSecondary`/... in `design-system-presets.ts` o in un'estensione di dominio, vedi §"Preset di Design System" sotto). Un design system che non li imposta ottiene esattamente i default storici, calcolati come sempre dal brand.
 
 - **`colorSecondary`** — secondario (badge, `.btn-secondary`). Assente: muted del brand.
 - **`colorBackground`** — sfondo pagina/card/hover/superfici. Assente: derivato dal brand.
 - **`colorText`** — corpo e headings. Assente: segue `colorBackground` (non il brand) — testo e sfondo restano sempre intonati senza sceglierlo esplicitamente, perché un testo scollegato dallo sfondo supera comunque WCAG (che guarda solo il contrasto, non l'accostamento) ma può stonare. Impostato: override pieno e indipendente, stesso meccanismo degli altri tre.
 - **`colorInfo`** — `.text-bg-info`/`.alert-info`/`.btn-outline-info`. Unico senza fallback dal brand: assente, `--bs-info*` resta gestito per intero da Bootstrap.
 
-warning/success/danger restano sempre fissi: significato universale (allerta/successo/errore), non personalizzabile da qui.
+warning/success/danger restano sempre fissi: significato universale (allerta/successo/errore), non personalizzabile da qui — nemmeno da un design system.
 
 Un override esplicito su `colorBackground`/`colorText` produce anche una tinta più satura del caso derivato dal brand — i tetti di saturazione erano pensati per restare appena percettibili quando l'hue arrivava solo dal brand, e senza distinguere i due casi un colore scelto apposta finirebbe comunque quasi invisibile.
+
+### Colori con nome proprio (`customPalette`)
+
+I quattro override sopra restano quattro slot fissi con un significato semantico (secondario, sfondo, testo, info) — non bastano a un design system che vuole la SUA palette, con le SUE etichette (es. i colori di un brand cliente). `DesignSystemPreset.customPalette` (`Record<string, string>`, hex) copre questo caso: ogni voce passa nella stessa pipeline WCAG di `colorSecondary` (ricerca del primo fill conforme al contrasto target, poi il testo leggibile sopra) ed esce come coppia di CSS custom properties tone-adaptive — `--color<Label>`/`--color<Label>Text`, `<Label>` = la chiave in PascalCase:
+```typescript
+// un design system con customPalette: { bordeaux: '#5c1a2b', oro: '#a97d3f' }
+// espone, ovunque in CSS: --colorBordeaux / --colorBordeauxText / --colorOro / --colorOroText
+.cta-speciale {
+    background: var(--colorBordeaux);
+    color: var(--colorBordeauxText); /* calcolato, sempre leggibile */
+}
+```
+`customPalette` **aggiunge**, non sostituisce: i quattro slot semantici sopra restano quelli di sempre (con o senza override) — un design system con una palette molto personalizzata non deve ridefinire da zero anche `colorSecondary`/`colorInfo` per restare semanticamente corretto, quella è la "dose di personalizzazione anche semantica" che resta garantita di default.
 
 ### Garanzia WCAG 4.5:1
 
@@ -587,7 +600,7 @@ buildSite({
 
 ### Preset di Design System (`shell.designSystem`)
 
-`forceThemeTone`, `panelSurface`, `navSurface`, `roleChrome`, `fixedTopHeader`, `pageFade`, `showBreadcrumb` e gli override colore (`colorBackground`/`colorSecondary`/`colorText`/`colorInfo`) sono le leve granulari; `shell.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente (in `shell`, o nel JSON per i colori) vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano. Un design system non è (più) solo colore: è l'autorità unica su tutto ciò che è decisione di ESPERIENZA/IDENTITÀ del sito, non di singola pagina né di singolo progetto — la navbar fissa, il fade d'ingresso, la presenza del breadcrumb non sono più "cosa decide il sito per conto suo", sono "cosa decide il design system attivo", esattamente come nav/footer/pannello per ruolo:
+`forceThemeTone`, `panelSurface`, `navSurface`, `roleChrome`, `fixedTopHeader`, `pageFade`, `showBreadcrumb` e gli override colore (`colorBackground`/`colorSecondary`/`colorText`/`colorInfo`/`customPalette`) sono le leve granulari; `shell.designSystem` è uno shorthand che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente in `shell` vince sempre sul preset per le leve non-colore — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano; i colori invece non hanno più un secondo canale in `global-settings.json` (vedi sopra), sono sempre e solo quello che il design system attivo propone. Un design system non è (più) solo colore: è l'autorità unica su tutto ciò che è decisione di ESPERIENZA/IDENTITÀ del sito, non di singola pagina né di singolo progetto — la navbar fissa, il fade d'ingresso, la presenza del breadcrumb non sono più "cosa decide il sito per conto suo", sono "cosa decide il design system attivo", esattamente come nav/footer/pannello per ruolo:
 ```typescript
 // site.ts — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
 buildSite({
@@ -596,6 +609,28 @@ buildSite({
     },
 });
 ```
+
+#### Un design system è codice, non un dato
+
+Ogni voce di `DESIGN_SYSTEM_PRESETS` è una funzione a zero argomenti (`DesignSystemFactory = () => DesignSystemPreset`), non un oggetto letterale — stesso idioma di `pages: () => [...]` in `site.ts`. Serve raramente fare calcoli per costruire un preset, ma quando serve (derivare più sfumature da un solo colore, comporre una `customPalette` da poche costanti) si può, senza un secondo meccanismo. `shell.designSystem` accetta due forme:
+- il **nome** di un preset dell'Engine (stringa, quelli della tabella sotto);
+- un **`DesignSystemFactory` importato direttamente** — la via per un design system di dominio, che non passa da nessun registro per nome: è solo una funzione che il sito importa.
+
+`extendDesignSystem(base, patch)` costruisce un design system per ESTENSIONE di un altro invece che per copia — è la "classe padre da sovrascrivere" di questo template, fatta per composizione (`roleChrome`/`customPalette` si fondono chiave per chiave, il resto sovrascrive) invece che con `class`/`extends` (nessun altro punto del template usa ereditarietà OOP per la configurazione). Un design system di dominio che vuole la palette di un cliente specifico parte da un preset dell'Engine invece di riscriverlo da zero — file d'esempio in `components/shared/design-systems/esempio.design-system.ts`:
+```typescript
+// components/shared/design-systems/clienteX.design-system.ts (Dominio)
+import { DESIGN_SYSTEM_PRESETS, extendDesignSystem, type DesignSystemFactory } from '.../design-system-presets';
+
+export const clienteX: DesignSystemFactory = extendDesignSystem(DESIGN_SYSTEM_PRESETS.muro, {
+    customPalette: { bordeaux: '#5c1a2b', oro: '#a97d3f' },
+});
+```
+```typescript
+// site.ts
+import { clienteX } from './components/shared/design-systems/clienteX.design-system';
+buildSite({ shell: { designSystem: clienteX } }); // passato per riferimento, non per nome
+```
+Il resto (`forceThemeTone`/`navSurface`/`roleChrome` di `muro`) resta ereditato intatto: `clienteX` cambia solo la palette, non deve ridichiarare l'intera identità "a muro" per ottenerla.
 
 | Preset | `forceThemeTone` | `panelSurface` | Quando |
 | :--- | :--- | :--- | :--- |
@@ -625,24 +660,24 @@ buildSite({
 });
 ```
 
-#### Altre leve: `fixedTopHeader`, `pageFade`, `showBreadcrumb`, override colore
+#### Altre leve: `fixedTopHeader`, `pageFade`, `showBreadcrumb`, palette
 
 Un design system può proporre un default anche per:
 
 - `fixedTopHeader` (navbar fissa allo scroll) e `pageFade` (fade-in d'ingresso pagina) — parte dell'identità di un'esperienza (immersiva vs statica, netta vs morbida), non un dettaglio che ogni progetto figlio ridecide da zero.
 - `showBreadcrumb` (gate globale — la visibilità per-pagina resta un'euristica separata, vedi sotto).
-- `colorBackground`/`colorSecondary`/`colorText`/`colorInfo`: gli stessi override opzionali che `global-settings.json` può già dichiarare (`site.colorBackground` ecc.), ora proponibili anche da un preset. Stessa identica matematica di `ThemeService.computePalette()` — nessun nuovo calcolo: solo un valore di ripiego quando il JSON non ne dichiara uno proprio. Un colore esplicito nel JSON vince **sempre** sul preset (stesso principio di `addon.json` su `basic.json`) — il preset non impone mai una palette, la propone solo a chi non ha già deciso diversamente.
+- `colorBackground`/`colorSecondary`/`colorText`/`colorInfo`/`customPalette`: l'intera palette del sito, vedi §"Colori con nome proprio" sopra.
 
-Nessun preset di questo template popola oggi queste leve (nessun colore specifico da imporre, nessuna navbar fissa da forzare) — esistono per i design system, propri o di dominio, che vorranno davvero differenziarsi su questi assi, con lo stesso identico meccanismo "il preset dà il default, un valore esplicito vince sempre":
+Nessun preset dell'Engine popola `fixedTopHeader`/`pageFade`/`showBreadcrumb` oggi (nessuna navbar fissa da forzare) — esistono per i design system, propri o di dominio, che vorranno davvero differenziarsi su questi assi:
 ```typescript
 // design-system-presets.ts — esempio, nessun preset di questo template lo fa oggi
-'istituzionale-rigido': {
+'istituzionale-rigido': (): DesignSystemPreset => ({
     fixedTopHeader: true,
     pageFade: false,
     showBreadcrumb: true,
-    colorBackground: '#f4f1ea', // proposto, ma global-settings.json vince se imposta il proprio
-},
+}),
 ```
+Per `customPalette` un esempio reale c'è già, in Dominio: `components/shared/design-systems/esempio.design-system.ts` estende `muro` con due colori con nome proprio (vedi §"Un design system è codice" sopra).
 
 Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign. I nomi dei preset non sono un contratto fisso: possono cambiare, l'unico modo per cui questo diventa un problema è se un figlio ha scritto `designSystem: 'nome'` a mano.
 
@@ -659,13 +694,14 @@ Deliberatamente NON si chiama "tema": nessun design system guardato per calibrar
 Un design system che non popola `roleChrome` (i preset preesistenti: `adaptive*`, `locked-*`) si comporta esattamente come prima dell'introduzione dei ruoli — zero cambiamenti per chi non li usa. `muro` invece li usa per il caso che lo ha motivato: un sito a palette fissa dove il contenuto vive direttamente sullo sfondo (nessun pannello/card che romperebbe l'uniformità), tranne le pagine legali, dove il pannello torna per la leggibilità del testo lungo:
 ```typescript
 // design-system-presets.ts
-muro: {
+muro: (): DesignSystemPreset => ({
     forceThemeTone: 'dark',
+    navSurface: 'body',
     roleChrome: {
         default: { showPanel: false },
         legal: { showPanel: true },
     },
-},
+}),
 ```
 ```typescript
 // pages/*.pages.ts — una pagina dichiara solo cosa è, non come appare
@@ -1595,7 +1631,7 @@ shell: {                           // comportamento di navbar / footer / header 
     forceThemeTone: undefined,     // asse auto/strict: fissa l'intero sito su un tono, ignora l'OS ('light'|'dark' = strict, assente = auto/segue l'OS)
     panelSurface: 'light',         // tono del pannello contenuti, a prescindere dal tema OS ('light'|'dark'|'auto')
     navSurface: 'brand',           // sfondo/testo di navbar/footer: 'brand' (immersivo, storico) o 'body' (come lo sfondo pagina, nessuna cesura)
-    designSystem: undefined,       // preset nominato che imposta l'intero bundle di leve sopra/sotto insieme (vedi design-system-presets.ts)
+    designSystem: undefined,       // nome di un preset dell'Engine, o un DesignSystemFactory importato da un design system di dominio (vedi design-system-presets.ts)
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo) — o il default del designSystem attivo
     showBreadcrumb: false,         // gate globale del breadcrumb (default false) — o il default del designSystem attivo; la visibilità per pagina resta un'euristica, vedi sotto
 },

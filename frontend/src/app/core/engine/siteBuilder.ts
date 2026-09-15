@@ -7,7 +7,7 @@ import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './leg
 import type { StructuredDataInput } from './services/structured-data';
 import type { BreadcrumbItem, BreadcrumbContext } from './services/breadcrumb';
 import type { NavLink } from './shell-nav';
-import { DESIGN_SYSTEM_PRESETS, NAKED_CHROME, type DesignSystemPreset, type DesignSystemPresetName, type PageRole, type RoleChromeSpec } from './design-system-presets';
+import { DESIGN_SYSTEM_PRESETS, NAKED_CHROME, type DesignSystemFactory, type DesignSystemPreset, type DesignSystemPresetName, type PageRole, type RoleChromeSpec } from './design-system-presets';
 
 export type { PageRole } from './design-system-presets';
 
@@ -83,16 +83,21 @@ export interface SiteConfig {
     version: string;
     /** Descrizione generale del sito per-lingua (chiavi = tag lingua). */
     description: Record<string, string>;
-    /** Colore tema principale usato dalla UI. */
+    /** Colore tema principale usato dalla UI — l'unico colore di identità che vive in
+     *  `global-settings.json`. Tutto il resto della palette è una proposta del design system
+     *  attivo (vedi sotto). */
     colorTema: string;
-    /** Override opzionale del colore secondario. */
+    /** Override opzionale del colore secondario — da `DesignSystemPreset.colorSecondary`, `undefined` se il design system attivo non lo propone. */
     colorSecondary?: string;
-    /** Override opzionale del colore di sfondo. */
+    /** Override opzionale del colore di sfondo — da `DesignSystemPreset.colorBackground`, `undefined` se il design system attivo non lo propone. */
     colorBackground?: string;
-    /** Override opzionale del colore del testo. */
+    /** Override opzionale del colore del testo — da `DesignSystemPreset.colorText`, `undefined` se il design system attivo non lo propone. */
     colorText?: string;
-    /** Override opzionale del colore informativo. */
+    /** Override opzionale del colore informativo — da `DesignSystemPreset.colorInfo`, `undefined` se il design system attivo non lo propone. */
     colorInfo?: string;
+    /** Colori con nome proprio proposti dal design system attivo (`DesignSystemPreset.customPalette`),
+     *  oltre ai quattro slot fissi sopra — `{}` se il design system attivo non ne definisce. */
+    customPalette: Record<string, string>;
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
     /** Indica se l'header deve essere visibile. */
@@ -112,13 +117,14 @@ export interface SiteConfig {
     /** Configurazione dell'effetto smoke. */
     smoke: SmokeSettings;
     /**
-     * Nome del preset scelto (`shell.designSystem` in site.ts), `null` se nessuno. Un preset è un
-     * bundle di default per `forceThemeTone`/`panelSurface` (e in futuro altri campi affini, vedi
-     * `design-system-presets.ts`) — non è un contratto, è comodità: quei campi restano impostabili
-     * singolarmente, e vincono sempre sul preset se presenti. Esposto qui solo per
+     * Nome del preset scelto (`shell.designSystem` in site.ts) se un nome dell'Engine, `'custom'`
+     * se un `DesignSystemFactory` passato direttamente (un design system di dominio non ha un nome
+     * di registro), `null` se nessuno. Un preset è un bundle di default per l'intero shell (vedi
+     * `design-system-presets.ts`) — non è un contratto, è comodità: i campi granulari restano
+     * impostabili singolarmente e vincono sempre sul preset se presenti. Esposto qui solo per
      * debug/introspezione (un componente può leggere quale preset è attivo).
      */
-    designSystem: DesignSystemPresetName | null;
+    designSystem: DesignSystemPresetName | 'custom' | null;
     /**
      * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
      * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
@@ -524,14 +530,18 @@ export type SitePageContext = {
  *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. */
 export interface SiteShellConfig {
     /**
-     * Nome di un preset di design system (`design-system-presets.ts`): un default comodo per
-     * l'intero bundle di leve granulari sotto (`forceThemeTone`, `panelSurface`, `navSurface`,
-     * `roleChrome`, `fixedTopHeader`, `pageFade`, `showBreadcrumb`, override colore), invece di
-     * impostarle una per una. Un campo impostato esplicitamente qui sotto (o nel JSON per i colori)
-     * vince sempre sul preset. I nomi non sono un contratto fisso — possono cambiare, non fanno
-     * danno a un figlio che non li usa.
+     * Design system attivo: un default comodo per l'intero bundle di leve granulari sotto
+     * (`forceThemeTone`, `panelSurface`, `navSurface`, `roleChrome`, `fixedTopHeader`, `pageFade`,
+     * `showBreadcrumb`, override colore), invece di impostarle una per una. Un campo impostato
+     * esplicitamente qui sotto vince sempre sul preset. Due forme:
+     *  - il NOME di un preset dell'Engine (`design-system-presets.ts`) — i nomi non sono un
+     *    contratto fisso, possono cambiare, non fanno danno a un figlio che non li usa;
+     *  - un `DesignSystemFactory` importato direttamente — la via per un design system di dominio
+     *    (`components/shared/design-systems/`), che non passa da nessun registro per nome: è solo
+     *    una funzione che il sito importa ed eventualmente costruisce per estensione
+     *    (`extendDesignSystem`) da un preset dell'Engine.
      */
-    designSystem?: DesignSystemPresetName;
+    designSystem?: DesignSystemPresetName | DesignSystemFactory;
     /**
      * Asse "aderenza al tema del browser": assente = **auto**, segue `prefers-color-scheme` come
      * sempre; `'light'`/`'dark'` = **strict**, fissa l'intero sito su quel tono ignorando l'OS —
@@ -744,36 +754,53 @@ function normalizeLoginPage(input: SiteDefinition['loginPage']): { page: PageTyp
 
 const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-/** Valida che i campi colore opzionali siano codici esadecimali validi (#RGB o #RRGGBB). */
-function validateColorFields(cfg: { colorTema?: string; colorSecondary?: string; colorBackground?: string; colorText?: string; colorInfo?: string }): void {
-    const fields: readonly (readonly [string, string | undefined])[] = [
-        ['colorTema', cfg.colorTema],
-        ['colorSecondary', cfg.colorSecondary],
-        ['colorBackground', cfg.colorBackground],
-        ['colorText', cfg.colorText],
-        ['colorInfo', cfg.colorInfo],
+/** Valida che i campi colore opzionali siano codici esadecimali validi (#RGB o #RRGGBB).
+ *  `colorTema` viene da `global-settings.json`; gli altri sono una proposta del design system
+ *  attivo (`DesignSystemPreset`) — il messaggio d'errore punta alla fonte giusta per ciascuno. */
+function validateColorFields(cfg: {
+    colorTema?: string;
+    colorSecondary?: string;
+    colorBackground?: string;
+    colorText?: string;
+    colorInfo?: string;
+    customPalette?: Record<string, string>;
+}): void {
+    const fields: readonly (readonly [string, string | undefined, string])[] = [
+        ['colorTema', cfg.colorTema, 'global-settings.json'],
+        ['colorSecondary', cfg.colorSecondary, 'design-system-presets.ts (o l\'estensione di dominio)'],
+        ['colorBackground', cfg.colorBackground, 'design-system-presets.ts (o l\'estensione di dominio)'],
+        ['colorText', cfg.colorText, 'design-system-presets.ts (o l\'estensione di dominio)'],
+        ['colorInfo', cfg.colorInfo, 'design-system-presets.ts (o l\'estensione di dominio)'],
+        ...Object.entries(cfg.customPalette ?? {}).map(
+            ([label, value]): readonly [string, string, string] =>
+                [`customPalette.${label}`, value, 'design-system-presets.ts (o l\'estensione di dominio)'] as const
+        ),
     ];
-    for (const [name, value] of fields) {
+    for (const [name, value, source] of fields) {
         if (value != null && !HEX_COLOR_PATTERN.test(value)) {
             throw new Error(
-                `[SiteBuilder] site.${name}="${value}" non è un colore hex valido (atteso #RGB o ` +
-                `#RRGGBB, es. "#131e55" — niente canale alpha) in global-settings.json.`
+                `[SiteBuilder] ${name}="${value}" non è un colore hex valido (atteso #RGB o ` +
+                `#RRGGBB, es. "#131e55" — niente canale alpha) in ${source}.`
             );
         }
     }
 }
 
-/** Risolve `shell.designSystem` (nome) nel bundle di default — `undefined` se non impostato. */
-function resolveDesignSystemPreset(name: string | undefined): DesignSystemPreset | undefined {
-    if (name == null) return undefined;
-    const preset = (DESIGN_SYSTEM_PRESETS as Record<string, DesignSystemPreset>)[name];
-    if (!preset) {
+/** Risolve `shell.designSystem` (nome) eseguendo la sua factory — `undefined` se non impostato. Un
+ *  design system è codice (`DesignSystemFactory`), non un dato: qui è dove viene chiamato. */
+function resolveDesignSystemPreset(designSystem: DesignSystemPresetName | DesignSystemFactory | undefined): DesignSystemPreset | undefined {
+    if (designSystem == null) return undefined;
+    // Un DesignSystemFactory passato direttamente (design system di dominio) non passa da nessun
+    // registro per nome: è già la funzione da eseguire.
+    if (typeof designSystem === 'function') return designSystem();
+    const factory = (DESIGN_SYSTEM_PRESETS as Record<string, (() => DesignSystemPreset) | undefined>)[designSystem];
+    if (!factory) {
         throw new Error(
-            `[SiteBuilder] shell.designSystem="${name}" non esiste. Preset validi: ` +
+            `[SiteBuilder] shell.designSystem="${designSystem}" non esiste. Preset validi: ` +
             `${Object.keys(DESIGN_SYSTEM_PRESETS).join(', ')} (site.ts).`
         );
     }
-    return preset;
+    return factory();
 }
 
 /** Risolve il ruolo di una pagina (`layout.role`) nella chrome (nav/footer/pannello) dettata dal
@@ -795,14 +822,16 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
     // preset dà solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio di
     // addon.json che sovrascrive basic.json, non il contrario).
     const forceThemeTone = shell.forceThemeTone ?? preset?.forceThemeTone;
-    const colorSecondary = cfg.colorSecondary ?? preset?.colorSecondary;
-    const colorBackground = cfg.colorBackground ?? preset?.colorBackground;
-    const colorText = cfg.colorText ?? preset?.colorText;
-    const colorInfo = cfg.colorInfo ?? preset?.colorInfo;
-    // Validato sui valori RISOLTI (JSON o preset, non solo JSON): un preset con un hex malformato
-    // deve fallire nello stesso identico modo di un JSON malformato, non silenziosamente più avanti
-    // in ThemeService.
-    validateColorFields({ colorTema: cfg.colorTema, colorSecondary, colorBackground, colorText, colorInfo });
+    // I quattro override colore e la customPalette non vivono più nel JSON: sono sempre e solo una
+    // proposta del design system attivo (nessun campo `shell.*` equivalente — non è un valore che
+    // il sito sceglie a mano, l'unico colore di identità nel JSON resta colorTema).
+    const colorSecondary = preset?.colorSecondary;
+    const colorBackground = preset?.colorBackground;
+    const colorText = preset?.colorText;
+    const colorInfo = preset?.colorInfo;
+    // Validato sui valori RISOLTI dal preset: un design system con un hex malformato deve fallire
+    // qui, con un errore leggibile, non silenziosamente più avanti in ThemeService.
+    validateColorFields({ colorTema: cfg.colorTema, colorSecondary, colorBackground, colorText, colorInfo, customPalette: preset?.customPalette });
     const login = normalizeLoginPage(definition.loginPage);
     const config: SiteConfig = {
         appName: environment.appName,
@@ -813,7 +842,8 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
         colorBackground,
         colorText,
         colorInfo,
-        designSystem: shell.designSystem ?? null,
+        customPalette: preset?.customPalette ?? {},
+        designSystem: shell.designSystem == null ? null : (typeof shell.designSystem === 'function' ? 'custom' : shell.designSystem),
         forceThemeTone,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,

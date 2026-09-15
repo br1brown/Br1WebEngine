@@ -23,6 +23,7 @@ const sitePalette: PaletteTokens = ThemeService.computePalette(ContestoSito.conf
     background: ContestoSito.config.colorBackground,
     text: ContestoSito.config.colorText,
     info: ContestoSito.config.colorInfo,
+    customPalette: ContestoSito.config.customPalette,
 });
 
 /** Sfondo card con contrasto rinforzato, derivato dalla palette una sola volta. */

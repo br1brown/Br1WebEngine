@@ -1,13 +1,22 @@
 /**
  * Preset nominati di design system: un nome comodo che espande in un bundle di campi granulari
  * già esistenti (`SiteConfig.forceThemeTone`, `SiteShellConfig.panelSurface`, ...). Il preset dà
- * solo il DEFAULT — un campo impostato esplicitamente da `site.ts`/`global-settings.json` vince
- * sempre sul preset, mai il contrario (stesso principio di `addon.json` che sovrascrive `basic.json`).
+ * solo il DEFAULT — un campo impostato esplicitamente da `site.ts` vince sempre sul preset, mai il
+ * contrario (stesso principio di `addon.json` che sovrascrive `basic.json`).
  *
- * Deliberatamente un bundle PARZIALE, non due campi fissi: un domani, quando servirà davvero (non
- * prima — non è un problema architetturale da anticipare oggi), un preset potrà includere anche
- * campi strutturali dello shell (es. una fascia istituzionale fissa sopra la navbar, tipo i siti
- * della PA) semplicemente aggiungendo la proprietà a `DesignSystemPreset` — nessun redesign.
+ * Un design system è CODICE, non un dato statico: ogni voce di `DESIGN_SYSTEM_PRESETS` è una
+ * funzione (`DesignSystemFactory`), non un oggetto letterale — stesso idioma di `pages: () => [...]`
+ * in site.ts. Non serve quasi mai fare calcoli per costruire un preset, ma quando serve (derivare
+ * più sfumature da un unico colore, comporre un `customPalette` a partire da poche costanti) si può,
+ * senza inventare un secondo meccanismo. `extendDesignSystem` sotto dà l'ergonomia di "estendi e
+ * sovrascrivi solo quello che ti serve" via composizione (deep-merge mirato), non via `class`/
+ * `extends` — nessun altro punto di questo template usa ereditarietà OOP per la configurazione, e
+ * introdurla solo qui sarebbe uno stile a sé in un codebase che compone con funzioni e spread.
+ *
+ * Deliberatamente un bundle PARZIALE, non campi fissi: un domani, quando servirà davvero (non prima
+ * — non è un problema architetturale da anticipare oggi), un preset potrà includere anche campi
+ * strutturali dello shell (es. una fascia istituzionale fissa sopra la navbar, tipo i siti della PA)
+ * semplicemente aggiungendo la proprietà a `DesignSystemPreset` — nessun redesign.
  * "Tema" è già preso da `ThemeService.themeTone` (auto/OS) per un motivo preciso: nessun design
  * system guardato (Material 3, Radix, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema"
  * qualcosa che includa la struttura — è sempre e solo colore/tono. Questo bundle è volutamente più
@@ -28,9 +37,9 @@ import type { SiteShellConfig } from './siteBuilder';
  *    diversa (es. un pannello quando le altre pagine ne sono prive, per leggibilità).
  *  - `'naked'`: nessuna chrome. L'UNICO ruolo forzato — nessun design system la reinterpreta.
  *
- * Nav/footer/pannello non sono (più) una leva della pagina: `LeafPageInput.layout` non ha
- * `showNav`/`showFooter`/`showPanel` — l'unico modo per una pagina di influenzarli è scegliere il
- * ruolo. La resa concreta resta sempre e solo decisione del design system attivo.
+ * Il ruolo si dichiara nello stesso posto di ogni altro fatto sulla pagina — `layout.role` nel file
+ * di area (`pages/*.pages.ts`) o in `legal-pages.ts` per le legali — non in una mappa a parte né
+ * dedotto dalla rotta: stesso principio con cui path/title/SEO vivono già lì, non altrove.
  */
 export type PageRole = 'default' | 'legal' | 'naked';
 
@@ -90,19 +99,78 @@ export interface DesignSystemPreset {
      *  presente (siti istituzionali/gerarchici) o sempre assente (siti a pagina singola/immersivi). */
     showBreadcrumb?: boolean;
     /**
-     * Default proposti per gli override colore opzionali (`site.colorBackground`/`colorSecondary`/
-     * `colorText`/`colorInfo` in `global-settings.json`) — STESSA matematica di sempre
-     * (`ThemeService.computePalette`), nessun nuovo calcolo: solo un valore di ripiego quando il
-     * JSON non ne dichiara uno proprio. Un valore esplicito nel JSON vince sempre sul preset (stesso
-     * principio di `addon.json` che sovrascrive `basic.json`) — il preset non forza mai una palette,
-     * la propone solo per chi non ha già deciso diversamente. Nessun preset di questo template li usa
-     * oggi (nessun colore specifico da imporre); la leva esiste per i design system che vorranno
-     * davvero una palette secondaria/di sfondo/di testo/di stato coerente con la propria identità.
+     * Override dei quattro colori derivati opzionali (secondario, sfondo pagina, testo, info) —
+     * STESSA matematica di sempre (`ThemeService.computePalette`), nessun nuovo calcolo. Non vivono
+     * più in `global-settings.json`: l'unico colore di identità che resta nel JSON è `colorTema`
+     * (il brand). Tutto il resto — anche questi quattro — è una decisione del design system attivo,
+     * non un valore di progetto. Un design system che non li imposta ottiene esattamente i default
+     * storici (derivati automaticamente dal brand), calcolati come sempre.
      */
     colorBackground?: string;
     colorSecondary?: string;
     colorText?: string;
     colorInfo?: string;
+    /**
+     * Colori con nome proprio, oltre ai quattro slot fissi sopra — la leva per un design system che
+     * vuole la SUA palette (es. quella di un cliente), non solo scostarsi dai quattro default
+     * generici. Ogni voce è un hex; ThemeService la porta nella stessa pipeline WCAG di tutto il
+     * resto (`findCompliantColor`/`getReadableTextColor`) e la espone come coppia di CSS custom
+     * properties — `--color<Label>` (il colore) e `--color<Label>Text` (il testo leggibile sopra),
+     * `<Label>` = la chiave in PascalCase, tone-adaptive come ogni altro token `--color*`. Es.
+     * `{ bordeaux: '#5c1a2b' }` → `--colorBordeaux`/`--colorBordeauxText` disponibili ovunque in CSS,
+     * accanto a `--colorPrimary`/`--colorSecondary` ecc., senza sostituirli: i quattro slot semantici
+     * sopra restano gli stessi (con o senza override) — `customPalette` aggiunge, non silenzia.
+     */
+    customPalette?: Record<string, string>;
+}
+
+/**
+ * Un design system è una funzione, non un dato: stesso idioma di `pages: () => [...]` in site.ts.
+ * Zero argomenti oggi — non c'è ancora un consumer reale che ne abbia bisogno — ma è già un punto
+ * di estensione: se un domani servirà del contesto (come `pages` lo riceve da `SitePageContext`),
+ * è un parametro in più sulla firma, non un redesign.
+ */
+export type DesignSystemFactory = () => DesignSystemPreset;
+
+/** Deep-merge mirato per i due campi annidati (`roleChrome`, `customPalette`); tutto il resto è un
+ *  override shallow — `patch` vince sul campo omonimo di `base`, un campo assente in `patch` lascia
+ *  quello di `base`. */
+function mergeDesignSystemPreset(base: DesignSystemPreset, patch: Partial<DesignSystemPreset>): DesignSystemPreset {
+    return {
+        ...base,
+        ...patch,
+        roleChrome: (patch.roleChrome || base.roleChrome) ? {
+            default: { ...base.roleChrome?.default, ...patch.roleChrome?.default },
+            legal: { ...base.roleChrome?.legal, ...patch.roleChrome?.legal },
+        } : undefined,
+        customPalette: (patch.customPalette || base.customPalette)
+            ? { ...base.customPalette, ...patch.customPalette }
+            : undefined,
+    };
+}
+
+/**
+ * Costruisce un design system per ESTENSIONE di un altro, invece che per copia — è la "classe
+ * padre da sovrascrivere": `base` resta la fonte di verità, `patch` tocca solo ciò che deve
+ * cambiare (`roleChrome`/`customPalette` si fondono chiave per chiave, il resto sovrascrive). Un
+ * design system di dominio che vuole la palette di un cliente specifico parte da un preset
+ * dell'Engine (es. `muro`) invece di riscriverlo da zero:
+ * ```typescript
+ * export const clienteX = extendDesignSystem(muro, () => ({
+ *     customPalette: { bordeaux: '#5c1a2b', oro: '#a97d3f' },
+ * }));
+ * ```
+ * `patch` è a sua volta una funzione (può fare calcoli, come `base`) e riceve il preset di `base`
+ * già risolto, per un override che dipenda da un valore calcolato invece che ripeterlo a mano.
+ */
+export function extendDesignSystem(
+    base: DesignSystemFactory,
+    patch: Partial<DesignSystemPreset> | ((resolved: DesignSystemPreset) => Partial<DesignSystemPreset>),
+): DesignSystemFactory {
+    return () => {
+        const resolved = base();
+        return mergeDesignSystemPreset(resolved, typeof patch === 'function' ? patch(resolved) : patch);
+    };
 }
 
 /**
@@ -115,32 +183,32 @@ export interface DesignSystemPreset {
  */
 export const DESIGN_SYSTEM_PRESETS = {
     /** Tutto segue l'OS, pannello intonato al tema corrente (nessun campo forzato). */
-    adaptive: {},
+    adaptive: (): DesignSystemPreset => ({}),
     /** Segue l'OS, ma il pannello contenuti resta sempre quasi-bianco — il default storico del template. */
-    'adaptive-light-panel': { panelSurface: 'light' },
+    'adaptive-light-panel': (): DesignSystemPreset => ({ panelSurface: 'light' }),
     /** Segue l'OS, ma il pannello contenuti resta sempre scuro — mirror del precedente. */
-    'adaptive-dark-panel': { panelSurface: 'dark' },
+    'adaptive-dark-panel': (): DesignSystemPreset => ({ panelSurface: 'dark' }),
     /** Sito fissato scuro, pannello intonato — palette a contrasto fisso studiato dal grafico (es. Agnese Subacchi). */
-    'locked-dark': { forceThemeTone: 'dark' },
+    'locked-dark': (): DesignSystemPreset => ({ forceThemeTone: 'dark' }),
     /** Sito fissato chiaro, pannello intonato — mirror del precedente. */
-    'locked-light': { forceThemeTone: 'light' },
+    'locked-light': (): DesignSystemPreset => ({ forceThemeTone: 'light' }),
     /** Sito fissato scuro, con un pannello chiaro in risalto (pattern Radix `panelBackground` / Carbon "g100 panel in white page"). */
-    'locked-dark-accent-panel': { forceThemeTone: 'dark', panelSurface: 'light' },
+    'locked-dark-accent-panel': (): DesignSystemPreset => ({ forceThemeTone: 'dark', panelSurface: 'light' }),
     /** Sito fissato chiaro, con un pannello scuro in risalto — mirror del precedente. */
-    'locked-light-accent-panel': { forceThemeTone: 'light', panelSurface: 'dark' },
+    'locked-light-accent-panel': (): DesignSystemPreset => ({ forceThemeTone: 'light', panelSurface: 'dark' }),
     /** Sito uniforme "a muro" (Agnese Subacchi): palette fissa scura, nessun pannello sulle pagine
      *  di contenuto — il contenuto vive direttamente sullo sfondo, senza la "card" chiara che
      *  spezzerebbe l'uniformità. Le pagine legali (`role: 'legal'`) restano un'eccezione voluta:
      *  testo lungo, il pannello torna per leggibilità — l'esperienza "a parete" è per le pagine
      *  di contenuto, non per le policy. */
-    muro: {
+    muro: (): DesignSystemPreset => ({
         forceThemeTone: 'dark',
         navSurface: 'body',
         roleChrome: {
             default: { showPanel: false },
             legal: { showPanel: true },
         },
-    },
-} as const satisfies Record<string, DesignSystemPreset>;
+    }),
+} as const satisfies Record<string, DesignSystemFactory>;
 
 export type DesignSystemPresetName = keyof typeof DESIGN_SYSTEM_PRESETS;

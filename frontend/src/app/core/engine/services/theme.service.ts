@@ -179,6 +179,14 @@ export interface PaletteTokens {
      * `'dark'` altrimenti. Usato come valore iniziale di `themeTone` in SSR (dove `prefers-color-scheme` non è disponibile).
      */
     naturalTone: 'light' | 'dark';
+
+    /**
+     * Colori con nome proprio risolti da `PaletteOverrides.customPalette` — chiave = la stessa
+     * etichetta scelta dal design system (es. `'bordeaux'`), stessa pipeline WCAG di
+     * `colorSecondary*` (fill conforme al contrasto target + testo leggibile sopra). `{}` se nessun
+     * design system ne propone. CSS: `--color<Label>` (Pascal-case)/`--color<Label>Text`.
+     */
+    customPalette: Record<string, { lt: string; ltText: '#000000' | '#ffffff'; dk: string; dkText: '#000000' | '#ffffff' }>;
 }
 
 /**
@@ -210,6 +218,14 @@ export interface PaletteOverrides {
      * (findCompliantColor + subtle/emphasis), iniettata SOLO sulle variabili `--bs-info*` interessate.
      */
     info?: string;
+    /**
+     * Colori con nome proprio (da `DesignSystemPreset.customPalette`) — ciascuno riceve la stessa
+     * pipeline WCAG di `secondary` (variante fill Lt/Dk conforme al contrasto target, più il testo
+     * leggibile sopra), esposta come coppia di token dinamici (`--color<Label>`/`--color<Label>Text`)
+     * invece dei nomi fissi `colorSecondary*`. Assente/vuoto: nessun token in più, comportamento
+     * identico a prima dell'introduzione di questo campo.
+     */
+    customPalette?: Record<string, string>;
 }
 
 /**
@@ -322,6 +338,7 @@ export class ThemeService {
             background: ContestoSito.config.colorBackground,
             text: ContestoSito.config.colorText,
             info: ContestoSito.config.colorInfo,
+            customPalette: ContestoSito.config.customPalette,
         };
         this._palette = computed(() => ThemeService._getCachedPalette(this._colorTema(), this._overrides));
 
@@ -627,6 +644,16 @@ export class ThemeService {
             );
         }
 
+        // customPalette: una coppia --color<Label>/--color<Label>Text per voce (tone-adaptive, come
+        // --colorSecondary sopra) — {} se nessun design system ne propone, nessun var in più.
+        for (const [label, colors] of Object.entries(p.customPalette)) {
+            const cssLabel = ThemeService.toPascalCase(label);
+            vars.push(
+                [`--color${cssLabel}`, lt ? colors.lt : colors.dk],
+                [`--color${cssLabel}Text`, lt ? colors.ltText : colors.dkText],
+            );
+        }
+
         for (const [prop, val] of vars) {
             el.style.setProperty(prop, val);
         }
@@ -788,7 +815,13 @@ export class ThemeService {
                       `--bs-info-bg-subtle:${s ? p.subtleInfo.bgSubtleLt : p.subtleInfo.bgSubtleDk};` +
                       `--bs-info-border-subtle:${s ? p.subtleInfo.borderSubtleLt : p.subtleInfo.borderSubtleDk};` +
                       `--bs-info-text-emphasis:${s ? p.subtleInfo.textEmphasisLt : p.subtleInfo.textEmphasisDk};`
-                    : '')
+                    : '') +
+                // customPalette — stesso schema --colorSecondary sopra, una coppia per voce.
+                Object.entries(p.customPalette).map(([label, colors]) => {
+                    const cssLabel = ThemeService.toPascalCase(label);
+                    return `--color${cssLabel}:${s ? colors.lt : colors.dk};` +
+                        `--color${cssLabel}Text:${s ? colors.ltText : colors.dkText};`;
+                }).join('')
             );
         };
 
@@ -1025,13 +1058,17 @@ export class ThemeService {
             H_sec = H_t;
         }
 
-        let secLt = ThemeService.findCompliantColor(C_sec, H_sec, colorMutedBgLt, TARGET_TEXT, startLt, -0.01);
-        if (ThemeService.calcContrastRatio(secLt, '#ffffff') < TARGET_TEXT) {
-            secLt = ThemeService.findCompliantColor(C_sec, H_sec, '#ffffff', TARGET_TEXT, startLt, -0.01);
-        }
-        let secDk = ThemeService.findCompliantColor(C_sec, H_sec, colorMutedBgDk, TARGET_TEXT, startDk, +0.01);
-        if (ThemeService.calcContrastRatio(secDk, '#000000') < TARGET_TEXT) {
-            secDk = ThemeService.findCompliantColor(C_sec, H_sec, '#000000', TARGET_TEXT, startDk, +0.01);
+        const { lt: secLt, dk: secDk } = ThemeService.computeAccentPair(C_sec, H_sec, colorMutedBgLt, colorMutedBgDk, startLt, startDk);
+
+        // customPalette: una coppia fill/testo per etichetta, stessa pipeline di secondary sopra —
+        // ogni voce è già un hex esplicito (mai "derivato dal brand" implicitamente, a differenza
+        // del ramo senza override di secondary: un colore con nome proprio è sempre una scelta
+        // esplicita del design system).
+        const customPalette: PaletteTokens['customPalette'] = {};
+        for (const [label, hex] of Object.entries(overrides?.customPalette ?? {})) {
+            const [L_ov, c, h] = ThemeService.hexToOklch(hex);
+            const { lt, ltText, dk, dkText } = ThemeService.computeAccentPair(c, h, colorMutedBgLt, colorMutedBgDk, L_ov, L_ov);
+            customPalette[label] = { lt, ltText, dk, dkText };
         }
 
         // ── Subtle/emphasis system ─────────────────────────────────────────
@@ -1166,6 +1203,7 @@ export class ThemeService {
             colorNavBorderDk,
 
             naturalTone,
+            customPalette,
         };
     }
 
@@ -1218,6 +1256,34 @@ export class ThemeService {
         const textEmphasisLt = ThemeService.findCompliantColor(Math.min(C, 0.18), H, bgSubtleLt, 4.5, 0.45, -0.01);
         const textEmphasisDk = ThemeService.findCompliantColor(Math.min(C, 0.18), H, bgSubtleDk, 4.5, 0.62, +0.01);
         return { bgSubtleLt, bgSubtleDk, borderSubtleLt, borderSubtleDk, textEmphasisLt, textEmphasisDk };
+    }
+
+    /**
+     * Deriva una coppia fill/testo WCAG-safe (Lt/Dk) da hue/chroma dati: cerca la prima variante
+     * conforme al contrasto target contro la superficie muted di riferimento (fallback bianco/nero
+     * puro se anche quella non basta — caso limite di brand a chroma molto alta), poi calcola il
+     * testo leggibile sopra il fill trovato. Stesso identico algoritmo con cui questo file ha
+     * sempre calcolato `colorSecondaryLt/Dk` — estratto qui perché `customPalette` (colori con nome
+     * proprio, vedi `PaletteOverrides`) lo riusa uno per voce, non solo per il secondario.
+     */
+    private static computeAccentPair(
+        C: number, H: number,
+        mutedBgLt: string, mutedBgDk: string,
+        startLt: number, startDk: number,
+    ): { lt: string; ltText: '#000000' | '#ffffff'; dk: string; dkText: '#000000' | '#ffffff' } {
+        const TARGET_TEXT = ThemeService.TARGET_TEXT_CONTRAST;
+        let lt = ThemeService.findCompliantColor(C, H, mutedBgLt, TARGET_TEXT, startLt, -0.01);
+        if (ThemeService.calcContrastRatio(lt, '#ffffff') < TARGET_TEXT) {
+            lt = ThemeService.findCompliantColor(C, H, '#ffffff', TARGET_TEXT, startLt, -0.01);
+        }
+        let dk = ThemeService.findCompliantColor(C, H, mutedBgDk, TARGET_TEXT, startDk, +0.01);
+        if (ThemeService.calcContrastRatio(dk, '#000000') < TARGET_TEXT) {
+            dk = ThemeService.findCompliantColor(C, H, '#000000', TARGET_TEXT, startDk, +0.01);
+        }
+        return {
+            lt, ltText: ThemeService.getReadableTextColor(lt),
+            dk, dkText: ThemeService.getReadableTextColor(dk),
+        };
     }
 
     // Cerca il colore OKLCH(L, C, H) con il contrasto WCAG ≥ targetRatio contro bgHex.
@@ -1451,6 +1517,17 @@ export class ThemeService {
         const lighter = Math.max(lumA, lumB);
         const darker = Math.min(lumA, lumB);
         return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    /** Converte l'etichetta di una `customPalette` (qualunque casing — `'bordeaux'`, `'accent-2'`,
+     *  `'brandGold'`) nel segmento PascalCase del nome CSS var: `'bordeaux'` → `'Bordeaux'`,
+     *  `'accent-2'` → `'Accent2'`. Usata per comporre `--color<Label>`/`--color<Label>Text`. */
+    private static toPascalCase(label: string): string {
+        return label
+            .split(/[^a-zA-Z0-9]+/)
+            .filter(Boolean)
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join('');
     }
 
     /** Restituisce la tripla `"r, g, b"` (es. `"31, 64, 255"`) per le utility `rgba()` di Bootstrap/CSS. */

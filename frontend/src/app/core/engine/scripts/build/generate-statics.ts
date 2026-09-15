@@ -112,23 +112,27 @@ const _fileProject = _settings.project ?? {};
 // L'icona di brand non è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in
 // nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
 const APP_VERSION = _fileProject.version || '1.0.0';
 const COLOR_TEMA = SITE_CONFIG.colorTema ?? '#888888';
-const COLOR_OVERRIDES = {
-    secondary: SITE_CONFIG.colorSecondary,
-    background: SITE_CONFIG.colorBackground,
-    text: SITE_CONFIG.colorText,
-    info: SITE_CONFIG.colorInfo,
-};
-// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
-// shell.designSystem che lo preveda). Leggerlo da ContestoSito.config è corretto qui (a differenza
-// di COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
+// I quattro override colore non vivono più nel JSON: sono una proposta del design system attivo
+// (shell.designSystem in site.ts, DesignSystemPreset.colorSecondary/... nell'Engine o in
+// un'estensione di dominio). Leggerli da ContestoSito.config è corretto qui (a differenza di
+// COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
 // rigenera in environment.ts più sotto): site.ts non passa da environment.ts, quindi non c'è alcun
 // problema di staleness — ContestoSito legge site.ts così com'è ora, non una versione precedente.
+// Stesso ragionamento di FORCE_THEME_TONE subito sotto.
+const COLOR_OVERRIDES = {
+    secondary: ContestoSito.config.colorSecondary,
+    background: ContestoSito.config.colorBackground,
+    text: ContestoSito.config.colorText,
+    info: ContestoSito.config.colorInfo,
+};
+// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
+// shell.designSystem che lo preveda).
 const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
@@ -304,10 +308,6 @@ function updateIndexHtml(): void {
 export interface AppSiteConfig {
     description?: Record<string, string>;
     colorTema?: string;
-    colorSecondary?: string;
-    colorBackground?: string;
-    colorText?: string;
-    colorInfo?: string;
     smoke?: {
         enable?: boolean;
         color?: string;
