@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Docs: audit del confine Engine/Dominio (frontend + backend), fix del default `'admin'` residuo in `BaseLoginFormComponent`
+
+Verifica sistematica se la separazione Engine/Dominio documentata corrisponde ancora al codice reale — cercando due tipi di errore: un contratto usato ma non elencato tra i "Dominio a contratto fisso" (il README lo definisce esplicitamente come garanzia esaustiva), e file di Dominio importanti assenti dalle tabelle di ownership.
+
+- **Root `README.md`**: aggiunta `AuthService` (`core/services/auth.service.ts`) alla lista "Dominio a contratto fisso" — importata per nome da tre file Engine (`base-login-form.component.ts`, `user-nav.component.ts`, `footer.component.ts`) ma non elencata; con lei `core/dto/auth.dto.ts`/`session.dto.ts`. Aggiunti `nav.ts` (Dominio, le voci di menu — mancava da entrambe le tabelle di ownership pur essendo un file primario quanto `site.ts`) e `backend/Properties/launchSettings.json` (Dominio: porta dev locale, citata in `backend/README.md` ma non classificata).
+- **Fix residuo del refactor login precedente**: `BaseLoginFormComponent` (Engine) aveva ancora `username: ['admin', ...]` come default hardcoded — bloccava anche `components/shared/login-form/` (la demo con username visibile) a partire pre-compilato con `"admin"`. Spostato: la base ora parte da `''`, e solo `LoginFormComponent` (Engine, che nasconde il campo e ne ha davvero bisogno per il login demo a credenziali fisse) lo imposta nel proprio costruttore.
+- Verificato: audit indipendenti su frontend e backend (grep sistematico di ogni import che attraversa il confine Engine↔Dominio, più le tabelle di ownership riga per riga) non hanno trovato altre violazioni strutturali — solo questi tre gap documentali e il residuo sopra. `tsc --noEmit`/build pulito dopo il fix.
+
 ### `LoginFormComponent`: logica estratta in `BaseLoginFormComponent` (Engine), demo di override in `components/shared/`
 
 Il refactor di settembre (v. sotto, "21 componenti condivisi da Dominio a Engine") ha spostato `login-form` interamente nell'Engine perché era identico in tutti i figli — ma "identico oggi" non vuol dire "nessuno vorrà mai un markup diverso": lo username fisso a `'admin'` e nascosto è una semplificazione buona per la demo a credenziali fisse, non per un progetto reale con utenti propri. Serviva un modo per personalizzare il markup senza tornare a duplicare submit/validazione/mappatura errori in ogni figlio che si allontana dal default.

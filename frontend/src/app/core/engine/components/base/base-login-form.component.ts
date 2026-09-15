@@ -23,7 +23,7 @@ export abstract class BaseLoginFormComponent {
     protected readonly errorMessage = signal<string | null>(null);
 
     protected readonly loginForm = this.fb.group({
-        username: ['admin', [Validators.required]],
+        username: ['', [Validators.required]],
         password: ['', [Validators.required, Validators.minLength(8)]],
     });
 
