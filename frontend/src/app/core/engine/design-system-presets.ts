@@ -26,15 +26,17 @@ import type { SiteShellConfig } from './siteBuilder';
  *  - `'default'`: pagina di contenuto normale.
  *  - `'legal'`: pagina di testo lungo (policy, note legali...) — un design system può volerla
  *    diversa (es. un pannello quando le altre pagine ne sono prive, per leggibilità).
- *  - `'naked'`: nessuna chrome. L'UNICO ruolo forzato — nessun design system né override
- *    per-pagina (`layout.showNav`/`showFooter`/`showPanel`) può riaccendere nav/footer/pannello
- *    su una pagina con questo ruolo.
+ *  - `'naked'`: nessuna chrome. L'UNICO ruolo forzato — nessun design system la reinterpreta.
+ *
+ * Nav/footer/pannello non sono (più) una leva della pagina: `LeafPageInput.layout` non ha
+ * `showNav`/`showFooter`/`showPanel` — l'unico modo per una pagina di influenzarli è scegliere il
+ * ruolo. La resa concreta resta sempre e solo decisione del design system attivo.
  */
 export type PageRole = 'default' | 'legal' | 'naked';
 
 /** Comportamento di chrome (nav/footer/pannello) associato a un ruolo da un design system. Ogni
  *  campo omesso resta al comportamento globale di sito (`SiteShellConfig.showNav`/`showFooter`/
- *  `showPanel` in site.ts, o all'eventuale override esplicito `layout.*` della singola pagina). */
+ *  `showPanel` in site.ts). */
 export interface RoleChromeSpec {
     showNav?: boolean;
     showFooter?: boolean;
@@ -42,8 +44,8 @@ export interface RoleChromeSpec {
 }
 
 /** Chrome del ruolo `'naked'` — non è un default, è un valore fisso: nessun design system la
- *  dichiara (non esiste `roleChrome.naked`) e nessuna pagina può scostarsene col proprio
- *  `layout.showNav`/`showFooter`/`showPanel` (applicato in `resolveRoleChrome`, siteBuilder.ts). */
+ *  dichiara (non esiste `roleChrome.naked`), applicato incondizionatamente in `resolveRoleChrome`
+ *  (siteBuilder.ts). */
 export const NAKED_CHROME: Required<RoleChromeSpec> = { showNav: false, showFooter: false, showPanel: false };
 
 /** Bundle di default per un preset — solo i campi che il preset sceglie di toccare. */

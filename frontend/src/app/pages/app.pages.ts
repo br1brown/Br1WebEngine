@@ -49,7 +49,6 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.Social,
         description: 'socialDesc',
         component: () => import('./social/social.component').then(m => m.SocialComponent),
-        layout: { showPanel: false },
         contentLoader: withApi(async (ctx, api) => ({ content: await api.getSocial() })),
     },
     {
@@ -63,7 +62,6 @@ export const appPagesDecl: SitePageInput[] = [
         pageType: AppPages.SocialDetail,
         description: 'socialDesc',
         component: () => import('./social/social.component').then(m => m.SocialComponent),
-        layout: { showPanel: false },
         dynamicParams: async (ctx) => {
             const all = await ctx.fetchBackendJson<Record<string, string>>('/social');
             return Object.keys(all).map(name => ({ slug: name }));

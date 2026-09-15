@@ -212,17 +212,12 @@ export type LeafPageInput = BasePageInput & {
     /** Override per-pagina dei flag di layout/shell. */
     layout?: {
         /** Ruolo della pagina (vedi `PageRole` in `design-system-presets.ts`): governa insieme
-         *  nav/footer/pannello secondo come li interpreta il design system attivo. Default:
-         *  `'default'`. `showNav`/`showFooter`/`showPanel` qui sotto restano una scappatoia
-         *  esplicita per-pagina SOPRA il ruolo — tranne che per `'naked'`, forzato dall'Engine e
-         *  non sovrascrivibile in nessun modo (né dal design system, né da questi flag). */
+         *  nav/footer/pannello. Default: `'default'`. Non esiste più uno scostamento per-pagina su
+         *  questi tre flag: è una decisione del design system attivo (`DesignSystemPreset.roleChrome`),
+         *  non della pagina — la pagina dichiara CHE COSA è (il ruolo), non COME va renderizzata.
+         *  `'naked'` è l'unico ruolo forzato: nessun design system può farlo apparire con nav/footer/
+         *  pannello. */
         role?: PageRole;
-        /** Mostra o nasconde il pannello contenuto. */
-        showPanel?: boolean;
-        /** Mostra o nasconde la navbar per questa pagina. */
-        showNav?: boolean;
-        /** Mostra o nasconde il footer per questa pagina. */
-        showFooter?: boolean;
         /** Vista full-bleed senza pannello/container. */
         fitViewport?: boolean;
         /** Mostra o nasconde l'effetto smoke per questa pagina. */
@@ -462,13 +457,16 @@ const normalizeSitePage = (
             ...rest,
             enabled: page.enabled ?? true,
             kind: 'leaf',
-            // Flag di layout per route.data. Ordine di priorità: 'naked' (fisso) > override
-            // esplicito della pagina (layout.*) > default del ruolo dato dal design system attivo
-            // (roleChrome) > default globale di sito (applicato più a valle, in app.component.ts).
+            // Flag di layout per route.data. Nav/footer/pannello non sono più uno scostamento
+            // della pagina: li decide solo il ruolo, tramite il design system attivo. Ordine di
+            // priorità: 'naked' (fisso) > fitViewport (fisso: full-bleed, niente footer a
+            // prescindere dal ruolo — stesso spazio conteso di pannello/smoke, già esclusi
+            // strutturalmente) > default del ruolo dato dal design system (roleChrome) > default
+            // globale di sito (applicato più a valle, in app.component.ts).
             shell: {
-                showNav: naked ? false : (layout?.showNav ?? roleChrome.showNav),
-                showPanel: naked ? false : (layout?.showPanel ?? roleChrome.showPanel),
-                showFooter: naked ? false : (layout?.showFooter ?? roleChrome.showFooter ?? (layout?.fitViewport ? false : undefined)),
+                showNav: naked ? false : roleChrome.showNav,
+                showPanel: naked ? false : roleChrome.showPanel,
+                showFooter: (naked || layout?.fitViewport) ? false : roleChrome.showFooter,
                 fitViewport: layout?.fitViewport,
                 showSmoke: layout?.showSmoke,
                 showBreadcrumb: layout?.showBreadcrumb,

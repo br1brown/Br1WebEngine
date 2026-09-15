@@ -12,7 +12,7 @@ Il livello di complessità tipica (routing frammentato, meta tag SEO sparsi, laz
 
 ### 1. `site.ts` + `pages/*.pages.ts`: Il DSL di Configurazione
 Perché è utile: in Angular standard aggiungere una pagina richiede configurare il routing, aggiornare i menu e gestire manualmente la SEO.
-Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a `legalPages`, shell (comportamento navbar/footer/pannello) e slot login/home (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, nasconde/mostra la navbar in base a `layout.showNav`, e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
+Cosa fa l'Engine: ogni pagina si dichiara come oggetto (path, title, component, meta) in un file di area sotto `src/app/pages/*.pages.ts`, non in `site.ts`, che si limita ad assemblarle insieme a `legalPages`, shell (comportamento navbar/footer/pannello) e slot login/home (è comunque il primo file che apri: da lì risali a tutto il resto). Da quelle dichiarazioni l'Engine crea a runtime le rotte, mostra o nasconde navbar/footer/pannello in base al `layout.role` della pagina e al design system attivo (`shell.designSystem`), e se la pagina ha `requiresAuth: true`, l'SSR viene spento forzando il client-side rendering.
 
 ### 2. Auto-SEO Dinamica
 Basta aggiungere `description` o `ogImage` nell'oggetto pagina dentro `site.ts`. Un Resolver intercetta la navigazione e inietta prima del rendering i corretti tag Head, OpenGraph e i dati strutturati.
@@ -158,7 +158,7 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | :--- | :--- |
 | `path`, `pageType`, `title`, `component` (lazy) | `homePage` / `loginPage` (brand link, redirect auth) |
 | `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
-| `layout` (`role`, `showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello, `designSystem` che interpreta i `role`) |
+| `layout` (`role`, `fitViewport`/`showSmoke`/`showBreadcrumb`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello, `designSystem` che interpreta i `role`) |
 | `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
 | `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
@@ -618,7 +618,7 @@ Deliberatamente NON si chiama "tema": nessun design system guardato per calibrar
 | :--- | :--- | :--- |
 | `'default'` | pagina di contenuto normale (il default se `role` è omesso) | il design system attivo (`roleChrome.default`), o i flag globali di sito se il preset non lo mappa |
 | `'legal'` | pagina di testo lungo (policy, note legali — l'Engine lo applica già alle pagine legali generate, `legal-pages.ts`) | il design system attivo (`roleChrome.legal`) |
-| `'naked'` | nessuna chrome — **l'unico ruolo forzato**: niente navbar, niente footer, niente pannello, qualunque cosa dica il design system o il `layout.showNav`/`showFooter`/`showPanel` della stessa pagina (scappatoia esplicita ignorata) |
+| `'naked'` | nessuna chrome — **l'unico ruolo forzato**: niente navbar, niente footer, niente pannello, qualunque cosa dica il design system attivo |
 
 Un design system che non popola `roleChrome` (i preset preesistenti: `adaptive*`, `locked-*`) si comporta esattamente come prima dell'introduzione dei ruoli — zero cambiamenti per chi non li usa. `muro` invece li usa per il caso che lo ha motivato: un sito a palette fissa dove il contenuto vive direttamente sullo sfondo (nessun pannello/card che romperebbe l'uniformità), tranne le pagine legali, dove il pannello torna per la leggibilità del testo lungo:
 ```typescript
@@ -636,7 +636,7 @@ muro: {
 { path: 'chi-siamo', pageType: PageType.About, component: () => import('./about.component')... },                       // role implicito 'default'
 { path: 'landing', pageType: PageType.Landing, component: () => import('./landing.component')..., layout: { role: 'naked' } },  // niente chrome, a prescindere dal design system
 ```
-`showNav`/`showFooter`/`showPanel` in `layout` restano un override esplicito per-pagina SOPRA il ruolo (stessa precedenza di sempre: la pagina può scostarsi dal default), tranne per `'naked'` — forzato dall'Engine, non negoziabile da nessuno.
+`LeafPageInput.layout` non ha (più) `showNav`/`showFooter`/`showPanel`: non esiste uno scostamento per-pagina su questi tre flag, sono sempre e solo decisione del design system attivo tramite il ruolo. Una pagina che oggi avesse davvero bisogno di un layout diverso da quello che il ruolo/design system le assegna non lo esprime più a livello di singola pagina — la scelta corretta è cambiare ruolo, o far evolvere il `roleChrome` del design system attivo (o adottarne uno diverso), non riaprire un flag per-pagina.
 
 ### Leggere il tema in un componente
 
@@ -945,7 +945,7 @@ Per pagine/viste a tutto schermo (mappe, giochi, dashboard) dove lo scroll spezz
   layout: { fitViewport: true } }
 ```
 
-Vista immersiva, per default: `fitViewport` concentra la pagina sul contenuto: l'Engine lascia in scena la sola navbar (la via d'uscita) e mette da parte pannello, smoke e footer, che in full-bleed ruberebbero spazio. Tutto resta a portata: per riavere il footer basta `layout: { fitViewport: true, showFooter: true }`. Col footer attivo il contenuto vive fra navbar e footer, quindi con footer alti regola lo spazio di conseguenza.
+Vista immersiva: `fitViewport` concentra la pagina sul contenuto. L'Engine lascia in scena la sola navbar (la via d'uscita, governata dal ruolo/design system come sempre) e mette da parte pannello, smoke e footer — sempre, senza eccezioni: lo stesso spazio conteso di un full-bleed non si negozia a livello di singola pagina, né riattivandolo a mano né tramite un design system che per quel ruolo lo vorrebbe visibile. Una pagina che davvero necessitasse del footer in full-bleed non è più un caso esprimibile con `fitViewport`.
 
 Lato pagina serve una cosa sola: fai crescere il root del componente con `flex-grow-1` (o `h-100`) sul suo elemento radice, così riempie l'altezza. Il resto è territorio dell'Engine: dà già `display: block` all'host di ogni pagina e, in full-bleed, costruisce la catena flex fino al viewport adattandosi da sé a navbar/footer/orientamento, layout nativo del browser, anche in SSR. Tu pensi al contenuto.
 
@@ -1524,13 +1524,11 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
     // Forza il rendering client-side (es. per pagine protette da login)
     renderMode: 'client',  // default: 'server'
 
-    // Nasconde parti della shell per questa pagina
+    // Dichiara cosa è questa pagina (vedi §"Ruoli di Pagina" sotto): nav/footer/pannello non si
+    // impostano più qui, li decide il design system attivo in base al ruolo.
     layout: {
-        role: 'legal',        // 'default' | 'legal' | 'naked' — che tipo di pagina è (vedi §"Ruoli di Pagina" sotto). Default: 'default'
-        showNav: false,       // nasconde la navbar (scappatoia esplicita sopra il ruolo — ignorato se role: 'naked')
-        showFooter: false,    // nasconde il footer (default: mostrato, ma off se fitViewport; scappatoia esplicita sopra il ruolo)
-        showPanel: false,     // nasconde il pannello laterale (scappatoia esplicita sopra il ruolo)
-        fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; di default niente padding/pannello/smoke/footer (navbar sì)
+        role: 'legal',        // 'default' | 'legal' | 'naked' — che tipo di pagina è. Default: 'default'
+        fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; sempre niente padding/pannello/smoke/footer (navbar sì)
         pageFade: false,      // spegne il fade-in d'ingresso solo su questa pagina (il globale shell.pageFade fa da gate)
         showBreadcrumb: true, // forza il breadcrumb in entrambe le direzioni su questa pagina (default: euristica, vedi sotto — gate: col globale off nessuna pagina può riattivarlo)
     },
