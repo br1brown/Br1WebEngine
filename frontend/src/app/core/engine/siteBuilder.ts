@@ -140,6 +140,13 @@ export interface SiteConfig {
      * storico del template) — o `'auto'` se `forceThemeTone` è impostato, vedi sopra.
      */
     panelSurface: 'light' | 'dark' | 'auto';
+    /**
+     * Sfondo/testo di navbar e footer. `'brand'` (default) = superficie immersiva derivata dal
+     * brand, sempre diversa dallo sfondo pagina. `'body'` = navbar/footer condividono lo sfondo
+     * pagina, nessuna cesura visibile — vedi `DesignSystemPreset.navSurface` per il dettaglio.
+     * Impostabile anche indirettamente scegliendo un `designSystem` che lo preveda (es. `muro`).
+     */
+    navSurface: 'brand' | 'body';
     /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. */
     pageFade: boolean;
     /** Pagina a cui reindirizzare l'utente se non autenticato (default /error/401). */
@@ -551,6 +558,13 @@ export interface SiteShellConfig {
      * Radix Themes/Chakra/Ant Design/Carbon lo documentano tutti), non un conflitto.
      */
     panelSurface?: 'light' | 'dark' | 'auto';
+    /**
+     * Sfondo/testo di navbar e footer. `'brand'` (default) = superficie immersiva derivata dal
+     * brand. `'body'` = navbar/footer condividono lo sfondo pagina, nessuna cesura visibile —
+     * vedi `DesignSystemPreset.navSurface`. Impostabile anche indirettamente scegliendo un
+     * `designSystem` che lo preveda (es. `muro`); un valore esplicito qui vince sempre sul preset.
+     */
+    navSurface?: 'brand' | 'body';
     /** Fade-in d'ingresso pagina. Default: true. */
     pageFade?: boolean;
 }
@@ -811,6 +825,7 @@ function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; pre
         // un pannello con tono diverso dal resto del sito è una composizione valida (Radix/Chakra/
         // Ant Design/Carbon la documentano tutti), non un conflitto da disabilitare.
         panelSurface: shell.panelSurface ?? preset?.panelSurface ?? (forceThemeTone ? 'auto' : 'light'),
+        navSurface: shell.navSurface ?? preset?.navSurface ?? 'brand',
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,

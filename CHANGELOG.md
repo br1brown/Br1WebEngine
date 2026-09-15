@@ -2,6 +2,21 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Nuovo `shell.navSurface`: sfondo di navbar/footer come leva del design system
+
+Segnalato da un caso reale (il design "a muro" di Agnese Subacchi, uno dei preset di questo template): con `muro` attivo — palette fissa scura, nessun pannello sulle pagine di contenuto per un'esperienza uniforme — navbar e footer restavano comunque una superficie IMMERSIVA di brand (comportamento storico, sempre diversa dallo sfondo pagina di proposito), spiccando come una barra a parte sopra/sotto il resto della pagina e vanificando l'uniformità che `muro` promette.
+
+- Nuovo `DesignSystemPreset.navSurface`/`SiteShellConfig.navSurface` (`'brand' | 'body'`, default `'brand'` = comportamento storico invariato per tutti i preset preesistenti). `'body'`: navbar/footer alimentano `--colorNavBg`/`--colorNavText`/`--colorNavBorder` con gli STESSI token già calcolati per lo sfondo pagina (`colorBase`/`colorSurfaceText`/`colorSurfaceBorder`), invece dei token "immersivi" dedicati — stessa matematica di `computePalette`, zero calcoli nuovi: solo una scelta di quale coppia di token già pronti alimenta lo slot navbar/footer (`ThemeService._resolveNavColors`).
+- `muro` adotta `navSurface: 'body'` di default.
+- Verificato dal vivo: navbar/footer sotto `muro` passano da un blu-notte distinto (`#070b16`, tinto brand) a un valore IDENTICO byte-per-byte allo sfondo pagina (`#08090c`) — nessuna cesura residua, in entrambi i ruoli (`default` senza pannello, `legal` con pannello). Preset senza `navSurface` (i 7 preesistenti) invariati: navbar torna esattamente `#131e55` (colore brand) come prima di questo cambio. `tsc`/build/lint/i18n/circular-deps/site-builder-check puliti.
+
+### Fix: riga colorata anomala su navbar/footer con tema scuro forzato
+
+Bug segnalato da un caso reale (di nuovo il design di Agnese: colori suoi, non quelli demo, rendevano il difetto evidente). `.navbar.theme-bg`/`.site-footer.theme-bg` disegnavano un `border-bottom`/`border-top: 2.5px solid var(--colorTema)` — il colore brand GREZZO, non tone-adaptive — mentre lo sfondo di navbar/footer (`--colorNavBg`) in tema scuro è un tono molto più scuro calcolato apposta (`ThemeService`, "superficie immersiva ma non aggressiva"). Le due cose divergono quanto più il brand è saturo, producendo una riga sottile ma vistosa e stonata al margine di navbar/footer — invisibile per puro caso in molte combinazioni chiare (dove `colorNavBg` coincide spesso con `colorTema` stesso), ma sempre presente in tema scuro. Il token corretto tone-adaptive (`--colorNavBorder`, mix 15% testo/sfondo) esiste già ed è usato correttamente altrove (bordo dei dropdown, `_dropdown.scss`) — semplicemente non qui.
+
+- Rimossi entrambi i `border-bottom`/`border-top` da `_bootstrap-theme.scss`: la separazione visiva navbar/pagina resta affidata al solo `box-shadow` (già presente, neutro, tone-agnostic) — nessuna riga a sostituirli, in nessun tema: non era un accento voluto, era una svista che il tema scuro rendeva visibile.
+- Verificato dal vivo con controllo puntuale (non solo visivo) di `getComputedStyle`: `border-bottom-width`/`border-top-width` di navbar e footer confermati `0px` sotto OS chiaro, OS scuro, e ogni preset con tema forzato (`locked-dark`, `muro`). Nessuna regressione sugli altri componenti (dropdown, pannello) che già usavano il token corretto.
+
 ### Fix: `layout.showNav`/`showFooter`/`showPanel` rimossi — nessuna scappatoia per-pagina sopra il ruolo (breaking)
 
 La voce precedente (sotto) introduceva `layout.role`, ma teneva `showNav`/`showFooter`/`showPanel` come override espliciti per-pagina SOPRA il ruolo — una scappatoia che vanificava l'obiettivo: la pagina doveva smettere di occuparsi di nav/footer/pannello, non riprendersi la parola con un flag. Corretto: quei tre campi non esistono più su `LeafPageInput.layout`. L'unico modo per una pagina di influenzare la chrome resta dichiarare il proprio `role`; come quel ruolo si traduce in nav/footer/pannello resta sempre e solo decisione del design system attivo (`roleChrome`).

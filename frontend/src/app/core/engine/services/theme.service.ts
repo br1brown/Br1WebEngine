@@ -286,6 +286,9 @@ export class ThemeService {
     readonly panelTone: 'light' | 'dark' | null;
     // Da global-settings.json → site.forceThemeTone. null = segue l'OS (comportamento di sempre).
     private readonly _forcedThemeTone: 'light' | 'dark' | undefined;
+    // Da shell.navSurface in site.ts (impostabile anche via shell.designSystem). 'brand' = storico
+    // (navbar/footer come superficie immersiva di brand); 'body' = condividono lo sfondo pagina.
+    private readonly _navSurface: 'brand' | 'body';
 
     // ── OS-reactive signals ───────────────────────────────────────────────
 
@@ -341,6 +344,7 @@ export class ThemeService {
         // arbitrare qui. siteBuilder.ts sceglie già il default giusto in base a forceThemeTone
         // ('auto' se impostato, altrimenti 'light'): qui non resta che leggerlo.
         this.panelTone = ContestoSito.config.panelSurface === 'auto' ? null : ContestoSito.config.panelSurface;
+        this._navSurface = ContestoSito.config.navSurface;
 
         // 3. themeTone inizializzato col tono forzato se presente, altrimenti naturalTone
         //    (SSR-safe, senza leggere prefers-color-scheme).
@@ -403,6 +407,32 @@ export class ThemeService {
     // ── DOM injection ─────────────────────────────────────────────────────
 
     /**
+     * Sceglie quale coppia di token già calcolati alimenta lo slot navbar/footer — stessa
+     * matematica di `computePalette`, solo una scelta di ALIAS in più (vedi `SiteShellConfig.navSurface`).
+     * `'brand'` (default): i token immersivi dedicati (`colorNavBg*`/`colorNavText*`/`colorNavBorder*`).
+     * `'body'`: gli stessi token dello sfondo pagina (`colorBase*`/`colorSurfaceText*`/`colorSurfaceBorder*`)
+     * — navbar/footer diventano indistinguibili dal contenuto, nessuna cesura.
+     */
+    private static _resolveNavColors(p: PaletteTokens, navSurface: 'brand' | 'body'): {
+        navBgLt: string; navBgDk: string;
+        navTextLt: string; navTextDk: string;
+        navBorderLt: string; navBorderDk: string;
+    } {
+        if (navSurface === 'body') {
+            return {
+                navBgLt: p.colorBaseLt, navBgDk: p.colorBaseDk,
+                navTextLt: p.colorSurfaceTextLt, navTextDk: p.colorSurfaceTextDk,
+                navBorderLt: p.colorSurfaceBorderLt, navBorderDk: p.colorSurfaceBorderDk,
+            };
+        }
+        return {
+            navBgLt: p.colorNavBgLt, navBgDk: p.colorNavBgDk,
+            navTextLt: p.colorNavTextLt, navTextDk: p.colorNavTextDk,
+            navBorderLt: p.colorNavBorderLt, navBorderDk: p.colorNavBorderDk,
+        };
+    }
+
+    /**
      * Inietta tutte le CSS custom properties del tema su `<html>` via `style.setProperty`.
      * Chiamata da `afterNextRender` al boot e dal listener `prefers-color-scheme` a ogni cambio OS.
      * Aggiorna anche `data-bs-theme` e `data-theme-tone` per il sistema di varianti Bootstrap.
@@ -410,6 +440,7 @@ export class ThemeService {
     private _applyPalette(p: PaletteTokens, tone: 'light' | 'dark'): void {
         const el = this.document.documentElement;
         const lt = tone === 'light';
+        const nav = ThemeService._resolveNavColors(p, this._navSurface);
 
         el.setAttribute('data-bs-theme', tone);
         el.setAttribute('data-theme-tone', tone);
@@ -566,16 +597,18 @@ export class ThemeService {
             ['--colorSubtleBgDk', p.colorSubtleBgDk],
             ['--colorMutedTextLt', p.colorMutedTextLt],
             ['--colorMutedTextDk', p.colorMutedTextDk],
-            // Adaptive Nav variables
-            ['--colorNavBg', lt ? p.colorNavBgLt : p.colorNavBgDk],
-            ['--colorNavText', lt ? p.colorNavTextLt : p.colorNavTextDk],
-            ['--colorNavBgLt', p.colorNavBgLt],
-            ['--colorNavBgDk', p.colorNavBgDk],
-            ['--colorNavTextLt', p.colorNavTextLt],
-            ['--colorNavTextDk', p.colorNavTextDk],
-            ['--colorNavBorder', lt ? p.colorNavBorderLt : p.colorNavBorderDk],
-            ['--colorNavBorderLt', p.colorNavBorderLt],
-            ['--colorNavBorderDk', p.colorNavBorderDk],
+            // Adaptive Nav variables — quale coppia alimenta questi token dipende da `_navSurface`
+            // (vedi `_resolveNavColors`): 'brand' (default) = i token immersivi dedicati qui sotto,
+            // 'body' = alias dei token dello sfondo pagina, per un chrome senza cesura.
+            ['--colorNavBg', lt ? nav.navBgLt : nav.navBgDk],
+            ['--colorNavText', lt ? nav.navTextLt : nav.navTextDk],
+            ['--colorNavBgLt', nav.navBgLt],
+            ['--colorNavBgDk', nav.navBgDk],
+            ['--colorNavTextLt', nav.navTextLt],
+            ['--colorNavTextDk', nav.navTextDk],
+            ['--colorNavBorder', lt ? nav.navBorderLt : nav.navBorderDk],
+            ['--colorNavBorderLt', nav.navBorderLt],
+            ['--colorNavBorderDk', nav.navBorderDk],
         ];
 
         // Info — SOLO se PaletteOverrides.info era presente in computePalette (vedi PaletteTokens).
@@ -647,15 +680,16 @@ export class ThemeService {
 
     /** Produce tutti i tag `<head>` del tema: `<meta name="theme-color">` + `<style id="theme-init">`.
      *  `forcedTone`: da `ContestoSito.config.forceThemeTone` — se impostato, entrambi i tag
-     *  ignorano `prefers-color-scheme` e si fissano su quel tono. */
-    static buildThemeHeadTags(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null): string {
+     *  ignorano `prefers-color-scheme` e si fissano su quel tono. `navSurface`: da
+     *  `ContestoSito.config.navSurface` — vedi `_resolveNavColors`. */
+    static buildThemeHeadTags(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null, navSurface: 'brand' | 'body' = 'brand'): string {
         const p = ThemeService._getCachedPalette(colorTema, overrides);
-        return ThemeService._buildThemeColorMetaFromPalette(p, forcedTone) + '\n' + ThemeService._buildThemeStyleTagFromPalette(p, forcedTone);
+        return ThemeService._buildThemeColorMetaFromPalette(p, forcedTone) + '\n' + ThemeService._buildThemeStyleTagFromPalette(p, forcedTone, navSurface);
     }
 
     /** Produce solo `<style id="theme-init">` senza il meta theme-color. Utile per render parziale o testing. */
-    static buildThemeStyleTag(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null): string {
-        return ThemeService._buildThemeStyleTagFromPalette(ThemeService._getCachedPalette(colorTema, overrides), forcedTone);
+    static buildThemeStyleTag(colorTema: string, overrides?: PaletteOverrides, forcedTone?: 'light' | 'dark' | null, navSurface: 'brand' | 'body' = 'brand'): string {
+        return ThemeService._buildThemeStyleTagFromPalette(ThemeService._getCachedPalette(colorTema, overrides), forcedTone, navSurface);
     }
 
     /**
@@ -668,7 +702,8 @@ export class ThemeService {
      * Se `resolvedFonts.custom` è impostato, aggiunge `@font-face` nello STESSO tag — così
      * `_ensureCustomFontFace` (client) lo trova già pronto ed evita un duplicato.
      */
-    private static _buildThemeStyleTagFromPalette(p: PaletteTokens, forcedTone?: 'light' | 'dark' | null): string {
+    private static _buildThemeStyleTagFromPalette(p: PaletteTokens, forcedTone?: 'light' | 'dark' | null, navSurface: 'brand' | 'body' = 'brand'): string {
+        const nav = ThemeService._resolveNavColors(p, navSurface);
 
         const surfaces = (tone: 'light' | 'dark'): string => {
             const s = tone === 'light';
@@ -741,9 +776,9 @@ export class ThemeService {
                 `--colorSecondaryBgSubtle:${s ? p.subtleSecondary.bgSubtleLt : p.subtleSecondary.bgSubtleDk};` +
                 `--colorSecondaryBorderSubtle:${s ? p.subtleSecondary.borderSubtleLt : p.subtleSecondary.borderSubtleDk};` +
                 `--colorSecondaryTextEmphasis:${s ? p.subtleSecondary.textEmphasisLt : p.subtleSecondary.textEmphasisDk};` +
-                `--colorNavBg:${s ? p.colorNavBgLt : p.colorNavBgDk};` +
-                `--colorNavText:${s ? p.colorNavTextLt : p.colorNavTextDk};` +
-                `--colorNavBorder:${s ? p.colorNavBorderLt : p.colorNavBorderDk};` +
+                `--colorNavBg:${s ? nav.navBgLt : nav.navBgDk};` +
+                `--colorNavText:${s ? nav.navTextLt : nav.navTextDk};` +
+                `--colorNavBorder:${s ? nav.navBorderLt : nav.navBorderDk};` +
                 // Info — SOLO se PaletteOverrides.info era presente (vedi PaletteTokens/_applyPalette).
                 // Assente: stringa vuota, --bs-info* resta gestito per intero da Bootstrap.
                 (p.colorInfoLt !== undefined && p.colorInfoDk !== undefined && p.subtleInfo
@@ -814,12 +849,12 @@ export class ThemeService {
             `--colorSecondaryBorderSubtleDk:${p.subtleSecondary.borderSubtleDk};` +
             `--colorSecondaryTextEmphasisLt:${p.subtleSecondary.textEmphasisLt};` +
             `--colorSecondaryTextEmphasisDk:${p.subtleSecondary.textEmphasisDk};` +
-            `--colorNavBgLt:${p.colorNavBgLt};` +
-            `--colorNavBgDk:${p.colorNavBgDk};` +
-            `--colorNavTextLt:${p.colorNavTextLt};` +
-            `--colorNavTextDk:${p.colorNavTextDk};` +
-            `--colorNavBorderLt:${p.colorNavBorderLt};` +
-            `--colorNavBorderDk:${p.colorNavBorderDk};`;
+            `--colorNavBgLt:${nav.navBgLt};` +
+            `--colorNavBgDk:${nav.navBgDk};` +
+            `--colorNavTextLt:${nav.navTextLt};` +
+            `--colorNavTextDk:${nav.navTextDk};` +
+            `--colorNavBorderLt:${nav.navBorderLt};` +
+            `--colorNavBorderDk:${nav.navBorderDk};`;
 
         return (
             `<style id="theme-init">` +

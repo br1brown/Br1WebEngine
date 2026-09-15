@@ -606,7 +606,24 @@ buildSite({
 | `locked-light` | `'light'` | `'auto'` | mirror del precedente |
 | `locked-dark-accent-panel` | `'dark'` | `'light'` | sito sempre scuro con una card chiara in risalto (pattern Radix `panelBackground`/Carbon) |
 | `locked-light-accent-panel` | `'light'` | `'dark'` | mirror del precedente |
-| `muro` | `'dark'` | `'auto'` | sito uniforme "a muro" (palette fissa, **nessun pannello** sulle pagine di contenuto — vedi §"Ruoli di Pagina" sotto) |
+| `muro` | `'dark'` | `'auto'` | sito uniforme "a muro" (palette fissa, **nessun pannello** sulle pagine di contenuto, navbar/footer **sullo sfondo pagina** — vedi §"Ruoli di Pagina" sotto e `navSurface` qui sotto) |
+
+#### `navSurface`: sfondo di navbar/footer
+
+Quarta leva granulare, indipendente da `forceThemeTone`/`panelSurface`: governa lo sfondo/testo di navbar e footer, non il resto del sito.
+
+- `'brand'` (default): navbar/footer sono una superficie IMMERSIVA di brand — colore pieno o pastello derivato da `colorTema`, sempre diversa dallo sfondo pagina di proposito (chrome riconoscibile a colpo d'occhio, comportamento storico del template).
+- `'body'`: navbar/footer condividono esattamente lo sfondo/testo della pagina — nessuna cesura visibile fra chrome e contenuto. Serve ai design system a superficie unica (`muro`, che lo imposta di default): senza, la navbar/footer "brand" spiccherebbero come una barra a parte sopra/sotto il "muro" uniforme, vanificandolo.
+
+Stessa matematica di sempre — nessun nuovo calcolo: `'body'` fa semplicemente alimentare `--colorNavBg`/`--colorNavText`/`--colorNavBorder` con gli stessi token già calcolati per lo sfondo pagina (`colorBase`/`colorSurfaceText`/`colorSurfaceBorder`), invece dei token dedicati "immersivi". Impostabile anche a mano, fuori da un preset:
+```typescript
+// site.ts
+buildSite({
+    shell: {
+        navSurface: 'body', // navbar/footer indistinguibili dal fondo pagina
+    },
+});
+```
 
 Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign. I nomi dei preset non sono un contratto fisso: possono cambiare, l'unico modo per cui questo diventa un problema è se un figlio ha scritto `designSystem: 'nome'` a mano.
 
@@ -1558,7 +1575,8 @@ shell: {                           // comportamento di navbar / footer / header 
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
     forceThemeTone: undefined,     // fissa l'intero sito su un tono, ignora l'OS ('light'|'dark', assente = segue l'OS)
     panelSurface: 'light',         // tono del pannello contenuti, a prescindere dal tema OS ('light'|'dark'|'auto')
-    designSystem: undefined,       // preset nominato che imposta forceThemeTone/panelSurface insieme (vedi design-system-presets.ts)
+    navSurface: 'brand',           // sfondo/testo di navbar/footer: 'brand' (immersivo, storico) o 'body' (come lo sfondo pagina, nessuna cesura)
+    designSystem: undefined,       // preset nominato che imposta forceThemeTone/panelSurface/navSurface/roleChrome insieme (vedi design-system-presets.ts)
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
     showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
 },
@@ -1799,7 +1817,8 @@ site.loginPage;   // PageType di redirect non-auth (o null)
 // Flag di shell appiattiti al top-level di SiteConfig (boolean salvo dove indicato; significato
 // di ciascuno nel blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
 // showLoginInHeader, showNotifications, panelSurface ('light'|'dark'|'auto'),
-// forceThemeTone ('light'|'dark'|assente), designSystem (nome preset|assente), pageFade
+// navSurface ('brand'|'body'), forceThemeTone ('light'|'dark'|assente),
+// designSystem (nome preset|assente), pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
 

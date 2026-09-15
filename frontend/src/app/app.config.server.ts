@@ -65,7 +65,7 @@ const serverConfig: ApplicationConfig = {
             // creato via DOM nativo (doc.createElement), non via Renderer2 — Angular applica il
             // nonce in automatico solo agli elementi che crea lui (es. gli <style> di encapsulation).
             const cspNonce = inject(CSP_NONCE, { optional: true });
-            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo, forceThemeTone } = ContestoSito.config;
+            const { colorTema, colorSecondary, colorBackground, colorText, colorInfo, forceThemeTone, navSurface } = ContestoSito.config;
             const overrides = { secondary: colorSecondary, background: colorBackground, text: colorText, info: colorInfo };
             const palette = ThemeService.computePalette(colorTema, overrides);
             const tone = forceThemeTone ?? palette.naturalTone;
@@ -96,7 +96,7 @@ const serverConfig: ApplicationConfig = {
             const style = doc.createElement('style');
             style.setAttribute('id', 'theme-init');
             if (cspNonce) style.setAttribute('nonce', cspNonce);
-            const styleHtml = ThemeService.buildThemeStyleTag(colorTema, overrides, forceThemeTone);
+            const styleHtml = ThemeService.buildThemeStyleTag(colorTema, overrides, forceThemeTone, navSurface);
             const openTag = '<style id="theme-init">';
             style.textContent = styleHtml.substring(openTag.length, styleHtml.length - '</style>'.length);
             doc.head.appendChild(style);

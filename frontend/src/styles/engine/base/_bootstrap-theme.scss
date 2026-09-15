@@ -194,12 +194,7 @@
 .navbar.theme-bg {
     --bs-navbar-brand-color: var(--colorNavText);
     --bs-navbar-brand-hover-color: var(--colorNavText);
-    border-bottom: 2.5px solid var(--colorTema);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.site-footer.theme-bg {
-    border-top: 2.5px solid var(--colorTema);
 }
 
 .dropdown-menu .dropdown-item.theme-bg:hover {

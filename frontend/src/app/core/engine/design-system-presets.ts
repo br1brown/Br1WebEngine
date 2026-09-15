@@ -53,6 +53,16 @@ export interface DesignSystemPreset {
     forceThemeTone?: 'light' | 'dark';
     panelSurface?: SiteShellConfig['panelSurface'];
     /**
+     * Sfondo/testo di navbar e footer. `'brand'` (default): superficie immersiva di brand — colore
+     * pieno o pastello derivato da `colorTema`, sempre diversa dallo sfondo pagina (`colorBase`) di
+     * proposito, per un chrome riconoscibile. `'body'`: navbar/footer condividono esattamente lo
+     * sfondo/testo della pagina (`colorBase`/`colorSurfaceText`) — nessuna cesura visibile fra
+     * chrome e contenuto, per un sito a superficie unica (es. `muro` sotto). Nessuna nuova matematica:
+     * sceglie solo QUALE coppia di token già calcolati da `ThemeService.computePalette()` alimenta
+     * `--colorNavBg`/`--colorNavText`/`--colorNavBorder`.
+     */
+    navSurface?: 'brand' | 'body';
+    /**
      * Come questo design system interpreta i ruoli `'default'`/`'legal'` (vedi `PageRole` sopra —
      * `'naked'` non è qui: è hard-coded dall'Engine, uguale per ogni design system). Campo assente,
      * o ruolo non mappato, = nessuna differenza dal comportamento pre-ruoli (i flag globali di
@@ -95,6 +105,7 @@ export const DESIGN_SYSTEM_PRESETS = {
      *  di contenuto, non per le policy. */
     muro: {
         forceThemeTone: 'dark',
+        navSurface: 'body',
         roleChrome: {
             default: { showPanel: false },
             legal: { showPanel: true },
