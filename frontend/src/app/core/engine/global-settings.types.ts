@@ -203,7 +203,7 @@ export interface GlobalSettings {
     WebhookUrl?: string;
   };
   /**
-   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelSurface, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
+   * Identità ed estetica del sito (committabile, del progetto). Iniettata nel frontend al build via environment.ts. I flag di comportamento (showNav, showFooter, showPanel, fixedTopHeader, showLoginInHeader, showNotifications, panelSurface, forceThemeTone, designSystem, isWebApp, onlyPlainImage) sono struttura e vivono in site.ts (`shell` / `isWebApp` / `onlyPlainImage`), insieme a pagine e loginPage; il menu di header/footer e l'icona di brand sono dato risolto a runtime in nav.ts.
    */
   site?: {
     /**
@@ -232,21 +232,6 @@ export interface GlobalSettings {
      * Override opzionale del colore informativo (badge/alert '.text-bg-info', '.alert-info', '.btn-outline-info'). A differenza di colorSecondary/colorBackground/colorText NON ha un fallback derivato dal brand: se assente, Bootstrap 5.3 gestisce '--bs-info*' per intero coi suoi blocchi tono-adattivi nativi. warning/success/danger restano sempre fissi (significato universale, non personalizzabile).
      */
     colorInfo?: string;
-    /**
-     * Forza l'intero sito su un tono, ignorando prefers-color-scheme: utile per un design a palette fissa dove un tema derivato dall'OS romperebbe il contrasto studiato dal grafico. Ometti per seguire l'OS come sempre (comportamento di sempre, reattivo in tempo reale). Impostato: SSR, script anti-flash e ThemeService si fissano tutti sullo stesso tono; il default di site.ts → shell.panelSurface diventa 'auto' (pannello intonato) invece di 'light' — un panelSurface impostato a mano vince comunque sempre, un pannello su un tono diverso dal resto del sito è una composizione valida, non un conflitto. Impostabile anche indirettamente scegliendo un designSystem che lo preveda.
-     */
-    forceThemeTone?: "light" | "dark";
-    /**
-     * Preset nominato: un default comodo per forceThemeTone/panelSurface insieme, invece di impostarli uno per uno. Un campo impostato esplicitamente (qui sotto o in site.ts → shell) vince sempre sul preset. Vedi frontend/src/app/core/engine/design-system-presets.ts per cosa espande ciascun nome — i nomi non sono un contratto fisso, possono cambiare.
-     */
-    designSystem?:
-      | "adaptive"
-      | "adaptive-light-panel"
-      | "adaptive-dark-panel"
-      | "locked-dark"
-      | "locked-light"
-      | "locked-dark-accent-panel"
-      | "locked-light-accent-panel";
     /**
      * Effetto particellare di sfondo. Ometti o enable:false per disattivarlo.
      */

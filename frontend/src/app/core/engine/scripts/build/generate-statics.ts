@@ -36,7 +36,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
 import { ThemeService } from '../../services/theme.service';
-import { DESIGN_SYSTEM_PRESETS } from '../../design-system-presets';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { deepMergeSettings } from '../config/settings-merge';
 import { getLastModifiedDate } from '../config/last-modified';
@@ -107,12 +106,13 @@ const CONFIG_FINGERPRINT = fingerprintIdentitySections(_settings);
 const _fileLoc = _settings.Localization ?? {};
 const _fileProject = _settings.project ?? {};
 // Config di sito: solo identità/estetica finisce in environment.ts. I flag di
-// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/
-// showLoginInHeader/showNotifications/panelSurface/isWebApp/onlyPlainImage) sono migrati in site.ts,
-// quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
-// è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
+// COMPORTAMENTO (showNav/showFooter/showPanel/fixedTopHeader/showLoginInHeader/
+// showNotifications/panelSurface/forceThemeTone/designSystem/isWebApp/onlyPlainImage) sono
+// migrati in site.ts, quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora.
+// L'icona di brand non è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in
+// nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'forceThemeTone', 'designSystem', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
@@ -124,18 +124,12 @@ const COLOR_OVERRIDES = {
     text: SITE_CONFIG.colorText,
     info: SITE_CONFIG.colorInfo,
 };
-// Tono forzato (diretto, o via un designSystem che lo preveda) — ignora prefers-color-scheme sia
-// nello script anti-flash sotto sia nel background_color del manifest PWA. NON leggerlo da
-// ContestoSito.config: ContestoSito è importato in cima al file e valuta site.ts contro
-// l'environment.ts ANCORA SU DISCO da prima di questa run (questo script lo sovrascrive più
-// sotto) — su un cambio fresco di global-settings.json risulterebbe indietro di una run. SITE_CONFIG
-// invece è letto fresco da global-settings.json qui sopra: stessa tabella preset di siteBuilder.ts
-// (DESIGN_SYSTEM_PRESETS), stessa risoluzione, senza il problema di staleness.
-const FORCE_THEME_TONE: 'light' | 'dark' | undefined =
-    SITE_CONFIG.forceThemeTone ??
-    (SITE_CONFIG.designSystem != null
-        ? (DESIGN_SYSTEM_PRESETS as Record<string, { forceThemeTone?: 'light' | 'dark' }>)[SITE_CONFIG.designSystem]?.forceThemeTone
-        : undefined);
+// Tono forzato — GIÀ risolto da siteBuilder.ts (shell.forceThemeTone in site.ts, diretto o via un
+// shell.designSystem che lo preveda). Leggerlo da ContestoSito.config è corretto qui (a differenza
+// di COLOR_TEMA/SITE_CONFIG sopra, che vengono da global-settings.json e che QUESTO script stesso
+// rigenera in environment.ts più sotto): site.ts non passa da environment.ts, quindi non c'è alcun
+// problema di staleness — ContestoSito legge site.ts così com'è ora, non una versione precedente.
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined = ContestoSito.config.forceThemeTone;
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -314,8 +308,6 @@ export interface AppSiteConfig {
     colorBackground?: string;
     colorText?: string;
     colorInfo?: string;
-    forceThemeTone?: 'light' | 'dark';
-    designSystem?: string;
     smoke?: {
         enable?: boolean;
         color?: string;
@@ -478,7 +470,7 @@ function updateThemeInit(): void {
     // script-src 'self' nella CSP, quindi non serve né hash né nonce. È un asset statico
     // servito da express.static: va materializzato qui perché public/ è gitignored,
     // altrimenti mancherebbe su un checkout/build pulito (404 + MIME error a ogni full load).
-    // Tono forzato (site.forceThemeTone): valore baked-in, niente matchMedia — nessun ascolto di
+    // Tono forzato (shell.forceThemeTone in site.ts): valore baked-in, niente matchMedia — nessun ascolto di
     // prefers-color-scheme da rimuovere in seguito, lo script è già deterministico dal boot.
     const script = FORCE_THEME_TONE
         ? `(function () {

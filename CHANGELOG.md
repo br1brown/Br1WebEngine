@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Fix: `forceThemeTone`/`designSystem` si spostano da `global-settings.json` a `site.ts` (breaking)
+
+Le due voci precedenti li avevano messi in `global-settings.json` per analogia con `colorTema` — ma l'analogia era sbagliata. Il template distingue già ovunque identità/estetica (JSON, un VALORE come il colore) da comportamento (`site.ts` → `shell`, una DECISIONE su come quel valore viene usato) — `panelSurface` viveva già in `shell` da prima che questo lavoro iniziasse. `forceThemeTone`/`designSystem` non sono colori, sono decisioni su come renderizzare il sito rispetto a un colore: appartengono allo stesso posto di `panelSurface`, non a fianco di `colorTema`.
+
+- **Breaking**: `site.forceThemeTone`/`site.designSystem` (`global-settings.json`) diventano `shell.forceThemeTone`/`shell.designSystem` (`site.ts`, dentro `buildSite({ shell: {...} })`, insieme a `panelSurface`). Migrazione: sposta le due righe dal JSON allo `shell` in `site.ts`, stessi nomi e valori.
+- Effetto collaterale positivo: risolve anche il limite di staleness già noto per `validateColorFields` — dato che `forceThemeTone`/`designSystem` ora vivono in `site.ts` (letto direttamente, non round-trippato per `environment.ts` come le chiavi JSON), `generate-statics.ts` può leggerli da `ContestoSito.config` senza il ritardo di una run che affliggeva `SITE_CONFIG` grezzo.
+- Verificato dal vivo: `shell.designSystem: 'locked-dark'` in `site.ts` produce lo stesso identico risultato di prima (`data-bs-theme` fisso `dark`, pannello intonato), stavolta corretto già dalla prima `generate:statics` senza bisogno di una seconda run. `tsc`/build/lint/i18n/circular-deps/site-builder-check puliti.
+
 ### Nuovo `site.designSystem`: preset nominati che espandono `forceThemeTone`/`panelSurface`
 
 Le due leve granulari (voce precedente) coprono ogni caso, ma restano due campi indipendenti da capire e combinare a mano. Identificati 7 scheletri visivamente distinti nella griglia 3×3 `forceThemeTone × panelSurface` (i due angoli dark/dark e light/light collassano su dark/auto e light/auto — stesso risultato visivo): `adaptive`, `adaptive-light-panel` (default storico), `adaptive-dark-panel`, `locked-dark`, `locked-light`, `locked-dark-accent-panel`, `locked-light-accent-panel`.

@@ -91,29 +91,6 @@ export interface SiteConfig {
     colorText?: string;
     /** Override opzionale del colore informativo. */
     colorInfo?: string;
-    /**
-     * Nome del preset scelto (`site.designSystem` in `global-settings.json`), `null` se nessuno.
-     * Un preset è un bundle di default per `forceThemeTone`/`panelSurface` (e in futuro altri
-     * campi affini, vedi `design-system-presets.ts`) — non è un contratto, è comodità: quei campi
-     * restano impostabili singolarmente, e vincono sempre sul preset se presenti. Esposto qui solo
-     * per debug/introspezione (un componente può leggere quale preset è attivo).
-     */
-    designSystem: DesignSystemPresetName | null;
-    /**
-     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
-     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
-     * studiato dal grafico. Da `global-settings.json` → `site.forceThemeTone` (impostabile anche
-     * indirettamente scegliendo un `designSystem` che lo preveda — vedi sopra). Default: assente —
-     * segue l'OS come sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
-     * Diverso da `shell.panelSurface`: quello forza SOLO il pannello contenuti su un tono
-     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
-     * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
-     * composizione valida (Radix Themes/Chakra/Ant Design/Carbon la documentano tutte come pattern
-     * intenzionale, non un conflitto). Cambia solo il DEFAULT di `panelSurface`: `'auto'` (segue
-     * l'ambiente, già coerente) quando questo campo è impostato, `'light'` altrimenti — un valore
-     * esplicito vince sempre su entrambi i default.
-     */
-    forceThemeTone?: 'light' | 'dark';
     /** Indica se il footer deve essere visibile. */
     showFooter: boolean;
     /** Indica se l'header deve essere visibile. */
@@ -133,9 +110,32 @@ export interface SiteConfig {
     /** Configurazione dell'effetto smoke. */
     smoke: SmokeSettings;
     /**
+     * Nome del preset scelto (`shell.designSystem` in site.ts), `null` se nessuno. Un preset è un
+     * bundle di default per `forceThemeTone`/`panelSurface` (e in futuro altri campi affini, vedi
+     * `design-system-presets.ts`) — non è un contratto, è comodità: quei campi restano impostabili
+     * singolarmente, e vincono sempre sul preset se presenti. Esposto qui solo per
+     * debug/introspezione (un componente può leggere quale preset è attivo).
+     */
+    designSystem: DesignSystemPresetName | null;
+    /**
+     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
+     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
+     * studiato dal grafico. Da `shell.forceThemeTone` in site.ts (impostabile anche indirettamente
+     * scegliendo un `designSystem` che lo preveda — vedi sopra). Default: assente — segue l'OS come
+     * sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
+     * Diverso da `panelSurface` (sotto): quello forza SOLO il pannello contenuti su un tono
+     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
+     * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
+     * composizione valida (Radix Themes/Chakra/Ant Design/Carbon la documentano tutte come pattern
+     * intenzionale, non un conflitto). Cambia solo il DEFAULT di `panelSurface`: `'auto'` (segue
+     * l'ambiente, già coerente) quando questo campo è impostato, `'light'` altrimenti — un valore
+     * esplicito vince sempre su entrambi i default.
+     */
+    forceThemeTone?: 'light' | 'dark';
+    /**
      * Tono del pannello contenuti, indipendente dall'OS che governa navbar/footer/sfondo.
      * `'auto'` = segue l'ambiente come il resto del sito. Default: `'light'` (comportamento
-     * storico del template). Ignorato se `forceThemeTone` è impostato — vedi quel campo.
+     * storico del template) — o `'auto'` se `forceThemeTone` è impostato, vedi sopra.
      */
     panelSurface: 'light' | 'dark' | 'auto';
     /** Fade-in d'ingresso pagina (`.page-fade` via `PageBaseComponent`). Default: `true`. */
@@ -503,6 +503,20 @@ export type SitePageContext = {
  *  un'API, cambiare per pagina...), non struttura fissa del sito — vedi
  *  `ShellNavResolver.brandIcon` in `shell-nav.ts`, risolto insieme a header/footer. */
 export interface SiteShellConfig {
+    /**
+     * Nome di un preset di design system (`design-system-presets.ts`): un default comodo per
+     * `forceThemeTone`/`panelSurface` insieme, invece di impostarli uno per uno. Un campo
+     * impostato esplicitamente qui sotto vince sempre sul preset. I nomi non sono un contratto
+     * fisso — possono cambiare, non fanno danno a un figlio che non li usa.
+     */
+    designSystem?: DesignSystemPresetName;
+    /**
+     * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
+     * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
+     * studiato dal grafico. Default: assente — segue l'OS come sempre. Impostabile anche
+     * indirettamente scegliendo un `designSystem` che lo preveda (vedi sopra).
+     */
+    forceThemeTone?: 'light' | 'dark';
     /** Mostra la navbar. Default: true. */
     showNav?: boolean;
     /** Mostra il footer. Default: true. */
@@ -517,9 +531,9 @@ export interface SiteShellConfig {
     showNotifications?: boolean;
     /**
      * Tono del pannello contenuti (`.content-panel`), indipendente dall'OS. `'auto'` = segue
-     * l'ambiente come navbar/footer. Default: `'light'` — o `'auto'` se `forceThemeTone` (config
-     * di sito, `global-settings.json`) è impostato, per un sito uniforme senza doverlo dichiarare
-     * a mano. Un valore esplicito qui vince sempre su entrambi i default: un pannello su un tono
+     * l'ambiente come navbar/footer. Default: `'light'` — o `'auto'` se `forceThemeTone` (qui
+     * sopra) è impostato, per un sito uniforme senza doverlo dichiarare a mano. Un valore
+     * esplicito qui vince sempre su entrambi i default: un pannello su un tono
      * diverso dal resto del sito, anche già fissato, è una composizione valida (pattern comune —
      * Radix Themes/Chakra/Ant Design/Carbon lo documentano tutti), non un conflitto.
      */
@@ -714,14 +728,14 @@ function validateColorFields(cfg: { colorTema?: string; colorSecondary?: string;
     }
 }
 
-/** Risolve `site.designSystem` (nome) nel bundle di default — `undefined` se non impostato. */
+/** Risolve `shell.designSystem` (nome) nel bundle di default — `undefined` se non impostato. */
 function resolveDesignSystemPreset(name: string | undefined): DesignSystemPreset | undefined {
     if (name == null) return undefined;
     const preset = (DESIGN_SYSTEM_PRESETS as Record<string, DesignSystemPreset>)[name];
     if (!preset) {
         throw new Error(
-            `[SiteBuilder] site.designSystem="${name}" non esiste. Preset validi: ` +
-            `${Object.keys(DESIGN_SYSTEM_PRESETS).join(', ')} (global-settings.json).`
+            `[SiteBuilder] shell.designSystem="${name}" non esiste. Preset validi: ` +
+            `${Object.keys(DESIGN_SYSTEM_PRESETS).join(', ')} (site.ts).`
         );
     }
     return preset;
@@ -731,12 +745,12 @@ function resolveDesignSystemPreset(name: string | undefined): DesignSystemPreset
 function buildFinalConfig(definition: SiteDefinition): SiteConfig {
     const cfg = environment.config;
     validateColorFields(cfg);
-    const preset = resolveDesignSystemPreset(cfg.designSystem);
-    // Un campo esplicito (site.ts o global-settings.json) vince sempre sul preset — il preset dà
-    // solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio di addon.json
-    // che sovrascrive basic.json, non il contrario).
-    const forceThemeTone = cfg.forceThemeTone ?? preset?.forceThemeTone;
     const shell = definition.shell ?? {};
+    const preset = resolveDesignSystemPreset(shell.designSystem);
+    // Un campo esplicito (shell.forceThemeTone/panelSurface in site.ts) vince sempre sul preset —
+    // il preset dà solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio
+    // di addon.json che sovrascrive basic.json, non il contrario).
+    const forceThemeTone = shell.forceThemeTone ?? preset?.forceThemeTone;
     const login = normalizeLoginPage(definition.loginPage);
     return {
         appName: environment.appName,
@@ -747,7 +761,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         colorBackground: cfg.colorBackground,
         colorText: cfg.colorText,
         colorInfo: cfg.colorInfo,
-        designSystem: (cfg.designSystem as DesignSystemPresetName) ?? null,
+        designSystem: shell.designSystem ?? null,
         forceThemeTone,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,

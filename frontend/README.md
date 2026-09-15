@@ -574,25 +574,27 @@ readonly prefersReducedMotion: Signal<boolean>; // Per animazioni accessibili
 
 ### Forzare un Tono Fisso (ignorare l'OS)
 
-Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico. `site.forceThemeTone` (`global-settings.json` → `site`, come `colorTema`) fissa l'intero sito su un tono, ignorando `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `ThemeService` runtime (nessun listener `matchMedia` montato):
-```jsonc
-// global-settings.json
-"site": {
-    "colorTema": "#4a0e1e",
-    "forceThemeTone": "dark"   // 'light' | 'dark' — assente = segue l'OS come sempre
-}
+Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) va in conflitto con l'adattamento automatico all'OS: un visitatore con l'OS in chiaro romperebbe il contrasto pensato dal grafico. `shell.forceThemeTone` fissa l'intero sito su un tono, ignorando `prefers-color-scheme` in ogni fase — SSR, script anti-flash pre-idratazione e `ThemeService` runtime (nessun listener `matchMedia` montato). Vive in `site.ts`, non in `global-settings.json`: è una decisione su COME si usa il colore (comportamento), non il colore stesso (identità/estetica) — `colorTema` resta l'unico a vivere nel JSON, `forceThemeTone` sta con gli altri flag di comportamento della shell (`showNav`, `panelSurface`, ecc.):
+```typescript
+// site.ts
+buildSite({
+    shell: {
+        forceThemeTone: 'dark',   // 'light' | 'dark' — assente = segue l'OS come sempre
+    },
+});
 ```
 `themeTone` riflette il valore forzato invece della preferenza OS. Cambia anche il default di `shell.panelSurface` (sotto): `'auto'` invece di `'light'`, per un sito uniforme senza doverlo dichiarare a mano — un pannello su un tono diverso resta comunque possibile impostandolo esplicitamente, è una composizione valida, non un conflitto.
 
-### Preset di Design System (`site.designSystem`)
+### Preset di Design System (`shell.designSystem`)
 
-`forceThemeTone` e `panelSurface` sono le due leve granulari; `site.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano:
-```jsonc
-// global-settings.json — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
-"site": {
-    "colorTema": "#4a0e1e",
-    "designSystem": "locked-dark"
-}
+`forceThemeTone` e `panelSurface` sono le due leve granulari; `shell.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano:
+```typescript
+// site.ts — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
+buildSite({
+    shell: {
+        designSystem: 'locked-dark',
+    },
+});
 ```
 
 | Preset | `forceThemeTone` | `panelSurface` | Quando |
@@ -639,7 +641,7 @@ Pannello forzato su un tono dentro una pagina che segue l'OS: se hai un riquadro
 </div>
 ```
 
-`panelTone` vale `shell.panelSurface` (`'light'|'dark'`) quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). Compone con `site.forceThemeTone` (`global-settings.json`), non lo esclude: il default di `panelSurface` diventa `'auto'` quando `forceThemeTone` è impostato (sito uniforme senza configurare nulla), ma un valore esplicito — anche diverso dal tono forzato — vince sempre e resta un pannello reso su quel tono, indipendente dal resto. Stesso pattern documentato in Radix Themes (`panelBackground`), Chakra (`<LightMode>`/`<DarkMode>` su un sottoalbero), Ant Design (override dell'`algorithm` per componente) e Carbon (un pannello `g100` dentro una pagina `white`): una card con tono diverso dal resto della pagina è una scelta di design intenzionale, non un errore di configurazione.
+`panelTone` vale `shell.panelSurface` (`'light'|'dark'`) quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). Compone con `shell.forceThemeTone`, non lo esclude: il default di `panelSurface` diventa `'auto'` quando `forceThemeTone` è impostato (sito uniforme senza configurare nulla), ma un valore esplicito — anche diverso dal tono forzato — vince sempre e resta un pannello reso su quel tono, indipendente dal resto. Stesso pattern documentato in Radix Themes (`panelBackground`), Chakra (`<LightMode>`/`<DarkMode>` su un sottoalbero), Ant Design (override dell'`algorithm` per componente) e Carbon (un pannello `g100` dentro una pagina `white`): una card con tono diverso dal resto della pagina è una scelta di design intenzionale, non un errore di configurazione.
 
 ### Metodi Statici (SSR-Safe)
 
@@ -1526,7 +1528,9 @@ shell: {                           // comportamento di navbar / footer / header 
     showPanel: true,               // mostra il pannello contenuti (gate: col globale off nessuna pagina può riattivarlo)
     fixedTopHeader: false,         // navbar fissa in alto allo scroll
     showNotifications: false,      // campanellino notifiche realtime con storico (default false, opt-in)
+    forceThemeTone: undefined,     // fissa l'intero sito su un tono, ignora l'OS ('light'|'dark', assente = segue l'OS)
     panelSurface: 'light',         // tono del pannello contenuti, a prescindere dal tema OS ('light'|'dark'|'auto')
+    designSystem: undefined,       // preset nominato che imposta forceThemeTone/panelSurface insieme (vedi design-system-presets.ts)
     pageFade: true,                // fade-in d'ingresso pagina (gate: col globale off nessuna pagina può riattivarlo)
     showBreadcrumb: true,          // gate globale del breadcrumb (default true) — la visibilità per pagina resta un'euristica, vedi sotto
 },
@@ -1766,7 +1770,8 @@ site.loginPage;   // PageType di redirect non-auth (o null)
 
 // Flag di shell appiattiti al top-level di SiteConfig (boolean salvo dove indicato; significato
 // di ciascuno nel blocco `shell` sopra): showNav, showFooter, showPanel, fixedTopHeader,
-// showLoginInHeader, showNotifications, panelSurface ('light'|'dark'|'auto'), pageFade
+// showLoginInHeader, showNotifications, panelSurface ('light'|'dark'|'auto'),
+// forceThemeTone ('light'|'dark'|assente), designSystem (nome preset|assente), pageFade
 site.showNav;     // es. lettura di un singolo flag
 ```
 
