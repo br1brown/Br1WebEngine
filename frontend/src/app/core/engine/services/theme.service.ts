@@ -277,10 +277,9 @@ export class ThemeService {
     readonly colorSecondaryText: Signal<'#000000' | '#ffffff'>;
     /**
      * Tono effettivo del pannello contenuti (`.content-panel`), indipendente dalla preferenza OS
-     * che governa navbar/footer/sfondo — da `shell.panelSurface` in site.ts (`'light'|'dark'`),
-     * `null` se `'auto'` (segue l'ambiente) o se `forceThemeTone` è impostato (in quel caso vince
-     * sempre lui: l'ambiente stesso è già il tono forzato, il pannello non ha nulla da forzare a
-     * parte). Guida sia l'attributo Bootstrap sia le classi CSS, un'unica fonte di verità:
+     * (o dal tono fissato da `forceThemeTone`) che governa navbar/footer/sfondo — da
+     * `shell.panelSurface` in site.ts (`'light'|'dark'`), `null` se `'auto'` (segue l'ambiente,
+     * quale che sia). Guida sia l'attributo Bootstrap sia le classi CSS, un'unica fonte di verità:
      * `<div [attr.data-bs-theme]="theme.panelTone" [class.panel-light]="theme.panelTone === 'light'"
      *       [class.panel-dark]="theme.panelTone === 'dark'">`.
      */
@@ -335,23 +334,13 @@ export class ThemeService {
         this.colorSecondaryText = computed(() => this._palette().colorSecondaryTextLt);
         // Da global-settings.json → site.forceThemeTone: sito intero fissato su un tono, mai riletto dall'OS.
         this._forcedThemeTone = ContestoSito.config.forceThemeTone;
-        // Con forceThemeTone impostato, l'ambiente stesso è già il tono forzato: panelSurface non
-        // ha più nulla da forzare a parte, e uno diverso da 'auto' impostato comunque è quasi
-        // certo un residuo dimenticato — avviso in dev, nessun effetto in nessun caso (i due non
-        // possono essere attivi insieme). Senza forceThemeTone resta il comportamento di sempre:
-        // panelSurface pinna il pannello indipendentemente dall'OS che governa il resto.
-        const panelSurface = ContestoSito.config.panelSurface;
-        if (isDevMode() && this._forcedThemeTone && panelSurface !== 'auto') {
-            console.warn(
-                `[ThemeService] shell.panelSurface ('${panelSurface}') è ignorato perché ` +
-                `site.forceThemeTone ('${this._forcedThemeTone}') è impostato: i due non possono ` +
-                `essere attivi insieme, vince sempre forceThemeTone. Imposta panelSurface a 'auto' ` +
-                `(o rimuovilo) per silenziare questo avviso.`
-            );
-        }
-        this.panelTone = this._forcedThemeTone
-            ? null
-            : (panelSurface === 'auto' ? null : panelSurface);
+        // panelSurface pinna il pannello indipendentemente dall'ambiente circostante — anche se
+        // quell'ambiente è già fissato da forceThemeTone: un pannello su un tono diverso dal resto
+        // del sito è una composizione valida (pattern comune ad es. in Radix Themes/Chakra/Ant
+        // Design/Carbon: una card chiara dentro un'app scura, o viceversa), non un conflitto da
+        // arbitrare qui. siteBuilder.ts sceglie già il default giusto in base a forceThemeTone
+        // ('auto' se impostato, altrimenti 'light'): qui non resta che leggerlo.
+        this.panelTone = ContestoSito.config.panelSurface === 'auto' ? null : ContestoSito.config.panelSurface;
 
         // 3. themeTone inizializzato col tono forzato se presente, altrimenti naturalTone
         //    (SSR-safe, senza leggere prefers-color-scheme).

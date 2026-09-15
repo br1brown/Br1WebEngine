@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Fix: `forceThemeTone` e `panelSurface` non sono mutuamente esclusivi — compongono
+
+La voce precedente (sotto) rendeva `panelSurface` ignorato quando `forceThemeTone` era impostato, con un warning in dev mode. Verificato contro come i design system più diffusi gestiscono lo stesso problema (Radix Themes, Chakra, Ant Design, Carbon): tutti documentano "un pannello con tono diverso dal resto della pagina, anche già fissata su un tono" come composizione intenzionale — non un conflitto da arbitrare. La mutua esclusione era una correzione eccessiva.
+
+- Rimossa la mutua esclusione e il warning in `ThemeService`: `panelTone` legge sempre `shell.panelSurface`, incondizionatamente.
+- Il problema reale non era la coesistenza: era il *default* di `panelSurface` (`'light'`, storico) che non ha senso su un sito già uniforme. Corretto in `siteBuilder.ts`: il default diventa `'auto'` quando `forceThemeTone` è impostato, `'light'` altrimenti — un valore esplicito vince sempre su entrambi.
+- Verificato: `tsc --noEmit`/build/lint puliti.
+
 ### Nuovo `site.forceThemeTone`: sito fissato su un tono a scelta, ignorando l'OS; `panelForcedLight` diventa `panelSurface` (breaking)
 
 Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico per quella sola combinazione) andava in conflitto con l'adattamento automatico a `prefers-color-scheme`: un visitatore con l'OS in chiaro si vedeva rompere il contrasto pensato apposta. Serviva un modo per fissare l'intero sito su un tono, non solo il pannello contenuti (che `panelForcedLight` già poteva forzare, ma solo lui, e solo in chiaro).

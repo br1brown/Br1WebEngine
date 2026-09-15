@@ -582,7 +582,7 @@ Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico 
     "forceThemeTone": "dark"   // 'light' | 'dark' — assente = segue l'OS come sempre
 }
 ```
-`themeTone` riflette il valore forzato invece della preferenza OS; `theme.panelTone` (sotto) diventa sempre `null` — vedi perché nella sezione sul pannello.
+`themeTone` riflette il valore forzato invece della preferenza OS. Cambia anche il default di `shell.panelSurface` (sotto): `'auto'` invece di `'light'`, per un sito uniforme senza doverlo dichiarare a mano — un pannello su un tono diverso resta comunque possibile impostandolo esplicitamente, è una composizione valida, non un conflitto.
 
 ### Leggere il tema in un componente
 
@@ -616,7 +616,7 @@ Pannello forzato su un tono dentro una pagina che segue l'OS: se hai un riquadro
 </div>
 ```
 
-`panelTone` vale `shell.panelSurface` (`'light'|'dark'`) quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). **Mutuamente esclusivo con `site.forceThemeTone`** (`global-settings.json`): se quello è impostato, `panelTone` è sempre `null` — l'ambiente stesso è già il tono forzato su tutto il sito, il pannello non ha nulla da forzare a parte. Impostare `panelSurface` a un valore diverso da `'auto'` insieme a `forceThemeTone` produce solo un warning in dev mode, nessun effetto.
+`panelTone` vale `shell.panelSurface` (`'light'|'dark'`) quando diverso da `'auto'`, altrimenti `null` (nessun forzamento, segue l'ambiente). Compone con `site.forceThemeTone` (`global-settings.json`), non lo esclude: il default di `panelSurface` diventa `'auto'` quando `forceThemeTone` è impostato (sito uniforme senza configurare nulla), ma un valore esplicito — anche diverso dal tono forzato — vince sempre e resta un pannello reso su quel tono, indipendente dal resto. Stesso pattern documentato in Radix Themes (`panelBackground`), Chakra (`<LightMode>`/`<DarkMode>` su un sottoalbero), Ant Design (override dell'`algorithm` per componente) e Carbon (un pannello `g100` dentro una pagina `white`): una card con tono diverso dal resto della pagina è una scelta di design intenzionale, non un errore di configurazione.
 
 ### Metodi Statici (SSR-Safe)
 

@@ -96,9 +96,12 @@ export interface SiteConfig {
      * studiato dal grafico. Da `global-settings.json` → `site.forceThemeTone`, come `colorTema`.
      * Default: assente — segue l'OS come sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
      * Diverso da `shell.panelSurface`: quello forza SOLO il pannello contenuti su un tono
-     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Mutuamente esclusivi:
-     * quando è impostato, `panelSurface` non ha più nulla da forzare a parte e viene ignorato
-     * (con un warning in dev mode se qualcuno lo imposta comunque a un valore diverso da `'auto'`).
+     * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
+     * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
+     * composizione valida (Radix Themes/Chakra/Ant Design/Carbon la documentano tutte come pattern
+     * intenzionale, non un conflitto). Cambia solo il DEFAULT di `panelSurface`: `'auto'` (segue
+     * l'ambiente, già coerente) quando questo campo è impostato, `'light'` altrimenti — un valore
+     * esplicito vince sempre su entrambi i default.
      */
     forceThemeTone?: 'light' | 'dark';
     /** Indica se il footer deve essere visibile. */
@@ -504,8 +507,11 @@ export interface SiteShellConfig {
     showNotifications?: boolean;
     /**
      * Tono del pannello contenuti (`.content-panel`), indipendente dall'OS. `'auto'` = segue
-     * l'ambiente come navbar/footer. Default: `'light'`. Ignorato se `forceThemeTone` (config di
-     * sito, `global-settings.json`) è impostato — i due non possono essere attivi insieme.
+     * l'ambiente come navbar/footer. Default: `'light'` — o `'auto'` se `forceThemeTone` (config
+     * di sito, `global-settings.json`) è impostato, per un sito uniforme senza doverlo dichiarare
+     * a mano. Un valore esplicito qui vince sempre su entrambi i default: un pannello su un tono
+     * diverso dal resto del sito, anche già fissato, è una composizione valida (pattern comune —
+     * Radix Themes/Chakra/Ant Design/Carbon lo documentano tutti), non un conflitto.
      */
     panelSurface?: 'light' | 'dark' | 'auto';
     /** Fade-in d'ingresso pagina. Default: true. */
@@ -733,7 +739,12 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         dynamicSitemapCache: definition.dynamicSitemapCache ?? true,
         resolveBreadcrumb: definition.resolveBreadcrumb,
         resolveBlobImageUrl: definition.resolveBlobImageUrl,
-        panelSurface: shell.panelSurface ?? 'light',
+        // Default sensibile al contesto: 'light' (storico) quando il sito segue l'OS, 'auto' quando
+        // è già fissato su un tono (forceThemeTone) — un sito uniforme di default, non una card
+        // chiara che spunta senza che nessuno l'abbia chiesta. Un valore esplicito vince sempre:
+        // un pannello con tono diverso dal resto del sito è una composizione valida (Radix/Chakra/
+        // Ant Design/Carbon la documentano tutti), non un conflitto da disabilitare.
+        panelSurface: shell.panelSurface ?? (cfg.forceThemeTone ? 'auto' : 'light'),
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,
