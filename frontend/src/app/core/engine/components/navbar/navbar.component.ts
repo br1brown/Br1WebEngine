@@ -17,7 +17,7 @@ import { applyPathParams } from '../../siteBuilder';
 import { filterNavByAuth, isNavGroup, navLinkKey, NavLink } from '../../shell-nav';
 import { ShellNavService } from '../../services/shell-nav.service';
 import { AssetDirective } from '../../directives/asset.directive';
-import { UserNavComponent } from '../user-nav/user-nav.component';
+import { UserNavComponent } from '../../../../components/shared/user-nav/user-nav.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { TokenService } from '../../services/token.service';
 
@@ -47,7 +47,8 @@ const MAX_RECOMMENDED_TOP_LEVEL_ITEMS = 6;
  *   (`@HostListener document:click`).
  *
  * Configurazione: tutto viene letto da `ContestoSito` (alias di `site.ts`).
- * Non modificare questo file — personalizza `site.ts` e `user-nav.component.ts`.
+ * Non modificare questo file — personalizza `site.ts` e `components/shared/user-nav/user-nav.component.ts`
+ * (Dominio a contratto fisso: cambi il corpo, non path/nome-classe/selettore).
  */
 export class NavbarComponent {
     readonly theme = inject(ThemeService);

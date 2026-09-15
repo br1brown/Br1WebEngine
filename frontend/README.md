@@ -43,11 +43,11 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 
 | Area | Di chi è | Cosa ci fai |
 | :--- | :--- | :--- |
-| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`, `app-user-nav`…). Lo consumi tramite token, signal e direttive — non lo modifichi |
+| `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`…). Lo consumi tramite token, signal e direttive — non lo modifichi. `app-user-nav` NON è qui: è Dominio a contratto fisso, vedi riga sotto |
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `nav.ts` | Tuo | Le voci di menu (navbar/footer), risolte a runtime da `ShellNavService` (Engine) tramite l'injection token `SHELL_NAV_RESOLVER` — lo implementi tu, l'Engine lo consuma |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). La demo ne contiene un esempio vivo: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto |
+| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). Due esempi vivi, entrambi legati all'auth: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto; `user-nav/` è invece Dominio a contratto fisso (non un'estensione di base Engine): `navbar.component.ts` lo importa per path e nome, il corpo è libero — vedi «Componenti Pronti all'Uso» |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
@@ -289,7 +289,7 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
 | `LoginFormComponent` (Engine, `core/engine/components/login-form/`) | `app-login-form` | Form riusabile (username fisso e nascosto, solo password); emette `(loggedIn)` al successo. Non naviga da solo. |
-| `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
+| `UserNavComponent` (**Dominio a contratto fisso**, `components/shared/user-nav/`) | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. `navbar.component.ts` (Engine) lo importa per path e nome fisso: cambi liberamente template e comportamento, non path/classe/selector — vedi «Dominio a contratto fisso» nel README radice. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file (anche multipla via `[multiple]`). Emette `File[]` nativi delegando la chiamata API al componente genitore. |
 
 ### Personalizzare il Login: `BaseLoginFormComponent`

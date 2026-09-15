@@ -1,17 +1,20 @@
 import { Component, computed, inject, output } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '../../../services/auth.service';
-import { NotificationService } from '../../services/notification.service';
-import { TranslateService } from '../../services/translate.service';
-import { TranslatePipe } from '../../pipes/translate.pipe';
-import { NavLinkComponent } from '../nav-link/nav-link.component';
-import { ContestoSito } from '../../../../site';
-import { NavLink } from '../../shell-nav';
+import { AuthService } from '../../../core/services/auth.service';
+import { NotificationService } from '../../../core/engine/services/notification.service';
+import { TranslateService } from '../../../core/engine/services/translate.service';
+import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+import { NavLinkComponent } from '../../../core/engine/components/nav-link/nav-link.component';
+import { ContestoSito } from '../../../site';
+import { NavLink } from '../../../core/engine/shell-nav';
 
 /**
  * Area login/logout della navbar: dopo il logout ricarica la route per rivalutare l'authGuard.
  * Login e logout su assi indipendenti; nulla se `loginPage` è null. Dettagli: README §"Autenticazione".
- * ⚙️ Contratto Engine: la navbar importa `app-user-nav` — non rinominare classe/selettore.
+ *
+ * Dominio a contratto fisso: `navbar.component.ts` (Engine) importa questo file per path e nome
+ * — cambi liberamente corpo e template, ma non path/nome-classe/selettore, altrimenti l'Engine
+ * non compila. Vedi README radice §"Dominio a contratto fisso".
  */
 @Component({
     selector: 'app-user-nav',

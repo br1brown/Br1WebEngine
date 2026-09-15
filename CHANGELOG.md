@@ -2,6 +2,14 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `UserNavComponent`: torna da Engine a Dominio a contratto fisso (breaking)
+
+Il refactor di settembre ("21 componenti condivisi da Dominio a Engine") aveva spostato anche `UserNavComponent` nell'Engine insieme a 20 componenti puramente di UI (azione/contatto/social/icon/footer/upload-form/loading/opening-hours/link-badge) — ma a differenza di quelli, `UserNavComponent` incorpora `AuthService` e la logica di logout/reload della route: più vicino al login (che infatti è rimasto un caso a parte, con base estraibile) che a un bottone di copia. Un figlio che vuole un'area login/logout diversa (dropdown con avatar invece del link testuale, per dire) si trovava a doverlo fare tramite `NgComponentOutlet`+injection token — macchinoso e rischioso da costruire sopra `navbar.component.ts` (visibile su ogni pagina, con `ngSkipHydration` sull'area) solo per un componente che, a conti fatti, non ha bisogno di restare "aggiornato dal template": stesso trade-off già accettato oggi per `AuthService`/`ApiService`/`site.ts`.
+
+- **Breaking**: `UserNavComponent` si è spostato da `core/engine/components/user-nav/` a `components/shared/user-nav/` (Dominio). `core/engine/components/navbar/navbar.component.ts` (Engine) ora lo importa da quel path per nome fisso — nuova voce in "Dominio a contratto fisso" (README radice): cambi liberamente template/comportamento, non path/nome-classe/selettore `app-user-nav`, altrimenti la navbar non compila.
+- Per un figlio che non lo ha mai toccato (era Engine, "intoccabile"): il merge lo assorbe senza conflitti, nessuna azione richiesta. Per un figlio che lo aveva comunque personalizzato: il merge sposta la proprietà nel proprio albero Dominio, quindi le modifiche restano sue da qui in avanti (nessun aggiornamento automatico futuro dall'Engine su questo file).
+- Verificato: `tsc --noEmit`/build pulito, nessun altro consumatore di `UserNavComponent` oltre a `navbar.component.ts`.
+
 ### Docs: audit del confine Engine/Dominio (frontend + backend), fix del default `'admin'` residuo in `BaseLoginFormComponent`
 
 Verifica sistematica se la separazione Engine/Dominio documentata corrisponde ancora al codice reale — cercando due tipi di errore: un contratto usato ma non elencato tra i "Dominio a contratto fisso" (il README lo definisce esplicitamente come garanzia esaustiva), e file di Dominio importanti assenti dalle tabelle di ownership.
