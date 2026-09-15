@@ -120,5 +120,6 @@
   "youtubeCta": "Guardaci su YouTube",
   "socialNav": "Social",
   "impostazioniNav": "Impostazioni",
-  "sorgentiProgettoNav": "Sorgenti progetto"
+  "sorgentiProgettoNav": "Sorgenti progetto",
+  "loginUsernameObbligatorio": "Il nome utente è obbligatorio."
 }

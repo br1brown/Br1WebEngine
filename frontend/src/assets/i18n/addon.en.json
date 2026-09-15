@@ -120,5 +120,6 @@
   "youtubeCta": "Watch us on YouTube",
   "socialNav": "Social",
   "impostazioniNav": "Settings",
-  "sorgentiProgettoNav": "Project Sources"
+  "sorgentiProgettoNav": "Project Sources",
+  "loginUsernameObbligatorio": "Username is required."
 }

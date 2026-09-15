@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '../../core/engine/pipes/translate.pipe';
 import { PageBaseComponent } from '../../core/engine/pages/page-base.component';
-import { LoginFormComponent } from '../../core/engine/components/login-form/login-form.component';
+import { LoginFormComponent } from '../../components/shared/login-form/login-form.component';
 import { ContestoSito, PageType } from '../../site';
 
 @Component({

@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### `LoginFormComponent`: logica estratta in `BaseLoginFormComponent` (Engine), demo di override in `components/shared/`
+
+Il refactor di settembre (v. sotto, "21 componenti condivisi da Dominio a Engine") ha spostato `login-form` interamente nell'Engine perché era identico in tutti i figli — ma "identico oggi" non vuol dire "nessuno vorrà mai un markup diverso": lo username fisso a `'admin'` e nascosto è una semplificazione buona per la demo a credenziali fisse, non per un progetto reale con utenti propri. Serviva un modo per personalizzare il markup senza tornare a duplicare submit/validazione/mappatura errori in ogni figlio che si allontana dal default.
+
+- Nuovo `BaseLoginFormComponent` (`core/engine/components/base/base-login-form.component.ts`, `@Directive()` astratto, stesso pattern di `BaseActionComponent`/`BaseContactComponent`): centralizza form, validazione, chiamata a `AuthService.login`, stato di loading, mappatura dell'errore e output `loggedIn`. `LoginFormComponent` (Engine) ora la estende e porta solo il proprio template — nessun cambio di comportamento per chi lo consuma già.
+- Demo dell'estensione: `components/shared/login-form/` (Dominio, nuovo) estende `BaseLoginFormComponent` con lo username visibile e digitabile invece che fisso e nascosto. `pages/login/login.component.ts` lo consuma al posto della versione Engine — stesso selector `app-login-form`, un figlio passa da uno all'altro cambiando solo l'import, non il markup della pagina.
+- Nuova chiave i18n `loginUsernameObbligatorio` in `addon.{it,en}.json` (Dominio: il componente demo è di Dominio, non dell'Engine); riusata `loginUsernameLabel`, già presente in `basic.*.json` ma finora inutilizzata dal default a username nascosto.
+- `frontend/README.md`: nuova sezione "Personalizzare il Login" con l'esempio di estensione; tabella "Mappa del territorio" e "Componenti Pronti all'Uso" aggiornate.
+- Verificato: `tsc --noEmit` pulito, nessuna rottura per i figli che consumano il default Engine as-is.
+
 ### Docs: limiti e comportamenti impliciti di feature già esistenti (lightbox, blob, notifiche, error reporting, og:image, cache immagini, ImgBuilderService), fix di un esempio `ogImage` obsoleto
 
 Diverse feature dell'Engine hanno un comportamento con un costo o un limite reale (richieste di rete aggiuntive, tetti impliciti, fallback silenziosi) che viveva solo come commento nel codice sorgente, mai risalito alla documentazione consumabile — trovato ripartendo da una domanda su un caso specifico (il lightbox immagini) e poi verificato più in ampiezza sull'intero Engine.

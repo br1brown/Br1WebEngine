@@ -46,7 +46,7 @@ Prima di scrivere una riga, tieni a mente una sola linea di confine. Tutto ciò 
 | `core/engine/**` | **Engine** (intoccabile) | Servizi, direttive, componenti shell, builder, server SSR, script di build — inclusa la libreria di componenti riusabili (`core/engine/components/**`: azione, contatto, social, `app-identity-render`, `app-login-form`, `app-upload-form`, footer, `app-icon`, `app-user-nav`…). Lo consumi tramite token, signal e direttive — non lo modifichi |
 | `site.ts` | Tuo | Il DSL del sito: assembla `PageType` dai file di area (`pages/*.pages.ts`), pagine, menu, shell, tema. È il primo file che apri |
 | `app.component.ts` / `.html` | Tuo (la **shell**) | Monta navbar, footer, cookie banner, back-to-top e smoke, e avvia `VersionCheckService.init()`. È il posto naturale dove iniettare un servizio sempre-attivo (es. `NotificationStreamService`) |
-| `components/shared/**` | Tuo (specifici del progetto) | Vuoto di serie: qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto) |
+| `components/shared/**` | Tuo (specifici del progetto) | Qui ci metti i TUOI componenti riusabili — quelli davvero legati al dominio del progetto (una card di prodotto, un widget specifico) — o un bottone/canale in più che estende una base dell'Engine (vedi sotto). La demo ne contiene un esempio vivo: `login-form/` estende `BaseLoginFormComponent` (Engine) con uno username visibile invece che fisso e nascosto — vedi «Personalizzare il Login» più sotto |
 | `core/services/**` | Tuo | `api.service.ts` (il client API che estendi con i tuoi endpoint), `auth.service.ts`, `cookie-registry.ts` (`COOKIE_MAP`) |
 | `core/dto/**` | Tuo | I contratti dati (`session.dto.ts`, `auth.dto.ts`) allineati a mano ai record C# |
 | `pages/**` | Tuo | Le schermate, ognuna estende `PageBaseComponent` |
@@ -287,9 +287,32 @@ Aggiungere un campo al profilo di sessione (es. `brandColor`) è quindi un'unica
 
 | Componente | Selector | Ruolo |
 | :--- | :--- | :--- |
-| `LoginFormComponent` | `app-login-form` | Form username/password riusabile; emette `(loggedIn)` al successo. Non naviga da solo. |
+| `LoginFormComponent` (Engine, `core/engine/components/login-form/`) | `app-login-form` | Form riusabile (username fisso e nascosto, solo password); emette `(loggedIn)` al successo. Non naviga da solo. |
 | `UserNavComponent` | `app-user-nav` | Area Login/Logout nella navbar. Il link di login appare solo con `loginPage: { page, showInHeader: true }`; il logout, da loggati, appare comunque. Gestisce il logout con modale di conferma. |
 | `UploadFormComponent` | `app-upload-form` | Componente "dumb" per drag-and-drop e selezione file (anche multipla via `[multiple]`). Emette `File[]` nativi delegando la chiamata API al componente genitore. |
+
+### Personalizzare il Login: `BaseLoginFormComponent`
+
+`LoginFormComponent` (Engine) non è un blocco monolitico: la logica (form, validazione, chiamata a `AuthService.login`, mappatura dell'errore, output `loggedIn`) vive in `BaseLoginFormComponent` (`core/engine/components/base/`, un `@Directive()` astratto, stesso pattern di `BaseActionComponent`/`BaseContactComponent`). `LoginFormComponent` la estende e aggiunge solo il proprio template.
+
+Un figlio che vuole un markup diverso (campi in più, layout diverso, username visibile invece che fisso a `'admin'`) non tocca l'Engine: scrive un proprio componente in `components/shared/` che estende `BaseLoginFormComponent` e dichiara solo il suo template — submit, validazione ed errori restano centralizzati e continuano ad aggiornarsi dal template. La demo ne contiene un esempio funzionante: `components/shared/login-form/` mostra lo username digitabile invece che nascosto, e `pages/login/login.component.ts` lo consuma al posto della versione Engine — stesso selector `app-login-form`, quindi il passaggio dall'uno all'altro è solo un cambio di import, non di markup nella pagina:
+
+```typescript
+// components/shared/login-form/login-form.component.ts
+import { Component } from '@angular/core';
+import { ReactiveFormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../../core/engine/pipes/translate.pipe';
+import { BaseLoginFormComponent } from '../../../core/engine/components/base/base-login-form.component';
+
+@Component({
+    selector: 'app-login-form',
+    imports: [ReactiveFormsModule, TranslatePipe],
+    templateUrl: './login-form.component.html', // il tuo markup, i tuoi campi
+})
+export class LoginFormComponent extends BaseLoginFormComponent {}
+```
+
+Se invece ti serve cambiare anche la logica (un altro endpoint, un campo aggiuntivo nel form, una validazione diversa), non estendere: il `@Directive()` non è `sealed`, ma a quel punto ha più senso scrivere un componente Domain autonomo che non estende nulla — la base è pensata per chi vuole solo un markup diverso a parità di comportamento.
 
 ### Ciclo di Vita del Token
 
