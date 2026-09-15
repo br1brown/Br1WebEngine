@@ -7,7 +7,9 @@ import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './leg
 import type { StructuredDataInput } from './services/structured-data';
 import type { BreadcrumbItem, BreadcrumbContext } from './services/breadcrumb';
 import type { NavLink } from './shell-nav';
-import { DESIGN_SYSTEM_PRESETS, type DesignSystemPreset, type DesignSystemPresetName } from './design-system-presets';
+import { DESIGN_SYSTEM_PRESETS, NAKED_CHROME, type DesignSystemPreset, type DesignSystemPresetName, type PageRole, type RoleChromeSpec } from './design-system-presets';
+
+export type { PageRole } from './design-system-presets';
 
 /** Default per le 5 pagine legali standard. */
 export { STANDARD_LEGAL_PAGES } from './legal/legal-pages';
@@ -209,6 +211,12 @@ export type LeafPageInput = BasePageInput & {
     children?: never;
     /** Override per-pagina dei flag di layout/shell. */
     layout?: {
+        /** Ruolo della pagina (vedi `PageRole` in `design-system-presets.ts`): governa insieme
+         *  nav/footer/pannello secondo come li interpreta il design system attivo. Default:
+         *  `'default'`. `showNav`/`showFooter`/`showPanel` qui sotto restano una scappatoia
+         *  esplicita per-pagina SOPRA il ruolo — tranne che per `'naked'`, forzato dall'Engine e
+         *  non sovrascrivibile in nessun modo (né dal design system, né da questi flag). */
+        role?: PageRole;
         /** Mostra o nasconde il pannello contenuto. */
         showPanel?: boolean;
         /** Mostra o nasconde la navbar per questa pagina. */
@@ -417,7 +425,8 @@ const assertDeclaredKind = (
  */
 const normalizeSitePage = (
     page: SitePageInput,
-    context: string
+    context: string,
+    preset: DesignSystemPreset | undefined
 ): SitePage => {
     if (isParentPageInput(page)) {
         assertDeclaredKind(page, 'parent', context);
@@ -427,7 +436,7 @@ const normalizeSitePage = (
             enabled: page.enabled ?? true,
             kind: 'parent',
             children: page.children.map((child, index) =>
-                normalizeSitePage(child, `${context}.children[${index}]`)
+                normalizeSitePage(child, `${context}.children[${index}]`, preset)
             )
         };
     }
@@ -446,15 +455,20 @@ const normalizeSitePage = (
         assertDeclaredKind(page, 'leaf', context);
 
         const { layout, otherSEO, ...rest } = page;
+        const role: PageRole = layout?.role ?? 'default';
+        const roleChrome = resolveRoleChrome(role, preset);
+        const naked = role === 'naked';
         return {
             ...rest,
             enabled: page.enabled ?? true,
             kind: 'leaf',
-            // Flag di layout per route.data.
+            // Flag di layout per route.data. Ordine di priorità: 'naked' (fisso) > override
+            // esplicito della pagina (layout.*) > default del ruolo dato dal design system attivo
+            // (roleChrome) > default globale di sito (applicato più a valle, in app.component.ts).
             shell: {
-                showNav: layout?.showNav,
-                showPanel: layout?.showPanel,
-                showFooter: layout?.showFooter ?? (layout?.fitViewport ? false : undefined),
+                showNav: naked ? false : (layout?.showNav ?? roleChrome.showNav),
+                showPanel: naked ? false : (layout?.showPanel ?? roleChrome.showPanel),
+                showFooter: naked ? false : (layout?.showFooter ?? roleChrome.showFooter ?? (layout?.fitViewport ? false : undefined)),
                 fitViewport: layout?.fitViewport,
                 showSmoke: layout?.showSmoke,
                 showBreadcrumb: layout?.showBreadcrumb,
@@ -472,9 +486,10 @@ const normalizeSitePage = (
     );
 };
 
-/** Normalizza l'intero albero pagine dichiarato. */
-const normalizeSitePages = (pages: SitePageInput[]): SitePage[] =>
-    pages.map((page, index) => normalizeSitePage(page, `sitePages[${index}]`));
+/** Normalizza l'intero albero pagine dichiarato, secondo come il design system attivo (`preset`,
+ *  `undefined` se nessuno) interpreta il ruolo di ciascuna pagina. */
+const normalizeSitePages = (pages: SitePageInput[], preset: DesignSystemPreset | undefined): SitePage[] =>
+    pages.map((page, index) => normalizeSitePage(page, `sitePages[${index}]`, preset));
 
 /** Raccoglie i `PageType` dichiarati dal figlio nell'albero `pages`. */
 const collectDeclaredPageTypes = (pages: SitePageInput[], acc: Set<PageType>): Set<PageType> => {
@@ -741,8 +756,18 @@ function resolveDesignSystemPreset(name: string | undefined): DesignSystemPreset
     return preset;
 }
 
-/** Assembla e normalizza la SiteConfig finale combinando environment e definition. */
-function buildFinalConfig(definition: SiteDefinition): SiteConfig {
+/** Risolve il ruolo di una pagina (`layout.role`) nella chrome (nav/footer/pannello) dettata dal
+ *  design system attivo. `'naked'` è fisso (vedi `NAKED_CHROME`): design system e preset non
+ *  c'entrano, nessuno dei due può scostarsene. */
+function resolveRoleChrome(role: PageRole, preset: DesignSystemPreset | undefined): RoleChromeSpec {
+    if (role === 'naked') return NAKED_CHROME;
+    return preset?.roleChrome?.[role] ?? {};
+}
+
+/** Assembla e normalizza la SiteConfig finale combinando environment e definition. Espone anche il
+ *  preset risolto (`undefined` se nessuno): serve a `normalizeSitePages` per interpretare i ruoli
+ *  di pagina — evita di rifare due volte il lookup di `shell.designSystem`. */
+function buildFinalConfig(definition: SiteDefinition): { config: SiteConfig; preset: DesignSystemPreset | undefined } {
     const cfg = environment.config;
     validateColorFields(cfg);
     const shell = definition.shell ?? {};
@@ -752,7 +777,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
     // di addon.json che sovrascrive basic.json, non il contrario).
     const forceThemeTone = shell.forceThemeTone ?? preset?.forceThemeTone;
     const login = normalizeLoginPage(definition.loginPage);
-    return {
+    const config: SiteConfig = {
         appName: environment.appName,
         version: normalizeVersion(environment.version) || '1.0.0',
         description: cfg.description ?? {},
@@ -795,6 +820,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         legalPages: definition.legalPages ?? [],
         cookiePolicy: definition.cookiePolicy ?? null,
     };
+    return { config, preset };
 }
 
 /**
@@ -1030,7 +1056,7 @@ function resolveLegalFooterLinks(
  */
 export function buildSite(definition: SiteDefinition): BuiltSite {
 
-    const finalConfig = buildFinalConfig(definition);
+    const { config: finalConfig, preset } = buildFinalConfig(definition);
     const cookiesEnabled = hasCookiesConfigured(finalConfig.isWebApp);
 
     const ctx: SitePageContext = {
@@ -1044,7 +1070,7 @@ export function buildSite(definition: SiteDefinition): BuiltSite {
     const managedLegalPages = filterManagedLegalPages(allLegalPages, declaredPageTypes);
 
     const policySection = buildPolicySection(managedLegalPages);
-    const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages);
+    const sitePages = normalizeSitePages(policySection ? [...declaredPages, policySection] : declaredPages, preset);
 
     const pageMap = new Map<string, PageInfo>();
     const serverRenderEntries: ServerRenderEntry[] = [];

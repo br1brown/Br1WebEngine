@@ -41,15 +41,17 @@ export function filterManagedLegalPages(
 export function buildPolicySection(managed: readonly LegalPageSpec[]): ParentPageInput | null {
     if (managed.length === 0) return null;
     // Le pagine legali sono testo: niente smoke decorativo di default (il gate globale
-    // `site.smoke.enable` resta comunque sovraordinato). Un figlio che lo volesse può
-    // ridichiarare la pagina legale con un proprio `layout`.
+    // `site.smoke.enable` resta comunque sovraordinato). `role: 'legal'` le fa interpretare dal
+    // design system attivo come tali (es. `muro`, che gli restituisce il pannello per leggibilità
+    // anche quando le pagine di contenuto non ne hanno). Un figlio che volesse un layout diverso
+    // può ridichiarare la pagina legale con un proprio `layout`.
     const children: SitePageInput[] = managed.map(spec => ({
         path: spec.path,
         title: spec.titleKey,
         description: spec.descriptionKey,
         pageType: spec.pageType,
         component: loadPolicyComponent,
-        layout: { showSmoke: false },
+        layout: { showSmoke: false, role: 'legal' },
         // Pagine di servizio: fuori indice e fuori sitemap per default (crawl budget sprecato su
         // contenuti che non portano traffico). Un figlio che le volesse indicizzate dichiara la
         // pagina a mano con `otherSEO.noindex: false` (override standard, vedi filterManagedLegalPages).

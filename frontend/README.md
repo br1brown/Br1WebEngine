@@ -158,7 +158,7 @@ Le pagine vivono nei file di area `pages/*.pages.ts` (uno per gruppo tematico, e
 | :--- | :--- |
 | `path`, `pageType`, `title`, `component` (lazy) | `homePage` / `loginPage` (brand link, redirect auth) |
 | `requiresAuth` (guard + SSR off), `renderMode` | `legalPages` (slot Privacy/Cookie/TOS/Note legali) |
-| `layout` (`showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello) |
+| `layout` (`role`, `showNav`/`showFooter`/`showPanel`/`fitViewport`/`showSmoke`/`pageFade` per-pagina) | `shell` (default globali di navbar/footer/pannello, `designSystem` che interpreta i `role`) |
 | `description`, `otherSEO` (`ogImage`, `ogType`, `structuredData`, `noindex`) | `isWebApp`, `onlyPlainImage` |
 | `children` (gruppo di menu annidato, es. le `/policy/*` dell'Engine) o `externalUrl` (link esterno) | — |
 | `enabled: false` (spegne la pagina ovunque in un colpo solo: rotta, menu, sitemap, padre incluso) | `pages` — la sola riga che tocca le aree, ed è solo uno spread: `pages: () => [...appPagesDecl]` |
@@ -606,8 +606,37 @@ buildSite({
 | `locked-light` | `'light'` | `'auto'` | mirror del precedente |
 | `locked-dark-accent-panel` | `'dark'` | `'light'` | sito sempre scuro con una card chiara in risalto (pattern Radix `panelBackground`/Carbon) |
 | `locked-light-accent-panel` | `'light'` | `'dark'` | mirror del precedente |
+| `muro` | `'dark'` | `'auto'` | sito uniforme "a muro" (palette fissa, **nessun pannello** sulle pagine di contenuto — vedi §"Ruoli di Pagina" sotto) |
 
 Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign. I nomi dei preset non sono un contratto fisso: possono cambiare, l'unico modo per cui questo diventa un problema è se un figlio ha scritto `designSystem: 'nome'` a mano.
+
+### Ruoli di Pagina (`layout.role`)
+
+`forceThemeTone`/`panelSurface` governano il COLORE; `layout.role` governa la STRUTTURA — se una pagina ha navbar, footer e pannello, non solo con quale tono. Una pagina dichiara CHE COSA è (`role`), non COME va renderizzata: quella scelta spetta al design system attivo, tramite `DesignSystemPreset.roleChrome`. Contratto chiuso di 3 nomi, uguale per qualunque design system, Engine o dominio:
+
+| Ruolo | Significato | Chi lo interpreta |
+| :--- | :--- | :--- |
+| `'default'` | pagina di contenuto normale (il default se `role` è omesso) | il design system attivo (`roleChrome.default`), o i flag globali di sito se il preset non lo mappa |
+| `'legal'` | pagina di testo lungo (policy, note legali — l'Engine lo applica già alle pagine legali generate, `legal-pages.ts`) | il design system attivo (`roleChrome.legal`) |
+| `'naked'` | nessuna chrome — **l'unico ruolo forzato**: niente navbar, niente footer, niente pannello, qualunque cosa dica il design system o il `layout.showNav`/`showFooter`/`showPanel` della stessa pagina (scappatoia esplicita ignorata) |
+
+Un design system che non popola `roleChrome` (i preset preesistenti: `adaptive*`, `locked-*`) si comporta esattamente come prima dell'introduzione dei ruoli — zero cambiamenti per chi non li usa. `muro` invece li usa per il caso che lo ha motivato: un sito a palette fissa dove il contenuto vive direttamente sullo sfondo (nessun pannello/card che romperebbe l'uniformità), tranne le pagine legali, dove il pannello torna per la leggibilità del testo lungo:
+```typescript
+// design-system-presets.ts
+muro: {
+    forceThemeTone: 'dark',
+    roleChrome: {
+        default: { showPanel: false },
+        legal: { showPanel: true },
+    },
+},
+```
+```typescript
+// pages/*.pages.ts — una pagina dichiara solo cosa è, non come appare
+{ path: 'chi-siamo', pageType: PageType.About, component: () => import('./about.component')... },                       // role implicito 'default'
+{ path: 'landing', pageType: PageType.Landing, component: () => import('./landing.component')..., layout: { role: 'naked' } },  // niente chrome, a prescindere dal design system
+```
+`showNav`/`showFooter`/`showPanel` in `layout` restano un override esplicito per-pagina SOPRA il ruolo (stessa precedenza di sempre: la pagina può scostarsi dal default), tranne per `'naked'` — forzato dall'Engine, non negoziabile da nessuno.
 
 ### Leggere il tema in un componente
 
@@ -1497,9 +1526,10 @@ Oltre a `path`, `title` e `description`, ogni dichiarazione di pagina (nei file 
 
     // Nasconde parti della shell per questa pagina
     layout: {
-        showNav: false,       // nasconde la navbar
-        showFooter: false,    // nasconde il footer (default: mostrato, ma off se fitViewport)
-        showPanel: false,     // nasconde il pannello laterale
+        role: 'legal',        // 'default' | 'legal' | 'naked' — che tipo di pagina è (vedi §"Ruoli di Pagina" sotto). Default: 'default'
+        showNav: false,       // nasconde la navbar (scappatoia esplicita sopra il ruolo — ignorato se role: 'naked')
+        showFooter: false,    // nasconde il footer (default: mostrato, ma off se fitViewport; scappatoia esplicita sopra il ruolo)
+        showPanel: false,     // nasconde il pannello laterale (scappatoia esplicita sopra il ruolo)
         fitViewport: true,    // vista full-bleed immersiva: riempie il viewport; di default niente padding/pannello/smoke/footer (navbar sì)
         pageFade: false,      // spegne il fade-in d'ingresso solo su questa pagina (il globale shell.pageFade fa da gate)
         showBreadcrumb: true, // forza il breadcrumb in entrambe le direzioni su questa pagina (default: euristica, vedi sotto — gate: col globale off nessuna pagina può riattivarlo)

@@ -16,17 +16,60 @@
 
 import type { SiteShellConfig } from './siteBuilder';
 
+/**
+ * Ruolo dichiarato da una pagina (`LeafPageInput.layout.role` in `siteBuilder.ts`): CHE COSA serve
+ * alla pagina, non COME renderlo — la resa concreta (nav/footer/pannello sì o no) la decide il
+ * design system attivo tramite `DesignSystemPreset.roleChrome`, tranne `'naked'` che è hard-coded
+ * dall'Engine (vedi `NAKED_CHROME` sotto). Un contratto chiuso: lo stesso set di nomi per
+ * qualunque design system, Engine o dominio — un design system nuovo mappa questi ruoli, non ne
+ * inventa altri.
+ *  - `'default'`: pagina di contenuto normale.
+ *  - `'legal'`: pagina di testo lungo (policy, note legali...) — un design system può volerla
+ *    diversa (es. un pannello quando le altre pagine ne sono prive, per leggibilità).
+ *  - `'naked'`: nessuna chrome. L'UNICO ruolo forzato — nessun design system né override
+ *    per-pagina (`layout.showNav`/`showFooter`/`showPanel`) può riaccendere nav/footer/pannello
+ *    su una pagina con questo ruolo.
+ */
+export type PageRole = 'default' | 'legal' | 'naked';
+
+/** Comportamento di chrome (nav/footer/pannello) associato a un ruolo da un design system. Ogni
+ *  campo omesso resta al comportamento globale di sito (`SiteShellConfig.showNav`/`showFooter`/
+ *  `showPanel` in site.ts, o all'eventuale override esplicito `layout.*` della singola pagina). */
+export interface RoleChromeSpec {
+    showNav?: boolean;
+    showFooter?: boolean;
+    showPanel?: boolean;
+}
+
+/** Chrome del ruolo `'naked'` — non è un default, è un valore fisso: nessun design system la
+ *  dichiara (non esiste `roleChrome.naked`) e nessuna pagina può scostarsene col proprio
+ *  `layout.showNav`/`showFooter`/`showPanel` (applicato in `resolveRoleChrome`, siteBuilder.ts). */
+export const NAKED_CHROME: Required<RoleChromeSpec> = { showNav: false, showFooter: false, showPanel: false };
+
 /** Bundle di default per un preset — solo i campi che il preset sceglie di toccare. */
 export interface DesignSystemPreset {
     forceThemeTone?: 'light' | 'dark';
     panelSurface?: SiteShellConfig['panelSurface'];
+    /**
+     * Come questo design system interpreta i ruoli `'default'`/`'legal'` (vedi `PageRole` sopra —
+     * `'naked'` non è qui: è hard-coded dall'Engine, uguale per ogni design system). Campo assente,
+     * o ruolo non mappato, = nessuna differenza dal comportamento pre-ruoli (i flag globali di
+     * sito, eventualmente scostati dal `layout.*` della singola pagina). Solo i design system che
+     * vogliono davvero differenziare i ruoli lo popolano (es. `muro` sotto).
+     */
+    roleChrome?: {
+        default?: RoleChromeSpec;
+        legal?: RoleChromeSpec;
+    };
 }
 
 /**
- * I 7 scheletri visivamente distinti della griglia {forceThemeTone × panelSurface} 3×3 (i due
- * angoli dark/dark e light/light collassano su dark/auto e light/auto — stesso risultato quando
- * il sito è già tutto su un tono). Nomi negoziabili, non fanno parte del contratto: cambiarli non
- * è breaking per un figlio che non li usa, lo è solo per chi ha scritto `designSystem: 'nome'`.
+ * Gli 8 scheletri di questo template: i 7 visivamente distinti della griglia
+ * {forceThemeTone × panelSurface} 3×3 (i due angoli dark/dark e light/light collassano su
+ * dark/auto e light/auto — stesso risultato quando il sito è già tutto su un tono), più `muro`
+ * che aggiunge la dimensione `roleChrome`. Nomi negoziabili, non fanno parte del contratto:
+ * cambiarli non è breaking per un figlio che non li usa, lo è solo per chi ha scritto
+ * `designSystem: 'nome'`.
  */
 export const DESIGN_SYSTEM_PRESETS = {
     /** Tutto segue l'OS, pannello intonato al tema corrente (nessun campo forzato). */
@@ -43,6 +86,18 @@ export const DESIGN_SYSTEM_PRESETS = {
     'locked-dark-accent-panel': { forceThemeTone: 'dark', panelSurface: 'light' },
     /** Sito fissato chiaro, con un pannello scuro in risalto — mirror del precedente. */
     'locked-light-accent-panel': { forceThemeTone: 'light', panelSurface: 'dark' },
+    /** Sito uniforme "a muro" (Agnese Subacchi): palette fissa scura, nessun pannello sulle pagine
+     *  di contenuto — il contenuto vive direttamente sullo sfondo, senza la "card" chiara che
+     *  spezzerebbe l'uniformità. Le pagine legali (`role: 'legal'`) restano un'eccezione voluta:
+     *  testo lungo, il pannello torna per leggibilità — l'esperienza "a parete" è per le pagine
+     *  di contenuto, non per le policy. */
+    muro: {
+        forceThemeTone: 'dark',
+        roleChrome: {
+            default: { showPanel: false },
+            legal: { showPanel: true },
+        },
+    },
 } as const satisfies Record<string, DesignSystemPreset>;
 
 export type DesignSystemPresetName = keyof typeof DESIGN_SYSTEM_PRESETS;
