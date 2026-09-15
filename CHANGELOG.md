@@ -2,6 +2,16 @@
 
 Cosa cambia nel template tra una versione e l'altra. Per un figlio: cosa aspettarsi al merge dal template.
 
+### Nuovo `site.designSystem`: preset nominati che espandono `forceThemeTone`/`panelSurface`
+
+Le due leve granulari (voce precedente) coprono ogni caso, ma restano due campi indipendenti da capire e combinare a mano. Identificati 7 scheletri visivamente distinti nella griglia 3×3 `forceThemeTone × panelSurface` (i due angoli dark/dark e light/light collassano su dark/auto e light/auto — stesso risultato visivo): `adaptive`, `adaptive-light-panel` (default storico), `adaptive-dark-panel`, `locked-dark`, `locked-light`, `locked-dark-accent-panel`, `locked-light-accent-panel`.
+
+- Nuovo `frontend/src/app/core/engine/design-system-presets.ts`: tabella `DESIGN_SYSTEM_PRESETS`, ciascun preset un bundle **parziale** (`DesignSystemPreset`) di default per i campi granulari — deliberatamente non un tipo chiuso a due proprietà: se un domani serve incorporarci un campo strutturale legato a un archetipo di sito reale (non prima), è una proprietà in più sull'interfaccia, non un redesign.
+- Nuovo `site.designSystem` (`global-settings.json` → `site`, come `colorTema`/`forceThemeTone`) seleziona un preset per nome. Un campo granulare impostato esplicitamente (`forceThemeTone`/`shell.panelSurface`) vince sempre sul preset — il preset dà solo il default.
+- Nome deliberatamente diverso da "tema": nessuno dei design system guardati per calibrare i nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono.
+- `siteBuilder.ts` valida il nome scelto e fallisce con un errore leggibile (preset validi elencati) se non esiste — stesso pattern di `validateColorFields`. **Nota**: come per quella validazione, se il nome invalido arriva a essere scritto in `environment.ts` (seed, versionato) prima di correggerlo, `generate:statics` resta bloccato in un loop di crash finché non si corregge `environment.ts` a mano (o si fa `git checkout` se già versionato) — limite preesistente del bootstrap di `ContestoSito` in quello script, non introdotto da questo cambio.
+- Verificato dal vivo: `designSystem: 'locked-dark'` da solo (nessun `forceThemeTone`/`panelSurface` scritto a mano) produce esattamente lo stesso risultato del caso "Agnese Subacchi" impostato manualmente — `data-bs-theme` fisso `dark` con l'OS emulato `light`, pannello intonato. Un nome inesistente fa fallire il build con l'elenco dei preset validi. `tsc`/build/lint/i18n/circular-deps/site-builder-check puliti.
+
 ### Fix: `forceThemeTone` e `panelSurface` non sono mutuamente esclusivi — compongono
 
 La voce precedente (sotto) rendeva `panelSurface` ignorato quando `forceThemeTone` era impostato, con un warning in dev mode. Verificato contro come i design system più diffusi gestiscono lo stesso problema (Radix Themes, Chakra, Ant Design, Carbon): tutti documentano "un pannello con tono diverso dal resto della pagina, anche già fissata su un tono" come composizione intenzionale — non un conflitto da arbitrare. La mutua esclusione era una correzione eccessiva.

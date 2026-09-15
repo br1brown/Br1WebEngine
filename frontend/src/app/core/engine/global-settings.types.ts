@@ -233,9 +233,20 @@ export interface GlobalSettings {
      */
     colorInfo?: string;
     /**
-     * Forza l'intero sito su un tono, ignorando prefers-color-scheme: utile per un design a palette fissa dove un tema derivato dall'OS romperebbe il contrasto studiato dal grafico. Ometti per seguire l'OS come sempre (comportamento di sempre, reattivo in tempo reale). Impostato: SSR, script anti-flash e ThemeService si fissano tutti sullo stesso tono, e site.ts → shell.panelSurface non ha più nulla da forzare a parte (ignorato, con warning in dev mode se non è 'auto').
+     * Forza l'intero sito su un tono, ignorando prefers-color-scheme: utile per un design a palette fissa dove un tema derivato dall'OS romperebbe il contrasto studiato dal grafico. Ometti per seguire l'OS come sempre (comportamento di sempre, reattivo in tempo reale). Impostato: SSR, script anti-flash e ThemeService si fissano tutti sullo stesso tono; il default di site.ts → shell.panelSurface diventa 'auto' (pannello intonato) invece di 'light' — un panelSurface impostato a mano vince comunque sempre, un pannello su un tono diverso dal resto del sito è una composizione valida, non un conflitto. Impostabile anche indirettamente scegliendo un designSystem che lo preveda.
      */
     forceThemeTone?: "light" | "dark";
+    /**
+     * Preset nominato: un default comodo per forceThemeTone/panelSurface insieme, invece di impostarli uno per uno. Un campo impostato esplicitamente (qui sotto o in site.ts → shell) vince sempre sul preset. Vedi frontend/src/app/core/engine/design-system-presets.ts per cosa espande ciascun nome — i nomi non sono un contratto fisso, possono cambiare.
+     */
+    designSystem?:
+      | "adaptive"
+      | "adaptive-light-panel"
+      | "adaptive-dark-panel"
+      | "locked-dark"
+      | "locked-light"
+      | "locked-dark-accent-panel"
+      | "locked-light-accent-panel";
     /**
      * Effetto particellare di sfondo. Ometti o enable:false per disattivarlo.
      */

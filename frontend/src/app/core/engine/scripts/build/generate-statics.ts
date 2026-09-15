@@ -36,6 +36,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { ContestoSito } from '../../../../site';
 import { ThemeService } from '../../services/theme.service';
+import { DESIGN_SYSTEM_PRESETS } from '../../design-system-presets';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { deepMergeSettings } from '../config/settings-merge';
 import { getLastModifiedDate } from '../config/last-modified';
@@ -111,7 +112,7 @@ const _fileProject = _settings.project ?? {};
 // quindi vengono filtrati via qui anche se un vecchio JSON li contiene ancora. L'icona di brand non
 // è più tra questi: è dato runtime risolto da ShellNavResolver.brandIcon in nav.ts (shell-nav.ts).
 const SITE_CONFIG = _settings.site ?? {};
-const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'forceThemeTone', 'smoke'];
+const SITE_AESTHETIC_KEYS = ['description', 'colorTema', 'colorSecondary', 'colorBackground', 'colorText', 'colorInfo', 'forceThemeTone', 'designSystem', 'smoke'];
 
 // Identità dell'app — fonte unica: project.name / project.version.
 const APP_NAME = _fileProject.name || 'App';
@@ -123,9 +124,18 @@ const COLOR_OVERRIDES = {
     text: SITE_CONFIG.colorText,
     info: SITE_CONFIG.colorInfo,
 };
-// site.forceThemeTone (global-settings.json): sito fissato su un tono, ignora prefers-color-scheme
-// sia nello script anti-flash sotto sia nel background_color del manifest PWA.
-const FORCE_THEME_TONE: 'light' | 'dark' | undefined = SITE_CONFIG.forceThemeTone;
+// Tono forzato (diretto, o via un designSystem che lo preveda) — ignora prefers-color-scheme sia
+// nello script anti-flash sotto sia nel background_color del manifest PWA. NON leggerlo da
+// ContestoSito.config: ContestoSito è importato in cima al file e valuta site.ts contro
+// l'environment.ts ANCORA SU DISCO da prima di questa run (questo script lo sovrascrive più
+// sotto) — su un cambio fresco di global-settings.json risulterebbe indietro di una run. SITE_CONFIG
+// invece è letto fresco da global-settings.json qui sopra: stessa tabella preset di siteBuilder.ts
+// (DESIGN_SYSTEM_PRESETS), stessa risoluzione, senza il problema di staleness.
+const FORCE_THEME_TONE: 'light' | 'dark' | undefined =
+    SITE_CONFIG.forceThemeTone ??
+    (SITE_CONFIG.designSystem != null
+        ? (DESIGN_SYSTEM_PRESETS as Record<string, { forceThemeTone?: 'light' | 'dark' }>)[SITE_CONFIG.designSystem]?.forceThemeTone
+        : undefined);
 
 // PWA on/off — fonte unica: ContestoSito.config.isWebApp (site.ts). Guida la generazione
 // dei TRIGGER di installabilità: il manifest e, in index.html, <link rel="manifest"> più i
@@ -305,6 +315,7 @@ export interface AppSiteConfig {
     colorText?: string;
     colorInfo?: string;
     forceThemeTone?: 'light' | 'dark';
+    designSystem?: string;
     smoke?: {
         enable?: boolean;
         color?: string;

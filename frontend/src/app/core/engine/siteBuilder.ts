@@ -7,6 +7,7 @@ import { buildPolicySection, filterManagedLegalPages, legalSlugFor } from './leg
 import type { StructuredDataInput } from './services/structured-data';
 import type { BreadcrumbItem, BreadcrumbContext } from './services/breadcrumb';
 import type { NavLink } from './shell-nav';
+import { DESIGN_SYSTEM_PRESETS, type DesignSystemPreset, type DesignSystemPresetName } from './design-system-presets';
 
 /** Default per le 5 pagine legali standard. */
 export { STANDARD_LEGAL_PAGES } from './legal/legal-pages';
@@ -91,10 +92,19 @@ export interface SiteConfig {
     /** Override opzionale del colore informativo. */
     colorInfo?: string;
     /**
+     * Nome del preset scelto (`site.designSystem` in `global-settings.json`), `null` se nessuno.
+     * Un preset è un bundle di default per `forceThemeTone`/`panelSurface` (e in futuro altri
+     * campi affini, vedi `design-system-presets.ts`) — non è un contratto, è comodità: quei campi
+     * restano impostabili singolarmente, e vincono sempre sul preset se presenti. Esposto qui solo
+     * per debug/introspezione (un componente può leggere quale preset è attivo).
+     */
+    designSystem: DesignSystemPresetName | null;
+    /**
      * Forza l'intero sito su un tono, ignorando `prefers-color-scheme`: utile per un design a
      * palette fissa (es. sempre scuro) dove un tema derivato dall'OS romperebbe il contrasto
-     * studiato dal grafico. Da `global-settings.json` → `site.forceThemeTone`, come `colorTema`.
-     * Default: assente — segue l'OS come sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
+     * studiato dal grafico. Da `global-settings.json` → `site.forceThemeTone` (impostabile anche
+     * indirettamente scegliendo un `designSystem` che lo preveda — vedi sopra). Default: assente —
+     * segue l'OS come sempre (`ThemeService.themeTone`, sia in SSR sia runtime).
      * Diverso da `shell.panelSurface`: quello forza SOLO il pannello contenuti su un tono
      * indipendente dall'OS che governa il resto; questo fissa l'intero sito. Compongono, non si
      * escludono — un pannello con tono diverso dal resto del sito, anche già fissato, è una
@@ -704,10 +714,28 @@ function validateColorFields(cfg: { colorTema?: string; colorSecondary?: string;
     }
 }
 
+/** Risolve `site.designSystem` (nome) nel bundle di default — `undefined` se non impostato. */
+function resolveDesignSystemPreset(name: string | undefined): DesignSystemPreset | undefined {
+    if (name == null) return undefined;
+    const preset = (DESIGN_SYSTEM_PRESETS as Record<string, DesignSystemPreset>)[name];
+    if (!preset) {
+        throw new Error(
+            `[SiteBuilder] site.designSystem="${name}" non esiste. Preset validi: ` +
+            `${Object.keys(DESIGN_SYSTEM_PRESETS).join(', ')} (global-settings.json).`
+        );
+    }
+    return preset;
+}
+
 /** Assembla e normalizza la SiteConfig finale combinando environment e definition. */
 function buildFinalConfig(definition: SiteDefinition): SiteConfig {
     const cfg = environment.config;
     validateColorFields(cfg);
+    const preset = resolveDesignSystemPreset(cfg.designSystem);
+    // Un campo esplicito (site.ts o global-settings.json) vince sempre sul preset — il preset dà
+    // solo il default, non sovrascrive mai una scelta fatta a mano (stesso principio di addon.json
+    // che sovrascrive basic.json, non il contrario).
+    const forceThemeTone = cfg.forceThemeTone ?? preset?.forceThemeTone;
     const shell = definition.shell ?? {};
     const login = normalizeLoginPage(definition.loginPage);
     return {
@@ -719,7 +747,8 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         colorBackground: cfg.colorBackground,
         colorText: cfg.colorText,
         colorInfo: cfg.colorInfo,
-        forceThemeTone: cfg.forceThemeTone,
+        designSystem: (cfg.designSystem as DesignSystemPresetName) ?? null,
+        forceThemeTone,
         showFooter: shell.showFooter ?? true,
         showNav: shell.showNav ?? true,
         showPanel: shell.showPanel ?? true,
@@ -744,7 +773,7 @@ function buildFinalConfig(definition: SiteDefinition): SiteConfig {
         // chiara che spunta senza che nessuno l'abbia chiesta. Un valore esplicito vince sempre:
         // un pannello con tono diverso dal resto del sito è una composizione valida (Radix/Chakra/
         // Ant Design/Carbon la documentano tutti), non un conflitto da disabilitare.
-        panelSurface: shell.panelSurface ?? (cfg.forceThemeTone ? 'auto' : 'light'),
+        panelSurface: shell.panelSurface ?? preset?.panelSurface ?? (forceThemeTone ? 'auto' : 'light'),
         pageFade: shell.pageFade ?? true,
         smoke: { ...DEFAULT_SMOKE, ...(cfg.smoke ?? {}) },
         loginPage: login.page,

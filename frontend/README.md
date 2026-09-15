@@ -584,6 +584,29 @@ Un design a palette fissa (es. sempre scuro, con contrasto studiato dal grafico 
 ```
 `themeTone` riflette il valore forzato invece della preferenza OS. Cambia anche il default di `shell.panelSurface` (sotto): `'auto'` invece di `'light'`, per un sito uniforme senza doverlo dichiarare a mano — un pannello su un tono diverso resta comunque possibile impostandolo esplicitamente, è una composizione valida, non un conflitto.
 
+### Preset di Design System (`site.designSystem`)
+
+`forceThemeTone` e `panelSurface` sono le due leve granulari; `site.designSystem` è uno shorthand nominato che le imposta insieme, per gli scheletri già identificati (`frontend/src/app/core/engine/design-system-presets.ts`). Un campo impostato esplicitamente vince sempre sul preset — il preset dà solo il default, non sovrascrive mai una scelta fatta a mano:
+```jsonc
+// global-settings.json — il caso "palette fissa scura" copre lo stesso identico caso di sopra in una riga
+"site": {
+    "colorTema": "#4a0e1e",
+    "designSystem": "locked-dark"
+}
+```
+
+| Preset | `forceThemeTone` | `panelSurface` | Quando |
+| :--- | :--- | :--- | :--- |
+| `adaptive` | segue l'OS | `'auto'` | tutto intonato, il default meno assertivo |
+| `adaptive-light-panel` | segue l'OS | `'light'` | **default storico del template**: chrome adattivo, pannello sempre quasi-bianco |
+| `adaptive-dark-panel` | segue l'OS | `'dark'` | mirror del precedente |
+| `locked-dark` | `'dark'` | `'auto'` | sito sempre scuro, palette a contrasto fisso studiato dal grafico |
+| `locked-light` | `'light'` | `'auto'` | mirror del precedente |
+| `locked-dark-accent-panel` | `'dark'` | `'light'` | sito sempre scuro con una card chiara in risalto (pattern Radix `panelBackground`/Carbon) |
+| `locked-light-accent-panel` | `'light'` | `'dark'` | mirror del precedente |
+
+Deliberatamente NON si chiama "tema": nessun design system guardato per calibrare questi nomi (Material 3, Radix Themes, Chakra, Ant Design, Carbon, Primer, Atlassian) chiama "tema" qualcosa che vada oltre colore/tono — è sempre un asse separato dalla struttura. `DesignSystemPreset` è un bundle **parziale** apposta: se un domani serve incorporarci anche un campo strutturale legato a un archetipo di sito (non prima che quel bisogno sia reale — non è un problema da anticipare oggi), è una proprietà in più sull'interfaccia, non un redesign. I nomi dei preset non sono un contratto fisso: possono cambiare, l'unico modo per cui questo diventa un problema è se un figlio ha scritto `designSystem: 'nome'` a mano.
+
 ### Leggere il tema in un componente
 
 Quando un componente disegna su `<canvas>`, genera un'immagine o sceglie un colore inline, non hardcodare i valori: leggi i signal di `ThemeService`. Sono già WCAG-safe (calcolati per garantire 4.5:1) e reattivi, cambiano da soli al cambio di brand (`setColorTema`) o di tono OS (`prefers-color-scheme`), quindi il tuo componente resta coerente senza una riga di sincronizzazione.
