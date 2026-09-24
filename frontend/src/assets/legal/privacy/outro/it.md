@@ -4,7 +4,7 @@ I dati di navigazione sono necessari per visitare il sito; per gli altri trattam
 
 ## Destinatari
 
-I dati non vengono venduti. Li trattano il titolare e, come responsabili del trattamento ai sensi dell'art. 28 GDPR, il fornitore che ospita il sito e i fornitori delle funzioni descritte nelle sezioni precedenti, indicati in ciascuna di esse.
+I dati non vengono venduti. Li trattano il titolare e, per suo conto e secondo le sue istruzioni (**responsabili del trattamento**, art. 28 GDPR), il fornitore che ospita il sito e i fornitori delle funzioni descritte nelle sezioni precedenti, indicati in ciascuna di esse.
 
 ## Processi decisionali automatizzati
 

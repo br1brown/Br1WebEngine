@@ -4,7 +4,7 @@ Browsing data are necessary to visit the site; for the other processing, its own
 
 ## Recipients
 
-Data are not sold. They are processed by the controller and, as processors under Art. 28 GDPR, by the provider hosting the site and by the providers of the functions described in the sections above, named in each of them.
+Data are not sold. They are processed by the controller and, on the controller's behalf and under its instructions (**processors**, Art. 28 GDPR), by the provider hosting the site and by the providers of the functions described in the sections above, named in each of them.
 
 ## Automated decision-making
 
