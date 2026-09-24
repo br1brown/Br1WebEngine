@@ -22,7 +22,7 @@ In qualsiasi momento puoi chiedere al titolare:
 - di opporti ai trattamenti basati sul legittimo interesse (art. 21);
 - di revocare un consenso già dato, senza effetti sui trattamenti svolti prima della revoca (art. 7, par. 3).
 
-Per esercitarli scrivi al titolare ai recapiti in fondo alla pagina. La risposta arriva entro un mese dalla richiesta, prorogabile di altri due mesi se la richiesta è complessa o se ne arrivano molte (art. 12, par. 3). Se ha dubbi ragionevoli sulla tua identità, il titolare può chiederti le informazioni necessarie a confermarla (art. 12, par. 6).
+Per esercitarli scrivi al titolare ai recapiti in fondo alla pagina. La risposta arriva entro un mese dalla richiesta, prorogabile di altri due mesi se la richiesta è complessa o se ne arrivano molte; se il titolare ha dubbi ragionevoli sulla tua identità, può chiederti le informazioni necessarie a confermarla, come previsto dagli articoli 15–22 del GDPR per l'esercizio di questi diritti.
 
 I dati di navigazione non sono associati a un nome, a un account o ad altre informazioni che permettano al titolare di attribuirli a una persona. Quando il titolare non è in grado di identificarti nei dati che tratta, non è tenuto a raccogliere altre informazioni per farlo, e i diritti degli articoli da 15 a 20 si applicano se sei tu a fornire informazioni che consentano di identificarti in quei dati (art. 11 GDPR).
 

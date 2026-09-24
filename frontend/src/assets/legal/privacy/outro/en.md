@@ -22,7 +22,7 @@ At any time you can ask the controller for:
 - objection to processing based on legitimate interest (Art. 21);
 - withdrawal of any consent given, without affecting processing carried out before the withdrawal (Art. 7(3)).
 
-To exercise them, write to the controller using the details at the bottom of this page. You will receive a reply within one month of the request, extendable by two further months if the request is complex or requests are numerous (Art. 12(3)). If the controller has reasonable doubts about your identity, it may ask you for the information needed to confirm it (Art. 12(6)).
+To exercise them, write to the controller using the details at the bottom of this page. You will receive a reply within one month of the request, extendable by two further months if the request is complex or requests are numerous; if the controller has reasonable doubts about your identity, it may ask you for the information needed to confirm it, as provided under Articles 15–22 of the GDPR for the exercise of these rights.
 
 Browsing data are not associated with a name, an account or other information that would allow the controller to attribute them to a person. Where the controller is not in a position to identify you in the data it processes, it is not required to collect further information to do so, and the rights in Articles 15 to 20 apply if you provide information that enables you to be identified in those data (Art. 11 GDPR).
 
