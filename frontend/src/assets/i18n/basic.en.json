@@ -138,7 +138,7 @@
   "navLuogoSee": "; server location: {0} (European Economic Area)",
   "navLuogoExtra": "; server location: {0}, outside the European Economic Area, with data transferred on the basis of {1}",
   "navGaranziaAdeguatezza": "an adequacy decision of the European Commission (Art. 45 GDPR)",
-  "navGaranziaClausole": "standard contractual clauses approved by the European Commission (Art. 46 GDPR)",
+  "navGaranziaClausole": "standard contractual clauses approved by the European Commission (Art. 46 GDPR); you can request a copy from the controller using the details at the bottom of this page",
   "accessibilitaSintesiPiena": "**In short:** the site fully meets the accessibility requirements set out by law.",
   "accessibilitaSintesiParzialeUna": "**In short:** the site meets the accessibility requirements set out by law, with one known exception, listed below.",
   "accessibilitaSintesiParziale": "**In short:** the site meets the accessibility requirements set out by law, with {0} known exceptions, listed below.",

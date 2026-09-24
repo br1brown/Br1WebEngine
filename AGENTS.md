@@ -144,6 +144,19 @@ getArticolo(id: string): Promise<Articolo> {
 }
 ```
 
+#### Modulo che raccoglie dati personali (contatto, richiesta, candidatura…)
+Non c'è un componente Engine per un form generico (troppo variabile da progetto a progetto: campi, validazione, endpoint): resta un componente di progetto che chiama `ApiService`, come un endpoint qualsiasi. Ciò che l'Engine offre è la parte `form` della Privacy Policy (`Features.Forms`, vedi sopra); ciò che resta al progetto, e che il Garante privacy chiede esplicitamente (informativa "in corrispondenza" della raccolta, non solo raggiungibile da un'altra pagina), è nel modulo stesso:
+```html
+<!-- Link diretto alla Privacy, non un URL grezzo, vicino al pulsante di invio -->
+<p class="form-text">
+  {{ 'formPrivacyNota' | translate }}
+  <a [appPage]="PageType.PrivacyPolicy">{{ 'privacyPolicyMenu' | translate }}</a>
+</p>
+<label class="form-label" for="email">Email <span aria-hidden="true">*</span></label>
+<input id="email" class="form-control" required />   <!-- required = campo obbligatorio, indicalo anche visivamente -->
+```
+Due cose, non di più: un link diretto alla Privacy Policy vicino al modulo (chiave `formPrivacyNota` in `addon.<lang>.json`, es. "Inviando il modulo accetti il trattamento dei dati descritto nella"), e i campi obbligatori marcati (asterisco o etichetta esplicita) — coerenti con `privacy/form/it.md`, che dichiara già "necessario per rispondere alla tua richiesta: senza, non possiamo darle seguito". Se il modulo raccoglie dati oltre quelli strettamente necessari a rispondere (es. una preferenza di marketing), quello è un consenso a parte, non la base giuridica "esecuzione della richiesta" del testo di serie: serve una checkbox propria, non pre-spuntata (stesso principio della newsletter, sotto).
+
 #### Caricare file da un form (upload)
 Due pezzi separati, Engine + Dominio — vedi la regola d'oro in cima al file. `UploadFormComponent` (Engine, `core/engine/components/upload-form/`) è un componente UI puro: gestisce click/drag-and-drop, validazione (`accept`, `maxSize`, `multiple`) ed emette `File[]`, mai un upload. L'upload vero — verso `POST /blob/up`, che richiede login — sta al chiamante, tramite `ApiService.uploadBlob`/`.uploadBlobs` (Dominio):
 ```html
@@ -196,10 +209,11 @@ Mai `localStorage`/`sessionStorage` diretti (lo vieta una regola ESLint, eccetto
 3. `cookie-registry.ts` (**Dominio**) — censisci `_ga`/`_gid` ecc.: categoria `Analytics` (GA4) o `Profiling` (Ads/remarketing) — sono due consensi distinti anche per Google.
 4. Un `effect()` di progetto (**Dominio**, es. `core/services/analytics.service.ts`) che chiama `gtag('consent','update', {...})` sui signal `analyticsAccepted()`/`profilingAccepted()` di `CookieConsentService` — stesso pattern di gating della ricetta sopra.
 
-#### AI Act e newsletter — promemoria, non feature dell'Engine
-Il template non porta nessuno dei due (niente chatbot, niente generazione IA, niente newsletter): diventano rilevanti se il progetto figlio li aggiunge.
+#### AI Act, newsletter e vendita online — promemoria, non feature dell'Engine
+Il template non porta nessuno dei tre (niente chatbot, niente generazione IA, niente newsletter, nessun carrello): diventano rilevanti solo se il progetto figlio li aggiunge, e in quel caso portano obblighi che l'Engine non può indovinare da sé.
 - **Chatbot/contenuti IA** (obbligo dal 2 agosto 2026): avviso esplicito al primo messaggio ("Stai parlando con un sistema di IA"); contenuti generati senza revisione editoriale umana → etichettatura visibile.
 - **Newsletter/marketing**: l'iscrizione NON passa da `ConsentCategory`/`CookieConsentService` (quello gestisce storage/tracciamento lato browser) — serve una checkbox propria, non pre-spuntata, separata da un eventuale consenso alla profilazione degli iscritti.
+- **Vendita di beni/servizi online** (Codice del Consumo, D.Lgs. 206/2005, artt. 49 e seguenti — contratti a distanza): informazioni precontrattuali (caratteristiche del bene/servizio, prezzo comprensivo di tasse, modalità di pagamento/consegna, durata del contratto) prima della conclusione dell'ordine; **diritto di recesso** di 14 giorni con relative eccezioni ed eventuale modulo tipo (Allegato I Codice del Consumo — pattern già pronto nella ricetta "Pagine legali" sopra, voce `extra` con `PageType.WithdrawalPolicy`). Il link alla piattaforma ODR (Reg. UE 524/2013) **non è più richiesto**: il Regolamento è stato abrogato dal Reg. UE 2024/3228, piattaforma dismessa dal 20 luglio 2025 — se il tuo Note Legali/TOS ce l'ha da prima di allora, va tolto, non aggiunto.
 
 #### Leggere `global-settings.json` tipizzato
 Il tipo `GlobalSettings` è generato dallo schema (sorgente unica), non scritto a mano. Dopo aver toccato `global-settings.schema.json`, rigeneralo; un typo di chiave diventa errore a `tsc`.
