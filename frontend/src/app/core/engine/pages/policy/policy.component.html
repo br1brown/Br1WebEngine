@@ -7,6 +7,9 @@
             @if (p.update) {
                 <p class="fst-italic text-muted mb-4">{{ p.update.label }}: <time [attr.datetime]="p.update.iso">{{ p.update.formatted }}</time></p>
             }
+            @if (p.summary) {
+                <div [innerHTML]="p.summary | markdown"></div>
+            }
             <div [innerHTML]="p.intro | markdown"></div>
             @if (p.navigation) {
                 <div [innerHTML]="p.navigation | markdown"></div>

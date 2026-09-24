@@ -16,7 +16,7 @@ import { CookieBannerComponent } from '../../components/cookie-banner/cookie-ban
 import { AccessibilityStatementComponent } from '../../components/accessibility-statement/accessibility-statement.component';
 import { LocalizationService } from '../../services/localization.service';
 import { resolveLegalLinks, type LegalContent } from '../../legal/legal-pages';
-import { LEGAL_FACTS, renderNavigationData, type LegalFacts } from '../../legal/hosting-info';
+import { LEGAL_FACTS, renderNavigationData, renderNavigationSummary, type LegalFacts } from '../../legal/hosting-info';
 
 @Component({
     selector: 'app-policy',
@@ -236,6 +236,46 @@ export class PolicyComponent extends PageBaseComponent<LegalContent> {
     /** Pagina col Markdown sostitutivo del progetto: l'elenco cookie va dopo il suo testo, non dopo l'intro. */
     readonly isMarkdownPage = computed(() => this.legalPage()?.markdown != null);
 
+    /** Riepilogo "in sintesi" della Cookie Policy: quante voci, in quali categorie, e se serve il
+     *  consenso (tutte le categorie salvo Technical lo richiedono). Stessi fatti che l'elenco cookie
+     *  sotto mostra per esteso — nessuna informazione in più. */
+    private readonly cookieSummaryText = computed<string | null>(() => {
+        const groups = this.cookieGroups();
+        if (groups.length === 0) return null;
+        const totale = groups.reduce((n, g) => n + g.cookies.length, 0);
+        const categorie = new Intl.ListFormat(this.lang(), { type: 'conjunction' }).format(groups.map(g => g.name));
+        const soloTecnici = groups.every(g => g.category === ConsentCategory.Technical);
+        return [
+            this.translate.translate('cookieSintesi', totale, categorie),
+            this.translate.translate(soloTecnici ? 'cookieSintesiSoloTecnici' : 'cookieSintesiConsenso'),
+        ].join(' ');
+    });
+
+    /** Riepilogo "in sintesi" della Dichiarazione di accessibilità: conformità piena, o parziale con
+     *  il numero di eccezioni note (le stesse che la sezione sotto elenca per esteso). */
+    private readonly accessibilitySummaryText = computed<string | null>(() => {
+        const status = this.accessibilityStatus();
+        if (!status) return null;
+        const n = status.nonAccessibili.length;
+        if (n === 0) return this.translate.translate('accessibilitaSintesiPiena');
+        return this.translate.translate(n === 1 ? 'accessibilitaSintesiParzialeUna' : 'accessibilitaSintesiParziale', n);
+    });
+
+    /** Riepilogo "in sintesi" della pagina corrente, prima dell'intro: informativa a strati sulla stessa
+     *  pagina invece che su una pagina separata. Solo per le pagine con fatti che l'Engine conosce
+     *  davvero (Privacy: installazione; Cookie: COOKIE_MAP; Accessibilità: stato di conformità). Termini
+     *  di servizio e Note legali sono testo del progetto da cima a fondo: l'Engine non vi aggiunge nulla
+     *  che non possa verificare da sé. */
+    private readonly pageSummaryText = computed<string | null>(() => {
+        const recipe = this.legalPage()?.recipe;
+        if (recipe?.navigationData) {
+            return renderNavigationSummary(this.legalFacts(), (key, ...args) => this.translate.translate(key, ...args), this.lang());
+        }
+        if (recipe?.cookieList) return this.cookieSummaryText();
+        if (recipe?.accessibilityStatus) return this.accessibilitySummaryText();
+        return null;
+    });
+
     /** Titolo (H1 dell'intro) separato dal corpo, così la data "ultimo aggiornamento" sta tra i due e
      *  può essere resa con un <time> semantico nel template. BOM e righe vuote iniziali non contano
      *  (`trimStart` toglie anche U+FEFF): il build (legal-check) garantisce che, tolti quelli, l'intro apra con `# `. */
@@ -260,8 +300,10 @@ export class PolicyComponent extends PageBaseComponent<LegalContent> {
         const navigation = this.legalPage()?.recipe.navigationData
             ? renderNavigationData(this.legalFacts(), (key, ...args) => this.translate.translate(key, ...args), lang)
             : null;
+        const summaryText = this.pageSummaryText();
         return {
-            heading, update: this.policyUpdate(), intro: links(intro), navigation,
+            heading, update: this.policyUpdate(), summary: summaryText ? `> ${summaryText}` : null,
+            intro: links(intro), navigation,
             sections: content.sections.map(links), outro: content.outro === null ? null : links(content.outro),
         };
     });
