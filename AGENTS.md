@@ -513,6 +513,7 @@ Vince l'ultima registrazione:
 // Program.cs, blocco "── SERVIZI APPLICATIVI ──" — es. l'identità da un DB invece che da identity.json
 builder.Services.AddSingleton<IIdentityStore, DbIdentityStore>();
 ```
+Sostituendo `IIdentityStore`: `checkControllerIdentity` (`legal-check.ts`, dentro `generate:statics`) continua a leggere `backend/data/identity.json` **dal file**, non da `GET /identity` — è un controllo statico del build del frontend, prima che il backend giri, non sa nulla del tuo `DbIdentityStore`. O tieni il file come sorgente di riserva sempre allineata (anche se il runtime non lo legge più), o passi la Privacy a `markdown` in `site.ts`, che salta il controllo del tutto.
 
 #### Esportare e cancellare i dati personali
 `GET`/`DELETE /me/data` esistono già (protetti da login, export in JSON leggibile) e il punto da riempire pure: `Store/AppPersonalDataStore.cs`, l'unica `IPersonalDataStore` del sito (già registrata in `Program.cs`, non un export per controller di dominio). Aggreghi lì i tuoi store:

@@ -121,7 +121,12 @@ export function checkControllerIdentity(backendDir: string): string[] {
     if (!existsSync(backendDir)) return [];
     const file = join(backendDir, 'data', 'identity.json');
     const where = 'backend/data/identity.json';
-    if (!existsSync(file)) return [`${where}: manca, e la Privacy Policy non avrebbe il titolare del trattamento`];
+    if (!existsSync(file)) {
+        return [`${where}: manca, e la Privacy Policy non avrebbe il titolare del trattamento (se l'identità viene da un ` +
+            `IIdentityStore proprio invece che dal file, questo controllo — statico, letto a build-time del frontend, prima ` +
+            `che il backend giri — non lo sa: o tieni il file come sorgente di riserva sempre allineata, o passa la Privacy a ` +
+            `\`markdown\` in site.ts, che salta il controllo del tutto)`];
+    }
     let id: Record<string, unknown>;
     try { id = JSON.parse(readFileSync(file, 'utf-8').replace(/^﻿/, '')) as Record<string, unknown>; }
     catch (e) { return [`${where}: JSON non valido (${(e as Error).message})`]; }
