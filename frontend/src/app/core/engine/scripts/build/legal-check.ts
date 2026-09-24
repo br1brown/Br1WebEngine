@@ -113,34 +113,3 @@ export function listLegalFiles(legalDir: string, pages: readonly LegalPageSpec[]
     return out;
 }
 
-/** Chi è e come si contatta il titolare (art. 13.1.a GDPR), da `backend/data/identity.json`: la Privacy composta dall'Engine
- *  lo mostra nella sezione identità e senza non è un'informativa. Nome: `ragioneSociale` o `titolareDelTrattamento.nome`;
- *  recapito: email, PEC o telefono di `contatti`, o `titolareDelTrattamento.email`. `backendDir` assente (build Docker del
- *  solo frontend) = controllo saltato: lo fanno il build locale e la CI, che vedono il repository intero. */
-export function checkControllerIdentity(backendDir: string): string[] {
-    if (!existsSync(backendDir)) return [];
-    const file = join(backendDir, 'data', 'identity.json');
-    const where = 'backend/data/identity.json';
-    if (!existsSync(file)) {
-        return [`${where}: manca, e la Privacy Policy non avrebbe il titolare del trattamento (se l'identità viene da un ` +
-            `IIdentityStore proprio invece che dal file, questo controllo — statico, letto a build-time del frontend, prima ` +
-            `che il backend giri — non lo sa: o tieni il file come sorgente di riserva sempre allineata, o passa la Privacy a ` +
-            `\`markdown\` in site.ts, che salta il controllo del tutto)`];
-    }
-    let id: Record<string, unknown>;
-    try { id = JSON.parse(readFileSync(file, 'utf-8').replace(/^﻿/, '')) as Record<string, unknown>; }
-    catch (e) { return [`${where}: JSON non valido (${(e as Error).message})`]; }
-    const filled = (v: unknown): boolean => typeof v === 'string' ? v.trim() !== ''
-        : typeof v === 'object' && v !== null && Object.values(v).some(x => typeof x === 'string' && x.trim() !== '');
-    const obj = (v: unknown) => (typeof v === 'object' && v !== null ? v : {}) as Record<string, unknown>;
-    const titolare = obj(id['titolareDelTrattamento']);
-    const contatti = obj(id['contatti']);
-    const errors: string[] = [];
-    if (!filled(id['ragioneSociale']) && !filled(titolare['nome'])) {
-        errors.push(`${where}: la Privacy Policy vuole il titolare del trattamento: valorizza ragioneSociale (o titolareDelTrattamento.nome)`);
-    }
-    if (![contatti['email'], contatti['pec'], contatti['telefono'], titolare['email']].some(filled)) {
-        errors.push(`${where}: la Privacy Policy vuole un recapito del titolare: valorizza contatti.email, contatti.pec o contatti.telefono (o titolareDelTrattamento.email)`);
-    }
-    return errors;
-}

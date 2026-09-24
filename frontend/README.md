@@ -1949,8 +1949,9 @@ I testi di serie (chiavi `nav*` e `acc*` di `basic.*.json` comprese) si cambiano
 - una parte mancante per una funzione accesa;
 - una cartella di parte presente (compresa `outro/` e `off/`) senza il file di ogni lingua del sito;
 - una pagina con `markdown` senza il file di ogni lingua del sito, o con un file che non comincia con `# `;
-- un link `policy:<slot>` con uno slot che non esiste;
-- con la Privacy composta dall'Engine, un titolare senza nome o senza recapito in `backend/data/identity.json`: serve `ragioneSociale` (o `titolareDelTrattamento.nome`) e almeno uno fra `contatti.email`, `contatti.pec`, `contatti.telefono` (o `titolareDelTrattamento.email`). Il titolare sta nel file anche se il resto dell'identità arriva da `ComposeIdentityAsync`. Il build Docker del frontend non vede `backend/` e salta il controllo, che fanno build locale e CI; con la Privacy in `markdown` il titolare lo scrive il testo.
+- un link `policy:<slot>` con uno slot che non esiste.
+
+Il titolare del trattamento (nome e recapito, `backend/data/identity.json` o l'`IIdentityStore` in uso) non è un controllo di build: è dato letto a runtime da `GET /identity`, e nessuno script del frontend può saperlo in anticipo — un progetto con l'identità in un DB non ha nulla da vedere qui. Senza titolare valorizzato, la sezione identità della Privacy Policy composta dall'Engine semplicemente non compare (titolo compreso), finché non lo è.
 
 Il resto di `assets/legal/` è del progetto e il build non lo guarda: altri Markdown letti da un tuo componente, allegati da scaricare (es. il PDF del modulo di recesso linkato dal testo di una pagina `extra`), cartelle tue. Nome e unicità dei `markdown` li controlla `buildSite()`. Dentro le cartelle delle pagine, i file che iniziano con un punto, `Thumbs.db`, `desktop.ini`, `*~`, `*.swp`, `*.bak` sono ignorati.
 

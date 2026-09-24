@@ -12,7 +12,7 @@ import { buildThemeScss, paletteDegenerata } from './theme-scss';
 import { fingerprintIdentitySections } from '../config/config-fingerprint';
 import { readFeaturesStrict } from '../config/features';
 import { ensureLocalSettings } from '../config/local-settings';
-import { checkControllerIdentity, checkLegalFolders, listLegalFiles } from './legal-check';
+import { checkLegalFolders, listLegalFiles } from './legal-check';
 import { activeLegalPartials } from '../../legal/legal-pages';
 import { deepMergeSettings } from '../config/settings-merge';
 import { getLastModifiedDate } from '../config/last-modified';
@@ -167,9 +167,6 @@ const legalErrors = checkLegalFolders(
     AVAILABLE_LANGS,
     activeLegalPartials(FEATURES, ContestoSito.config.cookiePolicy != null),
 );
-// La Privacy composta dall'Engine mostra il titolare dall'identità; con un testo `markdown` lo scrive il testo stesso.
-const privacySpec = LEGAL_PAGES.find(s => s.slot === 'privacy');
-if (privacySpec != null && privacySpec.markdown == null) legalErrors.push(...checkControllerIdentity(join(ROOT, '..', 'backend')));
 if (legalErrors.length) {
     throw new Error(`[statics] Pagine legali non valide:\n${legalErrors.join('\n')}`);
 }
