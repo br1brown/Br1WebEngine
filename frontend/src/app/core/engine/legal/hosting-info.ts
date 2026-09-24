@@ -155,11 +155,24 @@ export function renderNavigationData(facts: LegalFacts | null, t: Translate, lan
         return t('navLuogoExtra', nome, t(f.garanzie === 'adeguatezza' ? 'navGaranziaAdeguatezza' : 'navGaranziaClausole'));
     };
     const chiaveLog: Record<TipoLog, string> = { accessi: 'navLogAccessi', errori: 'navLogErrori', applicazione: 'navLogApplicazione' };
+    // Log con la stessa conservazione (stessa durata, o entrambi a rotazione) si nominano insieme, con la
+    // frase di durata una volta sola, invece di ripeterla per ogni tipo: una formulazione unitaria, non un
+    // elenco di frasi quasi identiche.
+    const raggruppaConservazione = (log: readonly LogServer[]): string[] => {
+        const gruppi = new Map<string, TipoLog[]>();
+        for (const l of log) {
+            const chiave = l.conservazioneGiorni != null ? `g${l.conservazioneGiorni}` : 'rotazione';
+            (gruppi.get(chiave) ?? gruppi.set(chiave, []).get(chiave)!).push(l.tipo);
+        }
+        return [...gruppi.entries()].map(([chiave, tipi]) => {
+            const durata = chiave === 'rotazione' ? t('navLogRotazione') : t('navLogDurata', giorni(Number(chiave.slice(1))));
+            return `${list(tipi.map(tp => t(chiaveLog[tp])))} ${durata}`;
+        });
+    };
     /** Conservazione, hosting e CDN di un server, come voci di elenco. */
     const voci = (s: ServerInfo, criterio: boolean): string[] => [
         ...(s.log?.length
-            ? [t('navConservazione', list(s.log.map(l => `${t(chiaveLog[l.tipo])} ${l.conservazioneGiorni != null
-                ? t('navLogDurata', giorni(l.conservazioneGiorni)) : t('navLogRotazione')}`)))]
+            ? [t('navConservazione', list(raggruppaConservazione(s.log)))]
             : criterio ? [t('navConservazioneCriterio')] : []),
         ...(s.hosting ? [t('navHosting', s.hosting.fornitore, luogo(s.hosting))] : []),
         ...(s.cdn ? [t('navCdn', s.cdn.fornitore, luogo(s.cdn))] : []),

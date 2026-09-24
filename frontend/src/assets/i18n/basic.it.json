@@ -99,7 +99,7 @@
   "rappresentanteLegaleAzienda": "Rappresentante legale",
   "titolareDelTrattamentoAzienda": "Titolare del trattamento",
   "gestoreSitoPolicy": "Gestore del sito",
-  "navLimite": "L'indirizzo IP serve inoltre, solo in memoria e per non più di {0}, a limitare le richieste troppo frequenti provenienti dallo stesso dispositivo.",
+  "navLimite": "L'indirizzo IP serve inoltre, per non più di {0}, a limitare le richieste troppo frequenti provenienti dallo stesso dispositivo.",
   "navSezione": "Dati trattati e finalità",
   "navAmbito": "Queste informazioni riguardano il sito {0} e non altri siti, pagine o servizi raggiungibili tramite link.",
   "navLogApplicazione": "i log delle applicazioni del sito",
