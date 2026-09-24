@@ -137,8 +137,9 @@ export function parseHostingInfo(raw: unknown, source: string): HostingInfo {
 
 type Translate = (key: string, ...args: unknown[]) => string;
 
-/** Parte della Privacy Policy generata dall'Engine, in Markdown: ambito (il sito coperto) e sezione "Dati di navigazione",
- *  dai fatti di installazione e configurazione e dalle chiavi `nav*` di `basic.*.json`. Senza fatti d'installazione:
+/** Parte della Privacy Policy generata dall'Engine, in Markdown: un riepilogo "in sintesi" (informativa a strati,
+ *  stessa pagina), ambito (il sito coperto) e sezione "Dati di navigazione", dai fatti di installazione e
+ *  configurazione e dalle chiavi `nav*` di `basic.*.json`. Senza fatti d'installazione: riepilogo generico,
  *  elenco dei dati tipico e conservazione per criterio. */
 export function renderNavigationData(facts: LegalFacts | null, t: Translate, lang: string): string {
     const info = facts?.installazione ?? null;
@@ -200,7 +201,21 @@ export function renderNavigationData(facts: LegalFacts | null, t: Translate, lan
     const backend = info?.backend;
     // Un URL del sito malformato (senza schema) toglie solo la frase sull'ambito, non la pagina.
     const host = (() => { try { return facts?.sito ? new URL(facts.sito).host : null; } catch { return null; } })();
+
+    // "In sintesi": riassunto in cima, in linguaggio semplice, prima della sezione estesa che segue —
+    // l'informativa "a strati" raccomandata dal Garante, sulla stessa pagina invece che su una pagina
+    // separata. Usa solo i fatti che la sezione sotto spiega per esteso, mai un'affermazione in più.
+    const maxGiorni = logs.reduce<number | null>((max, l) =>
+        l.conservazioneGiorni != null && (max == null || l.conservazioneGiorni > max) ? l.conservazioneGiorni : max, null);
+    const sintesiConservazione = maxGiorni != null ? t('navSintesiConservazione', giorni(maxGiorni)) : t('navSintesiConservazioneGenerica');
+    const sintesi = [
+        t('navSintesi', sintesiConservazione),
+        limite !== null ? t('navSintesiLimite') : '',
+        t('navSintesiDettagli'),
+    ].filter(Boolean).join(' ');
+
     const parti = [
+        `> ${sintesi}`,
         ...(host ? [t('navAmbito', `[${host}](${facts!.sito})`)] : []),
         `## ${t('navSezione')}`,
         `### ${t('navTitolo')}`,
