@@ -225,7 +225,13 @@ app.use((request, response, next) => {
         return;
     }
 
-    const targetHost = hostMismatch ? canonicalHost : request.get('host');
+    // Open redirect: con un trust proxy permissivo l'Host grezzo può divergere da request.hostname
+    // (validato da allowedHosts). Si riflette l'Host solo se il suo hostname coincide con quello validato.
+    const rawHost = (request.get('host') ?? '').toLowerCase();
+    const reflectsValidatedHost = rawHost === requestHost || rawHost.startsWith(requestHost + ':');
+    const targetHost = hostMismatch
+        ? canonicalHost
+        : (canonicalHost ?? (reflectsValidatedHost ? rawHost : request.hostname));
     const targetPath = hasTrailingSlash ? request.path.replace(/\/+$/, '') || '/' : request.path;
     const queryIndex = request.url.indexOf('?');
     const queryString = queryIndex !== -1 ? request.url.slice(queryIndex) : '';
