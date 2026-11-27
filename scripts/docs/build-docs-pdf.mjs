@@ -6,7 +6,6 @@
  *
  * Uso:   node scripts/docs/build-docs-pdf.mjs [opzioni]
  *        --out <file.pdf>    destinazione (default: dist/docs/Br1WebEngine-documentazione.pdf)
- *        --no-changelog      salta il CHANGELOG (da solo è più di metà del volume)
  *        --html-only         produce solo l'HTML, senza PDF (utile per ispezionarlo)
  *
  * Requisiti: `pandoc` nel PATH e un Chromium/Chrome (Playwright se risolvibile,
@@ -25,7 +24,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 /**
  * Capitoli, nell'ordine in cui compaiono. Ogni capitolo raccoglie uno o più file
  * (percorsi dalla radice del repo). Fuori di proposito: i template di issue/PR
- * (`.github/ISSUE_TEMPLATE`, `PULL_REQUEST_TEMPLATE.md`) e i testi legali in
+ * (`.github/ISSUE_TEMPLATE`, `PULL_REQUEST_TEMPLATE.md`), il `CHANGELOG.md` e i testi legali in
  * `frontend/src/assets/legal/`, che sono contenuto del sito e non documentazione.
  */
 const CHAPTERS = [
@@ -41,7 +40,6 @@ const CHAPTERS = [
         title: 'Contribuire, sicurezza e codice di condotta',
         files: ['.github/CONTRIBUTING.md', '.github/SECURITY.md', '.github/CODE_OF_CONDUCT.md'],
     },
-    { title: 'Changelog', files: ['CHANGELOG.md'], optional: 'changelog' },
 ];
 
 // ── Argomenti ───────────────────────────────────────────────────────────────
@@ -50,7 +48,6 @@ const flag = (n) => args.includes(n);
 const valueOf = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 const outPdf = path.resolve(valueOf('--out') ?? path.join(ROOT, 'dist', 'docs', 'Br1WebEngine-documentazione.pdf'));
 const outHtml = outPdf.replace(/\.pdf$/i, '') + '.html';
-const skipChangelog = flag('--no-changelog');
 const htmlOnly = flag('--html-only');
 
 const log = (m) => console.log(`[docs-pdf] ${m}`);
@@ -71,7 +68,6 @@ function git(cmd) {
 if (spawnSync('pandoc', ['-v']).status !== 0) fail('pandoc non trovato nel PATH (https://pandoc.org/installing.html).');
 
 const chapters = CHAPTERS
-    .filter((c) => !(skipChangelog && c.optional === 'changelog'))
     .map((c, ci) => ({
         ...c,
         id: `cap${ci + 1}`,
